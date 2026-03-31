@@ -5,6 +5,8 @@ const playerTableBody = document.getElementById('player-table-body');
 const addPlayerRowButton = document.getElementById('add-player-row');
 const notesInput = document.getElementById('game-notes');
 const summaryEl = document.getElementById('summary');
+const playerDatalist = document.getElementById('player-list');
+const commanderDatalist = document.getElementById('commander-list');
 const playerStatsTableBody = document.getElementById('player-stats-body');
 const historyList = document.getElementById('history-list');
 const historySortSelect = document.getElementById('history-sort');
@@ -17,6 +19,8 @@ const clearAllButton = document.getElementById('clear-all');
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
+let knownPlayers = [];
+let knownCommanders = [];
 
 function generateId() {
   return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -59,10 +63,6 @@ function normalizeList(value) {
     .filter(Boolean);
 }
 
-function normalizePlayerName(name) {
-  return String(name || '').trim().toLowerCase();
-}
-
 function formatPlayerCommanders(list) {
   return list.map(({ player, commander }) => `${player}: ${commander || '—'}`).join(', ');
 }
@@ -72,13 +72,20 @@ function createPlayerRow(data = {}) {
   const killedValue = Array.isArray(data.killed) ? data.killed.join(', ') : data.killed || '';
 
   row.innerHTML = `
-    <td><textarea name="player" placeholder="Player" required>${data.player || ''}</textarea></td>
-    <td><textarea name="commander" placeholder="Commander">${data.commander || ''}</textarea></td>
-    <td><input type="number" name="place" min="1" value="${data.place || ''}" placeholder="Place" /></td>
-    <td><input type="number" name="kills" min="0" value="${data.kills || 0}" placeholder="Kills" /></td>
-    <td><textarea name="killed" placeholder="Killed">${killedValue}</textarea></td>
+    <td>
+      <select class="player-selector"></select>
+      <input type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
+    </td>
+    <td>
+      <select class="commander-selector"></select>
+      <input type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
+    </td>
+    <td><input type="number" name="place" min="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
+    <td><input type="number" name="kills" min="0" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
+    <td><textarea name="killed" placeholder="Killed">${escapeHtml(killedValue)}</textarea></td>
   `;
 
+  populateRowSelectors(row);
   return row;
 }
 
@@ -125,10 +132,9 @@ function getCleanKilledList(killed) {
   return normalizeList(String(killed || ''));
 }
 
-function ensurePlayerStats(stats, player, displayName) {
+function ensurePlayerStats(stats, player) {
   if (!stats[player]) {
     stats[player] = {
-      displayName: displayName || player,
       games: 0,
       wins: 0,
       kills: 0,
@@ -137,8 +143,6 @@ function ensurePlayerStats(stats, player, displayName) {
       killerCounts: {},
       victimCounts: {},
     };
-  } else if (displayName && !stats[player].displayName) {
-    stats[player].displayName = displayName;
   }
   return stats[player];
 }
@@ -291,6 +295,108 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function getUniqueValues(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function buildDatalistOptions(element, values) {
+  if (!element) {
+    return;
+  }
+
+  element.innerHTML = values
+    .map((value) => `<option value="${escapeHtml(value)}"></option>`)
+    .join('');
+}
+
+function buildSelectOptions(element, values, selectedValue, placeholder) {
+  if (!element) {
+    return;
+  }
+
+  const normalized = getUniqueValues(values);
+  element.innerHTML = [
+    `<option value="">${escapeHtml(placeholder)}</option>`,
+    ...normalized.map((value) => {
+      const selected = selectedValue && value === selectedValue ? ' selected' : '';
+      return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(value)}</option>`;
+    }),
+  ].join('');
+}
+
+function populateRowSelectors(row) {
+  if (!row) {
+    return;
+  }
+
+  const playerSelect = row.querySelector('.player-selector');
+  const commanderSelect = row.querySelector('.commander-selector');
+  const playerInput = row.querySelector('input[name="player"]');
+  const commanderInput = row.querySelector('input[name="commander"]');
+
+  if (playerSelect) {
+    const playerValue = (playerInput && playerInput.value) ? playerInput.value.trim() : '';
+    buildSelectOptions(playerSelect, knownPlayers, playerValue, 'Choose existing player');
+  }
+
+  if (commanderSelect) {
+    const commanderValue = (commanderInput && commanderInput.value) ? commanderInput.value.trim() : '';
+    buildSelectOptions(commanderSelect, knownCommanders, commanderValue, 'Choose existing commander');
+  }
+}
+
+function syncRowSelectors(row) {
+  if (!row) {
+    return;
+  }
+
+  ['player', 'commander'].forEach((name) => {
+    const input = row.querySelector(`input[name="${name}"]`);
+    const selector = row.querySelector(`.${name}-selector`);
+    if (!input || !selector) {
+      return;
+    }
+
+    const value = input.value.trim();
+    const hasOption = Array.from(selector.options).some((option) => option.value === value);
+    selector.value = hasOption ? value : '';
+  });
+}
+
+function refreshRowSelectors() {
+  Array.from(document.querySelectorAll('tr')).forEach((row) => {
+    populateRowSelectors(row);
+  });
+}
+
+function updateFormDatalists(games) {
+  const players = [];
+  const commanders = [];
+
+  games.forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      if (row.player) {
+        players.push(row.player);
+      }
+      if (row.commander) {
+        commanders.push(row.commander);
+      }
+    });
+  });
+
+  knownPlayers = getUniqueValues(players);
+  knownCommanders = getUniqueValues(commanders);
+
+  if (playerDatalist) {
+    buildDatalistOptions(playerDatalist, knownPlayers);
+  }
+  if (commanderDatalist) {
+    buildDatalistOptions(commanderDatalist, knownCommanders);
+  }
+
+  refreshRowSelectors();
 }
 
 function getGameWinner(game) {
@@ -505,14 +611,13 @@ function getPlayerStatsData(games) {
 
     rows.forEach((row) => {
       const player = (row.player || '').trim();
-      const canonicalPlayer = normalizePlayerName(player);
-      if (!canonicalPlayer) {
+      if (!player) {
         return;
       }
 
-      const playerStat = ensurePlayerStats(stats, canonicalPlayer, player);
+      const playerStat = ensurePlayerStats(stats, player);
       playerStat.games += 1;
-      if (normalizePlayerName(winner) === canonicalPlayer) {
+      if (winner === player) {
         playerStat.wins += 1;
       }
 
@@ -523,7 +628,7 @@ function getPlayerStatsData(games) {
           playerStat.commanderStats[commander] = { played: 0, wins: 0 };
         }
         playerStat.commanderStats[commander].played += 1;
-        if (normalizePlayerName(winner) === canonicalPlayer) {
+        if (winner === player) {
           playerStat.commanderStats[commander].wins += 1;
         }
       }
@@ -534,15 +639,14 @@ function getPlayerStatsData(games) {
         : killedList.length;
       playerStat.kills += killsCount;
 
-      killedList.forEach((targetRaw) => {
-        const target = normalizePlayerName(targetRaw);
+      killedList.forEach((target) => {
         if (!target) {
           return;
         }
 
         playerStat.victimCounts[target] = (playerStat.victimCounts[target] || 0) + 1;
-        const targetStat = ensurePlayerStats(stats, target, targetRaw.trim());
-        targetStat.killerCounts[canonicalPlayer] = (targetStat.killerCounts[canonicalPlayer] || 0) + 1;
+        const targetStat = ensurePlayerStats(stats, target);
+        targetStat.killerCounts[player] = (targetStat.killerCounts[player] || 0) + 1;
       });
     });
   });
@@ -573,10 +677,8 @@ function renderPlayerStats(games) {
       const stat = stats[player];
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const favoriteCommander = getMaxCountKey(stat.commanders);
-      const nemesisKey = getMaxCountKey(stat.killerCounts);
-      const victimKey = getMaxCountKey(stat.victimCounts);
-      const nemesis = stats[nemesisKey]?.displayName || nemesisKey;
-      const victim = stats[victimKey]?.displayName || victimKey;
+      const nemesis = getMaxCountKey(stat.killerCounts);
+      const victim = getMaxCountKey(stat.victimCounts);
       const killAverage = stat.games ? (stat.kills / stat.games).toFixed(1) : '0.0';
 
       let bestDeck = '—';
@@ -598,10 +700,9 @@ function renderPlayerStats(games) {
         }
       });
 
-      const displayName = stat.displayName || player;
       return `
         <tr>
-          <td>${displayName}</td>
+          <td>${player}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>
@@ -781,6 +882,7 @@ function renderSummary(games) {
 
 function refresh() {
   const games = loadGames();
+  updateFormDatalists(games);
   renderSummary(games);
   renderPlayerStats(games);
   updateHistoryFilters(games);
@@ -797,6 +899,40 @@ function resetForm() {
 if (addPlayerRowButton) {
   addPlayerRowButton.addEventListener('click', () => {
     addPlayerRow();
+  });
+}
+
+if (playerTableBody) {
+  playerTableBody.addEventListener('change', (event) => {
+    const selector = event.target.closest('.player-selector, .commander-selector');
+    if (!selector) {
+      return;
+    }
+
+    const row = selector.closest('tr');
+    if (!row) {
+      return;
+    }
+
+    const inputName = selector.classList.contains('player-selector') ? 'player' : 'commander';
+    const input = row.querySelector(`input[name="${inputName}"]`);
+    if (input) {
+      input.value = selector.value;
+    }
+  });
+
+  playerTableBody.addEventListener('input', (event) => {
+    const input = event.target.closest('input[name="player"], input[name="commander"]');
+    if (!input) {
+      return;
+    }
+
+    const row = input.closest('tr');
+    if (!row) {
+      return;
+    }
+
+    syncRowSelectors(row);
   });
 }
 
