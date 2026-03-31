@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Commander Game Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Commander Game Tracker</h1>
+        <p>Store games and see stats. Data is saved automatically in your browser.</p>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Record a game</h2>
+          <form id="game-form">
+            <div class="field">
+              <label for="game-date">Date</label>
+              <input type="date" id="game-date" required />
+            </div>
+
+            <div class="field full-width">
+              <label>Player details</label>
+              <div class="player-table-wrapper">
+                <table class="player-table">
+                  <colgroup>
+                    <col style="width: 18%;" />
+                    <col style="width: 22%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 8%;" />
+                    <col style="width: 44%;" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Commander</th>
+                      <th>Place</th>
+                      <th>Kills</th>
+                      <th>Killed</th>
+                  </thead>
+                  <tbody id="player-table-body"></tbody>
+                </table>
+                <button type="button" id="add-player-row" class="secondary-button">Add player</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="game-notes">Notes</label>
+              <textarea id="game-notes" rows="3" placeholder="Key moments, table events..."></textarea>
+            </div>
+
+            <div class="actions">
+              <button type="submit">Save game</button>
+              <button type="button" id="clear-all">Clear all games</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" id="summary-section">
+          <h2>Summary</h2>
+          <div id="summary" class="stats-panel"></div>
+        </section>
+
+        <section class="card" id="stats-page-section">
+          <h2>Stats</h2>
+          <div class="page-switch">
+            <a href="commander.html" class="page-link">Commander Stats</a>
+            <a href="player.html" class="page-link">Player Stats</a>
+            <a href="history.html" class="page-link">Full History</a>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

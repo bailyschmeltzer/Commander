@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Commander Stats</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Commander Stats</h1>
+        <p>This page will show commander statistics once it's built.</p>
+      </header>
+      <main>
+        <section class="card">
+          <div class="field">
+            <label for="commander-search">Filter by commander</label>
+            <input id="commander-search" type="search" placeholder="Search commander name" />
+          </div>
+          <div class="player-table-wrapper">
+            <table class="player-table commander-stats-table">
+              <colgroup>
+                <col style="width: 18%;" />
+                <col style="width: 10%;" />
+                <col style="width: 8%;" />
+                <col style="width: 10%;" />
+                <col style="width: 8%;" />
+                <col style="width: 10%;" />
+                <col style="width: 12%;" />
+                <col style="width: 12%;" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Commander</th>
+                  <th>Games</th>
+                  <th>Wins</th>
+                  <th>Win rate</th>
+                  <th>Kills</th>
+                  <th>K/D</th>
+                  <th>Expected power</th>
+                  <th>Actual power</th>
+                </tr>
+              </thead>
+              <tbody id="commander-stats-body"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card">
+          <a href="index.html" class="page-link">Back to Tracker</a>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

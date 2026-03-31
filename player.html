@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Player Stats</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Player Stats</h1>
+        <p>Player performance aggregated from your stored commander games.</p>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Player leaderboard</h2>
+          <div class="player-table-wrapper">
+            <table class="player-table player-stats-table">
+              <colgroup>
+                <col style="width: 16%;" />
+                <col style="width: 6%;" />
+                <col style="width: 8%;" />
+                <col style="width: 8%;" />
+                <col style="width: 10%;" />
+                <col style="width: 10%;" />
+                <col style="width: 10%;" />
+                <col style="width: 8%;" />
+                <col style="width: 8%;" />
+                <col style="width: 16%;" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Games</th>
+                  <th>Wins</th>
+                  <th>Win Rate</th>
+                  <th>Favorite Commander</th>
+                  <th>Nemesis</th>
+                  <th>Victim</th>
+                  <th>Total Kills</th>
+                  <th>K/D</th>
+                  <th>Best Deck</th>
+                </tr>
+              </thead>
+              <tbody id="player-stats-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="page-switch">
+            <a href="index.html" class="page-link">Game Tracker</a>
+            <a href="commander.html" class="page-link">Commander Stats</a>
+            <a href="history.html" class="page-link">Full History</a>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

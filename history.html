@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game History</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Full Game History</h1>
+        <p>All entered games will be shown here once this page is built.</p>
+      </header>
+      <main>
+        <section class="card">
+          <div class="history-controls">
+            <div class="field">
+              <label for="history-sort">Sort games</label>
+              <select id="history-sort">
+                <option value="date">Date</option>
+                <option value="winner">Winner</option>
+                <option value="players">Player count</option>
+                <option value="totalKills">Total kills</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="history-filter-winner">Winner</label>
+              <select id="history-filter-winner">
+                <option value="all">All winners</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="history-filter-commander">Commander</label>
+              <select id="history-filter-commander">
+                <option value="all">All commanders</option>
+              </select>
+            </div>
+            <button type="button" id="history-sort-order" class="secondary-button">Newest first</button>
+          </div>
+          <div id="history-list">
+            <p>Loading saved games...</p>
+          </div>
+        </section>
+        <section class="card">
+          <a href="index.html" class="page-link">Back to Tracker</a>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
