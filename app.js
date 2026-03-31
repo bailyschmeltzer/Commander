@@ -787,12 +787,24 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, kills: 0 };
+        stats[commander] = { games: 0, wins: 0, kills: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
       }
 
       stats[commander].games += 1;
       if (Array.isArray(game.finishOrder) && game.finishOrder[0] === row.player) {
         stats[commander].wins += 1;
+      }
+
+      if (Array.isArray(game.finishOrder) && game.finishOrder.length) {
+        const place = game.finishOrder.indexOf(row.player) + 1;
+        if (place > 0) {
+          stats[commander].placementTotal += place;
+          stats[commander].placementGames += 1;
+
+          const playerCount = game.finishOrder.length;
+          const placementScore = playerCount > 1 ? 1 - ((place - 1) / (playerCount - 1)) : 1;
+          stats[commander].placementScoreTotal += placementScore;
+        }
       }
 
       const kills = typeof row.kills === 'number' && !Number.isNaN(row.kills) ? row.kills : 0;
@@ -816,7 +828,8 @@ function getCommanderActualPower(commanderStats) {
     const winRate = stat.games ? stat.wins / stat.games : 0;
     const killsPerGame = stat.games ? stat.kills / stat.games : 0;
     const killScore = maxKillsPerGame ? killsPerGame / maxKillsPerGame : 0;
-    const rawScore = 0.7 * winRate + 0.3 * killScore;
+    const placementScore = stat.placementGames ? stat.placementScoreTotal / stat.placementGames : 0;
+    const rawScore = 0.5 * winRate + 0.25 * killScore + 0.25 * placementScore;
     actual[commander] = Math.round(rawScore * 100) / 10;
   });
 
@@ -837,6 +850,7 @@ function renderCommanderStats(games) {
     .map(([commander, stat]) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
+      const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
       return {
         commander,
         games: stat.games,
@@ -844,6 +858,7 @@ function renderCommanderStats(games) {
         winRate: winRateValue,
         kills: stat.kills,
         kd: killsPerGame,
+        averagePlacement,
         expected: getCommanderExpectedPower(commander),
         actual: typeof actualPowers[commander] === 'number' ? actualPowers[commander] : 0,
         stat,
@@ -879,6 +894,10 @@ function renderCommanderStats(games) {
         aVal = a.kd;
         bVal = b.kd;
         break;
+      case 'avgPlace':
+        aVal = a.averagePlacement;
+        bVal = b.averagePlacement;
+        break;
       case 'expected':
         aVal = typeof a.expected === 'number' ? a.expected : 0;
         bVal = typeof b.expected === 'number' ? b.expected : 0;
@@ -898,6 +917,7 @@ function renderCommanderStats(games) {
     .map(({ commander, stat, actual, expected }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
+      const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
       const roundedExpected = typeof expected === 'number' ? expected.toFixed(1) : '';
       const actualPower = typeof actual === 'number' ? actual.toFixed(1) : '0.0';
 
@@ -909,6 +929,7 @@ function renderCommanderStats(games) {
           <td>${formatPercent(winRateValue)}</td>
           <td>${stat.kills}</td>
           <td>${killsPerGame.toFixed(1)}</td>
+          <td>${averagePlacement ? averagePlacement.toFixed(2) : '—'}</td>
           <td>
             <input
               type="number"
@@ -926,7 +947,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="8">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="9">No commanders match your search.</td></tr>';
   updateCommanderSortIndicators();
 }
 

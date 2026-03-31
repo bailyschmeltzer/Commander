@@ -161,27 +161,30 @@ label {
 .commander-stats-table td:nth-child(1) {
   width: 22%;
 }
-
 .commander-stats-table th:nth-child(2),
 .commander-stats-table td:nth-child(2),
 .commander-stats-table th:nth-child(3),
 .commander-stats-table td:nth-child(3),
-.commander-stats-table th:nth-child(5),
-.commander-stats-table td:nth-child(5) {
+.commander-stats-table th:nth-child(8),
+.commander-stats-table td:nth-child(8) {
   width: 6%;
 }
 
 .commander-stats-table th:nth-child(4),
 .commander-stats-table td:nth-child(4),
+.commander-stats-table th:nth-child(5),
+.commander-stats-table td:nth-child(5),
 .commander-stats-table th:nth-child(6),
 .commander-stats-table td:nth-child(6),
-.commander-stats-table th:nth-child(8),
-.commander-stats-table td:nth-child(8) {
+.commander-stats-table th:nth-child(7),
+.commander-stats-table td:nth-child(7),
+.commander-stats-table th:nth-child(9),
+.commander-stats-table td:nth-child(9) {
   width: 8%;
 }
 
-.commander-stats-table th:nth-child(7),
-.commander-stats-table td:nth-child(7) {
+.commander-stats-table th:nth-child(8),
+.commander-stats-table td:nth-child(8) {
   width: 12%;
 }
 
