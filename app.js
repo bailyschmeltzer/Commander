@@ -27,6 +27,10 @@ const syncConnectButton = document.getElementById('sync-connect');
 const syncDisconnectButton = document.getElementById('sync-disconnect');
 const syncNowButton = document.getElementById('sync-now');
 const syncStatus = document.getElementById('sync-status');
+const syncPanel = document.querySelector('.sync-panel');
+const syncCompact = document.getElementById('sync-compact');
+const syncCompactLabel = document.getElementById('sync-compact-label');
+const syncManageButton = document.getElementById('sync-manage');
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -80,6 +84,35 @@ function setSyncStatus(message, tone = 'neutral') {
   syncStatus.textContent = message;
   syncStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
   syncStatus.classList.add(`status-${tone}`);
+}
+
+function setSyncPanelVisible(isVisible) {
+  if (!syncPanel) {
+    return;
+  }
+
+  syncPanel.hidden = !isVisible;
+}
+
+function setSyncCompactVisible(isVisible, label = 'Cloud connected.') {
+  if (!syncCompact) {
+    return;
+  }
+
+  syncCompact.hidden = !isVisible;
+  if (syncCompactLabel) {
+    syncCompactLabel.textContent = label;
+  }
+}
+
+function setSyncUiCollapsed(isCollapsed, user = '') {
+  setSyncPanelVisible(!isCollapsed);
+  if (isCollapsed) {
+    const compactLabel = user ? `Cloud connected as ${user}.` : 'Cloud connected.';
+    setSyncCompactVisible(true, compactLabel);
+  } else {
+    setSyncCompactVisible(false);
+  }
 }
 
 function updateSyncControls() {
@@ -1484,8 +1517,10 @@ function setupSyncUi() {
   updateSyncControls();
 
   if (!credentials.user || !credentials.token) {
+    setSyncUiCollapsed(false);
     setSyncStatus('Cloud sync not connected. Data remains local until you connect.', 'muted');
   } else {
+    setSyncUiCollapsed(false);
     setSyncStatus('Cloud sync configured. Pulling latest state...', 'neutral');
   }
 
@@ -1502,12 +1537,15 @@ function setupSyncUi() {
       localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
       localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
       updateSyncControls();
+      setSyncUiCollapsed(false);
       setSyncStatus('Connecting to cloud...', 'neutral');
 
       try {
         await pullCloudState();
         setSyncStatus(`Connected as ${user}.`, 'success');
+        setSyncUiCollapsed(true, user);
       } catch (error) {
+        setSyncUiCollapsed(false);
         setSyncStatus(`Connection failed: ${error.message}`, 'error');
       }
     });
@@ -1520,7 +1558,14 @@ function setupSyncUi() {
       syncUserInput.value = '';
       syncTokenInput.value = '';
       updateSyncControls();
+      setSyncUiCollapsed(false);
       setSyncStatus('Cloud sync disconnected. Local mode active.', 'muted');
+    });
+  }
+
+  if (syncManageButton) {
+    syncManageButton.addEventListener('click', () => {
+      setSyncUiCollapsed(false);
     });
   }
 
@@ -1540,7 +1585,9 @@ async function initializeApp() {
     try {
       await pullCloudState();
       setSyncStatus('Cloud data loaded.', 'success');
+      setSyncUiCollapsed(true, getSyncCredentials().user);
     } catch (error) {
+      setSyncUiCollapsed(false);
       setSyncStatus(`Using local cache: ${error.message}`, 'error');
     }
   }

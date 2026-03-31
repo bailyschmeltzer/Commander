@@ -64,6 +64,23 @@ header p {
   font-size: 0.86rem;
 }
 
+.sync-compact {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfe3d6;
+  border-radius: 12px;
+  background: #f1faf4;
+  color: #1d7a43;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-compact .secondary-button {
+  padding: 8px 12px;
+}
+
 .status-neutral {
   color: #44507e;
 }
