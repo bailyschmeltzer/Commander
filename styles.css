@@ -63,6 +63,7 @@ label {
 
 .player-table-wrapper {
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 .player-table {
@@ -192,6 +193,19 @@ label {
   overflow: auto;
 }
 
+.button-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.button-group .secondary-button {
+  margin-top: 0;
+  flex: 1;
+  min-width: 120px;
+}
+
 .secondary-button {
   margin-top: 6px;
   background: #eef1ff;
@@ -249,6 +263,7 @@ textarea:focus {
 
 .lookup-field-cell {
   vertical-align: top;
+  overflow: visible;
 }
 
 .combined-input-wrapper {
@@ -283,19 +298,16 @@ textarea:focus {
 }
 
 .dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: fixed;
   background-color: white;
   border: 1px solid #cfd6e4;
   border-radius: 6px;
-  margin-top: 4px;
   max-height: 200px;
   overflow-y: auto;
-  z-index: 10;
+  z-index: 1000;
   display: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
 }
 
 .dropdown-menu.active {

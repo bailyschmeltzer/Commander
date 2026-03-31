@@ -16,6 +16,7 @@ const historyFilterCommander = document.getElementById('history-filter-commander
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const clearAllButton = document.getElementById('clear-all');
+const removePlayerRowButton = document.getElementById('remove-player-row');
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -98,6 +99,13 @@ function createPlayerRow(data = {}) {
 
 function addPlayerRow(data = {}) {
   playerTableBody.appendChild(createPlayerRow(data));
+}
+
+function removePlayerRow() {
+  const rows = playerTableBody.querySelectorAll('tr');
+  if (rows.length > 1) {
+    rows[rows.length - 1].remove();
+  }
 }
 
 function resetPlayerTable() {
@@ -373,11 +381,21 @@ function attachDropdownHandlers(row) {
       const menu = wrapper.querySelector('.dropdown-menu');
       
       // Close all other menus
-      document.querySelectorAll('.dropdown-menu').forEach((m) => {
+      document.querySelectorAll('.dropdown-menu.active').forEach((m) => {
         if (m !== menu) m.classList.remove('active');
       });
       
-      menu.classList.toggle('active');
+      // Toggle this menu
+      if (menu.classList.contains('active')) {
+        menu.classList.remove('active');
+      } else {
+        // Position the menu
+        const rect = button.getBoundingClientRect();
+        menu.style.top = (rect.bottom + window.scrollY) + 'px';
+        menu.style.left = rect.left + 'px';
+        menu.style.width = Math.max(150, rect.width * 3.5) + 'px';
+        menu.classList.add('active');
+      }
     });
   });
 
@@ -939,6 +957,12 @@ function resetForm() {
 if (addPlayerRowButton) {
   addPlayerRowButton.addEventListener('click', () => {
     addPlayerRow();
+  });
+}
+
+if (removePlayerRowButton) {
+  removePlayerRowButton.addEventListener('click', () => {
+    removePlayerRow();
   });
 }
 
