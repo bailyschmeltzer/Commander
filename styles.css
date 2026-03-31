@@ -664,7 +664,10 @@ button[type="submit"] {
 .deck-list-table td:nth-child(2) a {
   color: #2c3a72;
   text-decoration: underline;
-  word-break: break-all;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .deck-list-table th:nth-child(1),
@@ -674,14 +677,22 @@ button[type="submit"] {
 
 .deck-list-table th:nth-child(2),
 .deck-list-table td:nth-child(2) {
-  width: 50%;
+  width: 55%;
 }
 
+.deck-list-table th:nth-child(3),
 .deck-list-table td:nth-child(3) {
-  width: 35%;
+  width: 30%;
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
+  word-break: normal;
+}
+
+.deck-list-table td:nth-child(3) button {
+  white-space: nowrap;
+  min-width: 84px;
 }
 
 .deck-list-delete {
