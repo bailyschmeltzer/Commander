@@ -392,11 +392,6 @@ function attachDropdownHandlers(row) {
       if (menu.classList.contains('active')) {
         menu.classList.remove('active');
       } else {
-        // Position the menu
-        const rect = button.getBoundingClientRect();
-        menu.style.top = (rect.bottom + window.scrollY) + 'px';
-        menu.style.left = rect.left + 'px';
-        menu.style.width = Math.max(150, rect.width * 3.5) + 'px';
         menu.classList.add('active');
       }
     });
