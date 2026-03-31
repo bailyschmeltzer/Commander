@@ -208,6 +208,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   min-width: 0;
@@ -216,6 +217,36 @@ textarea {
   border: 1px solid #cfd6e4;
   background: #f8f9fd;
   font: inherit;
+}
+
+select {
+  appearance: none;
+  padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, #59607b 50%), linear-gradient(135deg, #59607b 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #8ea0ff;
+  box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12);
+}
+
+.lookup-field-cell {
+  vertical-align: top;
+}
+
+.lookup-field-cell .lookup-selector {
+  margin-bottom: 8px;
+}
+
+.lookup-field-cell .lookup-selector,
+.lookup-field-cell .lookup-input {
+  background-color: #f8f9fd;
 }
 
 textarea {

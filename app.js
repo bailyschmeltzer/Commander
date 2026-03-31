@@ -72,13 +72,13 @@ function createPlayerRow(data = {}) {
   const killedValue = Array.isArray(data.killed) ? data.killed.join(', ') : data.killed || '';
 
   row.innerHTML = `
-    <td>
-      <select class="player-selector"></select>
-      <input type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
+    <td class="lookup-field-cell">
+      <select class="player-selector lookup-selector"></select>
+      <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
     </td>
-    <td>
-      <select class="commander-selector"></select>
-      <input type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
+    <td class="lookup-field-cell">
+      <select class="commander-selector lookup-selector"></select>
+      <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
     </td>
     <td><input type="number" name="place" min="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
     <td><input type="number" name="kills" min="0" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
