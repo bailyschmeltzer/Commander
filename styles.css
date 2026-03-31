@@ -670,6 +670,11 @@ button[type="submit"] {
   white-space: nowrap;
 }
 
+.deck-list-table {
+  width: 100%;
+  table-layout: auto;
+}
+
 .deck-list-table th:nth-child(1),
 .deck-list-table td:nth-child(1) {
   width: 15%;
