@@ -484,6 +484,30 @@ button#clear-all {
   color: #59607b;
 }
 
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.sortable-header:hover {
+  background-color: #f0f2f8 !important;
+}
+
+.sort-indicator {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.8em;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+  vertical-align: middle;
+}
+
+.sortable-header:hover .sort-indicator {
+  opacity: 0.6;
+}
+
 @media (min-width: 700px) {
   main {
     grid-template-columns: 1fr;

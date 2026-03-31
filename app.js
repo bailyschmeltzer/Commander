@@ -22,6 +22,8 @@ let historySortDescending = true;
 let editingGameId = null;
 let knownPlayers = [];
 let knownCommanders = [];
+let commanderSortColumn = 'games';
+let commanderSortDescending = true;
 
 function generateId() {
   return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -832,15 +834,75 @@ function renderCommanderStats(games) {
   const searchTerm = commanderSearch?.value.trim().toLowerCase() || '';
   const commanderStats = getCommanderStatsData(games);
   const actualPowers = getCommanderActualPower(commanderStats);
-  const rows = Object.entries(commanderStats)
+  
+  let entries = Object.entries(commanderStats)
     .filter(([commander]) => commander.toLowerCase().includes(searchTerm))
-    .sort(([a], [b]) => a.localeCompare(b))
     .map(([commander, stat]) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
-      const expected = getCommanderExpectedPower(commander);
+      return {
+        commander,
+        games: stat.games,
+        wins: stat.wins,
+        winRate: winRateValue,
+        kills: stat.kills,
+        kd: killsPerGame,
+        expected: getCommanderExpectedPower(commander),
+        actual: typeof actualPowers[commander] === 'number' ? actualPowers[commander] : 0,
+        stat,
+        actualPowers
+      };
+    });
+
+  // Sort by selected column
+  entries.sort((a, b) => {
+    let aVal, bVal;
+    switch (commanderSortColumn) {
+      case 'commander':
+        aVal = a.commander.toLowerCase();
+        bVal = b.commander.toLowerCase();
+        return commanderSortDescending ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+      case 'games':
+        aVal = a.games;
+        bVal = b.games;
+        break;
+      case 'wins':
+        aVal = a.wins;
+        bVal = b.wins;
+        break;
+      case 'winRate':
+        aVal = a.winRate;
+        bVal = b.winRate;
+        break;
+      case 'kills':
+        aVal = a.kills;
+        bVal = b.kills;
+        break;
+      case 'kd':
+        aVal = a.kd;
+        bVal = b.kd;
+        break;
+      case 'expected':
+        aVal = typeof a.expected === 'number' ? a.expected : 0;
+        bVal = typeof b.expected === 'number' ? b.expected : 0;
+        break;
+      case 'actual':
+        aVal = a.actual;
+        bVal = b.actual;
+        break;
+      default:
+        return 0;
+    }
+    const diff = aVal - bVal;
+    return commanderSortDescending ? -diff : diff;
+  });
+
+  const rows = entries
+    .map(({ commander, stat, actual, expected }) => {
+      const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
+      const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const roundedExpected = typeof expected === 'number' ? expected.toFixed(1) : '';
-      const actualPower = typeof actualPowers[commander] === 'number' ? actualPowers[commander].toFixed(1) : '0.0';
+      const actualPower = typeof actual === 'number' ? actual.toFixed(1) : '0.0';
 
       return `
         <tr>
@@ -868,6 +930,7 @@ function renderCommanderStats(games) {
     .join('');
 
   commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="8">No commanders match your search.</td></tr>';
+  updateCommanderSortIndicators();
 }
 
 function handleCommanderExpectedInput(event) {
@@ -884,6 +947,40 @@ function handleCommanderExpectedInput(event) {
     setCommanderExpectedPower(commander, value);
     input.value = Math.round(value * 10) / 10;
   }
+}
+
+function updateCommanderSortIndicators() {
+  const headers = document.querySelectorAll('.commander-stats-table .sortable-header');
+  headers.forEach((header) => {
+    const column = header.dataset.column;
+    const indicator = header.querySelector('.sort-indicator');
+    if (!indicator) return;
+
+    if (column === commanderSortColumn) {
+      indicator.textContent = commanderSortDescending ? ' ▼' : ' ▲';
+      indicator.style.opacity = '1';
+    } else {
+      indicator.textContent = '';
+      indicator.style.opacity = '0.3';
+    }
+  });
+}
+
+function handleCommanderHeaderClick(event) {
+  const header = event.target.closest('.sortable-header');
+  if (!header) {
+    return;
+  }
+
+  const column = header.dataset.column;
+  if (column === commanderSortColumn) {
+    commanderSortDescending = !commanderSortDescending;
+  } else {
+    commanderSortColumn = column;
+    commanderSortDescending = true;
+  }
+
+  renderCommanderStats(loadGames());
 }
 
 function renderSummary(games) {
@@ -1079,6 +1176,11 @@ if (commanderSearch) {
 
 if (commanderStatsTableBody) {
   commanderStatsTableBody.addEventListener('change', handleCommanderExpectedInput);
+}
+
+const commanderStatsTable = document.querySelector('.commander-stats-table');
+if (commanderStatsTable) {
+  commanderStatsTable.addEventListener('click', handleCommanderHeaderClick);
 }
 
 updateHistorySortOrderLabel();
