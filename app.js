@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
-
+const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const form = document.getElementById('game-form');
@@ -22,6 +22,7 @@ const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const clearAllButton = document.getElementById('clear-all');
 const removePlayerRowButton = document.getElementById('remove-player-row');
 
+const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
 const syncConnectButton = document.getElementById('sync-connect');
 const syncDisconnectButton = document.getElementById('sync-disconnect');
@@ -64,13 +65,14 @@ function persistLocalState(state) {
 
 function getSyncCredentials() {
   return {
+    user: (localStorage.getItem(SYNC_USER_STORAGE_KEY) || '').trim(),
     token: (localStorage.getItem(SYNC_TOKEN_STORAGE_KEY) || '').trim(),
   };
 }
 
 function hasSyncCredentials() {
   const credentials = getSyncCredentials();
-  return Boolean(credentials.token);
+  return Boolean(credentials.user && credentials.token);
 }
 
 function setSyncStatus(message, tone = 'neutral') {
@@ -96,7 +98,7 @@ function setSyncUiCollapsed(isCollapsed) {
 }
 
 function updateSyncControls() {
-  if (!syncTokenInput) {
+  if (!syncUserInput || !syncTokenInput) {
     return;
   }
 
@@ -111,12 +113,13 @@ function updateSyncControls() {
 
 async function cloudRequest(path, options = {}) {
   const credentials = getSyncCredentials();
-  if (!credentials.token) {
+  if (!credentials.user || !credentials.token) {
     throw new Error('Missing sync credentials');
   }
 
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
+  headers.set('X-User-Name', credentials.user);
   headers.set('X-Pod-Token', credentials.token);
 
   const response = await fetch(path, {
@@ -1486,15 +1489,16 @@ window.addEventListener('storage', (event) => {
 });
 
 function setupSyncUi() {
-  if (!syncTokenInput) {
+  if (!syncUserInput || !syncTokenInput) {
     return;
   }
 
   const credentials = getSyncCredentials();
+  syncUserInput.value = credentials.user;
   syncTokenInput.value = credentials.token;
   updateSyncControls();
 
-  if (!credentials.token) {
+  if (!credentials.user || !credentials.token) {
     setSyncStatus('Cloud sync not connected. Data remains local until you connect.', 'muted');
   } else {
     setSyncStatus('Cloud sync configured. Pulling latest state...', 'neutral');
@@ -1502,20 +1506,22 @@ function setupSyncUi() {
 
   if (syncConnectButton) {
     syncConnectButton.addEventListener('click', async () => {
+      const user = syncUserInput.value.trim();
       const token = syncTokenInput.value.trim();
 
-      if (!token) {
-        setSyncStatus('Enter a pod access code.', 'error');
+      if (!user || !token) {
+        setSyncStatus('Enter both display name and pod access code.', 'error');
         return;
       }
 
+      localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
       localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
       updateSyncControls();
       setSyncStatus('Connecting to cloud...', 'neutral');
 
       try {
         await pullCloudState();
-        setSyncStatus('Connected.', 'success');
+        setSyncStatus(`Connected as ${user}.`, 'success');
       } catch (error) {
         setSyncStatus(`Connection failed: ${error.message}`, 'error');
       }
@@ -1524,7 +1530,9 @@ function setupSyncUi() {
 
   if (syncDisconnectButton) {
     syncDisconnectButton.addEventListener('click', () => {
+      localStorage.removeItem(SYNC_USER_STORAGE_KEY);
       localStorage.removeItem(SYNC_TOKEN_STORAGE_KEY);
+      syncUserInput.value = '';
       syncTokenInput.value = '';
       updateSyncControls();
       setSyncStatus('Cloud sync disconnected. Local mode active.', 'muted');
