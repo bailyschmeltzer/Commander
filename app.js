@@ -29,6 +29,8 @@ const deckUrlInput = document.getElementById('deck-url');
 const deckListTableBody = document.getElementById('deck-list-body');
 const deckListCancelButton = document.getElementById('deck-list-cancel');
 const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
+const deckLookupSelect = document.getElementById('deck-lookup-commander');
+const deckLookupResult = document.getElementById('deck-lookup-result');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -708,11 +710,58 @@ function normalizeDeckListEntry(entry) {
   };
 }
 
+function getSortedDeckLists() {
+  return loadDeckLists()
+    .map(normalizeDeckListEntry)
+    .filter(Boolean)
+    .sort((a, b) => a.commander.localeCompare(b.commander));
+}
+
 function populateDeckCommanderSelector() {
   if (!deckCommanderMenu) {
     return;
   }
   buildDropdownMenu(deckCommanderMenu, knownCommanders);
+}
+
+function renderDeckLookup() {
+  if (!deckLookupSelect || !deckLookupResult) {
+    return;
+  }
+
+  const deckLists = getSortedDeckLists();
+  const selectedCommander = deckLookupSelect.value;
+
+  buildSelectOptions(
+    deckLookupSelect,
+    deckLists.map((entry) => entry.commander),
+    selectedCommander,
+    'Select a commander',
+  );
+
+  const activeCommander = deckLookupSelect.value;
+  if (!deckLists.length) {
+    deckLookupResult.innerHTML = '<p>No deck lists saved yet.</p>';
+    return;
+  }
+
+  if (!activeCommander) {
+    deckLookupResult.innerHTML = '<p>Select a commander to view its saved deck URL.</p>';
+    return;
+  }
+
+  const selectedDeck = deckLists.find((entry) => entry.commander === activeCommander);
+  if (!selectedDeck) {
+    deckLookupResult.innerHTML = '<p>No saved URL found for that commander.</p>';
+    return;
+  }
+
+  const safeCommander = escapeHtml(selectedDeck.commander);
+  const safeUrl = escapeHtml(selectedDeck.url);
+  deckLookupResult.innerHTML = `
+    <p class="deck-lookup-label">${safeCommander}</p>
+    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${safeUrl}</a>
+  `;
 }
 
 function resetDeckListForm() {
@@ -768,10 +817,7 @@ function renderDeckLists() {
     return;
   }
 
-  const deckLists = loadDeckLists()
-    .map(normalizeDeckListEntry)
-    .filter(Boolean)
-    .sort((a, b) => a.commander.localeCompare(b.commander));
+  const deckLists = getSortedDeckLists();
 
   if (!deckLists.length) {
     deckListTableBody.innerHTML = '<tr><td colspan="3">No deck lists saved yet.</td></tr>';
@@ -1510,6 +1556,7 @@ function refresh() {
   updateHistoryFilters(games);
   renderHistory(games);
   renderCommanderStats(games);
+  renderDeckLookup();
   renderDeckLists();
 }
 
@@ -1639,6 +1686,12 @@ if (commanderStatsTableBody) {
 
 if (deckListTableBody) {
   deckListTableBody.addEventListener('click', handleDeckListTableAction);
+}
+
+if (deckLookupSelect) {
+  deckLookupSelect.addEventListener('change', () => {
+    renderDeckLookup();
+  });
 }
 
 if (deckCommanderDropdownButton && deckCommanderMenu && deckCommanderInput) {
