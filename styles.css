@@ -677,12 +677,13 @@ button[type="submit"] {
 
 .deck-list-table th:nth-child(2),
 .deck-list-table td:nth-child(2) {
-  width: 55%;
+  width: auto;
 }
 
 .deck-list-table th:nth-child(3),
 .deck-list-table td:nth-child(3) {
-  width: 30%;
+  width: 220px;
+  min-width: 220px;
   display: flex;
   gap: 8px;
   flex-wrap: nowrap;
