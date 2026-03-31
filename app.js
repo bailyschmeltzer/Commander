@@ -372,9 +372,10 @@ function buildDropdownMenu(menuElement, values) {
 }
 
 function attachDropdownHandlers(row) {
-  if (!row) {
+  if (!row || row.dataset.dropdownHandlersAttached) {
     return;
   }
+  row.dataset.dropdownHandlersAttached = 'true';
 
   row.querySelectorAll('.dropdown-button').forEach((button) => {
     button.addEventListener('click', (e) => {
@@ -416,13 +417,14 @@ function attachDropdownHandlers(row) {
     });
   });
 
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.combined-input-wrapper')) {
-      document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.remove('active'));
-    }
-  });
 }
+
+// Global outside-click handler — registered once
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.combined-input-wrapper')) {
+    document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.remove('active'));
+  }
+});
 
 function refreshRowSelectors() {
   Array.from(document.querySelectorAll('tr')).forEach((row) => {
