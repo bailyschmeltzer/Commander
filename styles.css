@@ -667,7 +667,18 @@ button[type="submit"] {
   word-break: break-all;
 }
 
+.deck-list-table th:nth-child(1),
+.deck-list-table td:nth-child(1) {
+  width: 15%;
+}
+
+.deck-list-table th:nth-child(2),
+.deck-list-table td:nth-child(2) {
+  width: 50%;
+}
+
 .deck-list-table td:nth-child(3) {
+  width: 35%;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
