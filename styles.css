@@ -109,8 +109,15 @@ label {
 }
 
 .player-table-wrapper {
+  position: relative;
   overflow-x: auto;
   overflow-y: visible;
+  z-index: 1;
+}
+
+.player-table-wrapper.dropdown-open {
+  overflow: visible;
+  z-index: 40;
 }
 
 .player-table {
@@ -479,7 +486,7 @@ textarea:focus {
   border-radius: 6px;
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 4000;
   display: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 180px;
