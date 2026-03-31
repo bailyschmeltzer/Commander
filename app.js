@@ -72,7 +72,7 @@ function createPlayerRow(data = {}) {
   const killedValue = Array.isArray(data.killed) ? data.killed.join(', ') : data.killed || '';
 
   row.innerHTML = `
-    <td><textarea name="player" placeholder="Players" required>${data.player || ''}</textarea></td>
+    <td><textarea name="player" placeholder="Player" required>${data.player || ''}</textarea></td>
     <td><textarea name="commander" placeholder="Commander">${data.commander || ''}</textarea></td>
     <td><input type="number" name="place" min="1" value="${data.place || ''}" placeholder="Place" /></td>
     <td><input type="number" name="kills" min="0" value="${data.kills || 0}" placeholder="Kills" /></td>
