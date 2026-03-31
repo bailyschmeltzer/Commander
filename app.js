@@ -381,12 +381,15 @@ function attachDropdownHandlers(row) {
     });
   });
 
-  row.querySelectorAll('.dropdown-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
+  // Use event delegation on dropdown menus
+  row.querySelectorAll('.dropdown-menu').forEach((menu) => {
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('.dropdown-item');
+      if (!item) return;
+      
       const value = item.dataset.value;
-      const wrapper = item.closest('.combined-input-wrapper');
+      const wrapper = menu.closest('.combined-input-wrapper');
       const input = wrapper.querySelector('input[name]');
-      const menu = wrapper.querySelector('.dropdown-menu');
       
       input.value = value;
       menu.classList.remove('active');
