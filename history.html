@@ -13,17 +13,12 @@
         <p>All entered games for your shared pod.</p>
         <div class="sync-panel">
           <div class="sync-row">
-            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
             <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
             <button type="button" id="sync-connect" class="secondary-button">Connect</button>
             <button type="button" id="sync-now" class="secondary-button">Sync now</button>
             <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
           </div>
           <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
-        </div>
-        <div class="sync-compact" id="sync-compact" hidden>
-          <span id="sync-compact-label">Cloud connected.</span>
-          <button type="button" id="sync-manage" class="secondary-button">Manage</button>
         </div>
         <div class="page-switch">
           <a href="index.html" class="page-link">Game Tracker</a>
