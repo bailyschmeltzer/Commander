@@ -159,14 +159,18 @@ label {
 
 .commander-stats-table th:nth-child(1),
 .commander-stats-table td:nth-child(1) {
-  width: 22%;
+  width: 18%;
 }
 .commander-stats-table th:nth-child(2),
 .commander-stats-table td:nth-child(2),
 .commander-stats-table th:nth-child(3),
 .commander-stats-table td:nth-child(3),
 .commander-stats-table th:nth-child(8),
-.commander-stats-table td:nth-child(8) {
+.commander-stats-table td:nth-child(8),
+.commander-stats-table th:nth-child(9),
+.commander-stats-table td:nth-child(9),
+.commander-stats-table th:nth-child(10),
+.commander-stats-table td:nth-child(10) {
   width: 6%;
 }
 
@@ -178,14 +182,19 @@ label {
 .commander-stats-table td:nth-child(6),
 .commander-stats-table th:nth-child(7),
 .commander-stats-table td:nth-child(7),
-.commander-stats-table th:nth-child(9),
-.commander-stats-table td:nth-child(9) {
+.commander-stats-table th:nth-child(11),
+.commander-stats-table td:nth-child(11) {
   width: 8%;
 }
 
 .commander-stats-table th:nth-child(8),
 .commander-stats-table td:nth-child(8) {
   width: 12%;
+}
+
+.commander-stats-table th:nth-child(12),
+.commander-stats-table td:nth-child(12) {
+  width: 11%;
 }
 
 .commander-expected-input {
@@ -196,6 +205,69 @@ label {
   border: 1px solid #cfd6e4;
   background: #f8f9fd;
   text-align: center;
+}
+
+.delta-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.delta-positive {
+  background: #e8f8ef;
+  color: #1d7a43;
+}
+
+.delta-negative {
+  background: #ffeceb;
+  color: #af2f27;
+}
+
+.delta-neutral {
+  background: #eef1f6;
+  color: #495167;
+}
+
+.confidence-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.confidence-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.confidence-high {
+  color: #1d7a43;
+}
+
+.confidence-medium {
+  color: #7a5a12;
+}
+
+.confidence-low {
+  color: #7a3245;
+}
+
+.confidence-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #e8ecf4;
+  overflow: hidden;
+}
+
+.confidence-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #89a0ff 0%, #4f67d8 100%);
 }
 
 .player-table th:nth-child(2),

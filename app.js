@@ -180,6 +180,36 @@ function formatPercent(value) {
   return `${Number.isFinite(value) ? value.toFixed(1) : 0}%`;
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getMean(values) {
+  if (!values.length) {
+    return 0;
+  }
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function getStandardDeviation(values, meanValue = getMean(values)) {
+  if (values.length < 2) {
+    return 0;
+  }
+
+  const variance = values.reduce((sum, value) => sum + ((value - meanValue) ** 2), 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+function getCommanderConfidence(games) {
+  if (games >= 15) {
+    return { label: 'High', levelClass: 'high', score: 3, percent: 100 };
+  }
+  if (games >= 6) {
+    return { label: 'Medium', levelClass: 'medium', score: 2, percent: 65 };
+  }
+  return { label: 'Low', levelClass: 'low', score: 1, percent: 35 };
+}
+
 function loadCommanderPowerLevels() {
   try {
     return JSON.parse(localStorage.getItem('commanderExpectedPowerLevels') || '{}');
@@ -836,6 +866,56 @@ function getCommanderActualPower(commanderStats) {
   return actual;
 }
 
+function getCalibratedCommanderActualPower(relativeActualPowers, commanderStats) {
+  const commanders = Object.keys(relativeActualPowers);
+  const expectedByCommander = {};
+
+  commanders.forEach((commander) => {
+    expectedByCommander[commander] = getCommanderExpectedPower(commander);
+  });
+
+  const overlap = commanders.filter((commander) => typeof expectedByCommander[commander] === 'number');
+  const calibrated = {};
+
+  if (overlap.length >= 2) {
+    const relativeValues = overlap.map((commander) => relativeActualPowers[commander]);
+    const expectedValues = overlap.map((commander) => expectedByCommander[commander]);
+    const relativeMean = getMean(relativeValues);
+    const expectedMean = getMean(expectedValues);
+    const relativeStd = getStandardDeviation(relativeValues, relativeMean);
+    const expectedStd = getStandardDeviation(expectedValues, expectedMean);
+
+    commanders.forEach((commander) => {
+      const relative = relativeActualPowers[commander];
+      const normalized = relativeStd > 0 ? (relative - relativeMean) / relativeStd : 0;
+      const targetStd = expectedStd > 0 ? expectedStd : 1;
+      const value = expectedMean + (normalized * targetStd);
+      calibrated[commander] = Math.round(clamp(value, 0, 10) * 10) / 10;
+    });
+
+    return calibrated;
+  }
+
+  if (overlap.length === 1) {
+    const singleExpected = expectedByCommander[overlap[0]];
+    const singleRelative = relativeActualPowers[overlap[0]];
+    const shift = singleExpected - singleRelative;
+
+    commanders.forEach((commander) => {
+      const value = relativeActualPowers[commander] + shift;
+      calibrated[commander] = Math.round(clamp(value, 0, 10) * 10) / 10;
+    });
+
+    return calibrated;
+  }
+
+  commanders.forEach((commander) => {
+    calibrated[commander] = relativeActualPowers[commander];
+  });
+
+  return calibrated;
+}
+
 function renderCommanderStats(games) {
   if (!commanderStatsTableBody) {
     return;
@@ -844,6 +924,7 @@ function renderCommanderStats(games) {
   const searchTerm = commanderSearch?.value.trim().toLowerCase() || '';
   const commanderStats = getCommanderStatsData(games);
   const actualPowers = getCommanderActualPower(commanderStats);
+  const calibratedPowers = getCalibratedCommanderActualPower(actualPowers, commanderStats);
   
   let entries = Object.entries(commanderStats)
     .filter(([commander]) => commander.toLowerCase().includes(searchTerm))
@@ -861,10 +942,17 @@ function renderCommanderStats(games) {
         averagePlacement,
         expected: getCommanderExpectedPower(commander),
         actual: typeof actualPowers[commander] === 'number' ? actualPowers[commander] : 0,
+        actualCal: typeof calibratedPowers[commander] === 'number' ? calibratedPowers[commander] : 0,
+        delta: 0,
+        confidence: getCommanderConfidence(stat.games),
         stat,
         actualPowers
       };
-    });
+    })
+    .map((entry) => ({
+      ...entry,
+      delta: typeof entry.expected === 'number' ? entry.actualCal - entry.expected : 0,
+    }));
 
   // Sort by selected column
   entries.sort((a, b) => {
@@ -906,6 +994,18 @@ function renderCommanderStats(games) {
         aVal = a.actual;
         bVal = b.actual;
         break;
+      case 'actualCal':
+        aVal = a.actualCal;
+        bVal = b.actualCal;
+        break;
+      case 'delta':
+        aVal = a.delta;
+        bVal = b.delta;
+        break;
+      case 'confidence':
+        aVal = a.confidence.score;
+        bVal = b.confidence.score;
+        break;
       default:
         return 0;
     }
@@ -914,12 +1014,22 @@ function renderCommanderStats(games) {
   });
 
   const rows = entries
-    .map(({ commander, stat, actual, expected }) => {
+    .map(({ commander, stat, actual, actualCal, expected, delta, confidence }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
       const roundedExpected = typeof expected === 'number' ? expected.toFixed(1) : '';
       const actualPower = typeof actual === 'number' ? actual.toFixed(1) : '0.0';
+      const actualCalibrated = typeof actualCal === 'number' ? actualCal.toFixed(1) : '0.0';
+
+      let deltaClass = 'delta-neutral';
+      if (delta > 0.15) {
+        deltaClass = 'delta-positive';
+      } else if (delta < -0.15) {
+        deltaClass = 'delta-negative';
+      }
+
+      const deltaText = typeof expected === 'number' ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}` : '—';
 
       return `
         <tr>
@@ -943,11 +1053,19 @@ function renderCommanderStats(games) {
             />
           </td>
           <td>${actualPower}</td>
+          <td>${actualCalibrated}</td>
+          <td><span class="delta-pill ${deltaClass}">${deltaText}</span></td>
+          <td>
+            <div class="confidence-cell">
+              <span class="confidence-label confidence-${confidence.levelClass}">${confidence.label}</span>
+              <div class="confidence-bar"><span style="width: ${confidence.percent}%;"></span></div>
+            </div>
+          </td>
         </tr>`;
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="9">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="12">No commanders match your search.</td></tr>';
   updateCommanderSortIndicators();
 }
 
