@@ -562,11 +562,6 @@ button[type="submit"] {
   color: #fff;
 }
 
-button#clear-all {
-  background: #eef1ff;
-  color: #2c3a72;
-}
-
 .stats-panel {
   display: grid;
   gap: 12px;

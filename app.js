@@ -19,7 +19,6 @@ const historyFilterWinner = document.getElementById('history-filter-winner');
 const historyFilterCommander = document.getElementById('history-filter-commander');
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
-const clearAllButton = document.getElementById('clear-all');
 const removePlayerRowButton = document.getElementById('remove-player-row');
 
 const syncUserInput = document.getElementById('sync-user');
@@ -1420,15 +1419,6 @@ if (form) {
     resetEditMode();
     refresh();
     resetForm();
-  });
-}
-
-if (clearAllButton) {
-  clearAllButton.addEventListener('click', () => {
-    if (confirm('Remove all saved games? This cannot be undone.')) {
-      saveGames([]);
-      refresh();
-    }
   });
 }
 
