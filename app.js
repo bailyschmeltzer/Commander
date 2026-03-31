@@ -59,6 +59,10 @@ function normalizeList(value) {
     .filter(Boolean);
 }
 
+function normalizePlayerName(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
 function formatPlayerCommanders(list) {
   return list.map(({ player, commander }) => `${player}: ${commander || '—'}`).join(', ');
 }
@@ -121,9 +125,10 @@ function getCleanKilledList(killed) {
   return normalizeList(String(killed || ''));
 }
 
-function ensurePlayerStats(stats, player) {
+function ensurePlayerStats(stats, player, displayName) {
   if (!stats[player]) {
     stats[player] = {
+      displayName: displayName || player,
       games: 0,
       wins: 0,
       kills: 0,
@@ -132,6 +137,8 @@ function ensurePlayerStats(stats, player) {
       killerCounts: {},
       victimCounts: {},
     };
+  } else if (displayName && !stats[player].displayName) {
+    stats[player].displayName = displayName;
   }
   return stats[player];
 }
@@ -498,13 +505,14 @@ function getPlayerStatsData(games) {
 
     rows.forEach((row) => {
       const player = (row.player || '').trim();
-      if (!player) {
+      const canonicalPlayer = normalizePlayerName(player);
+      if (!canonicalPlayer) {
         return;
       }
 
-      const playerStat = ensurePlayerStats(stats, player);
+      const playerStat = ensurePlayerStats(stats, canonicalPlayer, player);
       playerStat.games += 1;
-      if (winner === player) {
+      if (normalizePlayerName(winner) === canonicalPlayer) {
         playerStat.wins += 1;
       }
 
@@ -515,7 +523,7 @@ function getPlayerStatsData(games) {
           playerStat.commanderStats[commander] = { played: 0, wins: 0 };
         }
         playerStat.commanderStats[commander].played += 1;
-        if (winner === player) {
+        if (normalizePlayerName(winner) === canonicalPlayer) {
           playerStat.commanderStats[commander].wins += 1;
         }
       }
@@ -526,14 +534,15 @@ function getPlayerStatsData(games) {
         : killedList.length;
       playerStat.kills += killsCount;
 
-      killedList.forEach((target) => {
+      killedList.forEach((targetRaw) => {
+        const target = normalizePlayerName(targetRaw);
         if (!target) {
           return;
         }
 
         playerStat.victimCounts[target] = (playerStat.victimCounts[target] || 0) + 1;
-        const targetStat = ensurePlayerStats(stats, target);
-        targetStat.killerCounts[player] = (targetStat.killerCounts[player] || 0) + 1;
+        const targetStat = ensurePlayerStats(stats, target, targetRaw.trim());
+        targetStat.killerCounts[canonicalPlayer] = (targetStat.killerCounts[canonicalPlayer] || 0) + 1;
       });
     });
   });
@@ -564,8 +573,10 @@ function renderPlayerStats(games) {
       const stat = stats[player];
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const favoriteCommander = getMaxCountKey(stat.commanders);
-      const nemesis = getMaxCountKey(stat.killerCounts);
-      const victim = getMaxCountKey(stat.victimCounts);
+      const nemesisKey = getMaxCountKey(stat.killerCounts);
+      const victimKey = getMaxCountKey(stat.victimCounts);
+      const nemesis = stats[nemesisKey]?.displayName || nemesisKey;
+      const victim = stats[victimKey]?.displayName || victimKey;
       const killAverage = stat.games ? (stat.kills / stat.games).toFixed(1) : '0.0';
 
       let bestDeck = '—';
@@ -587,9 +598,10 @@ function renderPlayerStats(games) {
         }
       });
 
+      const displayName = stat.displayName || player;
       return `
         <tr>
-          <td>${player}</td>
+          <td>${displayName}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>
