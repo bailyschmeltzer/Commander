@@ -661,6 +661,23 @@ button[type="submit"] {
   color: #59607b;
 }
 
+.deck-list-table td:nth-child(2) a {
+  color: #2c3a72;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.deck-list-table td:nth-child(3) {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.deck-list-delete {
+  background: #ff4d4f;
+  color: #fff;
+}
+
 .sortable-header {
   cursor: pointer;
   user-select: none;

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deck Lists</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Deck Lists</h1>
+        <p>Track commander deck links and keep them easy to update.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <div class="page-switch">
+          <a href="index.html" class="page-link">Game Tracker</a>
+          <a href="player.html" class="page-link">Player Stats</a>
+          <a href="commander.html" class="page-link">Commander Stats</a>
+          <a href="history.html" class="page-link">Full History</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Add or Edit Deck List</h2>
+          <form id="deck-list-form">
+            <div class="field">
+              <label for="deck-commander">Commander</label>
+              <div class="combined-input-wrapper">
+                <input id="deck-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander" required />
+                <button type="button" id="deck-commander-dropdown" class="dropdown-button" title="Show options">▼</button>
+                <div id="deck-commander-menu" class="dropdown-menu commander-dropdown-menu"></div>
+              </div>
+              <datalist id="commander-list"></datalist>
+            </div>
+
+            <div class="field">
+              <label for="deck-url">URL</label>
+              <input id="deck-url" type="url" placeholder="https://example.com/deck" required />
+            </div>
+
+            <div class="actions">
+              <button type="submit">Add deck list</button>
+              <button type="button" id="deck-list-cancel" class="secondary-button" hidden>Cancel edit</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Saved Deck Lists</h2>
+          <div class="player-table-wrapper">
+            <table class="player-table deck-list-table">
+              <thead>
+                <tr>
+                  <th>Commander</th>
+                  <th>URL</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="deck-list-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

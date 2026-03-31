@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
+const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
@@ -20,6 +21,14 @@ const historyFilterCommander = document.getElementById('history-filter-commander
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const removePlayerRowButton = document.getElementById('remove-player-row');
+const deckListForm = document.getElementById('deck-list-form');
+const deckCommanderInput = document.getElementById('deck-commander');
+const deckCommanderMenu = document.getElementById('deck-commander-menu');
+const deckCommanderDropdownButton = document.getElementById('deck-commander-dropdown');
+const deckUrlInput = document.getElementById('deck-url');
+const deckListTableBody = document.getElementById('deck-list-body');
+const deckListCancelButton = document.getElementById('deck-list-cancel');
+const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -36,7 +45,8 @@ let knownPlayers = [];
 let knownCommanders = [];
 let commanderSortColumn = 'games';
 let commanderSortDescending = true;
-let appState = { games: [], powerLevels: {} };
+let appState = { games: [], powerLevels: {}, deckLists: [] };
+let editingDeckListId = null;
 let syncQueueTimer = null;
 let syncInFlight = false;
 
@@ -51,15 +61,18 @@ function parseJsonSafe(value, fallback) {
 function loadLocalState() {
   const games = parseJsonSafe(localStorage.getItem(STORAGE_KEY) || '[]', []);
   const powerLevels = parseJsonSafe(localStorage.getItem(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
+  const deckLists = parseJsonSafe(localStorage.getItem(DECK_LIST_STORAGE_KEY) || '[]', []);
   return {
     games: Array.isArray(games) ? games : [],
     powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
+    deckLists: Array.isArray(deckLists) ? deckLists : [],
   };
 }
 
 function persistLocalState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.games || []));
   localStorage.setItem(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
+  localStorage.setItem(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
 }
 
 function getSyncCredentials() {
@@ -146,7 +159,8 @@ async function pullCloudState() {
   const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
   const games = Array.isArray(payload.games) ? payload.games : [];
   const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
-  appState = { games, powerLevels };
+  const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
+  appState = { games, powerLevels, deckLists };
   persistLocalState(appState);
   refresh();
 }
@@ -163,6 +177,7 @@ async function pushCloudState() {
       body: JSON.stringify({
         games: appState.games,
         powerLevels: appState.powerLevels,
+        deckLists: appState.deckLists,
       }),
     });
     setSyncStatus('Synced to cloud.', 'success');
@@ -216,6 +231,16 @@ function loadGames() {
 
 function saveGames(games) {
   appState.games = Array.isArray(games) ? games : [];
+  persistLocalState(appState);
+  queueCloudSync();
+}
+
+function loadDeckLists() {
+  return Array.isArray(appState.deckLists) ? appState.deckLists : [];
+}
+
+function saveDeckLists(deckLists) {
+  appState.deckLists = Array.isArray(deckLists) ? deckLists : [];
   persistLocalState(appState);
   queueCloudSync();
 }
@@ -561,13 +586,10 @@ function buildDropdownMenu(menuElement, values) {
 }
 
 function updateDropdownLayeringState() {
-  const wrapper = document.querySelector('.player-table-wrapper');
-  if (!wrapper) {
-    return;
-  }
-
   const hasActiveDropdown = document.querySelector('.dropdown-menu.active');
-  wrapper.classList.toggle('dropdown-open', Boolean(hasActiveDropdown));
+  document.querySelectorAll('.player-table-wrapper').forEach((wrapper) => {
+    wrapper.classList.toggle('dropdown-open', Boolean(hasActiveDropdown));
+  });
 }
 
 function attachDropdownHandlers(row) {
@@ -634,6 +656,7 @@ function refreshRowSelectors() {
 function updateFormDatalists(games) {
   const players = [];
   const commanders = [];
+  const deckLists = loadDeckLists();
 
   games.forEach((game) => {
     getGameRows(game).forEach((row) => {
@@ -644,6 +667,13 @@ function updateFormDatalists(games) {
         commanders.push(row.commander);
       }
     });
+  });
+
+  deckLists.forEach((entry) => {
+    const commander = (entry?.commander || '').trim();
+    if (commander) {
+      commanders.push(commander);
+    }
   });
 
   knownPlayers = getUniqueValues(players);
@@ -657,6 +687,134 @@ function updateFormDatalists(games) {
   }
 
   refreshRowSelectors();
+  populateDeckCommanderSelector();
+}
+
+function normalizeDeckListEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const commander = String(entry.commander || '').trim();
+  const url = String(entry.url || '').trim();
+  if (!commander || !url) {
+    return null;
+  }
+
+  return {
+    id: entry.id || generateId(),
+    commander,
+    url,
+  };
+}
+
+function populateDeckCommanderSelector() {
+  if (!deckCommanderMenu) {
+    return;
+  }
+  buildDropdownMenu(deckCommanderMenu, knownCommanders);
+}
+
+function resetDeckListForm() {
+  if (!deckListForm) {
+    return;
+  }
+
+  editingDeckListId = null;
+  deckListForm.reset();
+  if (deckListSubmitButton) {
+    deckListSubmitButton.textContent = 'Add deck list';
+  }
+  if (deckListCancelButton) {
+    deckListCancelButton.hidden = true;
+  }
+}
+
+function startDeckListEdit(deckId) {
+  if (!deckListForm) {
+    return;
+  }
+
+  const entry = loadDeckLists().find((deck) => deck.id === deckId);
+  if (!entry) {
+    return;
+  }
+
+  editingDeckListId = entry.id;
+  deckCommanderInput.value = entry.commander;
+  deckUrlInput.value = entry.url;
+
+  if (deckListSubmitButton) {
+    deckListSubmitButton.textContent = 'Save deck list';
+  }
+  if (deckListCancelButton) {
+    deckListCancelButton.hidden = false;
+  }
+}
+
+function deleteDeckList(deckId) {
+  const remaining = loadDeckLists().filter((deck) => deck.id !== deckId);
+  saveDeckLists(remaining);
+
+  if (editingDeckListId === deckId) {
+    resetDeckListForm();
+  }
+
+  refresh();
+}
+
+function renderDeckLists() {
+  if (!deckListTableBody) {
+    return;
+  }
+
+  const deckLists = loadDeckLists()
+    .map(normalizeDeckListEntry)
+    .filter(Boolean)
+    .sort((a, b) => a.commander.localeCompare(b.commander));
+
+  if (!deckLists.length) {
+    deckListTableBody.innerHTML = '<tr><td colspan="3">No deck lists saved yet.</td></tr>';
+    return;
+  }
+
+  deckListTableBody.innerHTML = deckLists
+    .map((entry) => {
+      const safeUrl = escapeHtml(entry.url);
+      return `
+        <tr>
+          <td>${escapeHtml(entry.commander)}</td>
+          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a></td>
+          <td>
+            <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}">Edit</button>
+            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}">Delete</button>
+          </td>
+        </tr>`;
+    })
+    .join('');
+}
+
+function handleDeckListTableAction(event) {
+  const button = event.target.closest('button');
+  if (!button || !deckListTableBody.contains(button)) {
+    return;
+  }
+
+  const deckId = button.dataset.id;
+  if (!deckId) {
+    return;
+  }
+
+  if (button.classList.contains('deck-list-edit')) {
+    startDeckListEdit(deckId);
+    return;
+  }
+
+  if (button.classList.contains('deck-list-delete')) {
+    if (confirm('Delete this deck list?')) {
+      deleteDeckList(deckId);
+    }
+  }
 }
 
 function getGameWinner(game) {
@@ -1352,6 +1510,7 @@ function refresh() {
   updateHistoryFilters(games);
   renderHistory(games);
   renderCommanderStats(games);
+  renderDeckLists();
 }
 
 function resetForm() {
@@ -1478,6 +1637,111 @@ if (commanderStatsTableBody) {
   commanderStatsTableBody.addEventListener('change', handleCommanderExpectedInput);
 }
 
+if (deckListTableBody) {
+  deckListTableBody.addEventListener('click', handleDeckListTableAction);
+}
+
+if (deckCommanderDropdownButton && deckCommanderMenu && deckCommanderInput) {
+  deckCommanderDropdownButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    document.querySelectorAll('.dropdown-menu.active').forEach((menu) => {
+      if (menu !== deckCommanderMenu) {
+        menu.classList.remove('active');
+      }
+    });
+    deckCommanderMenu.classList.toggle('active');
+    updateDropdownLayeringState();
+  });
+
+  deckCommanderMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('.dropdown-item');
+    if (!item) {
+      return;
+    }
+    deckCommanderInput.value = item.dataset.value || '';
+    deckCommanderMenu.classList.remove('active');
+    updateDropdownLayeringState();
+  });
+}
+
+if (deckListCancelButton) {
+  deckListCancelButton.addEventListener('click', () => {
+    resetDeckListForm();
+  });
+}
+
+if (deckListForm && deckCommanderInput && deckUrlInput) {
+  deckListForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const commander = deckCommanderInput.value.trim();
+    const url = deckUrlInput.value.trim();
+
+    if (!commander) {
+      alert('Please choose or enter a commander.');
+      return;
+    }
+
+    if (!url) {
+      alert('Please enter a deck URL.');
+      return;
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch (error) {
+      alert('Please enter a valid URL (include https://).');
+      return;
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      alert('Deck URL must use http or https.');
+      return;
+    }
+
+    const deckLists = loadDeckLists()
+      .map(normalizeDeckListEntry)
+      .filter(Boolean);
+
+    const normalizedUrl = parsedUrl.toString();
+    const normalizedCommander = commander.toLowerCase();
+    const duplicateCommanderIndex = deckLists.findIndex((entry) => {
+      if (editingDeckListId && entry.id === editingDeckListId) {
+        return false;
+      }
+      return entry.commander.toLowerCase() === normalizedCommander;
+    });
+
+    if (editingDeckListId) {
+      const index = deckLists.findIndex((entry) => entry.id === editingDeckListId);
+      if (index >= 0) {
+        deckLists[index] = { id: editingDeckListId, commander, url: normalizedUrl };
+      } else {
+        deckLists.push({ id: generateId(), commander, url: normalizedUrl });
+      }
+
+      if (duplicateCommanderIndex >= 0) {
+        deckLists.splice(duplicateCommanderIndex, 1);
+      }
+    } else {
+      if (duplicateCommanderIndex >= 0) {
+        deckLists[duplicateCommanderIndex] = {
+          ...deckLists[duplicateCommanderIndex],
+          commander,
+          url: normalizedUrl,
+        };
+      } else {
+        deckLists.push({ id: generateId(), commander, url: normalizedUrl });
+      }
+    }
+
+    saveDeckLists(deckLists);
+    resetDeckListForm();
+    refresh();
+  });
+}
+
 const commanderStatsTable = document.querySelector('.commander-stats-table');
 if (commanderStatsTable) {
   commanderStatsTable.addEventListener('click', handleCommanderHeaderClick);
@@ -1486,7 +1750,7 @@ if (commanderStatsTable) {
 updateHistorySortOrderLabel();
 
 window.addEventListener('storage', (event) => {
-  if (event.key === STORAGE_KEY || event.key === EXPECTED_POWER_STORAGE_KEY) {
+  if (event.key === STORAGE_KEY || event.key === EXPECTED_POWER_STORAGE_KEY || event.key === DECK_LIST_STORAGE_KEY) {
     appState = loadLocalState();
     refresh();
   }
