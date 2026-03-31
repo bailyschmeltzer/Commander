@@ -1,4 +1,8 @@
 const STORAGE_KEY = 'commanderTrackerGames';
+const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
+const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
+const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
+const CLOUD_SYNC_ENDPOINT = '/api/state';
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -17,6 +21,12 @@ const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const clearAllButton = document.getElementById('clear-all');
 const removePlayerRowButton = document.getElementById('remove-player-row');
+const syncUserInput = document.getElementById('sync-user');
+const syncTokenInput = document.getElementById('sync-token');
+const syncConnectButton = document.getElementById('sync-connect');
+const syncDisconnectButton = document.getElementById('sync-disconnect');
+const syncNowButton = document.getElementById('sync-now');
+const syncStatus = document.getElementById('sync-status');
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -24,6 +34,145 @@ let knownPlayers = [];
 let knownCommanders = [];
 let commanderSortColumn = 'games';
 let commanderSortDescending = true;
+let appState = { games: [], powerLevels: {} };
+let syncQueueTimer = null;
+let syncInFlight = false;
+
+function parseJsonSafe(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function loadLocalState() {
+  const games = parseJsonSafe(localStorage.getItem(STORAGE_KEY) || '[]', []);
+  const powerLevels = parseJsonSafe(localStorage.getItem(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
+  return {
+    games: Array.isArray(games) ? games : [],
+    powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
+  };
+}
+
+function persistLocalState(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.games || []));
+  localStorage.setItem(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
+}
+
+function getSyncCredentials() {
+  return {
+    user: (localStorage.getItem(SYNC_USER_STORAGE_KEY) || '').trim(),
+    token: (localStorage.getItem(SYNC_TOKEN_STORAGE_KEY) || '').trim(),
+  };
+}
+
+function hasSyncCredentials() {
+  const credentials = getSyncCredentials();
+  return Boolean(credentials.user && credentials.token);
+}
+
+function setSyncStatus(message, tone = 'neutral') {
+  if (!syncStatus) {
+    return;
+  }
+
+  syncStatus.textContent = message;
+  syncStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
+  syncStatus.classList.add(`status-${tone}`);
+}
+
+function updateSyncControls() {
+  if (!syncUserInput || !syncTokenInput) {
+    return;
+  }
+
+  const hasCredentials = hasSyncCredentials();
+  if (syncDisconnectButton) {
+    syncDisconnectButton.disabled = !hasCredentials;
+  }
+  if (syncNowButton) {
+    syncNowButton.disabled = !hasCredentials;
+  }
+}
+
+async function cloudRequest(path, options = {}) {
+  const credentials = getSyncCredentials();
+  if (!credentials.user || !credentials.token) {
+    throw new Error('Missing sync credentials');
+  }
+
+  const headers = new Headers(options.headers || {});
+  headers.set('Content-Type', 'application/json');
+  headers.set('X-User-Name', credentials.user);
+  headers.set('X-Pod-Token', credentials.token);
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body && body.error) {
+        message = body.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+async function pullCloudState() {
+  const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
+  const games = Array.isArray(payload.games) ? payload.games : [];
+  const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
+  appState = { games, powerLevels };
+  persistLocalState(appState);
+  refresh();
+}
+
+async function pushCloudState() {
+  if (!hasSyncCredentials() || syncInFlight) {
+    return;
+  }
+
+  syncInFlight = true;
+  try {
+    await cloudRequest(CLOUD_SYNC_ENDPOINT, {
+      method: 'PUT',
+      body: JSON.stringify({
+        games: appState.games,
+        powerLevels: appState.powerLevels,
+      }),
+    });
+    setSyncStatus('Synced to cloud.', 'success');
+  } catch (error) {
+    setSyncStatus(`Sync failed: ${error.message}`, 'error');
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+function queueCloudSync(delay = 500) {
+  if (!hasSyncCredentials()) {
+    return;
+  }
+
+  if (syncQueueTimer) {
+    clearTimeout(syncQueueTimer);
+  }
+
+  syncQueueTimer = setTimeout(() => {
+    syncQueueTimer = null;
+    pushCloudState();
+  }, delay);
+}
 
 function generateId() {
   return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -34,29 +183,27 @@ function getQueryParam(name) {
 }
 
 function loadGames() {
-  try {
-    const games = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    let updated = false;
+  const games = Array.isArray(appState.games) ? appState.games : [];
+  let updated = false;
 
-    games.forEach((game) => {
-      if (!game.id) {
-        game.id = generateId();
-        updated = true;
-      }
-    });
-
-    if (updated) {
-      saveGames(games);
+  games.forEach((game) => {
+    if (!game.id) {
+      game.id = generateId();
+      updated = true;
     }
+  });
 
-    return games;
-  } catch (error) {
-    return [];
+  if (updated) {
+    saveGames(games);
   }
+
+  return games;
 }
 
 function saveGames(games) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(games));
+  appState.games = Array.isArray(games) ? games : [];
+  persistLocalState(appState);
+  queueCloudSync();
 }
 
 function normalizeList(value) {
@@ -211,15 +358,13 @@ function getCommanderConfidence(games) {
 }
 
 function loadCommanderPowerLevels() {
-  try {
-    return JSON.parse(localStorage.getItem('commanderExpectedPowerLevels') || '{}');
-  } catch (error) {
-    return {};
-  }
+  return appState.powerLevels && typeof appState.powerLevels === 'object' ? appState.powerLevels : {};
 }
 
 function saveCommanderPowerLevels(levels) {
-  localStorage.setItem('commanderExpectedPowerLevels', JSON.stringify(levels));
+  appState.powerLevels = levels && typeof levels === 'object' ? levels : {};
+  persistLocalState(appState);
+  queueCloudSync();
 }
 
 function setCommanderExpectedPower(commander, value) {
@@ -1266,7 +1411,7 @@ if (form) {
 if (clearAllButton) {
   clearAllButton.addEventListener('click', () => {
     if (confirm('Remove all saved games? This cannot be undone.')) {
-      localStorage.removeItem(STORAGE_KEY);
+      saveGames([]);
       refresh();
     }
   });
@@ -1322,19 +1467,96 @@ if (commanderStatsTable) {
 updateHistorySortOrderLabel();
 
 window.addEventListener('storage', (event) => {
-  if (event.key === STORAGE_KEY) {
+  if (event.key === STORAGE_KEY || event.key === EXPECTED_POWER_STORAGE_KEY) {
+    appState = loadLocalState();
     refresh();
   }
 });
 
-if (form) {
-  resetForm();
-  const editId = getQueryParam('editId');
-  if (editId) {
-    const game = getGameById(editId);
-    if (game) {
-      setEditMode(game);
-    }
+function setupSyncUi() {
+  if (!syncUserInput || !syncTokenInput) {
+    return;
+  }
+
+  const credentials = getSyncCredentials();
+  syncUserInput.value = credentials.user;
+  syncTokenInput.value = credentials.token;
+  updateSyncControls();
+
+  if (!credentials.user || !credentials.token) {
+    setSyncStatus('Cloud sync not connected. Data remains local until you connect.', 'muted');
+  } else {
+    setSyncStatus('Cloud sync configured. Pulling latest state...', 'neutral');
+  }
+
+  if (syncConnectButton) {
+    syncConnectButton.addEventListener('click', async () => {
+      const user = syncUserInput.value.trim();
+      const token = syncTokenInput.value.trim();
+
+      if (!user || !token) {
+        setSyncStatus('Enter both display name and pod access code.', 'error');
+        return;
+      }
+
+      localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
+      localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
+      updateSyncControls();
+      setSyncStatus('Connecting to cloud...', 'neutral');
+
+      try {
+        await pullCloudState();
+        setSyncStatus(`Connected as ${user}.`, 'success');
+      } catch (error) {
+        setSyncStatus(`Connection failed: ${error.message}`, 'error');
+      }
+    });
+  }
+
+  if (syncDisconnectButton) {
+    syncDisconnectButton.addEventListener('click', () => {
+      localStorage.removeItem(SYNC_USER_STORAGE_KEY);
+      localStorage.removeItem(SYNC_TOKEN_STORAGE_KEY);
+      syncUserInput.value = '';
+      syncTokenInput.value = '';
+      updateSyncControls();
+      setSyncStatus('Cloud sync disconnected. Local mode active.', 'muted');
+    });
+  }
+
+  if (syncNowButton) {
+    syncNowButton.addEventListener('click', async () => {
+      setSyncStatus('Syncing now...', 'neutral');
+      await pushCloudState();
+    });
   }
 }
-refresh();
+
+async function initializeApp() {
+  appState = loadLocalState();
+  setupSyncUi();
+
+  if (hasSyncCredentials()) {
+    try {
+      await pullCloudState();
+      setSyncStatus('Cloud data loaded.', 'success');
+    } catch (error) {
+      setSyncStatus(`Using local cache: ${error.message}`, 'error');
+    }
+  }
+
+  if (form) {
+    resetForm();
+    const editId = getQueryParam('editId');
+    if (editId) {
+      const game = getGameById(editId);
+      if (game) {
+        setEditMode(game);
+      }
+    }
+  }
+
+  refresh();
+}
+
+initializeApp();

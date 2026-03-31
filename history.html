@@ -10,7 +10,17 @@
     <div class="app-shell">
       <header>
         <h1>Full Game History</h1>
-        <p>All entered games will be shown here once this page is built.</p>
+        <p>All entered games for your shared pod.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
       </header>
       <main>
         <section class="card">

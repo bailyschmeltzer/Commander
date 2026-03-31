@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "commander",
+  "main": "worker.js",
   "compatibility_date": "2025-09-27",
   "observability": {
     "enabled": true
@@ -8,6 +9,15 @@
   "assets": {
     "directory": "."
   },
+  "vars": {
+    "POD_ACCESS_TOKEN": "commander"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "POD_STATE",
+      "id": "3292e706d8ec4f09b11b914ce4512a6f"
+    }
+  ],
   "compatibility_flags": [
     "nodejs_compat"
   ]
