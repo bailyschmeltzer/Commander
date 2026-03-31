@@ -105,14 +105,14 @@ function addPlayerRow(data = {}) {
 
 function removePlayerRow() {
   const rows = playerTableBody.querySelectorAll('tr');
-  if (rows.length > 1) {
+  if (rows.length > 2) {
     rows[rows.length - 1].remove();
   }
 }
 
 function resetPlayerTable() {
   playerTableBody.innerHTML = '';
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     addPlayerRow();
   }
 }
