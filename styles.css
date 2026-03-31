@@ -251,13 +251,74 @@ textarea:focus {
   vertical-align: top;
 }
 
-.lookup-field-cell .lookup-selector {
-  margin-bottom: 8px;
+.combined-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.lookup-field-cell .lookup-selector,
-.lookup-field-cell .lookup-input {
+.combined-input-wrapper .lookup-input {
+  flex: 1;
+}
+
+.dropdown-button {
+  padding: 8px 10px;
+  margin-left: 4px;
   background-color: #f8f9fd;
+  border: 1px solid #cfd6e4;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.dropdown-button:hover {
+  background-color: #eef0f9;
+  border-color: #b8c5d6;
+}
+
+.dropdown-button:active {
+  background-color: #e0e5f0;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #cfd6e4;
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-menu.active {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #1c1f2a;
+  transition: background-color 0.1s ease;
+}
+
+.dropdown-item:hover {
+  background-color: #f0f3ff;
+}
+
+.dropdown-item:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.dropdown-item:last-child {
+  border-radius: 0 0 6px 6px;
 }
 textarea {
   resize: vertical;

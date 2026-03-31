@@ -73,12 +73,18 @@ function createPlayerRow(data = {}) {
 
   row.innerHTML = `
     <td class="lookup-field-cell">
-      <select class="player-selector lookup-selector"></select>
-      <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
+      <div class="combined-input-wrapper">
+        <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
+        <button type="button" class="dropdown-button player-dropdown-button" title="Show options">▼</button>
+        <div class="dropdown-menu player-dropdown-menu"></div>
+      </div>
     </td>
     <td class="lookup-field-cell">
-      <select class="commander-selector lookup-selector"></select>
-      <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
+      <div class="combined-input-wrapper">
+        <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
+        <button type="button" class="dropdown-button commander-dropdown-button" title="Show options">▼</button>
+        <div class="dropdown-menu commander-dropdown-menu"></div>
+      </div>
     </td>
     <td><input type="number" name="place" min="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
     <td><input type="number" name="kills" min="0" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
@@ -86,6 +92,7 @@ function createPlayerRow(data = {}) {
   `;
 
   populateRowSelectors(row);
+  attachDropdownHandlers(row);
   return row;
 }
 
@@ -331,43 +338,73 @@ function populateRowSelectors(row) {
     return;
   }
 
-  const playerSelect = row.querySelector('.player-selector');
-  const commanderSelect = row.querySelector('.commander-selector');
-  const playerInput = row.querySelector('input[name="player"]');
-  const commanderInput = row.querySelector('input[name="commander"]');
+  const playerMenu = row.querySelector('.player-dropdown-menu');
+  const commanderMenu = row.querySelector('.commander-dropdown-menu');
 
-  if (playerSelect) {
-    const playerValue = (playerInput && playerInput.value) ? playerInput.value.trim() : '';
-    buildSelectOptions(playerSelect, knownPlayers, playerValue, 'Choose existing player');
+  if (playerMenu) {
+    buildDropdownMenu(playerMenu, knownPlayers);
   }
 
-  if (commanderSelect) {
-    const commanderValue = (commanderInput && commanderInput.value) ? commanderInput.value.trim() : '';
-    buildSelectOptions(commanderSelect, knownCommanders, commanderValue, 'Choose existing commander');
+  if (commanderMenu) {
+    buildDropdownMenu(commanderMenu, knownCommanders);
   }
 }
 
-function syncRowSelectors(row) {
+function buildDropdownMenu(menuElement, values) {
+  if (!menuElement) {
+    return;
+  }
+  
+  const normalized = getUniqueValues(values);
+  menuElement.innerHTML = normalized
+    .map((value) => `<div class="dropdown-item" data-value="${escapeHtml(value)}">${escapeHtml(value)}</div>`)
+    .join('');
+}
+
+function attachDropdownHandlers(row) {
   if (!row) {
     return;
   }
 
-  ['player', 'commander'].forEach((name) => {
-    const input = row.querySelector(`input[name="${name}"]`);
-    const selector = row.querySelector(`.${name}-selector`);
-    if (!input || !selector) {
-      return;
-    }
+  row.querySelectorAll('.dropdown-button').forEach((button) => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const wrapper = button.closest('.combined-input-wrapper');
+      const menu = wrapper.querySelector('.dropdown-menu');
+      
+      // Close all other menus
+      document.querySelectorAll('.dropdown-menu').forEach((m) => {
+        if (m !== menu) m.classList.remove('active');
+      });
+      
+      menu.classList.toggle('active');
+    });
+  });
 
-    const value = input.value.trim();
-    const hasOption = Array.from(selector.options).some((option) => option.value === value);
-    selector.value = hasOption ? value : '';
+  row.querySelectorAll('.dropdown-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      const value = item.dataset.value;
+      const wrapper = item.closest('.combined-input-wrapper');
+      const input = wrapper.querySelector('input[name]');
+      const menu = wrapper.querySelector('.dropdown-menu');
+      
+      input.value = value;
+      menu.classList.remove('active');
+    });
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.combined-input-wrapper')) {
+      document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.remove('active'));
+    }
   });
 }
 
 function refreshRowSelectors() {
   Array.from(document.querySelectorAll('tr')).forEach((row) => {
     populateRowSelectors(row);
+    attachDropdownHandlers(row);
   });
 }
 
@@ -903,24 +940,6 @@ if (addPlayerRowButton) {
 }
 
 if (playerTableBody) {
-  playerTableBody.addEventListener('change', (event) => {
-    const selector = event.target.closest('.player-selector, .commander-selector');
-    if (!selector) {
-      return;
-    }
-
-    const row = selector.closest('tr');
-    if (!row) {
-      return;
-    }
-
-    const inputName = selector.classList.contains('player-selector') ? 'player' : 'commander';
-    const input = row.querySelector(`input[name="${inputName}"]`);
-    if (input) {
-      input.value = selector.value;
-    }
-  });
-
   playerTableBody.addEventListener('input', (event) => {
     const input = event.target.closest('input[name="player"], input[name="commander"]');
     if (!input) {
@@ -932,7 +951,8 @@ if (playerTableBody) {
       return;
     }
 
-    syncRowSelectors(row);
+    // Update dropdown menus as user types
+    populateRowSelectors(row);
   });
 }
 
