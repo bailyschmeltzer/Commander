@@ -1252,6 +1252,25 @@ button[type="submit"] {
   cursor: pointer;
 }
 
+.live-player-life-button-standard {
+  font: inherit;
+  color: inherit;
+  line-height: 1;
+}
+
+.live-quick-actions-standard {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.live-player-meta-standard {
+  gap: 10px;
+}
+
+.live-player-damage-inline {
+  display: grid;
+  gap: 6px;
+}
+
 .live-player-toggle-compact {
   display: grid;
   justify-items: center;

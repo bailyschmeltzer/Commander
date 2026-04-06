@@ -795,24 +795,65 @@ function renderLivePlayerGrid() {
     return;
   }
 
-  const playersToRender = isLiveMobileTableMode() ? getActiveAlivePlayers(activeGameState) : activeGameState.players;
+  const isMobileTable = isLiveMobileTableMode();
+  const playersToRender = isMobileTable ? getActiveAlivePlayers(activeGameState) : activeGameState.players;
 
   livePlayerGrid.innerHTML = playersToRender
     .slice()
     .sort((a, b) => a.seat - b.seat)
     .map((player) => {
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
+      const damageListMarkup = `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`;
       const damageMarkup = damageEntries.length
         ? `
             <div class="live-player-damage-panel has-damage">
               <div class="live-player-damage-title">Cmdr Dmg</div>
-              <ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>
+              ${damageListMarkup}
+            </div>`
+        : '';
+      const desktopDamageMarkup = damageEntries.length
+        ? `
+            <div class="live-player-damage-inline">
+              <div>Commander damage received:</div>
+              ${damageListMarkup}
             </div>`
         : '';
       const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
         ? '<span class="live-first-player-indicator">First</span>'
         : '';
       const seatOrientation = ((player.seat - 1) % 4) + 1;
+
+      if (!isMobileTable) {
+        return `
+          <article class="live-player-card${player.eliminatedAt ? ' is-eliminated' : ''}">
+            <div class="live-player-card-header">
+              <div>
+                <h3>${escapeHtml(player.name)}</h3>
+                <p>${escapeHtml(player.commander || 'No commander')}</p>
+              </div>
+              <div class="live-player-header-badges">
+                ${firstPlayerMarkup}
+              </div>
+            </div>
+            <div class="live-player-life">
+              <button type="button" class="live-player-life-button live-player-life-button-standard" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}">${player.life}</button>
+            </div>
+            <div class="live-quick-actions live-quick-actions-standard">
+              <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
+              <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
+              <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
+              <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
+              <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
+            </div>
+            <div class="live-player-meta live-player-meta-standard">
+              <label class="live-player-toggle">
+                <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
+                <span>Cannot lose the game</span>
+              </label>
+              ${desktopDamageMarkup}
+            </div>
+          </article>`;
+      }
 
       return `
         <article class="live-player-card live-seat-${seatOrientation}${player.eliminatedAt ? ' is-eliminated' : ''}">
