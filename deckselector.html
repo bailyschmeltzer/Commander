@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Player Stats</title>
+    <title>Deck Selector</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="page-player-stats">
+  <body class="page-deck-selector">
     <div class="app-shell">
       <header>
-        <h1>Player Stats</h1>
-        <p>Player performance aggregated from your stored commander games.</p>
+        <h1>Deck Selector</h1>
+        <p>Pick players, randomize one owned deck for each, and reroll until the pod is ready.</p>
         <div class="sync-panel">
           <div class="sync-row">
             <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
@@ -23,47 +23,30 @@
         </div>
         <div class="page-switch">
           <a href="index.html" class="page-link">Game Tracker</a>
+          <a href="player.html" class="page-link">Player Stats</a>
           <a href="commander.html" class="page-link">Commander Stats</a>
           <a href="history.html" class="page-link">Full History</a>
           <a href="decklists.html" class="page-link">Deck Lists</a>
-          <a href="deckselector.html" class="page-link">Deck Selector</a>
           <a href="records.html" class="page-link">Pod Records</a>
         </div>
       </header>
 
       <main>
         <section class="card">
-          <h2>Player leaderboard</h2>
-          <div class="player-table-wrapper">
-            <table class="player-table player-stats-table">
-              <colgroup>
-                <col style="width: 16%;" />
-                <col style="width: 6%;" />
-                <col style="width: 8%;" />
-                <col style="width: 8%;" />
-                <col style="width: 10%;" />
-                <col style="width: 10%;" />
-                <col style="width: 10%;" />
-                <col style="width: 8%;" />
-                <col style="width: 8%;" />
-                <col style="width: 16%;" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Games</th>
-                  <th>Wins</th>
-                  <th>Win Rate</th>
-                  <th>Favorite Commander</th>
-                  <th>Nemesis</th>
-                  <th>Victim</th>
-                  <th>Total Kills</th>
-                  <th>K/D</th>
-                  <th>Best Deck</th>
-                </tr>
-              </thead>
-              <tbody id="player-stats-body"></tbody>
-            </table>
+          <h2>Select Players</h2>
+          <form id="deck-selector-form" class="deck-selector-form">
+            <div id="deck-selector-owner-list" class="deck-selector-grid"></div>
+            <div class="actions">
+              <button type="submit">Randomize decks</button>
+              <button type="button" id="deck-selector-reroll" class="secondary-button" hidden>Re-randomize</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Selected Decks</h2>
+          <div id="deck-selector-results" class="deck-selector-results">
+            <p>Select players and click Randomize decks.</p>
           </div>
         </section>
       </main>

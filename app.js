@@ -34,6 +34,10 @@ const deckListCancelButton = document.getElementById('deck-list-cancel');
 const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
 const deckLookupSelect = document.getElementById('deck-lookup-commander');
 const deckLookupResult = document.getElementById('deck-lookup-result');
+const deckSelectorForm = document.getElementById('deck-selector-form');
+const deckSelectorOwnerList = document.getElementById('deck-selector-owner-list');
+const deckSelectorResults = document.getElementById('deck-selector-results');
+const deckSelectorRerollButton = document.getElementById('deck-selector-reroll');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -899,6 +903,10 @@ function updateFormDatalists(games) {
 
   deckLists.forEach((entry) => {
     const commander = (entry?.commander || '').trim();
+    const owner = (entry?.owner || '').trim();
+    if (owner) {
+      players.push(owner);
+    }
     if (commander) {
       commanders.push(commander);
     }
@@ -1025,6 +1033,110 @@ function renderDeckLookup() {
     <p>Owner: ${safeOwner}</p>
     <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${safeUrl}</a>
   `;
+}
+
+function getDeckOwnerGroups() {
+  return getSortedDeckLists().reduce((groups, entry) => {
+    const owner = (entry.owner || '').trim();
+    if (!owner) {
+      return groups;
+    }
+
+    if (!groups[owner]) {
+      groups[owner] = [];
+    }
+
+    groups[owner].push(entry);
+    return groups;
+  }, {});
+}
+
+function getSelectedDeckSelectorOwners() {
+  if (!deckSelectorOwnerList) {
+    return [];
+  }
+
+  return Array.from(deckSelectorOwnerList.querySelectorAll('input[name="deck-selector-owner"]:checked'))
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+
+function chooseRandomDeck(deckOptions) {
+  if (!Array.isArray(deckOptions) || !deckOptions.length) {
+    return null;
+  }
+
+  const index = Math.floor(Math.random() * deckOptions.length);
+  return deckOptions[index] || null;
+}
+
+function renderDeckSelectorAssignments(selectedOwners) {
+  if (!deckSelectorResults || !deckSelectorRerollButton) {
+    return;
+  }
+
+  if (!selectedOwners.length) {
+    deckSelectorResults.innerHTML = '<p>Select at least one player to randomize decks.</p>';
+    deckSelectorRerollButton.hidden = true;
+    return;
+  }
+
+  const ownerGroups = getDeckOwnerGroups();
+  const assignments = selectedOwners
+    .map((owner) => ({ owner, deck: chooseRandomDeck(ownerGroups[owner] || []) }))
+    .filter(({ deck }) => deck);
+
+  if (!assignments.length) {
+    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    deckSelectorRerollButton.hidden = true;
+    return;
+  }
+
+  deckSelectorResults.innerHTML = assignments
+    .map(({ owner, deck }) => {
+      const safeOwner = escapeHtml(owner);
+      const safeCommander = escapeHtml(deck.commander);
+      const safeUrl = escapeHtml(deck.url);
+      return `
+        <article class="deck-selector-card">
+          <p class="deck-selector-owner">${safeOwner}</p>
+          <h3>${safeCommander}</h3>
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
+        </article>`;
+    })
+    .join('');
+
+  deckSelectorRerollButton.hidden = false;
+}
+
+function renderDeckSelector() {
+  if (!deckSelectorOwnerList || !deckSelectorResults || !deckSelectorRerollButton) {
+    return;
+  }
+
+  const selectedOwners = new Set(getSelectedDeckSelectorOwners());
+  const ownerGroups = getDeckOwnerGroups();
+  const owners = Object.keys(ownerGroups).sort((a, b) => a.localeCompare(b));
+
+  if (!owners.length) {
+    deckSelectorOwnerList.innerHTML = '<p>No owned decks available yet. Add deck owners in Deck Lists first.</p>';
+    deckSelectorResults.innerHTML = '<p>Add deck owners in Deck Lists to start randomizing decks.</p>';
+    deckSelectorRerollButton.hidden = true;
+    return;
+  }
+
+  deckSelectorOwnerList.innerHTML = owners
+    .map((owner) => `
+      <label class="deck-selector-option">
+        <input type="checkbox" name="deck-selector-owner" value="${escapeHtml(owner)}"${selectedOwners.has(owner) ? ' checked' : ''} />
+        <span>${escapeHtml(owner)}</span>
+      </label>`)
+    .join('');
+
+  if (!deckSelectorResults.dataset.initialized) {
+    deckSelectorResults.innerHTML = '<p>Select players and click Randomize decks.</p>';
+    deckSelectorResults.dataset.initialized = 'true';
+  }
 }
 
 function resetDeckListForm() {
@@ -1920,6 +2032,7 @@ function refresh() {
   renderCommanderStats(games);
   renderDeckLookup();
   renderDeckLists();
+  renderDeckSelector();
   renderRecords();
   applyResponsiveTableLabels();
 }
@@ -2135,6 +2248,19 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     saveDeckLists(deckLists);
     resetDeckListForm();
     refresh();
+  });
+}
+
+if (deckSelectorForm) {
+  deckSelectorForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    renderDeckSelectorAssignments(getSelectedDeckSelectorOwners());
+  });
+}
+
+if (deckSelectorRerollButton) {
+  deckSelectorRerollButton.addEventListener('click', () => {
+    renderDeckSelectorAssignments(getSelectedDeckSelectorOwners());
   });
 }
 

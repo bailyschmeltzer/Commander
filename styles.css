@@ -878,6 +878,65 @@ button[type="submit"] {
   color: #fff;
 }
 
+.deck-selector-form {
+  display: grid;
+  gap: 16px;
+}
+
+.deck-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.deck-selector-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dbe2f1;
+  border-radius: 14px;
+  background: #fbfcff;
+  cursor: pointer;
+}
+
+.deck-selector-option input {
+  width: auto;
+  min-width: auto;
+  margin: 0;
+}
+
+.deck-selector-option span {
+  font-weight: 600;
+}
+
+.deck-selector-results {
+  display: grid;
+  gap: 12px;
+}
+
+.deck-selector-card {
+  border: 1px solid #e4e8f2;
+  border-radius: 16px;
+  padding: 16px;
+  background: #fbfcff;
+}
+
+.deck-selector-card h3 {
+  margin: 6px 0 10px;
+}
+
+.deck-selector-owner {
+  margin: 0;
+  color: #44507e;
+  font-weight: 700;
+}
+
+.deck-selector-card a {
+  color: #2c3a72;
+  text-decoration: underline;
+}
+
 .sortable-header {
   cursor: pointer;
   user-select: none;
@@ -1077,7 +1136,8 @@ button[type="submit"] {
 
   .page-game-tracker #game-form,
   .page-records #custom-record-form,
-  .page-decklists #deck-list-form {
+  .page-decklists #deck-list-form,
+  .page-deck-selector #deck-selector-form {
     display: grid;
     gap: 12px;
   }
@@ -1086,6 +1146,10 @@ button[type="submit"] {
   .page-records #custom-record-form .field,
   .page-decklists #deck-list-form .field {
     margin-bottom: 0;
+  }
+
+  .page-deck-selector .deck-selector-grid {
+    grid-template-columns: 1fr;
   }
 
   .page-game-tracker #game-form .player-table,
