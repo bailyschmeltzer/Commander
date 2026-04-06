@@ -1005,7 +1005,6 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
     return;
   }
 
-  const eventTurnNumber = syncActiveGameTurnFromInput();
   const sourcePlayerId = await resolveLiveSourceSelection({
     targetPlayerId,
     eventType: 'commander-damage',
