@@ -347,6 +347,7 @@ function loadGames() {
 
 function saveGames(games) {
   appState.games = Array.isArray(games) ? games : [];
+  appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
   persistLocalState(appState);
   queueCloudSync();
 }
@@ -1013,6 +1014,100 @@ function buildActiveGameSummary(gameState) {
   ].filter(Boolean).join(' · ');
 }
 
+function buildLiveGameRecordStats(gameState, finalPlayers, durationMinutes) {
+  const playersById = new Map((gameState.players || []).map((player) => [player.id, player]));
+  const runningLifeTotals = new Map((gameState.players || []).map((player) => [player.id, player.startingLife]));
+  const commanderDamageByActor = new Map();
+  let highestSingleHit = null;
+  let highestLifeLossHit = null;
+  let highestLifeTotal = null;
+  let fastestElimination = null;
+
+  const createLiveCandidate = (value, holderId, notes = '') => createRecordCandidate({
+    value,
+    holder: holderId ? getPlayerNameById(holderId, gameState) : '',
+    commander: holderId ? playersById.get(holderId)?.commander || '' : '',
+    date: gameState.date,
+    notes,
+  });
+
+  (gameState.players || []).forEach((player) => {
+    const candidate = createLiveCandidate(player.startingLife, player.id, 'Starting life total.');
+    highestLifeTotal = chooseBetterRecordCandidate(highestLifeTotal, candidate, 'highest-life-total');
+  });
+
+  (gameState.events || []).forEach((event) => {
+    const targetId = event.targetPlayerId || '';
+    const actorId = event.actorPlayerId || '';
+    const amount = typeof event.amount === 'number' ? event.amount : Number.parseFloat(event.amount || '0');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+
+    if ((event.type === 'life-loss' || event.type === 'commander-damage') && actorId) {
+      const targetName = targetId ? getPlayerNameById(targetId, gameState) : 'Unknown player';
+      const notes = `Hit ${targetName}${event.type === 'commander-damage' ? ' with commander damage' : ''}.`;
+      highestSingleHit = chooseBetterRecordCandidate(highestSingleHit, createLiveCandidate(amount, actorId, notes), 'highest-damage-dealt');
+    }
+
+    if (event.type === 'life-loss' && actorId) {
+      const targetName = targetId ? getPlayerNameById(targetId, gameState) : 'Unknown player';
+      highestLifeLossHit = chooseBetterRecordCandidate(highestLifeLossHit, createLiveCandidate(amount, actorId, `Hit ${targetName} to life.`), 'highest-hit-to-life');
+    }
+
+    if (event.type === 'commander-damage' && actorId) {
+      commanderDamageByActor.set(actorId, (commanderDamageByActor.get(actorId) || 0) + amount);
+    }
+
+    if (targetId && runningLifeTotals.has(targetId)) {
+      const currentLife = runningLifeTotals.get(targetId) || 0;
+      const updatedLife = event.type === 'life-gain'
+        ? currentLife + amount
+        : (event.type === 'life-loss' || event.type === 'commander-damage')
+          ? currentLife - amount
+          : currentLife;
+      runningLifeTotals.set(targetId, updatedLife);
+
+      const lifeCandidate = createLiveCandidate(updatedLife, targetId, 'Highest life reached in a live game.');
+      highestLifeTotal = chooseBetterRecordCandidate(highestLifeTotal, lifeCandidate, 'highest-life-total');
+    }
+  });
+
+  let mostCommanderDamage = null;
+  commanderDamageByActor.forEach((totalDamage, actorId) => {
+    mostCommanderDamage = chooseBetterRecordCandidate(
+      mostCommanderDamage,
+      createLiveCandidate(totalDamage, actorId, 'Total commander damage dealt in one live game.'),
+      'most-commander-damage',
+    );
+  });
+
+  finalPlayers.forEach((player) => {
+    if (typeof player.eliminatedTurnNumber === 'number' && player.eliminatedTurnNumber > 0) {
+      fastestElimination = chooseBetterRecordCandidate(
+        fastestElimination,
+        createRecordCandidate({
+          value: player.eliminatedTurnNumber,
+          holder: player.eliminatedByPlayerId ? getPlayerNameById(player.eliminatedByPlayerId, gameState) : '',
+          commander: player.eliminatedByPlayerId ? playersById.get(player.eliminatedByPlayerId)?.commander || '' : '',
+          date: gameState.date,
+          notes: `Eliminated ${player.name}.`,
+        }),
+        'fastest-elimination',
+      );
+    }
+  });
+
+  return {
+    durationMinutes,
+    highestSingleHit,
+    highestLifeLossHit,
+    highestLifeTotal,
+    mostCommanderDamage,
+    fastestElimination,
+  };
+}
+
 function closeLiveActionsMenu() {
   if (!liveActiveActions) {
     return;
@@ -1490,6 +1585,8 @@ function completeActiveGame() {
   });
 
   const finalPlayers = completedPlayers.slice().sort((a, b) => a.place - b.place);
+  const durationMinutes = Math.max(1, Math.round((Date.now() - new Date(activeGameState.startedAt).getTime()) / 60000));
+  const recordStats = buildLiveGameRecordStats(activeGameState, finalPlayers, durationMinutes);
   const playerRows = finalPlayers.map((player) => ({
     player: player.name,
     commander: player.commander,
@@ -1514,6 +1611,7 @@ function completeActiveGame() {
       alternateLoseConditions: finalPlayers
         .filter((player) => player.eliminationDetails)
         .map((player) => ({ player: player.name, details: player.eliminationDetails })),
+      durationMinutes,
       firstBlood: activeGameState.firstBlood
         ? {
           actorPlayer: getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState),
@@ -1522,6 +1620,7 @@ function completeActiveGame() {
           turnNumber: activeGameState.firstBlood.turnNumber,
         }
         : null,
+      recordStats,
       turnNumber: activeGameState.turnNumber,
       eventCount: activeGameState.events.length,
     },
@@ -1727,16 +1826,27 @@ function normalizeRecordEntry(entry, index = 0) {
   }
 
   const fallbackId = key || `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'record'}-${index}`;
+  const resolvedValue = String(entry.value || '').trim();
+  const resolvedHolder = String(entry.holder || '').trim();
+  const resolvedCommander = String(entry.commander || '').trim();
+  const resolvedDate = String(entry.date || '').trim();
+  const resolvedNotes = String(entry.notes || '').trim();
+
   return {
     id: String(entry.id || fallbackId),
     key,
     title,
     unit: String(entry.unit || '').trim(),
-    value: String(entry.value || '').trim(),
-    holder: String(entry.holder || '').trim(),
-    commander: String(entry.commander || '').trim(),
-    date: String(entry.date || '').trim(),
-    notes: String(entry.notes || '').trim(),
+    value: resolvedValue,
+    holder: resolvedHolder,
+    commander: resolvedCommander,
+    date: resolvedDate,
+    notes: resolvedNotes,
+    manualValue: isCustom ? '' : String(typeof entry.manualValue !== 'undefined' ? entry.manualValue : resolvedValue).trim(),
+    manualHolder: isCustom ? '' : String(typeof entry.manualHolder !== 'undefined' ? entry.manualHolder : resolvedHolder).trim(),
+    manualCommander: isCustom ? '' : String(typeof entry.manualCommander !== 'undefined' ? entry.manualCommander : resolvedCommander).trim(),
+    manualDate: isCustom ? '' : String(typeof entry.manualDate !== 'undefined' ? entry.manualDate : resolvedDate).trim(),
+    manualNotes: isCustom ? '' : String(typeof entry.manualNotes !== 'undefined' ? entry.manualNotes : resolvedNotes).trim(),
     isCustom,
   };
 }
@@ -1752,11 +1862,195 @@ function getDefaultRecords() {
     commander: '',
     date: '',
     notes: '',
+    manualValue: '',
+    manualHolder: '',
+    manualCommander: '',
+    manualDate: '',
+    manualNotes: '',
     isCustom: false,
   }, index));
 }
 
-function mergeRecordsWithDefaults(records) {
+function parseRecordNumericValue(value) {
+  const parsedValue = Number.parseFloat(String(value || '').trim());
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function formatRecordNumericValue(value) {
+  if (!Number.isFinite(value)) {
+    return '';
+  }
+
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+}
+
+function isLowerRecordBetter(key) {
+  return key === 'earliest-turn-win' || key === 'fastest-elimination';
+}
+
+function chooseBetterRecordCandidate(currentCandidate, nextCandidate, key) {
+  if (!nextCandidate || nextCandidate.numericValue === null) {
+    return currentCandidate;
+  }
+
+  if (!currentCandidate || currentCandidate.numericValue === null) {
+    return nextCandidate;
+  }
+
+  if (nextCandidate.numericValue === currentCandidate.numericValue) {
+    if (currentCandidate.source === 'manual' && nextCandidate.source !== 'manual') {
+      return currentCandidate;
+    }
+    if (nextCandidate.source === 'manual' && currentCandidate.source !== 'manual') {
+      return nextCandidate;
+    }
+    return currentCandidate;
+  }
+
+  const lowerIsBetter = isLowerRecordBetter(key);
+  const isBetter = lowerIsBetter
+    ? nextCandidate.numericValue < currentCandidate.numericValue
+    : nextCandidate.numericValue > currentCandidate.numericValue;
+  return isBetter ? nextCandidate : currentCandidate;
+}
+
+function createRecordCandidate({ value, holder = '', commander = '', date = '', notes = '', source = 'game' }) {
+  const numericValue = parseRecordNumericValue(value);
+  if (numericValue === null) {
+    return null;
+  }
+
+  return {
+    numericValue,
+    value: formatRecordNumericValue(numericValue),
+    holder: String(holder || '').trim(),
+    commander: String(commander || '').trim(),
+    date: String(date || '').trim(),
+    notes: String(notes || '').trim(),
+    source,
+  };
+}
+
+function buildManualRecordCandidate(entry) {
+  if (!entry || entry.isCustom || !entry.key) {
+    return null;
+  }
+
+  return createRecordCandidate({
+    value: entry.manualValue,
+    holder: entry.manualHolder,
+    commander: entry.manualCommander,
+    date: entry.manualDate,
+    notes: entry.manualNotes,
+    source: 'manual',
+  });
+}
+
+function getWinningRow(game) {
+  const rows = getGameRows(game).slice().sort((a, b) => (a.place || 999) - (b.place || 999));
+  return rows.find((row) => row.place === 1) || rows[0] || null;
+}
+
+function getGameRecordCandidates(game) {
+  const candidates = new Map();
+  const rows = getGameRows(game);
+  const winningRow = getWinningRow(game);
+  const liveSummary = game?.liveSummary && typeof game.liveSummary === 'object' ? game.liveSummary : null;
+  const recordStats = liveSummary?.recordStats && typeof liveSummary.recordStats === 'object' ? liveSummary.recordStats : null;
+
+  const setCandidate = (key, candidate) => {
+    if (!candidate) {
+      return;
+    }
+    candidates.set(key, chooseBetterRecordCandidate(candidates.get(key) || null, candidate, key));
+  };
+
+  if (winningRow && typeof liveSummary?.turnNumber === 'number') {
+    setCandidate('earliest-turn-win', createRecordCandidate({
+      value: liveSummary.turnNumber,
+      holder: winningRow.player,
+      commander: winningRow.commander,
+      date: game.date,
+      notes: liveSummary.alternateWinCondition ? `Alternate win: ${liveSummary.alternateWinCondition}` : '',
+    }));
+  }
+
+  rows.forEach((row) => {
+    if (typeof row.kills === 'number' && row.kills > 0) {
+      setCandidate('most-kills-one-game', createRecordCandidate({
+        value: row.kills,
+        holder: row.player,
+        commander: row.commander,
+        date: game.date,
+        notes: Array.isArray(row.killed) && row.killed.length ? `Killed: ${row.killed.join(', ')}` : '',
+      }));
+    }
+  });
+
+  if (typeof liveSummary?.durationMinutes === 'number') {
+    setCandidate('longest-game', createRecordCandidate({
+      value: liveSummary.durationMinutes,
+      holder: winningRow?.player || '',
+      commander: winningRow?.commander || '',
+      date: game.date,
+      notes: `${liveSummary.durationMinutes} minute${liveSummary.durationMinutes === 1 ? '' : 's'}`,
+    }));
+  }
+
+  if (recordStats?.highestSingleHit) {
+    setCandidate('highest-damage-dealt', createRecordCandidate(recordStats.highestSingleHit));
+  }
+
+  if (recordStats?.highestLifeLossHit) {
+    setCandidate('highest-hit-to-life', createRecordCandidate(recordStats.highestLifeLossHit));
+  }
+
+  if (recordStats?.highestLifeTotal) {
+    setCandidate('highest-life-total', createRecordCandidate(recordStats.highestLifeTotal));
+  }
+
+  if (recordStats?.mostCommanderDamage) {
+    setCandidate('most-commander-damage', createRecordCandidate(recordStats.mostCommanderDamage));
+  }
+
+  if (recordStats?.fastestElimination) {
+    setCandidate('fastest-elimination', createRecordCandidate(recordStats.fastestElimination));
+  }
+
+  return candidates;
+}
+
+function resolvePredefinedRecord(entry, games) {
+  const manualCandidate = buildManualRecordCandidate(entry);
+  let bestCandidate = manualCandidate;
+
+  games.forEach((game) => {
+    const gameCandidate = getGameRecordCandidates(game).get(entry.key) || null;
+    bestCandidate = chooseBetterRecordCandidate(bestCandidate, gameCandidate, entry.key);
+  });
+
+  if (!bestCandidate) {
+    return {
+      ...entry,
+      value: '',
+      holder: '',
+      commander: '',
+      date: '',
+      notes: '',
+    };
+  }
+
+  return {
+    ...entry,
+    value: bestCandidate.value,
+    holder: bestCandidate.holder,
+    commander: bestCandidate.commander,
+    date: bestCandidate.date,
+    notes: bestCandidate.notes,
+  };
+}
+
+function mergeRecordsWithDefaults(records, games = appState.games) {
   const normalized = Array.isArray(records)
     ? records.map((entry, index) => normalizeRecordEntry(entry, index)).filter(Boolean)
     : [];
@@ -1775,7 +2069,7 @@ function mergeRecordsWithDefaults(records) {
     title: entry.title,
     unit: entry.unit,
     isCustom: false,
-  }));
+  })).map((entry) => resolvePredefinedRecord(entry, Array.isArray(games) ? games : []));
 
   const customRecords = normalized
     .filter((entry) => entry.isCustom)
@@ -1785,11 +2079,11 @@ function mergeRecordsWithDefaults(records) {
 }
 
 function loadRecords() {
-  return mergeRecordsWithDefaults(appState.records);
+  return mergeRecordsWithDefaults(appState.records, appState.games);
 }
 
 function saveRecords(records) {
-  appState.records = mergeRecordsWithDefaults(records);
+  appState.records = mergeRecordsWithDefaults(records, appState.games);
   persistLocalState(appState);
   queueCloudSync();
 }

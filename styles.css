@@ -1690,7 +1690,7 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-main-layout {
-    grid-template-columns: 54px minmax(0, 1fr) 20ch;
+    grid-template-columns: 54px minmax(0, 1fr) 10ch;
     gap: 6px;
     min-height: 0;
     height: 100%;
