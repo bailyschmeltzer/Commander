@@ -370,9 +370,14 @@ label {
   width: 9%;
 }
 
+.records-table th:nth-child(4),
+.records-table td:nth-child(4) {
+  width: 14%;
+}
+
 .records-table th:nth-child(5),
 .records-table td:nth-child(5) {
-  width: 8%;
+  width: 5%;
 }
 
 .records-table th:nth-child(7),
@@ -403,7 +408,7 @@ label {
 }
 
 .record-commander-cell {
-  min-width: 110px;
+  min-width: 80px;
 }
 
 .record-badge,
