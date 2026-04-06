@@ -3608,13 +3608,6 @@ if (liveSourceCancelButton) {
   });
 }
 
-if (liveTurnNumberInput) {
-  liveTurnNumberInput.addEventListener('change', () => {
-    syncActiveGameTurnFromInput();
-    refreshLiveTrackerUi();
-  });
-}
-
 if (livePlayerGrid) {
   livePlayerGrid.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
@@ -3996,9 +3989,6 @@ async function initializeApp() {
 
   if (liveGameForm) {
     liveGameDateInput.value = new Date().toISOString().slice(0, 10);
-    if (liveTurnNumberInput) {
-      liveTurnNumberInput.value = '1';
-    }
     if (!liveGamePlayerBody.children.length) {
       for (let index = 0; index < 4; index += 1) {
         addLiveSetupRow();
