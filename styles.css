@@ -1179,6 +1179,10 @@ button[type="submit"] {
   box-shadow: 0 10px 22px rgba(32, 43, 79, 0.08);
 }
 
+.live-player-card-body {
+  height: 100%;
+}
+
 .live-player-card.is-current-turn {
   border-color: #8ca0ff;
   box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12), 0 10px 22px rgba(32, 43, 79, 0.08);
@@ -1421,20 +1425,19 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-player-card {
     min-height: calc(50dvh - 12px);
-    padding: 12px;
+    padding: 0;
     border-radius: 20px;
     overflow: hidden;
     display: block;
+    position: relative;
   }
 
   .page-live-game.live-table-mode .live-seat-1 {
     grid-area: seat1;
-    transform: rotate(180deg);
   }
 
   .page-live-game.live-table-mode .live-seat-2 {
     grid-area: seat2;
-    transform: rotate(90deg);
   }
 
   .page-live-game.live-table-mode .live-seat-3 {
@@ -1443,7 +1446,36 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-seat-4 {
     grid-area: seat4;
-    transform: rotate(-90deg);
+  }
+
+  .page-live-game.live-table-mode .live-player-card-body {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 118%;
+    height: 118%;
+    padding: 12px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    transform: translate(-50%, -50%) scale(0.84);
+    transform-origin: center center;
+  }
+
+  .page-live-game.live-table-mode .live-orientation-1 {
+    transform: translate(-50%, -50%) rotate(-90deg) scale(0.84);
+  }
+
+  .page-live-game.live-table-mode .live-orientation-2 {
+    transform: translate(-50%, -50%) rotate(-90deg) scale(0.84);
+  }
+
+  .page-live-game.live-table-mode .live-orientation-3 {
+    transform: translate(-50%, -50%) rotate(90deg) scale(0.84);
+  }
+
+  .page-live-game.live-table-mode .live-orientation-4 {
+    transform: translate(-50%, -50%) rotate(90deg) scale(0.84);
   }
 
   .page-live-game.live-table-mode .live-player-life {

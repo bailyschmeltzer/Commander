@@ -812,6 +812,7 @@ function renderLivePlayerGrid() {
 
       return `
         <article class="live-player-card live-seat-${seatOrientation}${player.eliminatedAt ? ' is-eliminated' : ''}">
+          <div class="live-player-card-body live-orientation-${seatOrientation}">
           <div class="live-player-card-header">
             <div>
               <h3>${escapeHtml(player.name)}</h3>
@@ -842,6 +843,7 @@ function renderLivePlayerGrid() {
             </label>
             <div>Commander damage received:</div>
             ${damageMarkup}
+          </div>
           </div>
         </article>`;
     })
