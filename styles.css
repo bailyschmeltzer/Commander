@@ -1177,7 +1177,6 @@ button[type="submit"] {
   padding: 16px;
   background: linear-gradient(180deg, #fcfdff 0%, #f6f8fe 100%);
   box-shadow: 0 10px 22px rgba(32, 43, 79, 0.08);
-  container-type: size;
 }
 
 .live-player-card-body {
@@ -1554,6 +1553,7 @@ button[type="submit"] {
     overflow: hidden;
     display: block;
     position: relative;
+    container-type: size;
   }
 
   .page-live-game.live-table-mode .live-seat-1 {
