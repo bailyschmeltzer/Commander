@@ -299,14 +299,14 @@ function createPlayerRow(data = {}) {
   row.innerHTML = `
     <td class="lookup-field-cell">
       <div class="combined-input-wrapper">
-        <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" />
+        <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
         <button type="button" class="dropdown-button player-dropdown-button" title="Show options">▼</button>
         <div class="dropdown-menu player-dropdown-menu"></div>
       </div>
     </td>
     <td class="lookup-field-cell">
       <div class="combined-input-wrapper">
-        <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" />
+        <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
         <button type="button" class="dropdown-button commander-dropdown-button" title="Show options">▼</button>
         <div class="dropdown-menu commander-dropdown-menu"></div>
       </div>
@@ -1282,14 +1282,14 @@ function renderRecords() {
           </td>
           <td>
             <div class="combined-input-wrapper record-lookup-wrapper">
-              <input class="lookup-input" type="text" name="holder" list="player-list" value="${escapeHtml(record.holder)}" placeholder="Player" />
+              <input class="lookup-input" type="text" name="holder" list="player-list" value="${escapeHtml(record.holder)}" placeholder="Player" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
               <button type="button" class="dropdown-button" title="Show players">▼</button>
               <div class="dropdown-menu record-holder-menu"></div>
             </div>
           </td>
           <td class="record-commander-cell">
             <div class="combined-input-wrapper record-lookup-wrapper">
-              <input class="lookup-input" type="text" name="commander" list="commander-list" value="${escapeHtml(record.commander)}" placeholder="Commander or deck" />
+              <input class="lookup-input" type="text" name="commander" list="commander-list" value="${escapeHtml(record.commander)}" placeholder="Commander or deck" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
               <button type="button" class="dropdown-button" title="Show commanders">▼</button>
               <div class="dropdown-menu record-commander-menu"></div>
             </div>

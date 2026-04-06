@@ -34,11 +34,11 @@
       <main>
         <section class="card">
           <h2>Add or Edit Deck List</h2>
-          <form id="deck-list-form">
+          <form id="deck-list-form" autocomplete="off">
             <div class="field">
               <label for="deck-commander">Commander</label>
               <div class="combined-input-wrapper">
-                <input id="deck-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander" required />
+                <input id="deck-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
                 <button type="button" id="deck-commander-dropdown" class="dropdown-button" title="Show options">▼</button>
                 <div id="deck-commander-menu" class="dropdown-menu commander-dropdown-menu"></div>
               </div>
@@ -53,7 +53,7 @@
             <div class="field">
               <label for="deck-owner">Owner</label>
               <div class="combined-input-wrapper">
-                <input id="deck-owner" class="lookup-input" type="text" list="player-list" placeholder="Who owns this deck?" />
+                <input id="deck-owner" class="lookup-input" type="text" list="player-list" placeholder="Who owns this deck?" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
                 <button type="button" class="dropdown-button" title="Show players">▼</button>
                 <div id="deck-owner-menu" class="dropdown-menu"></div>
               </div>

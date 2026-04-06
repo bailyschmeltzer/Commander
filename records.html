@@ -35,7 +35,7 @@
         <section class="card">
           <h2>Core Records</h2>
           <p class="records-helper-text">These are manual records, so use whatever evidence your pod agrees on. Add a player, a commander, the value, and any notes worth remembering.</p>
-          <form id="records-form">
+          <form id="records-form" autocomplete="off">
             <div class="player-table-wrapper">
               <table class="player-table records-table">
                 <colgroup>
@@ -72,7 +72,7 @@
 
         <section class="card">
           <h2>Add Custom Record</h2>
-          <form id="custom-record-form" class="custom-record-form">
+          <form id="custom-record-form" class="custom-record-form" autocomplete="off">
             <div class="field-grid">
               <div class="field">
                 <label for="custom-record-title">Title</label>
@@ -89,7 +89,7 @@
               <div class="field">
                 <label for="custom-record-holder">Player</label>
                 <div class="combined-input-wrapper">
-                  <input id="custom-record-holder" class="lookup-input" type="text" list="player-list" placeholder="Player" />
+                  <input id="custom-record-holder" class="lookup-input" type="text" list="player-list" placeholder="Player" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
                   <button type="button" class="dropdown-button" title="Show players">▼</button>
                   <div id="custom-record-holder-menu" class="dropdown-menu"></div>
                 </div>
@@ -97,7 +97,7 @@
               <div class="field">
                 <label for="custom-record-commander">Commander / Deck</label>
                 <div class="combined-input-wrapper">
-                  <input id="custom-record-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander or deck" />
+                  <input id="custom-record-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander or deck" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
                   <button type="button" class="dropdown-button" title="Show commanders">▼</button>
                   <div id="custom-record-commander-menu" class="dropdown-menu"></div>
                 </div>
