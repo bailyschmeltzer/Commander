@@ -1098,33 +1098,24 @@ function renderDeckSelectorAssignments(selectedOwners) {
     return;
   }
 
-  const assignments = selectedOwners
-    .map((player, index) => {
-      const deck = pooledDecks[index] || chooseRandomDeck(pooledDecks);
-      return { player, deck };
-    })
-    .filter(({ deck }) => deck);
-
-  if (!assignments.length) {
+  const deck = chooseRandomDeck(pooledDecks);
+  if (!deck) {
     deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
     return;
   }
 
-  deckSelectorResults.innerHTML = assignments
-    .map(({ player, deck }) => {
-      const safePlayer = escapeHtml(player);
-      const safeCommander = escapeHtml(deck.commander);
-      const safeUrl = escapeHtml(deck.url);
-      const safeOwner = escapeHtml(deck.owner || 'Unassigned');
-      return `
-        <article class="deck-selector-card">
-          <p class="deck-selector-owner">For ${safePlayer}</p>
-          <h3>${safeCommander}</h3>
-          <p>Owned by ${safeOwner}</p>
-          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
-        </article>`;
-    })
-    .join('');
+  const safeCommander = escapeHtml(deck.commander);
+  const safeUrl = escapeHtml(deck.url);
+  const safeOwner = escapeHtml(deck.owner || 'Unassigned');
+  const safePool = escapeHtml(selectedOwners.join(', '));
+
+  deckSelectorResults.innerHTML = `
+    <article class="deck-selector-card">
+      <p class="deck-selector-owner">From pool: ${safePool}</p>
+      <h3>${safeCommander}</h3>
+      <p>Owned by ${safeOwner}</p>
+      <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
+    </article>`;
 
 }
 
