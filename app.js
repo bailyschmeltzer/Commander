@@ -3986,17 +3986,6 @@ async function initializeApp() {
   hideLiveSourcePrompt();
   setupSyncUi();
 
-  if (hasSyncCredentials()) {
-    try {
-      await pullCloudState();
-      setSyncStatus('Cloud data loaded.', 'success');
-      setSyncUiCollapsed(true, getSyncCredentials().user);
-    } catch (error) {
-      setSyncUiCollapsed(false);
-      setSyncStatus(`Using local cache: ${error.message}`, 'error');
-    }
-  }
-
   if (form) {
     resetForm();
     const editId = getQueryParam('editId');
@@ -4019,6 +4008,17 @@ async function initializeApp() {
   }
 
   refresh();
+
+  if (hasSyncCredentials()) {
+    try {
+      await pullCloudState();
+      setSyncStatus('Cloud data loaded.', 'success');
+      setSyncUiCollapsed(true, getSyncCredentials().user);
+    } catch (error) {
+      setSyncUiCollapsed(false);
+      setSyncStatus(`Using local cache: ${error.message}`, 'error');
+    }
+  }
 }
 
 initializeApp();
