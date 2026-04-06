@@ -1184,6 +1184,14 @@ button[type="submit"] {
   height: 100%;
 }
 
+.live-player-mobile-layout {
+  display: block;
+}
+
+.live-mobile-action-rail {
+  display: none;
+}
+
 .live-player-card.is-current-turn {
   border-color: #8ca0ff;
   box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12), 0 10px 22px rgba(32, 43, 79, 0.08);
@@ -1467,6 +1475,33 @@ button[type="submit"] {
     transform-origin: center center;
   }
 
+  .page-live-game.live-table-mode .live-player-mobile-layout {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 8px;
+    height: 100%;
+  }
+
+  .page-live-game.live-table-mode .live-player-mobile-center {
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .page-live-game.live-table-mode .live-mobile-action-rail {
+    display: grid;
+    gap: 6px;
+  }
+
+  .page-live-game.live-table-mode .live-mobile-action-rail-leading {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .page-live-game.live-table-mode .live-mobile-action-rail-trailing {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .page-live-game.live-table-mode .live-orientation-1 {
     transform: translate(-50%, -50%) rotate(-90deg);
   }
@@ -1486,19 +1521,31 @@ button[type="submit"] {
   .page-live-game.live-table-mode .live-player-life {
     font-size: clamp(3.75rem, 13vw, 5.5rem);
     text-align: center;
-    margin: 12px 0;
+    margin: 6px 0;
   }
 
   .page-live-game.live-table-mode .live-quick-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    margin-bottom: 12px;
+    display: none;
   }
 
   .page-live-game.live-table-mode .live-quick-action {
     min-height: 36px;
     padding: 8px 6px;
     font-size: 0.8rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header {
+    margin-bottom: 4px;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header h3 {
+    font-size: 0.92rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header p,
+  .page-live-game.live-table-mode .live-player-meta,
+  .page-live-game.live-table-mode .live-player-toggle {
+    font-size: 0.76rem;
   }
 
   .page-live-game.live-table-mode .live-player-meta {
