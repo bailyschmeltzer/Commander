@@ -1140,15 +1140,6 @@ function getDeckWheelLabelFontSize(labelLength, segmentSize, radialPathLength = 
   return Math.max(minFontSize, Math.min(maxFontSize, lengthConstrainedSize, wedgeConstrainedSize));
 }
 
-function getDeckWheelLabelMaxCharacters(segmentSize, fontSize, radialPathLength = 26) {
-  const averageRadius = 31;
-  const segmentRadians = (segmentSize * Math.PI) / 180;
-  const wedgeWidth = averageRadius * segmentRadians;
-  const maxCharactersByLength = Math.floor((radialPathLength / fontSize - 0.35) / 0.5);
-  const maxCharactersByWedge = Math.floor(((wedgeWidth * 0.9) / fontSize - 0.35) / 0.5);
-  return Math.max(3, Math.min(maxCharactersByLength, maxCharactersByWedge));
-}
-
 function truncateDeckWheelLabel(labelText, maxCharacters) {
   if (labelText.length <= maxCharacters) {
     return labelText;
@@ -1169,22 +1160,9 @@ function truncateDeckWheelLabel(labelText, maxCharacters) {
 }
 
 function fitDeckWheelLabelText(labelText, segmentSize, radialPathLength = 26) {
-  const minFontSize = 1.55;
-  const fontSize = getDeckWheelLabelFontSize(labelText.length, segmentSize, radialPathLength);
-
-  if (fontSize > minFontSize) {
-    return {
-      fontSize,
-      text: labelText,
-    };
-  }
-
-  const maxCharacters = getDeckWheelLabelMaxCharacters(segmentSize, minFontSize, radialPathLength);
-  const fittedLabel = truncateDeckWheelLabel(labelText, maxCharacters);
-
   return {
-    fontSize: minFontSize,
-    text: fittedLabel,
+    fontSize: getDeckWheelLabelFontSize(labelText.length, segmentSize, radialPathLength),
+    text: labelText,
   };
 }
 
@@ -1214,12 +1192,74 @@ function getDeckWheelSvgMarkup(deckPool) {
     return `
       <path d="${describeWheelSegment(startAngle, endAngle)}" fill="${colors[index]}" class="deck-wheel-segment" />
       <path id="${pathId}" d="M ${path.start.x} ${path.start.y} L ${path.end.x} ${path.end.y}" class="deck-wheel-label-guide" />
-      <text class="deck-wheel-segment-text" style="font-size: ${fittedLabel.fontSize.toFixed(2)}px;">
+      <text class="deck-wheel-segment-text" data-full-label="${escapeHtml(deck.commander)}" data-segment-size="${segmentSize}" style="font-size: ${fittedLabel.fontSize.toFixed(2)}px;">
         <textPath href="#${pathId}" startOffset="8%">${escapeHtml(fittedLabel.text)}</textPath>
       </text>`;
   }).join('');
 
   return `<svg viewBox="0 0 100 100" class="deck-wheel-svg" aria-hidden="true">${segments}</svg>`;
+}
+
+function fitDeckWheelSvgLabels(rootElement) {
+  const minFontSize = 1.55;
+  const labelElements = rootElement?.querySelectorAll?.('.deck-wheel-segment-text') || [];
+
+  labelElements.forEach((labelElement) => {
+    const textPath = labelElement.querySelector('textPath');
+    const fullLabel = labelElement.dataset.fullLabel || textPath?.textContent || '';
+    const segmentSize = Number(labelElement.dataset.segmentSize || '0');
+    const pathReference = textPath?.getAttribute('href');
+
+    if (!textPath || !fullLabel || !pathReference) {
+      return;
+    }
+
+    const guidePath = rootElement.querySelector(pathReference);
+
+    if (!guidePath || typeof guidePath.getTotalLength !== 'function' || typeof labelElement.getComputedTextLength !== 'function') {
+      textPath.textContent = fullLabel;
+      return;
+    }
+
+    const availableLength = guidePath.getTotalLength() * 0.9;
+    const preferredFontSize = getDeckWheelLabelFontSize(fullLabel.length, segmentSize);
+    textPath.textContent = fullLabel;
+    labelElement.style.fontSize = `${preferredFontSize.toFixed(2)}px`;
+
+    let renderedLength = labelElement.getComputedTextLength();
+    if (renderedLength <= availableLength) {
+      return;
+    }
+
+    const scaledFontSize = Math.max(minFontSize, preferredFontSize * (availableLength / renderedLength));
+    labelElement.style.fontSize = `${scaledFontSize.toFixed(2)}px`;
+    renderedLength = labelElement.getComputedTextLength();
+
+    if (renderedLength <= availableLength || scaledFontSize > minFontSize) {
+      return;
+    }
+
+    labelElement.style.fontSize = `${minFontSize.toFixed(2)}px`;
+
+    let bestFit = truncateDeckWheelLabel(fullLabel, 3);
+    let low = 3;
+    let high = fullLabel.length;
+
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const candidate = truncateDeckWheelLabel(fullLabel, middle);
+      textPath.textContent = candidate;
+
+      if (labelElement.getComputedTextLength() <= availableLength) {
+        bestFit = candidate;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    textPath.textContent = bestFit;
+  });
 }
 
 function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
@@ -1239,6 +1279,7 @@ function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
     ${getDeckWheelSvgMarkup(deckPool)}
     <div class="deck-wheel-center-label">${escapeHtml(centerLabel)}</div>
   `;
+  fitDeckWheelSvgLabels(deckSelectorWheelDisc);
   deckSelectorWheelDisc.style.transform = `rotate(${deckSelectorRotation}deg)`;
 }
 
