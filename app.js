@@ -1149,7 +1149,7 @@ function truncateDeckWheelLabel(labelText, maxCharacters) {
 
   const shortened = labelText.slice(0, maxCharacters - 1).trim();
   const lastSpaceIndex = shortened.lastIndexOf(' ');
-  const softCutoffIndex = Math.floor((maxCharacters - 1) * 0.6);
+  const softCutoffIndex = Math.floor((maxCharacters - 1) * 0.82);
   const trimmed = lastSpaceIndex >= softCutoffIndex
     ? shortened.slice(0, lastSpaceIndex)
     : shortened;
@@ -1162,9 +1162,9 @@ function fitDeckWheelLabelText(labelText, segmentSize, radialPathLength = 26) {
   const averageRadius = 31;
   const segmentRadians = (segmentSize * Math.PI) / 180;
   const wedgeWidth = averageRadius * segmentRadians;
-  const maxCharactersByLength = Math.floor((radialPathLength / fontSize - 1.2) / 0.62);
-  const maxCharactersByWedge = Math.floor(((wedgeWidth * 0.72) / fontSize - 1.2) / 0.62);
-  const maxCharacters = Math.max(3, Math.min(maxCharactersByLength, maxCharactersByWedge));
+  const maxCharactersByLength = Math.floor((radialPathLength / fontSize - 0.55) / 0.5);
+  const maxCharactersByWedge = Math.floor(((wedgeWidth * 0.9) / fontSize - 0.55) / 0.5);
+  const maxCharacters = Math.max(6, Math.min(maxCharactersByLength, maxCharactersByWedge));
   const fittedLabel = truncateDeckWheelLabel(labelText, maxCharacters);
 
   return {
