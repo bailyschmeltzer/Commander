@@ -93,10 +93,14 @@
               <h2>Active Game</h2>
               <p id="live-game-status" class="live-game-status">No game in progress.</p>
             </div>
-            <div class="live-active-actions">
-              <button type="button" id="live-undo" class="secondary-button">Undo</button>
-              <button type="button" id="live-finish-game">Finish game</button>
-              <button type="button" id="live-abandon-game" class="history-delete-button">Abandon</button>
+            <div class="live-active-actions" id="live-active-actions">
+              <button type="button" id="live-actions-toggle" class="secondary-button live-actions-toggle" aria-expanded="false" aria-controls="live-active-actions-menu">Menu</button>
+              <div class="live-active-actions-menu" id="live-active-actions-menu">
+                <button type="button" id="live-back" class="secondary-button">Back</button>
+                <button type="button" id="live-undo" class="secondary-button">Undo</button>
+                <button type="button" id="live-finish-game">Finish game</button>
+                <button type="button" id="live-abandon-game" class="history-delete-button">Abandon</button>
+              </div>
             </div>
           </div>
 

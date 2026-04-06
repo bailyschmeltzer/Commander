@@ -1100,6 +1100,20 @@ button[type="submit"] {
   flex-wrap: wrap;
 }
 
+.live-actions-toggle {
+  display: none;
+}
+
+.live-active-actions-menu {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#live-back {
+  display: none;
+}
+
 .live-player-header-badges {
   display: grid;
   justify-items: end;
@@ -1518,20 +1532,53 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-active-actions {
     position: fixed;
-    left: 50%;
+    left: 12px;
     bottom: 12px;
-    transform: translateX(-50%);
+    transform: none;
     z-index: 4200;
-    padding: 6px;
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+  }
+
+  .page-live-game.live-table-mode .live-actions-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    min-height: 52px;
+    margin: 0;
     border-radius: 999px;
+    background: rgba(15, 20, 38, 0.92);
+    border-color: rgba(123, 140, 196, 0.45);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  }
+
+  .page-live-game.live-table-mode .live-active-actions-menu {
+    display: none;
+    grid-auto-flow: row;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 18px;
     background: rgba(15, 20, 38, 0.92);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
   }
 
-  .page-live-game.live-table-mode .live-active-actions button {
+  .page-live-game.live-table-mode .live-active-actions.is-open .live-active-actions-menu {
+    display: grid;
+  }
+
+  .page-live-game.live-table-mode #live-back {
+    display: inline-flex;
+  }
+
+  .page-live-game.live-table-mode .live-active-actions-menu button {
     padding: 10px 12px;
-    border-radius: 999px;
+    margin: 0;
+    border-radius: 12px;
     font-size: 0.86rem;
+    justify-content: center;
   }
 
   .page-live-game.live-table-mode .live-player-grid {

@@ -67,6 +67,9 @@ const liveActiveCard = document.getElementById('live-active-card');
 const liveGameStatus = document.getElementById('live-game-status');
 const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
+const liveActiveActions = document.getElementById('live-active-actions');
+const liveActionsToggleButton = document.getElementById('live-actions-toggle');
+const liveBackButton = document.getElementById('live-back');
 const liveUndoButton = document.getElementById('live-undo');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
@@ -104,6 +107,7 @@ let liveSourcePromptResolver = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
+let liveMeasurementTimerId = null;
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
@@ -902,13 +906,21 @@ function updateLivePlayerCardMeasurements() {
     return;
   }
 
-  requestAnimationFrame(() => {
+  const measureCards = () => {
     cards.forEach((card) => {
       const rect = card.getBoundingClientRect();
       card.style.setProperty('--live-card-width', `${rect.width}px`);
       card.style.setProperty('--live-card-height', `${rect.height}px`);
     });
-  });
+  };
+
+  measureCards();
+  requestAnimationFrame(measureCards);
+
+  if (liveMeasurementTimerId) {
+    window.clearTimeout(liveMeasurementTimerId);
+  }
+  liveMeasurementTimerId = window.setTimeout(measureCards, 120);
 }
 
 function renderLiveEventLog() {
@@ -986,14 +998,42 @@ function buildActiveGameSummary(gameState) {
   const alternateWinSummary = gameState.alternateWinCondition
     ? `Alternate win: ${gameState.alternateWinCondition}`
     : '';
+  const alternateLoseSummary = gameState.players
+    .filter((player) => player.eliminationDetails)
+    .map((player) => `${player.name} lost via ${player.eliminationDetails}`)
+    .join(' | ');
 
   return [
     `First player: ${getPlayerNameById(gameState.startingPlayerId, gameState)}`,
     firstBloodSummary,
     alternateWinSummary,
+    alternateLoseSummary,
     `Kill leader: ${killLeader ? `${killLeader.name} (${killLeader.kills})` : 'None'}`,
     `Finish order: ${finishOrderSummary}`,
   ].filter(Boolean).join(' · ');
+}
+
+function closeLiveActionsMenu() {
+  if (!liveActiveActions) {
+    return;
+  }
+
+  liveActiveActions.classList.remove('is-open');
+  if (liveActionsToggleButton) {
+    liveActionsToggleButton.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleLiveActionsMenu() {
+  if (!liveActiveActions) {
+    return;
+  }
+
+  const nextOpen = !liveActiveActions.classList.contains('is-open');
+  liveActiveActions.classList.toggle('is-open', nextOpen);
+  if (liveActionsToggleButton) {
+    liveActionsToggleButton.setAttribute('aria-expanded', String(nextOpen));
+  }
 }
 
 function startLiveGame() {
@@ -1039,9 +1079,11 @@ function startLiveGame() {
       cannotLoseTheGame: false,
       eliminatedAt: '',
       eliminatedByPlayerId: '',
+      eliminationDetails: '',
       place: null,
     })),
   });
+  closeLiveActionsMenu();
   refreshLiveTrackerUi();
 }
 
@@ -1164,7 +1206,13 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     return;
   }
 
+  const eliminationDetails = window.prompt(`Enter ${targetPlayer.name}'s alternate lose condition for the notes. Leave blank for a normal elimination.`, targetPlayer.eliminationDetails || '');
+  if (eliminationDetails === null) {
+    return;
+  }
+
   saveUndoSnapshot();
+  targetPlayer.eliminationDetails = eliminationDetails.trim();
   eliminateLivePlayer(targetPlayer, sourcePlayerId, eventTurnNumber, 'manual');
   recordLiveEvent({
     type: 'elimination',
@@ -1172,6 +1220,7 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     targetPlayerId,
     amount: 0,
     turnNumber: eventTurnNumber,
+    notes: targetPlayer.eliminationDetails ? `Alternate lose: ${targetPlayer.eliminationDetails}` : '',
   });
 
   const alivePlayers = getActiveAlivePlayers(activeGameState);
@@ -1462,6 +1511,9 @@ function completeActiveGame() {
     liveSummary: {
       startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
       alternateWinCondition: activeGameState.alternateWinCondition || '',
+      alternateLoseConditions: finalPlayers
+        .filter((player) => player.eliminationDetails)
+        .map((player) => ({ player: player.name, details: player.eliminationDetails })),
       firstBlood: activeGameState.firstBlood
         ? {
           actorPlayer: getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState),
@@ -3791,23 +3843,53 @@ if (livePlayerGrid) {
   });
 }
 
+if (liveActionsToggleButton) {
+  liveActionsToggleButton.addEventListener('click', () => {
+    toggleLiveActionsMenu();
+  });
+}
+
+if (liveBackButton) {
+  liveBackButton.addEventListener('click', () => {
+    closeLiveActionsMenu();
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.href = 'index.html';
+  });
+}
+
 if (liveUndoButton) {
   liveUndoButton.addEventListener('click', () => {
+    closeLiveActionsMenu();
     undoLastLiveAction();
   });
 }
 
 if (liveFinishGameButton) {
   liveFinishGameButton.addEventListener('click', () => {
+    closeLiveActionsMenu();
     completeActiveGame();
   });
 }
 
 if (liveAbandonGameButton) {
   liveAbandonGameButton.addEventListener('click', () => {
+    closeLiveActionsMenu();
     abandonActiveGame();
   });
 }
+
+document.addEventListener('click', (event) => {
+  if (!liveActiveActions || !liveActiveActions.classList.contains('is-open')) {
+    return;
+  }
+
+  if (!event.target.closest('#live-active-actions')) {
+    closeLiveActionsMenu();
+  }
+});
 
 if (historySortSelect) {
   historySortSelect.addEventListener('change', (event) => {
@@ -4012,6 +4094,22 @@ window.addEventListener('storage', (event) => {
 });
 
 window.addEventListener('resize', () => {
+  closeLiveActionsMenu();
+  refreshLiveTrackerUi();
+});
+
+window.addEventListener('orientationchange', () => {
+  closeLiveActionsMenu();
+  window.setTimeout(() => {
+    refreshLiveTrackerUi();
+  }, 100);
+});
+
+window.addEventListener('load', () => {
+  refreshLiveTrackerUi();
+});
+
+window.visualViewport?.addEventListener('resize', () => {
   refreshLiveTrackerUi();
 });
 
