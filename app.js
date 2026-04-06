@@ -1129,13 +1129,24 @@ function describeWheelSegment(startAngle, endAngle) {
 }
 
 function getDeckWheelLabelFontSize(labelLength, segmentSize, radialPathLength = 26) {
+  const minFontSize = 1.55;
+  const maxFontSize = 2;
   const averageRadius = 31;
   const segmentRadians = (segmentSize * Math.PI) / 180;
   const wedgeWidth = averageRadius * segmentRadians;
   const estimatedLengthUnits = (labelLength * 0.62) + 1.2;
   const lengthConstrainedSize = radialPathLength / Math.max(estimatedLengthUnits, 1);
   const wedgeConstrainedSize = wedgeWidth * 0.72;
-  return Math.max(1.55, Math.min(2, lengthConstrainedSize, wedgeConstrainedSize));
+  return Math.max(minFontSize, Math.min(maxFontSize, lengthConstrainedSize, wedgeConstrainedSize));
+}
+
+function getDeckWheelLabelMaxCharacters(segmentSize, fontSize, radialPathLength = 26) {
+  const averageRadius = 31;
+  const segmentRadians = (segmentSize * Math.PI) / 180;
+  const wedgeWidth = averageRadius * segmentRadians;
+  const maxCharactersByLength = Math.floor((radialPathLength / fontSize - 0.35) / 0.5);
+  const maxCharactersByWedge = Math.floor(((wedgeWidth * 0.9) / fontSize - 0.35) / 0.5);
+  return Math.max(3, Math.min(maxCharactersByLength, maxCharactersByWedge));
 }
 
 function truncateDeckWheelLabel(labelText, maxCharacters) {
@@ -1149,7 +1160,7 @@ function truncateDeckWheelLabel(labelText, maxCharacters) {
 
   const shortened = labelText.slice(0, maxCharacters - 1).trim();
   const lastSpaceIndex = shortened.lastIndexOf(' ');
-  const softCutoffIndex = Math.floor((maxCharacters - 1) * 0.82);
+  const softCutoffIndex = Math.floor((maxCharacters - 1) * 0.92);
   const trimmed = lastSpaceIndex >= softCutoffIndex
     ? shortened.slice(0, lastSpaceIndex)
     : shortened;
@@ -1158,17 +1169,21 @@ function truncateDeckWheelLabel(labelText, maxCharacters) {
 }
 
 function fitDeckWheelLabelText(labelText, segmentSize, radialPathLength = 26) {
+  const minFontSize = 1.55;
   const fontSize = getDeckWheelLabelFontSize(labelText.length, segmentSize, radialPathLength);
-  const averageRadius = 31;
-  const segmentRadians = (segmentSize * Math.PI) / 180;
-  const wedgeWidth = averageRadius * segmentRadians;
-  const maxCharactersByLength = Math.floor((radialPathLength / fontSize - 0.55) / 0.5);
-  const maxCharactersByWedge = Math.floor(((wedgeWidth * 0.9) / fontSize - 0.55) / 0.5);
-  const maxCharacters = Math.max(6, Math.min(maxCharactersByLength, maxCharactersByWedge));
+
+  if (fontSize > minFontSize) {
+    return {
+      fontSize,
+      text: labelText,
+    };
+  }
+
+  const maxCharacters = getDeckWheelLabelMaxCharacters(segmentSize, minFontSize, radialPathLength);
   const fittedLabel = truncateDeckWheelLabel(labelText, maxCharacters);
 
   return {
-    fontSize: getDeckWheelLabelFontSize(fittedLabel.length, segmentSize, radialPathLength),
+    fontSize: minFontSize,
     text: fittedLabel,
   };
 }
