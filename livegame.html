@@ -31,7 +31,6 @@
         </div>
         <div class="page-switch">
           <a href="index.html" class="page-link">Game Tracker</a>
-          <a href="livegame.html" class="page-link">Live Tracker</a>
           <a href="player.html" class="page-link">Player Stats</a>
           <a href="commander.html" class="page-link">Commander Stats</a>
           <a href="history.html" class="page-link">Full History</a>
@@ -101,27 +100,11 @@
             </div>
           </div>
 
-          <div class="field-grid">
-            <div class="stats-card">
-              <h3>First player</h3>
-              <p id="live-first-player">—</p>
-            </div>
-            <div class="stats-card">
-              <h3>Tracked turn</h3>
-              <label for="live-turn-number" class="sr-only">Tracked turn number</label>
-              <input id="live-turn-number" type="number" min="1" value="1" />
-            </div>
-            <div class="stats-card">
-              <h3>First blood</h3>
-              <p id="live-first-blood">None yet</p>
-            </div>
-          </div>
-
           <div id="live-player-grid" class="live-player-grid">
             <p>No game in progress.</p>
           </div>
 
-          <div class="stats-card">
+          <div class="stats-card live-event-log-card">
             <h3>Event Log</h3>
             <div id="live-event-log" class="live-event-log">
               <p>No events yet.</p>

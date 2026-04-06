@@ -1100,6 +1100,26 @@ button[type="submit"] {
   flex-wrap: wrap;
 }
 
+.live-player-header-badges {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.live-first-player-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1f2742;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
 .live-source-prompt {
   position: fixed;
   inset: 0;
@@ -1142,10 +1162,6 @@ button[type="submit"] {
   border: 1px solid #d7deef;
   color: #243661;
   font-weight: 700;
-}
-
-.live-event-form {
-  margin: 18px 0;
 }
 
 .live-player-grid {
@@ -1343,6 +1359,104 @@ button[type="submit"] {
 
   .live-active-header {
     flex-direction: column;
+  }
+
+  .page-live-game.live-table-mode {
+    background: #05070d;
+    overflow: hidden;
+  }
+
+  .page-live-game.live-table-mode .app-shell {
+    padding: 0;
+  }
+
+  .page-live-game.live-table-mode header,
+  .page-live-game.live-table-mode main > section:first-child,
+  .page-live-game.live-table-mode .live-active-header > div:first-child,
+  .page-live-game.live-table-mode .live-event-log-card {
+    display: none;
+  }
+
+  .page-live-game.live-table-mode main,
+  .page-live-game.live-table-mode #live-active-card {
+    display: block;
+    height: 100dvh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .page-live-game.live-table-mode .live-active-actions {
+    position: fixed;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    z-index: 4200;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(15, 20, 38, 0.92);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  }
+
+  .page-live-game.live-table-mode .live-active-actions button {
+    padding: 10px 12px;
+    border-radius: 999px;
+    font-size: 0.86rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    height: 100dvh;
+    margin: 0;
+    padding: 6px;
+    align-content: stretch;
+  }
+
+  .page-live-game.live-table-mode .live-player-card {
+    min-height: calc(50dvh - 12px);
+    padding: 12px;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .page-live-game.live-table-mode .live-seat-1 {
+    transform: rotate(180deg);
+  }
+
+  .page-live-game.live-table-mode .live-seat-2 {
+    transform: rotate(90deg);
+  }
+
+  .page-live-game.live-table-mode .live-seat-3 {
+    transform: rotate(0deg);
+  }
+
+  .page-live-game.live-table-mode .live-seat-4 {
+    transform: rotate(-90deg);
+  }
+
+  .page-live-game.live-table-mode .live-player-life {
+    font-size: clamp(3rem, 12vw, 5rem);
+    text-align: center;
+    margin: 12px 0;
+  }
+
+  .page-live-game.live-table-mode .live-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .page-live-game.live-table-mode .live-player-meta {
+    gap: 4px;
+    font-size: 0.82rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-toggle {
+    font-size: 0.8rem;
   }
 
   .app-shell {

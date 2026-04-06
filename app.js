@@ -65,9 +65,6 @@ const liveRandomizeFirstButton = document.getElementById('live-randomize-first')
 const liveOrderPreview = document.getElementById('live-order-preview');
 const liveActiveCard = document.getElementById('live-active-card');
 const liveGameStatus = document.getElementById('live-game-status');
-const liveFirstPlayer = document.getElementById('live-first-player');
-const liveTurnNumberInput = document.getElementById('live-turn-number');
-const liveFirstBlood = document.getElementById('live-first-blood');
 const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
 const liveUndoButton = document.getElementById('live-undo');
@@ -388,6 +385,14 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
   return activeGame.players.find((player) => player.id === currentPlayerId) || null;
 }
 
+function isLiveMobileTableMode() {
+  return window.matchMedia('(max-width: 900px)').matches && Boolean(activeGameState);
+}
+
+function updateLiveTableModeClass() {
+  document.body.classList.toggle('live-table-mode', isLiveMobileTableMode());
+}
+
 function hideLiveSourcePrompt(selectedSourceId = null) {
   if (liveSourcePrompt) {
     liveSourcePrompt.hidden = true;
@@ -597,15 +602,12 @@ function startLiveHoldRepeat(button) {
 }
 
 function getLiveTrackedTurnNumber() {
-  const rawValue = parseInt(liveTurnNumberInput?.value || `${activeGameState?.turnNumber || 1}`, 10);
+  const rawValue = parseInt(`${activeGameState?.turnNumber || 1}`, 10);
   return Math.max(1, Number.isNaN(rawValue) ? 1 : rawValue);
 }
 
 function syncActiveGameTurnFromInput() {
   const turnNumber = getLiveTrackedTurnNumber();
-  if (liveTurnNumberInput) {
-    liveTurnNumberInput.value = String(turnNumber);
-  }
   if (!activeGameState) {
     return turnNumber;
   }
@@ -613,6 +615,24 @@ function syncActiveGameTurnFromInput() {
   activeGameState.turnNumber = turnNumber;
   persistActiveGameState(activeGameState);
   return turnNumber;
+}
+
+function promptForTurnNumber(message, defaultValue = getLiveTrackedTurnNumber()) {
+  const rawValue = window.prompt(message, String(defaultValue));
+  if (rawValue === null) {
+    return null;
+  }
+
+  const parsed = parseInt(rawValue, 10);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    alert('Enter a whole number greater than 0.');
+    return null;
+  }
+
+  if (activeGameState) {
+    activeGameState.turnNumber = parsed;
+  }
+  return parsed;
 }
 
 function getTurnOrderPreview(rows, firstPlayerId) {
@@ -773,7 +793,9 @@ function renderLivePlayerGrid() {
     return;
   }
 
-  livePlayerGrid.innerHTML = activeGameState.players
+  const playersToRender = isLiveMobileTableMode() ? getActiveAlivePlayers(activeGameState) : activeGameState.players;
+
+  livePlayerGrid.innerHTML = playersToRender
     .slice()
     .sort((a, b) => a.seat - b.seat)
     .map((player) => {
@@ -781,15 +803,22 @@ function renderLivePlayerGrid() {
       const damageMarkup = damageEntries.length
         ? `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`
         : '<p>No commander damage tracked.</p>';
+      const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
+        ? '<span class="live-first-player-indicator">First</span>'
+        : '';
+      const seatOrientation = ((player.seat - 1) % 4) + 1;
 
       return `
-        <article class="live-player-card${player.eliminatedAt ? ' is-eliminated' : ''}">
+        <article class="live-player-card live-seat-${seatOrientation}${player.eliminatedAt ? ' is-eliminated' : ''}">
           <div class="live-player-card-header">
             <div>
               <h3>${escapeHtml(player.name)}</h3>
               <p>${escapeHtml(player.commander || 'No commander')}</p>
             </div>
-            <span class="live-seat-badge">Seat ${player.seat}</span>
+            <div class="live-player-header-badges">
+              ${firstPlayerMarkup}
+              <span class="live-seat-badge">Seat ${player.seat}</span>
+            </div>
           </div>
           <div class="live-player-life">${player.life}</div>
           <div class="live-quick-actions">
@@ -844,18 +873,11 @@ function renderLiveGameStatus() {
     return;
   }
 
+  updateLiveTableModeClass();
+
   if (!activeGameState) {
     if (liveGameStatus) {
       liveGameStatus.textContent = 'No game in progress.';
-    }
-    if (liveFirstPlayer) {
-      liveFirstPlayer.textContent = '—';
-    }
-    if (liveTurnNumberInput) {
-      liveTurnNumberInput.value = '1';
-    }
-    if (liveFirstBlood) {
-      liveFirstBlood.textContent = 'None yet';
     }
     if (liveUndoButton) {
       liveUndoButton.disabled = true;
@@ -870,22 +892,6 @@ function renderLiveGameStatus() {
   if (liveGameStatus) {
     liveGameStatus.textContent = `${getActiveAlivePlayers(activeGameState).length} players alive · ${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} elapsed.`;
   }
-  if (liveFirstPlayer) {
-    liveFirstPlayer.textContent = getPlayerNameById(activeGameState.startingPlayerId, activeGameState);
-  }
-  if (liveTurnNumberInput) {
-    liveTurnNumberInput.value = String(activeGameState.turnNumber || 1);
-  }
-  if (liveFirstBlood) {
-    if (activeGameState.firstBlood) {
-      const actor = activeGameState.firstBlood.actorPlayerId
-        ? getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState)
-        : 'Environment';
-      liveFirstBlood.textContent = `${actor} drew first blood on ${getPlayerNameById(activeGameState.firstBlood.targetPlayerId, activeGameState)} during turn ${activeGameState.firstBlood.turnNumber}.`;
-    } else {
-      liveFirstBlood.textContent = 'None yet';
-    }
-  }
   if (liveUndoButton) {
     liveUndoButton.disabled = !activeGameUndoState;
   }
@@ -897,6 +903,7 @@ function refreshLiveTrackerUi() {
   if (!liveSourcePromptResolver) {
     hideLiveSourcePrompt();
   }
+  updateLiveTableModeClass();
   renderLiveOrderPreview();
   renderLiveGameStatus();
 }
@@ -1009,6 +1016,19 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
     return;
   }
 
+  const projectedLife = targetPlayer.life - amount;
+  const projectedCommanderDamage = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
+  const needsFirstBloodTurn = Boolean(sourcePlayerId && sourcePlayerId !== targetPlayerId && !activeGameState.firstBlood);
+  const needsKillTurn = !targetPlayer.cannotLoseTheGame && (projectedLife <= 0 || projectedCommanderDamage > 20);
+  let eventTurnNumber = getLiveTrackedTurnNumber();
+  if (needsFirstBloodTurn || needsKillTurn) {
+    const promptedTurn = promptForTurnNumber(`What turn was this commander damage on?`, eventTurnNumber);
+    if (promptedTurn === null) {
+      return;
+    }
+    eventTurnNumber = promptedTurn;
+  }
+
   saveUndoSnapshot();
   targetPlayer.life -= amount;
   targetPlayer.commanderDamageTaken[sourcePlayerId] = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
@@ -1045,7 +1065,6 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     return;
   }
 
-  const eventTurnNumber = syncActiveGameTurnFromInput();
   const sourcePlayerId = await resolveLiveSourceSelection({
     targetPlayerId,
     eventType: 'elimination',
@@ -1053,6 +1072,11 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     projectedLife: targetPlayer.life,
   });
   if (sourcePlayerId === null) {
+    return;
+  }
+
+  const eventTurnNumber = promptForTurnNumber(`What turn was ${targetPlayer.name} eliminated on?`);
+  if (eventTurnNumber === null) {
     return;
   }
 
@@ -1089,7 +1113,6 @@ async function applyQuickLifeChange(playerId, delta) {
     return;
   }
 
-  const turnNumber = syncActiveGameTurnFromInput();
   const projectedLife = player.life + delta;
   const sourcePlayerId = delta < 0
     ? await resolveLiveSourceSelection({
@@ -1101,6 +1124,17 @@ async function applyQuickLifeChange(playerId, delta) {
     : '';
   if (sourcePlayerId === null) {
     return;
+  }
+
+  const needsFirstBloodTurn = delta < 0 && Boolean(sourcePlayerId && sourcePlayerId !== playerId && !activeGameState.firstBlood);
+  const needsKillTurn = delta < 0 && !player.cannotLoseTheGame && projectedLife <= 0;
+  let turnNumber = getLiveTrackedTurnNumber();
+  if (needsFirstBloodTurn || needsKillTurn) {
+    const promptedTurn = promptForTurnNumber(`What turn was this damage on?`, turnNumber);
+    if (promptedTurn === null) {
+      return;
+    }
+    turnNumber = promptedTurn;
   }
 
   saveUndoSnapshot();
@@ -1161,7 +1195,6 @@ async function setPlayerCannotLoseState(playerId, isEnabled) {
     return;
   }
 
-  const turnNumber = syncActiveGameTurnFromInput();
   const sourcePlayerId = await resolveLiveSourceSelection({
     targetPlayerId: player.id,
     eventType: 'elimination',
@@ -1169,6 +1202,12 @@ async function setPlayerCannotLoseState(playerId, isEnabled) {
     projectedLife: player.life,
   });
   if (sourcePlayerId === null) {
+    refreshLiveTrackerUi();
+    return;
+  }
+
+  const turnNumber = promptForTurnNumber(`What turn was ${player.name} eliminated on?`);
+  if (turnNumber === null) {
     refreshLiveTrackerUi();
     return;
   }
@@ -1213,6 +1252,13 @@ function markPlayerAutomaticWinner(playerId) {
     return;
   }
 
+  const turnNumber = promptForTurnNumber(`What turn did ${winner.name} win on?`);
+  if (turnNumber === null) {
+    return;
+  }
+
+  saveUndoSnapshot();
+  activeGameState.turnNumber = turnNumber;
   activeGameState.players.forEach((player) => {
     if (player.id === winner.id) {
       player.place = 1;
@@ -1232,7 +1278,7 @@ function markPlayerAutomaticWinner(playerId) {
     actorPlayerId: winner.id,
     targetPlayerId: winner.id,
     amount: 0,
-    turnNumber: activeGameState.turnNumber,
+    turnNumber,
   });
   completeActiveGame();
 }
@@ -1306,7 +1352,14 @@ function completeActiveGame() {
     notes: buildActiveGameSummary({ ...activeGameState, players: finalPlayers }),
     liveSummary: {
       startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
-      firstBlood: activeGameState.firstBlood,
+      firstBlood: activeGameState.firstBlood
+        ? {
+          actorPlayer: getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState),
+          actorCommander: finalPlayers.find((player) => player.id === activeGameState.firstBlood.actorPlayerId)?.commander || '',
+          targetPlayer: getPlayerNameById(activeGameState.firstBlood.targetPlayerId, activeGameState),
+          turnNumber: activeGameState.firstBlood.turnNumber,
+        }
+        : null,
       turnNumber: activeGameState.turnNumber,
       eventCount: activeGameState.events.length,
     },
@@ -1418,6 +1471,7 @@ function ensurePlayerStats(stats, player) {
       games: 0,
       wins: 0,
       kills: 0,
+      firstBloods: 0,
       commanders: {},
       commanderStats: {},
       killerCounts: {},
@@ -2704,6 +2758,7 @@ function renderHistoryGame(game) {
   const winner = getGameWinner(game) || '—';
   const totalKills = getGameTotalKills(game);
   const playerCount = rows.length;
+  const firstBloodLabel = getGameFirstBloodLabel(game);
   const notes = game.notes ? escapeHtml(game.notes) : 'No notes recorded.';
 
   const playerRows = rows
@@ -2724,7 +2779,7 @@ function renderHistoryGame(game) {
     <article class="history-item">
       <div class="row history-item-meta">
         <h3>${escapeHtml(game.date || 'Unknown date')}</h3>
-        <small>Winner: ${escapeHtml(winner)} · ${playerCount} players · ${totalKills} kills</small>
+        <small>Winner: ${escapeHtml(winner)} · ${playerCount} players · ${totalKills} kills · First blood: ${escapeHtml(firstBloodLabel)}</small>
       </div>
       <div class="history-item-actions">
         <button type="button" class="secondary-button history-edit-button" data-id="${escapeHtml(game.id)}">Edit</button>
@@ -2849,12 +2904,52 @@ function getGameRows(game) {
   return [];
 }
 
+function getGameFirstBloodInfo(game) {
+  const firstBlood = game?.liveSummary?.firstBlood;
+  if (!firstBlood || typeof firstBlood !== 'object') {
+    return null;
+  }
+
+  const actorPlayer = String(firstBlood.actorPlayer || '').trim();
+  const actorCommander = String(firstBlood.actorCommander || '').trim();
+  const targetPlayer = String(firstBlood.targetPlayer || '').trim();
+  const turnNumber = typeof firstBlood.turnNumber === 'number' ? firstBlood.turnNumber : null;
+
+  if (!actorPlayer || !targetPlayer) {
+    return null;
+  }
+
+  return {
+    actorPlayer,
+    actorCommander,
+    targetPlayer,
+    turnNumber,
+  };
+}
+
+function getGameFirstBloodLabel(game) {
+  const firstBlood = getGameFirstBloodInfo(game);
+  if (!firstBlood) {
+    return 'None';
+  }
+
+  const commanderText = firstBlood.actorCommander ? ` (${firstBlood.actorCommander})` : '';
+  const turnText = firstBlood.turnNumber ? ` on turn ${firstBlood.turnNumber}` : '';
+  return `${firstBlood.actorPlayer}${commanderText} on ${firstBlood.targetPlayer}${turnText}`;
+}
+
 function getPlayerStatsData(games) {
   const stats = {};
 
   games.forEach((game) => {
     const rows = getGameRows(game);
     const winner = Array.isArray(game.finishOrder) && game.finishOrder.length ? game.finishOrder[0] : null;
+    const firstBlood = getGameFirstBloodInfo(game);
+
+    if (firstBlood?.actorPlayer) {
+      const firstBloodStat = ensurePlayerStats(stats, firstBlood.actorPlayer);
+      firstBloodStat.firstBloods = (firstBloodStat.firstBloods || 0) + 1;
+    }
 
     rows.forEach((row) => {
       const player = (row.player || '').trim();
@@ -2910,7 +3005,7 @@ function renderPlayerStats(games) {
   const players = Object.keys(stats);
 
   if (!players.length) {
-    playerStatsTableBody.innerHTML = '<tr><td colspan="10">No player stats available.</td></tr>';
+    playerStatsTableBody.innerHTML = '<tr><td colspan="11">No player stats available.</td></tr>';
     return;
   }
 
@@ -2953,6 +3048,7 @@ function renderPlayerStats(games) {
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>
+          <td>${stat.firstBloods || 0}</td>
           <td>${favoriteCommander}</td>
           <td>${nemesis}</td>
           <td>${victim}</td>
@@ -2970,6 +3066,7 @@ function getCommanderStatsData(games) {
   const stats = {};
 
   games.forEach((game) => {
+    const firstBlood = getGameFirstBloodInfo(game);
     getGameRows(game).forEach((row) => {
       const commander = (row.commander || '').trim();
       if (!commander) {
@@ -2977,7 +3074,7 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, kills: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
+        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
       }
 
       stats[commander].games += 1;
@@ -2999,6 +3096,10 @@ function getCommanderStatsData(games) {
 
       const kills = typeof row.kills === 'number' && !Number.isNaN(row.kills) ? row.kills : 0;
       stats[commander].kills += kills;
+
+      if (firstBlood?.actorPlayer === row.player) {
+        stats[commander].firstBloods += 1;
+      }
     });
   });
 
@@ -3098,6 +3199,7 @@ function renderCommanderStats(games) {
         wins: stat.wins,
         winRate: winRateValue,
         kills: stat.kills,
+        firstBloods: stat.firstBloods,
         kd: killsPerGame,
         averagePlacement,
         expected: getCommanderExpectedPower(commander),
@@ -3137,6 +3239,10 @@ function renderCommanderStats(games) {
       case 'kills':
         aVal = a.kills;
         bVal = b.kills;
+        break;
+      case 'firstBloods':
+        aVal = a.firstBloods;
+        bVal = b.firstBloods;
         break;
       case 'kd':
         aVal = a.kd;
@@ -3198,6 +3304,7 @@ function renderCommanderStats(games) {
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>
           <td>${stat.kills}</td>
+          <td>${stat.firstBloods || 0}</td>
           <td>${killsPerGame.toFixed(1)}</td>
           <td>${averagePlacement ? averagePlacement.toFixed(2) : '—'}</td>
           <td>
@@ -3225,7 +3332,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="12">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="13">No commanders match your search.</td></tr>';
   updateCommanderSortIndicators();
 }
 
@@ -3793,6 +3900,10 @@ window.addEventListener('storage', (event) => {
     activeGameUndoState = loadActiveGameUndoState();
     refresh();
   }
+});
+
+window.addEventListener('resize', () => {
+  refreshLiveTrackerUi();
 });
 
 function setupSyncUi() {
