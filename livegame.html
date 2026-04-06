@@ -95,7 +95,6 @@
               <p id="live-game-status" class="live-game-status">No game in progress.</p>
             </div>
             <div class="live-active-actions">
-              <button type="button" id="live-next-turn" class="secondary-button">Next turn</button>
               <button type="button" id="live-finish-game">Finish game</button>
               <button type="button" id="live-abandon-game" class="history-delete-button">Abandon</button>
             </div>
@@ -107,8 +106,9 @@
               <p id="live-first-player">—</p>
             </div>
             <div class="stats-card">
-              <h3>Current turn</h3>
-              <p id="live-turn-indicator">Turn 1</p>
+              <h3>Tracked turn</h3>
+              <label for="live-turn-number" class="sr-only">Tracked turn number</label>
+              <input id="live-turn-number" type="number" min="1" value="1" />
             </div>
             <div class="stats-card">
               <h3>First blood</h3>

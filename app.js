@@ -65,7 +65,7 @@ const liveOrderPreview = document.getElementById('live-order-preview');
 const liveActiveCard = document.getElementById('live-active-card');
 const liveGameStatus = document.getElementById('live-game-status');
 const liveFirstPlayer = document.getElementById('live-first-player');
-const liveTurnIndicator = document.getElementById('live-turn-indicator');
+const liveTurnNumberInput = document.getElementById('live-turn-number');
 const liveFirstBlood = document.getElementById('live-first-blood');
 const liveEventForm = document.getElementById('live-event-form');
 const liveEventActor = document.getElementById('live-event-actor');
@@ -74,7 +74,6 @@ const liveEventType = document.getElementById('live-event-type');
 const liveEventAmount = document.getElementById('live-event-amount');
 const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
-const liveNextTurnButton = document.getElementById('live-next-turn');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
 
@@ -355,6 +354,25 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
   return activeGame.players.find((player) => player.id === currentPlayerId) || null;
 }
 
+function getLiveTrackedTurnNumber() {
+  const rawValue = parseInt(liveTurnNumberInput?.value || `${activeGameState?.turnNumber || 1}`, 10);
+  return Math.max(1, Number.isNaN(rawValue) ? 1 : rawValue);
+}
+
+function syncActiveGameTurnFromInput() {
+  const turnNumber = getLiveTrackedTurnNumber();
+  if (liveTurnNumberInput) {
+    liveTurnNumberInput.value = String(turnNumber);
+  }
+  if (!activeGameState) {
+    return turnNumber;
+  }
+
+  activeGameState.turnNumber = turnNumber;
+  persistActiveGameState(activeGameState);
+  return turnNumber;
+}
+
 function getTurnOrderPreview(rows, firstPlayerId) {
   const normalizedRows = Array.isArray(rows) ? rows.filter((row) => row.player) : [];
   if (!normalizedRows.length) {
@@ -524,7 +542,6 @@ function renderLivePlayerGrid() {
     return;
   }
 
-  const currentPlayer = getCurrentTurnPlayer(activeGameState);
   livePlayerGrid.innerHTML = activeGameState.players
     .slice()
     .sort((a, b) => a.seat - b.seat)
@@ -535,7 +552,7 @@ function renderLivePlayerGrid() {
         : '<p>No commander damage tracked.</p>';
 
       return `
-        <article class="live-player-card${currentPlayer?.id === player.id ? ' is-current-turn' : ''}${player.eliminatedAt ? ' is-eliminated' : ''}">
+        <article class="live-player-card${player.eliminatedAt ? ' is-eliminated' : ''}">
           <div class="live-player-card-header">
             <div>
               <h3>${escapeHtml(player.name)}</h3>
@@ -544,6 +561,12 @@ function renderLivePlayerGrid() {
             <span class="live-seat-badge">Seat ${player.seat}</span>
           </div>
           <div class="live-player-life">${player.life}</div>
+          <div class="live-quick-actions">
+            <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
+            <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-5">-5</button>
+            <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
+            <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
+          </div>
           <div class="live-player-meta">
             <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
             <div>Kills: <strong>${player.kills}</strong></div>
@@ -590,8 +613,8 @@ function renderLiveGameStatus() {
     if (liveFirstPlayer) {
       liveFirstPlayer.textContent = '—';
     }
-    if (liveTurnIndicator) {
-      liveTurnIndicator.textContent = 'Turn 1';
+    if (liveTurnNumberInput) {
+      liveTurnNumberInput.value = '1';
     }
     if (liveFirstBlood) {
       liveFirstBlood.textContent = 'None yet';
@@ -601,7 +624,6 @@ function renderLiveGameStatus() {
     return;
   }
 
-  const currentPlayer = getCurrentTurnPlayer(activeGameState);
   const elapsedMinutes = Math.max(1, Math.round((Date.now() - new Date(activeGameState.startedAt).getTime()) / 60000));
 
   if (liveGameStatus) {
@@ -610,8 +632,8 @@ function renderLiveGameStatus() {
   if (liveFirstPlayer) {
     liveFirstPlayer.textContent = getPlayerNameById(activeGameState.startingPlayerId, activeGameState);
   }
-  if (liveTurnIndicator) {
-    liveTurnIndicator.textContent = currentPlayer ? `Turn ${activeGameState.turnNumber} · ${currentPlayer.name}` : `Turn ${activeGameState.turnNumber}`;
+  if (liveTurnNumberInput) {
+    liveTurnNumberInput.value = String(activeGameState.turnNumber || 1);
   }
   if (liveFirstBlood) {
     if (activeGameState.firstBlood) {
@@ -677,7 +699,6 @@ function startLiveGame() {
     date: liveGameDateInput?.value || new Date().toISOString().slice(0, 10),
     startedAt: new Date().toISOString(),
     turnNumber: 1,
-    currentTurnIndex: 0,
     startingPlayerId: liveSetupFirstPlayerId,
     turnOrder,
     firstBlood: null,
@@ -700,44 +721,6 @@ function startLiveGame() {
   refreshLiveTrackerUi();
 }
 
-function advanceLiveTurn() {
-  if (!activeGameState?.turnOrder?.length) {
-    return;
-  }
-
-  const aliveIds = new Set(getActiveAlivePlayers(activeGameState).map((player) => player.id));
-  if (!aliveIds.size) {
-    return;
-  }
-
-  let nextIndex = activeGameState.currentTurnIndex;
-  let wrapped = false;
-  do {
-    nextIndex = (nextIndex + 1) % activeGameState.turnOrder.length;
-    if (nextIndex === 0) {
-      wrapped = true;
-    }
-  } while (!aliveIds.has(activeGameState.turnOrder[nextIndex]));
-
-  activeGameState.currentTurnIndex = nextIndex;
-  if (wrapped) {
-    activeGameState.turnNumber += 1;
-  }
-
-  activeGameState.events.push({
-    id: generateId(),
-    type: 'next-turn',
-    actorPlayerId: '',
-    targetPlayerId: activeGameState.turnOrder[nextIndex],
-    amount: 0,
-    turnNumber: activeGameState.turnNumber,
-    timestamp: new Date().toISOString(),
-  });
-
-  persistActiveGameState(activeGameState);
-  refreshLiveTrackerUi();
-}
-
 function applyLiveEvent() {
   if (!activeGameState) {
     return;
@@ -747,6 +730,7 @@ function applyLiveEvent() {
   const actorPlayerId = liveEventActor?.value || '';
   const targetPlayerId = liveEventTarget?.value || '';
   const amount = Math.max(1, parseInt(liveEventAmount?.value || '1', 10));
+  const eventTurnNumber = syncActiveGameTurnFromInput();
   const targetPlayer = activeGameState.players.find((player) => player.id === targetPlayerId);
   const actorPlayer = activeGameState.players.find((player) => player.id === actorPlayerId);
 
@@ -774,7 +758,7 @@ function applyLiveEvent() {
       activeGameState.firstBlood = {
         actorPlayerId,
         targetPlayerId,
-        turnNumber: activeGameState.turnNumber,
+        turnNumber: eventTurnNumber,
       };
     }
   }
@@ -786,6 +770,7 @@ function applyLiveEvent() {
   if (type === 'elimination') {
     const aliveCount = getActiveAlivePlayers(activeGameState).length;
     targetPlayer.eliminatedAt = new Date().toISOString();
+    targetPlayer.eliminatedTurnNumber = eventTurnNumber;
     targetPlayer.eliminatedByPlayerId = actorPlayerId;
     targetPlayer.place = aliveCount;
     actorPlayer.kills += 1;
@@ -798,7 +783,7 @@ function applyLiveEvent() {
     actorPlayerId,
     targetPlayerId,
     amount,
-    turnNumber: activeGameState.turnNumber,
+    turnNumber: eventTurnNumber,
     timestamp: new Date().toISOString(),
   });
 
@@ -815,6 +800,42 @@ function applyLiveEvent() {
   }
 }
 
+function applyQuickLifeChange(playerId, delta) {
+  if (!activeGameState) {
+    return;
+  }
+
+  const player = activeGameState.players.find((entry) => entry.id === playerId);
+  if (!player || player.eliminatedAt) {
+    return;
+  }
+
+  const turnNumber = syncActiveGameTurnFromInput();
+  player.life += delta;
+
+  const eventType = delta < 0 ? 'life-loss' : 'life-gain';
+  if (delta < 0 && !activeGameState.firstBlood) {
+    activeGameState.firstBlood = {
+      actorPlayerId: '',
+      targetPlayerId: playerId,
+      turnNumber,
+    };
+  }
+
+  activeGameState.events.push({
+    id: generateId(),
+    type: eventType,
+    actorPlayerId: '',
+    targetPlayerId: playerId,
+    amount: Math.abs(delta),
+    turnNumber,
+    timestamp: new Date().toISOString(),
+  });
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+}
+
 function completeActiveGame() {
   if (!activeGameState) {
     return;
@@ -828,6 +849,9 @@ function completeActiveGame() {
   const completedPlayers = activeGameState.players
     .map((player) => ({ ...player }))
     .sort((a, b) => {
+      if (a.eliminatedTurnNumber && b.eliminatedTurnNumber && a.eliminatedTurnNumber !== b.eliminatedTurnNumber) {
+        return a.eliminatedTurnNumber - b.eliminatedTurnNumber;
+      }
       if (a.eliminatedAt && b.eliminatedAt) {
         return new Date(a.eliminatedAt).getTime() - new Date(b.eliminatedAt).getTime();
       }
@@ -3054,9 +3078,27 @@ if (liveEventForm) {
   });
 }
 
-if (liveNextTurnButton) {
-  liveNextTurnButton.addEventListener('click', () => {
-    advanceLiveTurn();
+if (liveTurnNumberInput) {
+  liveTurnNumberInput.addEventListener('change', () => {
+    syncActiveGameTurnFromInput();
+    refreshLiveTrackerUi();
+  });
+}
+
+if (livePlayerGrid) {
+  livePlayerGrid.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-action="adjust-life"]');
+    if (!button) {
+      return;
+    }
+
+    const playerId = button.dataset.playerId || '';
+    const delta = parseInt(button.dataset.delta || '0', 10);
+    if (!playerId || Number.isNaN(delta) || delta === 0) {
+      return;
+    }
+
+    applyQuickLifeChange(playerId, delta);
   });
 }
 
@@ -3360,6 +3402,9 @@ async function initializeApp() {
 
   if (liveGameForm) {
     liveGameDateInput.value = new Date().toISOString().slice(0, 10);
+    if (liveTurnNumberInput) {
+      liveTurnNumberInput.value = '1';
+    }
     if (!liveGamePlayerBody.children.length) {
       for (let index = 0; index < 4; index += 1) {
         addLiveSetupRow();
