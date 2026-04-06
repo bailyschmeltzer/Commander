@@ -1100,6 +1100,46 @@ button[type="submit"] {
   flex-wrap: wrap;
 }
 
+.live-source-prompt {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(22, 30, 52, 0.5);
+  z-index: 5000;
+}
+
+.live-source-dialog {
+  width: min(100%, 420px);
+  padding: 20px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #dbe3f5;
+  box-shadow: 0 18px 40px rgba(25, 34, 64, 0.2);
+}
+
+.live-source-dialog h3,
+.live-source-dialog p {
+  margin-top: 0;
+}
+
+.live-source-options {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.live-source-option {
+  width: 100%;
+  justify-content: flex-start;
+  background: #f7f9ff;
+  border: 1px solid #d7deef;
+  color: #243661;
+  font-weight: 700;
+}
+
 .live-event-form {
   margin: 18px 0;
 }
@@ -1190,6 +1230,19 @@ button[type="submit"] {
 
 .live-player-meta strong {
   color: #1f2742;
+}
+
+.live-player-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.live-player-toggle input {
+  width: auto;
+  min-width: auto;
+  margin: 0;
 }
 
 .live-card-damage-list {

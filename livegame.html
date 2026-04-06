@@ -119,12 +119,6 @@
           <form id="live-event-form" class="live-event-form">
             <div class="field-grid">
               <div class="field">
-                <label for="live-event-actor">Source</label>
-                <select id="live-event-actor">
-                  <option value="">Environment / self</option>
-                </select>
-              </div>
-              <div class="field">
                 <label for="live-event-target">Target</label>
                 <select id="live-event-target" required>
                   <option value="">Select player</option>
@@ -160,6 +154,17 @@
             </div>
           </div>
         </section>
+
+        <div id="live-source-prompt" class="live-source-prompt" hidden>
+          <div class="live-source-dialog">
+            <h3 id="live-source-title">Select source</h3>
+            <p id="live-source-copy">Who caused this life loss?</p>
+            <div id="live-source-options" class="live-source-options"></div>
+            <div class="actions">
+              <button type="button" id="live-source-cancel" class="secondary-button">Cancel</button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 

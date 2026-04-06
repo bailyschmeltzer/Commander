@@ -68,7 +68,6 @@ const liveFirstPlayer = document.getElementById('live-first-player');
 const liveTurnNumberInput = document.getElementById('live-turn-number');
 const liveFirstBlood = document.getElementById('live-first-blood');
 const liveEventForm = document.getElementById('live-event-form');
-const liveEventActor = document.getElementById('live-event-actor');
 const liveEventTarget = document.getElementById('live-event-target');
 const liveEventType = document.getElementById('live-event-type');
 const liveEventAmount = document.getElementById('live-event-amount');
@@ -76,6 +75,11 @@ const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
+const liveSourcePrompt = document.getElementById('live-source-prompt');
+const liveSourceTitle = document.getElementById('live-source-title');
+const liveSourceCopy = document.getElementById('live-source-copy');
+const liveSourceOptions = document.getElementById('live-source-options');
+const liveSourceCancelButton = document.getElementById('live-source-cancel');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -100,6 +104,10 @@ let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let activeGameState = null;
 let liveSetupFirstPlayerId = null;
+let liveSourcePromptResolver = null;
+let liveHoldTimerId = null;
+let liveHoldIntervalId = null;
+let liveHoldRepeated = false;
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
@@ -354,6 +362,210 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
   return activeGame.players.find((player) => player.id === currentPlayerId) || null;
 }
 
+function hideLiveSourcePrompt(selectedSourceId = null) {
+  if (liveSourcePrompt) {
+    liveSourcePrompt.hidden = true;
+  }
+  if (liveSourceOptions) {
+    liveSourceOptions.innerHTML = '';
+  }
+
+  if (liveSourcePromptResolver) {
+    const resolver = liveSourcePromptResolver;
+    liveSourcePromptResolver = null;
+    resolver(selectedSourceId);
+  }
+}
+
+function promptForLiveSource({ targetPlayerId, title, description, allowSelf = true, requireOpponent = false }) {
+  if (!liveSourcePrompt || !liveSourceOptions) {
+    return Promise.resolve(null);
+  }
+
+  const targetPlayer = activeGameState?.players?.find((player) => player.id === targetPlayerId);
+  if (!targetPlayer) {
+    return Promise.resolve(null);
+  }
+
+  const options = [];
+  if (allowSelf && !requireOpponent) {
+    options.push({ id: targetPlayer.id, label: `${targetPlayer.name} (self)` });
+  }
+
+  activeGameState.players
+    .filter((player) => player.id !== targetPlayer.id)
+    .forEach((player) => {
+      options.push({ id: player.id, label: player.name });
+    });
+
+  liveSourceTitle.textContent = title;
+  liveSourceCopy.textContent = description;
+  liveSourceOptions.innerHTML = options
+    .map((option) => `<button type="button" class="live-source-option" data-source-id="${escapeHtml(option.id)}">${escapeHtml(option.label)}</button>`)
+    .join('');
+  liveSourcePrompt.hidden = false;
+
+  return new Promise((resolve) => {
+    liveSourcePromptResolver = resolve;
+  });
+}
+
+function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePlayerId = '') {
+  if (!activeGameState || !targetPlayer) {
+    return false;
+  }
+
+  if (eventType === 'elimination' || eventType === 'commander-damage') {
+    return true;
+  }
+
+  if (targetPlayer.cannotLoseTheGame) {
+    return Boolean(activeGameState.shouldPromptForSource);
+  }
+
+  const currentCommanderDamage = sourcePlayerId ? (targetPlayer.commanderDamageTaken?.[sourcePlayerId] || 0) : 0;
+  const commanderKill = eventType === 'commander-damage' && (currentCommanderDamage > 20);
+  const lifeKill = projectedLife <= 0;
+  return Boolean(activeGameState.shouldPromptForSource || lifeKill || commanderKill);
+}
+
+function maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, turnNumber) {
+  if (!activeGameState || activeGameState.firstBlood || !sourcePlayerId || sourcePlayerId === targetPlayerId) {
+    return;
+  }
+
+  activeGameState.firstBlood = {
+    actorPlayerId: sourcePlayerId,
+    targetPlayerId,
+    turnNumber,
+  };
+}
+
+function recordLiveEvent({ type, actorPlayerId = '', targetPlayerId = '', amount = 0, turnNumber, notes = '' }) {
+  activeGameState.events.push({
+    id: generateId(),
+    type,
+    actorPlayerId,
+    targetPlayerId,
+    amount,
+    turnNumber,
+    notes,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, reason) {
+  if (!targetPlayer || targetPlayer.eliminatedAt || targetPlayer.cannotLoseTheGame) {
+    return false;
+  }
+
+  const aliveCount = getActiveAlivePlayers(activeGameState).length;
+  targetPlayer.eliminatedAt = new Date().toISOString();
+  targetPlayer.eliminatedTurnNumber = turnNumber;
+  targetPlayer.eliminatedByPlayerId = sourcePlayerId || '';
+  targetPlayer.eliminationReason = reason;
+  targetPlayer.place = aliveCount;
+
+  if (sourcePlayerId && sourcePlayerId !== targetPlayer.id) {
+    const sourcePlayer = activeGameState.players.find((player) => player.id === sourcePlayerId);
+    if (sourcePlayer) {
+      sourcePlayer.kills += 1;
+      sourcePlayer.killedPlayers = [...new Set([...(sourcePlayer.killedPlayers || []), targetPlayer.name])];
+    }
+  }
+
+  activeGameState.shouldPromptForSource = true;
+  return true;
+}
+
+function evaluateLiveElimination(targetPlayer, sourcePlayerId, turnNumber, eventType) {
+  if (!targetPlayer || targetPlayer.cannotLoseTheGame) {
+    return false;
+  }
+
+  if (targetPlayer.life <= 0) {
+    return eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, 'life-total');
+  }
+
+  if (eventType === 'commander-damage' && sourcePlayerId && (targetPlayer.commanderDamageTaken?.[sourcePlayerId] || 0) > 20) {
+    return eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, 'commander-damage');
+  }
+
+  return false;
+}
+
+async function resolveLiveSourceSelection({ targetPlayerId, eventType, amount, projectedLife }) {
+  const targetPlayer = activeGameState?.players?.find((player) => player.id === targetPlayerId);
+  if (!targetPlayer) {
+    return null;
+  }
+
+  const needsPrompt = shouldPromptForSource(targetPlayer, projectedLife, eventType);
+  if (!needsPrompt) {
+    return '';
+  }
+
+  const title = eventType === 'elimination' ? 'Select the killer' : 'Select damage source';
+  const description = eventType === 'commander-damage'
+    ? `Who dealt ${amount} commander damage to ${targetPlayer.name}?`
+    : eventType === 'elimination'
+      ? `Who eliminated ${targetPlayer.name}?`
+      : `Who caused ${targetPlayer.name} to lose ${amount} life?`;
+  const requireOpponent = eventType === 'commander-damage' || eventType === 'elimination';
+  const selectedSourceId = await promptForLiveSource({
+    targetPlayerId,
+    title,
+    description,
+    allowSelf: true,
+    requireOpponent,
+  });
+
+  if (selectedSourceId === null) {
+    return null;
+  }
+
+  if (eventType !== 'elimination') {
+    activeGameState.shouldPromptForSource = projectedLife <= 0 && !targetPlayer.cannotLoseTheGame;
+  }
+
+  return selectedSourceId || '';
+}
+
+function stopLiveHoldRepeat() {
+  if (liveHoldTimerId) {
+    clearTimeout(liveHoldTimerId);
+    liveHoldTimerId = null;
+  }
+  if (liveHoldIntervalId) {
+    clearInterval(liveHoldIntervalId);
+    liveHoldIntervalId = null;
+  }
+}
+
+function startLiveHoldRepeat(button) {
+  stopLiveHoldRepeat();
+
+  const playerId = button.dataset.playerId || '';
+  const delta = parseInt(button.dataset.delta || '0', 10);
+  const player = activeGameState?.players?.find((entry) => entry.id === playerId);
+  if (!player || Number.isNaN(delta) || delta === 0) {
+    return;
+  }
+
+  if (delta < 0 && shouldPromptForSource(player, player.life + delta, 'life-loss')) {
+    return;
+  }
+
+  liveHoldRepeated = false;
+  liveHoldTimerId = setTimeout(() => {
+    liveHoldRepeated = true;
+    applyQuickLifeChange(playerId, delta);
+    liveHoldIntervalId = setInterval(() => {
+      applyQuickLifeChange(playerId, delta);
+    }, 260);
+  }, 350);
+}
+
 function getLiveTrackedTurnNumber() {
   const rawValue = parseInt(liveTurnNumberInput?.value || `${activeGameState?.turnNumber || 1}`, 10);
   return Math.max(1, Number.isNaN(rawValue) ? 1 : rawValue);
@@ -571,6 +783,10 @@ function renderLivePlayerGrid() {
             <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
             <div>Kills: <strong>${player.kills}</strong></div>
             <div>Killed: <strong>${escapeHtml((player.killedPlayers || []).join(', ') || 'None')}</strong></div>
+            <label class="live-player-toggle">
+              <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
+              <span>Cannot lose the game</span>
+            </label>
             <div>Commander damage received:</div>
             ${damageMarkup}
           </div>
@@ -646,7 +862,6 @@ function renderLiveGameStatus() {
     }
   }
 
-  buildLivePlayerOptions(liveEventActor, 'Environment / self');
   buildLivePlayerOptions(liveEventTarget, 'Select player');
   renderLivePlayerGrid();
   renderLiveEventLog();
@@ -702,6 +917,7 @@ function startLiveGame() {
     startingPlayerId: liveSetupFirstPlayerId,
     turnOrder,
     firstBlood: null,
+    shouldPromptForSource: true,
     events: [],
     players: players.map((player) => ({
       id: player.id,
@@ -713,6 +929,7 @@ function startLiveGame() {
       kills: 0,
       killedPlayers: [],
       commanderDamageTaken: {},
+      cannotLoseTheGame: false,
       eliminatedAt: '',
       eliminatedByPlayerId: '',
       place: null,
@@ -721,26 +938,19 @@ function startLiveGame() {
   refreshLiveTrackerUi();
 }
 
-function applyLiveEvent() {
+async function applyLiveEvent() {
   if (!activeGameState) {
     return;
   }
 
   const type = liveEventType?.value || 'life-loss';
-  const actorPlayerId = liveEventActor?.value || '';
   const targetPlayerId = liveEventTarget?.value || '';
   const amount = Math.max(1, parseInt(liveEventAmount?.value || '1', 10));
   const eventTurnNumber = syncActiveGameTurnFromInput();
   const targetPlayer = activeGameState.players.find((player) => player.id === targetPlayerId);
-  const actorPlayer = activeGameState.players.find((player) => player.id === actorPlayerId);
 
   if (!targetPlayer) {
     alert('Choose a target player.');
-    return;
-  }
-
-  if ((type === 'commander-damage' || type === 'elimination') && (!actorPlayer || actorPlayer.id === targetPlayer.id)) {
-    alert('Choose another player as the source for commander damage or elimination.');
     return;
   }
 
@@ -749,18 +959,23 @@ function applyLiveEvent() {
     return;
   }
 
+  const projectedLife = type === 'life-gain' ? targetPlayer.life + amount : targetPlayer.life - amount;
+  const sourcePlayerId = await resolveLiveSourceSelection({
+    targetPlayerId,
+    eventType: type,
+    amount,
+    projectedLife,
+  });
+  if (sourcePlayerId === null) {
+    return;
+  }
+
   if (type === 'life-loss' || type === 'commander-damage') {
     targetPlayer.life -= amount;
     if (type === 'commander-damage') {
-      targetPlayer.commanderDamageTaken[actorPlayerId] = (targetPlayer.commanderDamageTaken[actorPlayerId] || 0) + amount;
+      targetPlayer.commanderDamageTaken[sourcePlayerId] = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
     }
-    if (!activeGameState.firstBlood) {
-      activeGameState.firstBlood = {
-        actorPlayerId,
-        targetPlayerId,
-        turnNumber: eventTurnNumber,
-      };
-    }
+    maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, eventTurnNumber);
   }
 
   if (type === 'life-gain') {
@@ -768,23 +983,16 @@ function applyLiveEvent() {
   }
 
   if (type === 'elimination') {
-    const aliveCount = getActiveAlivePlayers(activeGameState).length;
-    targetPlayer.eliminatedAt = new Date().toISOString();
-    targetPlayer.eliminatedTurnNumber = eventTurnNumber;
-    targetPlayer.eliminatedByPlayerId = actorPlayerId;
-    targetPlayer.place = aliveCount;
-    actorPlayer.kills += 1;
-    actorPlayer.killedPlayers = [...new Set([...(actorPlayer.killedPlayers || []), targetPlayer.name])];
+    eliminateLivePlayer(targetPlayer, sourcePlayerId, eventTurnNumber, 'manual');
   }
 
-  activeGameState.events.push({
-    id: generateId(),
+  evaluateLiveElimination(targetPlayer, sourcePlayerId, eventTurnNumber, type);
+  recordLiveEvent({
     type,
-    actorPlayerId,
+    actorPlayerId: sourcePlayerId,
     targetPlayerId,
     amount,
     turnNumber: eventTurnNumber,
-    timestamp: new Date().toISOString(),
   });
 
   const alivePlayers = getActiveAlivePlayers(activeGameState);
@@ -800,7 +1008,7 @@ function applyLiveEvent() {
   }
 }
 
-function applyQuickLifeChange(playerId, delta) {
+async function applyQuickLifeChange(playerId, delta) {
   if (!activeGameState) {
     return;
   }
@@ -811,29 +1019,46 @@ function applyQuickLifeChange(playerId, delta) {
   }
 
   const turnNumber = syncActiveGameTurnFromInput();
+  const projectedLife = player.life + delta;
+  const sourcePlayerId = delta < 0
+    ? await resolveLiveSourceSelection({
+      targetPlayerId: playerId,
+      eventType: 'life-loss',
+      amount: Math.abs(delta),
+      projectedLife,
+    })
+    : '';
+  if (sourcePlayerId === null) {
+    return;
+  }
+
   player.life += delta;
 
   const eventType = delta < 0 ? 'life-loss' : 'life-gain';
-  if (delta < 0 && !activeGameState.firstBlood) {
-    activeGameState.firstBlood = {
-      actorPlayerId: '',
-      targetPlayerId: playerId,
-      turnNumber,
-    };
+  if (delta < 0) {
+    maybeRecordFirstBlood(sourcePlayerId, playerId, turnNumber);
+    evaluateLiveElimination(player, sourcePlayerId, turnNumber, eventType);
   }
 
-  activeGameState.events.push({
-    id: generateId(),
+  recordLiveEvent({
     type: eventType,
-    actorPlayerId: '',
+    actorPlayerId: sourcePlayerId,
     targetPlayerId: playerId,
     amount: Math.abs(delta),
     turnNumber,
-    timestamp: new Date().toISOString(),
   });
+
+  const alivePlayers = getActiveAlivePlayers(activeGameState);
+  if (alivePlayers.length === 1) {
+    alivePlayers[0].place = 1;
+  }
 
   persistActiveGameState(activeGameState);
   refreshLiveTrackerUi();
+
+  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
+    completeActiveGame();
+  }
 }
 
 function completeActiveGame() {
@@ -3078,6 +3303,23 @@ if (liveEventForm) {
   });
 }
 
+if (liveSourceOptions) {
+  liveSourceOptions.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-source-id]');
+    if (!button) {
+      return;
+    }
+
+    hideLiveSourcePrompt(button.dataset.sourceId || '');
+  });
+}
+
+if (liveSourceCancelButton) {
+  liveSourceCancelButton.addEventListener('click', () => {
+    hideLiveSourcePrompt(null);
+  });
+}
+
 if (liveTurnNumberInput) {
   liveTurnNumberInput.addEventListener('change', () => {
     syncActiveGameTurnFromInput();
@@ -3087,8 +3329,26 @@ if (liveTurnNumberInput) {
 
 if (livePlayerGrid) {
   livePlayerGrid.addEventListener('click', (event) => {
+    const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
+    if (toggle) {
+      const player = activeGameState?.players?.find((entry) => entry.id === (toggle.dataset.playerId || ''));
+      if (!player) {
+        return;
+      }
+
+      player.cannotLoseTheGame = Boolean(toggle.checked);
+      persistActiveGameState(activeGameState);
+      refreshLiveTrackerUi();
+      return;
+    }
+
     const button = event.target.closest('[data-action="adjust-life"]');
     if (!button) {
+      return;
+    }
+
+    if (liveHoldRepeated) {
+      liveHoldRepeated = false;
       return;
     }
 
@@ -3099,6 +3359,27 @@ if (livePlayerGrid) {
     }
 
     applyQuickLifeChange(playerId, delta);
+  });
+
+  livePlayerGrid.addEventListener('pointerdown', (event) => {
+    const button = event.target.closest('[data-action="adjust-life"]');
+    if (!button) {
+      return;
+    }
+
+    startLiveHoldRepeat(button);
+  });
+
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
+    livePlayerGrid.addEventListener(eventName, () => {
+      stopLiveHoldRepeat();
+    });
+  });
+
+  ['pointerup', 'pointercancel'].forEach((eventName) => {
+    document.addEventListener(eventName, () => {
+      stopLiveHoldRepeat();
+    });
   });
 }
 
