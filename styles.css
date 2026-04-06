@@ -884,8 +884,12 @@ button[type="submit"] {
 }
 
 @media (max-width: 900px) {
+  body {
+    font-size: 15px;
+  }
+
   .app-shell {
-    padding: 16px;
+    padding: 14px;
   }
 
   header {
@@ -893,16 +897,26 @@ button[type="submit"] {
   }
 
   header h1 {
-    font-size: clamp(1.75rem, 7vw, 2.2rem);
+    font-size: clamp(1.55rem, 6vw, 2rem);
   }
 
-  .card {
-    padding: 16px;
-    border-radius: 16px;
+  header p {
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .card,
+  .stats-card,
+  .history-item,
+  .deck-lookup-result {
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .sync-row {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
     align-items: stretch;
   }
 
@@ -913,52 +927,35 @@ button[type="submit"] {
   }
 
   .page-switch {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .page-link {
-    flex: 0 0 auto;
-    white-space: nowrap;
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 0.92rem;
+    text-align: center;
+    justify-content: center;
+    white-space: normal;
   }
 
-  .actions {
-    flex-direction: column;
+  .field,
+  .page-game-tracker #game-form .field,
+  .page-records #custom-record-form .field,
+  .page-decklists #deck-list-form .field {
+    margin-bottom: 12px;
   }
 
-  .actions button,
-  .button-group .secondary-button,
-  .history-item-actions button {
-    width: 100%;
-  }
-
-  .button-group {
-    flex-direction: column;
-  }
-
-  .field-grid {
+  .field-grid,
+  .history-controls {
     grid-template-columns: 1fr;
     gap: 12px;
   }
 
-  .history-controls {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .history-controls .field,
-  .history-controls button {
-    width: 100%;
-  }
-
-  .history-item .row,
-  .history-item-actions {
-    align-items: stretch;
+  .history-controls .field {
+    margin-bottom: 0;
   }
 
   .player-table-wrapper {
@@ -969,161 +966,36 @@ button[type="submit"] {
 
   .player-table,
   .history-game-table {
-    min-width: 720px;
-  }
-
-  .player-stats-table {
-    min-width: 980px;
-  }
-
-  .commander-stats-table {
-    min-width: 1180px;
-  }
-
-  .deck-list-table {
-    min-width: 760px;
-  }
-
-  .records-table {
-    min-width: 960px;
-  }
-
-  .page-game-tracker #game-form {
-    display: grid;
-    gap: 14px;
-  }
-
-  .page-game-tracker #game-form .field {
-    margin-bottom: 0;
-  }
-
-  .page-game-tracker #game-form .full-width small,
-  .page-records .records-helper-text {
-    display: block;
-    line-height: 1.45;
-  }
-
-  .page-game-tracker #game-form .player-table {
-    min-width: 680px;
-  }
-
-  .page-game-tracker #game-form .player-table th,
-  .page-game-tracker #game-form .player-table td,
-  .page-records .records-table th,
-  .page-records .records-table td {
-    padding: 8px;
-  }
-
-  .page-game-tracker #game-form .button-group,
-  .page-records #custom-record-form .actions,
-  .page-records #records-form .actions {
-    margin-top: 10px;
-  }
-
-  .page-records .records-table {
-    min-width: 860px;
-  }
-
-  .page-records .records-table textarea {
-    min-width: 220px;
-  }
-
-  .page-records #custom-record-form {
-    gap: 10px;
-  }
-
-  .page-records #custom-record-form .field {
-    margin-bottom: 0;
-  }
-
-  .page-records #custom-record-form .combined-input-wrapper,
-  .page-records #custom-record-form .lookup-input {
-    min-width: 0;
-  }
-
-  .page-player-stats .player-stats-table {
-    min-width: 900px;
-  }
-
-  .page-player-stats .player-stats-table th,
-  .page-player-stats .player-stats-table td {
-    padding: 8px;
-  }
-
-  .page-commander-stats .field {
-    margin-bottom: 12px;
-  }
-
-  .page-commander-stats .commander-stats-table {
-    min-width: 1120px;
-  }
-
-  .page-commander-stats .commander-stats-table th,
-  .page-commander-stats .commander-stats-table td {
-    padding: 8px;
-  }
-
-  .page-commander-stats .commander-expected-input {
-    width: 58px;
-  }
-
-  .page-history .history-item {
-    padding: 14px;
-  }
-
-  .page-history .history-item-meta {
-    display: grid;
-    gap: 6px;
-  }
-
-  .page-history .history-item-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .page-history .history-game-table {
     min-width: 640px;
   }
 
-  .page-decklists #deck-list-form {
-    display: grid;
-    gap: 12px;
+  .player-stats-table {
+    min-width: 780px;
   }
 
-  .page-decklists #deck-list-form .field {
-    margin-bottom: 0;
+  .commander-stats-table {
+    min-width: 980px;
   }
 
-  .page-decklists #deck-list-form .actions {
-    margin-top: 2px;
+  .deck-list-table {
+    min-width: 640px;
   }
 
-  .page-decklists .deck-list-table {
-    min-width: 720px;
+  .records-table {
+    min-width: 780px;
   }
 
-  .page-decklists .deck-list-table th:nth-child(3),
-  .page-decklists .deck-list-table td:nth-child(3) {
-    width: 190px;
-    min-width: 190px;
-  }
-
-  .page-decklists .deck-lookup-result {
-    padding: 14px;
-  }
-}
-
-@media (max-width: 560px) {
-  .app-shell {
-    padding: 12px;
-  }
-
-  .card {
-    padding: 14px;
-  }
-
-  .sync-panel {
-    padding: 10px;
+  .player-table th,
+  .player-table td,
+  .history-game-table th,
+  .history-game-table td,
+  .page-records .records-table th,
+  .page-records .records-table td,
+  .page-player-stats .player-stats-table th,
+  .page-player-stats .player-stats-table td,
+  .page-commander-stats .commander-stats-table th,
+  .page-commander-stats .commander-stats-table td {
+    padding: 8px;
   }
 
   input,
@@ -1132,56 +1004,121 @@ button[type="submit"] {
   .player-table input,
   .player-table textarea,
   .player-table select {
-    padding: 11px 12px;
+    padding: 10px 11px;
   }
 
-  .player-table th,
-  .player-table td,
-  .history-game-table th,
-  .history-game-table td {
-    padding: 8px;
+  .actions {
+    gap: 10px;
+  }
+
+  .button-group {
+    gap: 8px;
+  }
+
+  .button-group .secondary-button {
+    min-width: 0;
+  }
+
+  .history-item .row,
+  .history-item-actions {
+    gap: 8px;
+  }
+
+  .history-item-meta {
+    display: grid;
+    gap: 6px;
+  }
+
+  .page-game-tracker #game-form,
+  .page-records #custom-record-form,
+  .page-decklists #deck-list-form {
+    display: grid;
+    gap: 12px;
+  }
+
+  .page-game-tracker #game-form .field,
+  .page-records #custom-record-form .field,
+  .page-decklists #deck-list-form .field {
+    margin-bottom: 0;
   }
 
   .page-game-tracker #game-form .player-table {
     min-width: 620px;
   }
 
-  .page-records .records-table {
-    min-width: 820px;
-  }
-
   .page-records .records-table textarea {
     min-width: 180px;
+    min-height: 64px;
   }
 
-  .page-player-stats .player-stats-table {
-    min-width: 860px;
+  .page-records #custom-record-form .combined-input-wrapper,
+  .page-records #custom-record-form .lookup-input {
+    min-width: 0;
   }
 
-  .page-commander-stats .commander-stats-table {
-    min-width: 1040px;
-  }
-
-  .page-history .history-item {
-    padding: 12px;
-  }
-
-  .page-history .history-game-table {
-    min-width: 600px;
-  }
-
-  .page-decklists .deck-list-table {
-    min-width: 680px;
+  .page-commander-stats .commander-expected-input {
+    width: 56px;
   }
 
   .page-decklists .deck-list-table th:nth-child(3),
   .page-decklists .deck-list-table td:nth-child(3) {
-    width: 172px;
-    min-width: 172px;
+    width: 170px;
+    min-width: 170px;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  header h1 {
+    font-size: 1.45rem;
+  }
+
+  .card,
+  .stats-card,
+  .history-item,
+  .deck-lookup-result {
+    padding: 12px;
+  }
+
+  .sync-panel {
+    padding: 10px;
+  }
+
+  .page-switch {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .page-link {
+    font-size: 0.88rem;
+    padding: 8px;
+  }
+
+  .player-table,
+  .history-game-table {
+    min-width: 600px;
+  }
+
+  .player-stats-table {
+    min-width: 720px;
+  }
+
+  .commander-stats-table {
+    min-width: 920px;
+  }
+
+  .deck-list-table {
+    min-width: 620px;
+  }
+
+  .records-table {
+    min-width: 740px;
   }
 
   .dropdown-menu {
-    min-width: 150px;
-    max-width: min(80vw, 240px);
+    min-width: 140px;
+    max-width: min(88vw, 220px);
   }
 }
