@@ -1142,20 +1142,20 @@ function getDeckWheelSvgMarkup(deckPool) {
     const startAngle = index * segmentSize;
     const endAngle = startAngle + segmentSize;
     const midAngle = startAngle + (segmentSize / 2);
-    const labelPoint = polarToCartesian(50, 50, 31, midAngle);
-    const labelRotation = midAngle > 180 ? midAngle + 180 : midAngle;
+    const innerLabelPoint = polarToCartesian(50, 50, 18, midAngle);
+    const outerLabelPoint = polarToCartesian(50, 50, 44, midAngle);
+    const isLeftSide = midAngle > 90 && midAngle < 270;
+    const pathStart = isLeftSide ? outerLabelPoint : innerLabelPoint;
+    const pathEnd = isLeftSide ? innerLabelPoint : outerLabelPoint;
+    const pathId = `deck-wheel-label-path-${index}`;
     const label = escapeHtml(deck.commander.length > 20 ? `${deck.commander.slice(0, 19)}…` : deck.commander);
 
     return `
       <path d="${describeWheelSegment(startAngle, endAngle)}" fill="${colors[index]}" class="deck-wheel-segment" />
-      <text
-        x="${labelPoint.x}"
-        y="${labelPoint.y}"
-        text-anchor="middle"
-        dominant-baseline="middle"
-        transform="rotate(${labelRotation} ${labelPoint.x} ${labelPoint.y})"
-        class="${textClass}"
-      >${label}</text>`;
+      <path id="${pathId}" d="M ${pathStart.x} ${pathStart.y} L ${pathEnd.x} ${pathEnd.y}" class="deck-wheel-label-guide" />
+      <text class="${textClass}">
+        <textPath href="#${pathId}" startOffset="8%">${label}</textPath>
+      </text>`;
   }).join('');
 
   return `<svg viewBox="0 0 100 100" class="deck-wheel-svg" aria-hidden="true">${segments}</svg>`;
