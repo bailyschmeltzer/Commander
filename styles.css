@@ -1206,6 +1206,7 @@ button[type="submit"] {
 
   .page-decklists .deck-list-table td:nth-child(3) {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 

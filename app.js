@@ -879,6 +879,7 @@ function populateDeckCommanderSelector() {
     return;
   }
   buildDropdownMenu(deckCommanderMenu, knownCommanders);
+  attachLookupWrapperHandlers(deckListForm || document);
 }
 
 function populateRecordLookupMenus() {
@@ -1968,29 +1969,6 @@ if (deckListTableBody) {
 if (deckLookupSelect) {
   deckLookupSelect.addEventListener('change', () => {
     renderDeckLookup();
-  });
-}
-
-if (deckCommanderDropdownButton && deckCommanderMenu && deckCommanderInput) {
-  deckCommanderDropdownButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    document.querySelectorAll('.dropdown-menu.active').forEach((menu) => {
-      if (menu !== deckCommanderMenu) {
-        menu.classList.remove('active');
-      }
-    });
-    deckCommanderMenu.classList.toggle('active');
-    updateDropdownLayeringState();
-  });
-
-  deckCommanderMenu.addEventListener('click', (event) => {
-    const item = event.target.closest('.dropdown-item');
-    if (!item) {
-      return;
-    }
-    deckCommanderInput.value = item.dataset.value || '';
-    deckCommanderMenu.classList.remove('active');
-    updateDropdownLayeringState();
   });
 }
 
