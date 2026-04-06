@@ -80,11 +80,19 @@
               </div>
               <div class="field">
                 <label for="custom-record-holder">Player</label>
-                <input id="custom-record-holder" type="text" list="player-list" placeholder="Player" />
+                <div class="combined-input-wrapper">
+                  <input id="custom-record-holder" class="lookup-input" type="text" list="player-list" placeholder="Player" />
+                  <button type="button" class="dropdown-button" title="Show players">▼</button>
+                  <div id="custom-record-holder-menu" class="dropdown-menu"></div>
+                </div>
               </div>
               <div class="field">
                 <label for="custom-record-commander">Commander / Deck</label>
-                <input id="custom-record-commander" type="text" list="commander-list" placeholder="Commander or deck" />
+                <div class="combined-input-wrapper">
+                  <input id="custom-record-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander or deck" />
+                  <button type="button" class="dropdown-button" title="Show commanders">▼</button>
+                  <div id="custom-record-commander-menu" class="dropdown-menu"></div>
+                </div>
               </div>
               <div class="field">
                 <label for="custom-record-date">Date</label>

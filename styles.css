@@ -365,6 +365,16 @@ label {
   table-layout: auto;
 }
 
+.records-table th:nth-child(2),
+.records-table td:nth-child(2) {
+  width: 9%;
+}
+
+.records-table th:nth-child(5),
+.records-table td:nth-child(5) {
+  width: 15%;
+}
+
 .records-table th,
 .records-table td {
   vertical-align: top;
@@ -380,11 +390,15 @@ label {
 }
 
 .record-value-cell {
-  min-width: 110px;
+  min-width: 84px;
 }
 
 .record-unit-cell {
   min-width: 100px;
+}
+
+.record-commander-cell {
+  min-width: 150px;
 }
 
 .record-action-cell {
@@ -409,6 +423,10 @@ label {
 .custom-record-form {
   display: grid;
   gap: 8px;
+}
+
+.record-lookup-wrapper .lookup-input {
+  padding-right: 42px;
 }
 
 .confidence-bar span {

@@ -42,6 +42,8 @@ const customRecordHolderInput = document.getElementById('custom-record-holder');
 const customRecordCommanderInput = document.getElementById('custom-record-commander');
 const customRecordDateInput = document.getElementById('custom-record-date');
 const customRecordNotesInput = document.getElementById('custom-record-notes');
+const customRecordHolderMenu = document.getElementById('custom-record-holder-menu');
+const customRecordCommanderMenu = document.getElementById('custom-record-commander-menu');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -65,7 +67,7 @@ let syncInFlight = false;
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
-  { key: 'highest-damage-dealt', title: 'Highest Damage Dealt', unit: 'damage' },
+  { key: 'highest-damage-dealt', title: 'Highest Damage Dealt (Single Hit)', unit: 'damage' },
   { key: 'highest-hit-to-life', title: 'Highest Hit to Life', unit: 'damage' },
   { key: 'most-kills-one-game', title: 'Most Kills in One Game', unit: 'kills' },
   { key: 'highest-life-total', title: 'Highest Life Total', unit: 'life' },
@@ -694,6 +696,46 @@ function buildDropdownMenu(menuElement, values) {
     .join('');
 }
 
+function attachLookupWrapperHandlers(scope = document) {
+  scope.querySelectorAll('.combined-input-wrapper').forEach((wrapper) => {
+    if (wrapper.dataset.dropdownHandlersAttached) {
+      return;
+    }
+
+    const button = wrapper.querySelector('.dropdown-button');
+    const menu = wrapper.querySelector('.dropdown-menu');
+    const input = wrapper.querySelector('.lookup-input');
+    if (!button || !menu || !input) {
+      return;
+    }
+
+    wrapper.dataset.dropdownHandlersAttached = 'true';
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      document.querySelectorAll('.dropdown-menu.active').forEach((activeMenu) => {
+        if (activeMenu !== menu) {
+          activeMenu.classList.remove('active');
+        }
+      });
+
+      menu.classList.toggle('active');
+      updateDropdownLayeringState();
+    });
+
+    menu.addEventListener('click', (event) => {
+      const item = event.target.closest('.dropdown-item');
+      if (!item) {
+        return;
+      }
+
+      input.value = item.dataset.value || '';
+      menu.classList.remove('active');
+      updateDropdownLayeringState();
+    });
+  });
+}
+
 function updateDropdownLayeringState() {
   const hasActiveDropdown = document.querySelector('.dropdown-menu.active');
   document.querySelectorAll('.player-table-wrapper').forEach((wrapper) => {
@@ -797,6 +839,7 @@ function updateFormDatalists(games) {
 
   refreshRowSelectors();
   populateDeckCommanderSelector();
+  populateRecordLookupMenus();
 }
 
 function normalizeDeckListEntry(entry) {
@@ -829,6 +872,29 @@ function populateDeckCommanderSelector() {
     return;
   }
   buildDropdownMenu(deckCommanderMenu, knownCommanders);
+}
+
+function populateRecordLookupMenus() {
+  if (recordsTableBody) {
+    recordsTableBody.querySelectorAll('.record-holder-menu').forEach((menu) => {
+      buildDropdownMenu(menu, knownPlayers);
+    });
+
+    recordsTableBody.querySelectorAll('.record-commander-menu').forEach((menu) => {
+      buildDropdownMenu(menu, knownCommanders);
+    });
+  }
+
+  if (customRecordHolderMenu) {
+    buildDropdownMenu(customRecordHolderMenu, knownPlayers);
+  }
+
+  if (customRecordCommanderMenu) {
+    buildDropdownMenu(customRecordCommanderMenu, knownCommanders);
+  }
+
+  attachLookupWrapperHandlers(recordsForm || document);
+  attachLookupWrapperHandlers(customRecordForm || document);
 }
 
 function renderDeckLookup() {
@@ -1010,14 +1076,28 @@ function renderRecords() {
               ? `<input type="text" name="unit" value="${escapeHtml(record.unit)}" placeholder="Unit" />`
               : `<span class="record-unit-badge">${escapeHtml(record.unit || 'open')}</span>`}
           </td>
-          <td><input type="text" name="holder" list="player-list" value="${escapeHtml(record.holder)}" placeholder="Player" /></td>
-          <td><input type="text" name="commander" list="commander-list" value="${escapeHtml(record.commander)}" placeholder="Commander or deck" /></td>
+          <td>
+            <div class="combined-input-wrapper record-lookup-wrapper">
+              <input class="lookup-input" type="text" name="holder" list="player-list" value="${escapeHtml(record.holder)}" placeholder="Player" />
+              <button type="button" class="dropdown-button" title="Show players">▼</button>
+              <div class="dropdown-menu record-holder-menu"></div>
+            </div>
+          </td>
+          <td class="record-commander-cell">
+            <div class="combined-input-wrapper record-lookup-wrapper">
+              <input class="lookup-input" type="text" name="commander" list="commander-list" value="${escapeHtml(record.commander)}" placeholder="Commander or deck" />
+              <button type="button" class="dropdown-button" title="Show commanders">▼</button>
+              <div class="dropdown-menu record-commander-menu"></div>
+            </div>
+          </td>
           <td><input type="date" name="date" value="${escapeHtml(record.date)}" /></td>
           <td><textarea name="notes" rows="2" placeholder="How it happened, matchup, table notes...">${escapeHtml(record.notes)}</textarea></td>
           <td class="record-action-cell">${actionCell}</td>
         </tr>`;
     })
     .join('');
+
+  populateRecordLookupMenus();
 }
 
 function handleRecordTableClick(event) {
