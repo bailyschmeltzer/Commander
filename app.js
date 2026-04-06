@@ -1771,6 +1771,27 @@ function updateCommanderSortIndicators() {
   });
 }
 
+function applyResponsiveTableLabels() {
+  const tables = document.querySelectorAll('.player-table, .history-game-table');
+
+  tables.forEach((table) => {
+    const headers = Array.from(table.querySelectorAll('thead th')).map((header) => header.textContent.trim());
+    if (!headers.length) {
+      return;
+    }
+
+    table.querySelectorAll('tbody tr').forEach((row) => {
+      const cells = Array.from(row.children).filter((cell) => cell.tagName === 'TD');
+      cells.forEach((cell, index) => {
+        const label = headers[index] || '';
+        if (label) {
+          cell.dataset.label = label;
+        }
+      });
+    });
+  });
+}
+
 function handleCommanderHeaderClick(event) {
   const header = event.target.closest('.sortable-header');
   if (!header) {
@@ -1851,6 +1872,7 @@ function refresh() {
   renderDeckLookup();
   renderDeckLists();
   renderRecords();
+  applyResponsiveTableLabels();
 }
 
 function resetForm() {

@@ -959,30 +959,30 @@ button[type="submit"] {
   }
 
   .player-table-wrapper {
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
   }
 
   .player-table,
   .history-game-table {
-    min-width: 640px;
+    min-width: 0;
+    width: 100%;
   }
 
   .player-stats-table {
-    min-width: 780px;
+    min-width: 0;
   }
 
   .commander-stats-table {
-    min-width: 980px;
+    min-width: 0;
   }
 
   .deck-list-table {
-    min-width: 640px;
+    min-width: 0;
   }
 
   .records-table {
-    min-width: 780px;
+    min-width: 0;
   }
 
   .player-table th,
@@ -1065,6 +1065,97 @@ button[type="submit"] {
     width: 170px;
     min-width: 170px;
   }
+
+  .player-table,
+  .player-table thead,
+  .player-table tbody,
+  .player-table tr,
+  .player-table th,
+  .player-table td,
+  .history-game-table,
+  .history-game-table thead,
+  .history-game-table tbody,
+  .history-game-table tr,
+  .history-game-table th,
+  .history-game-table td {
+    display: block;
+  }
+
+  .player-table colgroup,
+  .history-game-table colgroup,
+  .player-table thead,
+  .history-game-table thead {
+    display: none;
+  }
+
+  .player-table tbody,
+  .history-game-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .player-table tr,
+  .history-game-table tr {
+    width: 100%;
+    border: 1px solid #e4e8f2;
+    border-radius: 14px;
+    background: #fbfcff;
+    padding: 12px;
+  }
+
+  .player-table td,
+  .history-game-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 120px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    width: 100%;
+    border: none;
+    padding: 6px 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .player-table td::before,
+  .history-game-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #44507e;
+  }
+
+  .player-table td[colspan],
+  .history-game-table td[colspan] {
+    display: block;
+    padding: 0;
+  }
+
+  .player-table td[colspan]::before,
+  .history-game-table td[colspan]::before {
+    content: none;
+  }
+
+  .player-table input,
+  .player-table textarea,
+  .player-table select,
+  .history-game-table input,
+  .history-game-table textarea,
+  .history-game-table select,
+  .player-table .combined-input-wrapper,
+  .history-game-table .combined-input-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .player-table textarea,
+  .history-game-table textarea {
+    min-height: 56px;
+  }
+
+  .player-table .dropdown-menu,
+  .history-game-table .dropdown-menu {
+    right: auto;
+    left: 0;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1096,25 +1187,16 @@ button[type="submit"] {
     padding: 8px;
   }
 
-  .player-table,
-  .history-game-table {
-    min-width: 600px;
+  .player-table tr,
+  .history-game-table tr {
+    padding: 10px;
   }
 
-  .player-stats-table {
-    min-width: 720px;
-  }
-
-  .commander-stats-table {
-    min-width: 920px;
-  }
-
-  .deck-list-table {
-    min-width: 620px;
-  }
-
-  .records-table {
-    min-width: 740px;
+  .player-table td,
+  .history-game-table td {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
   }
 
   .dropdown-menu {
