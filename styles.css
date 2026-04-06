@@ -1111,6 +1111,10 @@ button[type="submit"] {
   z-index: 5000;
 }
 
+.live-source-prompt[hidden] {
+  display: none !important;
+}
+
 .live-source-dialog {
   width: min(100%, 420px);
   padding: 20px;

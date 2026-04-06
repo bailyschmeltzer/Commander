@@ -67,10 +67,6 @@ const liveGameStatus = document.getElementById('live-game-status');
 const liveFirstPlayer = document.getElementById('live-first-player');
 const liveTurnNumberInput = document.getElementById('live-turn-number');
 const liveFirstBlood = document.getElementById('live-first-blood');
-const liveEventForm = document.getElementById('live-event-form');
-const liveEventTarget = document.getElementById('live-event-target');
-const liveEventType = document.getElementById('live-event-type');
-const liveEventAmount = document.getElementById('live-event-amount');
 const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
 const liveFinishGameButton = document.getElementById('live-finish-game');
@@ -708,20 +704,6 @@ function randomizeLiveFirstPlayer() {
   renderLiveOrderPreview();
 }
 
-function buildLivePlayerOptions(selectElement, blankLabel) {
-  if (!selectElement) {
-    return;
-  }
-
-  const players = activeGameState?.players || [];
-  const currentValue = selectElement.value;
-  selectElement.innerHTML = [
-    `<option value="">${escapeHtml(blankLabel)}</option>`,
-    ...players.map((player) => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`),
-  ].join('');
-  selectElement.value = players.some((player) => player.id === currentValue) ? currentValue : '';
-}
-
 function generateLiveEventDescription(event, activeGame = activeGameState) {
   const actor = event.actorPlayerId ? getPlayerNameById(event.actorPlayerId, activeGame) : 'Environment';
   const target = event.targetPlayerId ? getPlayerNameById(event.targetPlayerId, activeGame) : 'Unknown player';
@@ -778,6 +760,8 @@ function renderLivePlayerGrid() {
             <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-5">-5</button>
             <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
             <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
+            <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
+            <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
           </div>
           <div class="live-player-meta">
             <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
@@ -861,13 +845,14 @@ function renderLiveGameStatus() {
       liveFirstBlood.textContent = 'None yet';
     }
   }
-
-  buildLivePlayerOptions(liveEventTarget, 'Select player');
   renderLivePlayerGrid();
   renderLiveEventLog();
 }
 
 function refreshLiveTrackerUi() {
+  if (!liveSourcePromptResolver) {
+    hideLiveSourcePrompt();
+  }
   renderLiveOrderPreview();
   renderLiveGameStatus();
 }
@@ -938,60 +923,99 @@ function startLiveGame() {
   refreshLiveTrackerUi();
 }
 
-async function applyLiveEvent() {
+function promptForPositiveNumber(message, defaultValue = 1) {
+  const rawValue = window.prompt(message, String(defaultValue));
+  if (rawValue === null) {
+    return null;
+  }
+
+  const parsed = parseInt(rawValue, 10);
+  if (Number.isNaN(parsed) || parsed < 1) {
+    alert('Enter a whole number greater than 0.');
+    return null;
+  }
+
+  return parsed;
+}
+
+async function applyCommanderDamageToPlayer(targetPlayerId) {
   if (!activeGameState) {
     return;
   }
 
-  const type = liveEventType?.value || 'life-loss';
-  const targetPlayerId = liveEventTarget?.value || '';
-  const amount = Math.max(1, parseInt(liveEventAmount?.value || '1', 10));
-  const eventTurnNumber = syncActiveGameTurnFromInput();
   const targetPlayer = activeGameState.players.find((player) => player.id === targetPlayerId);
-
-  if (!targetPlayer) {
-    alert('Choose a target player.');
+  if (!targetPlayer || targetPlayer.eliminatedAt) {
     return;
   }
 
-  if (targetPlayer.eliminatedAt) {
-    alert('That player has already been eliminated.');
+  const amount = promptForPositiveNumber(`How much commander damage did ${targetPlayer.name} take?`, 1);
+  if (amount === null) {
     return;
   }
 
-  const projectedLife = type === 'life-gain' ? targetPlayer.life + amount : targetPlayer.life - amount;
+  const eventTurnNumber = syncActiveGameTurnFromInput();
   const sourcePlayerId = await resolveLiveSourceSelection({
     targetPlayerId,
-    eventType: type,
+    eventType: 'commander-damage',
     amount,
-    projectedLife,
+    projectedLife: targetPlayer.life - amount,
   });
   if (sourcePlayerId === null) {
     return;
   }
 
-  if (type === 'life-loss' || type === 'commander-damage') {
-    targetPlayer.life -= amount;
-    if (type === 'commander-damage') {
-      targetPlayer.commanderDamageTaken[sourcePlayerId] = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
-    }
-    maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, eventTurnNumber);
-  }
-
-  if (type === 'life-gain') {
-    targetPlayer.life += amount;
-  }
-
-  if (type === 'elimination') {
-    eliminateLivePlayer(targetPlayer, sourcePlayerId, eventTurnNumber, 'manual');
-  }
-
-  evaluateLiveElimination(targetPlayer, sourcePlayerId, eventTurnNumber, type);
+  targetPlayer.life -= amount;
+  targetPlayer.commanderDamageTaken[sourcePlayerId] = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
+  maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, eventTurnNumber);
+  evaluateLiveElimination(targetPlayer, sourcePlayerId, eventTurnNumber, 'commander-damage');
   recordLiveEvent({
-    type,
+    type: 'commander-damage',
     actorPlayerId: sourcePlayerId,
     targetPlayerId,
     amount,
+    turnNumber: eventTurnNumber,
+  });
+
+  const alivePlayers = getActiveAlivePlayers(activeGameState);
+  if (alivePlayers.length === 1) {
+    alivePlayers[0].place = 1;
+  }
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+
+  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
+    completeActiveGame();
+  }
+}
+
+async function manuallyEliminatePlayer(targetPlayerId) {
+  if (!activeGameState) {
+    return;
+  }
+
+  const targetPlayer = activeGameState.players.find((player) => player.id === targetPlayerId);
+  if (!targetPlayer || targetPlayer.eliminatedAt) {
+    return;
+  }
+
+  const eventTurnNumber = syncActiveGameTurnFromInput();
+  const sourcePlayerId = await resolveLiveSourceSelection({
+    targetPlayerId,
+    eventType: 'elimination',
+    amount: 0,
+    projectedLife: targetPlayer.life,
+  });
+  if (sourcePlayerId === null) {
+    return;
+  }
+
+  eliminateLivePlayer(targetPlayer, sourcePlayerId, eventTurnNumber, 'manual');
+  recordLiveEvent({
+    type: 'elimination',
+    actorPlayerId: sourcePlayerId,
+    targetPlayerId,
+    amount: 0,
     turnNumber: eventTurnNumber,
   });
 
@@ -3296,13 +3320,6 @@ if (liveGameForm) {
   });
 }
 
-if (liveEventForm) {
-  liveEventForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    applyLiveEvent();
-  });
-}
-
 if (liveSourceOptions) {
   liveSourceOptions.addEventListener('click', (event) => {
     const button = event.target.closest('[data-source-id]');
@@ -3339,6 +3356,18 @@ if (livePlayerGrid) {
       player.cannotLoseTheGame = Boolean(toggle.checked);
       persistActiveGameState(activeGameState);
       refreshLiveTrackerUi();
+      return;
+    }
+
+    const commanderDamageButton = event.target.closest('[data-action="manual-commander-damage"]');
+    if (commanderDamageButton) {
+      applyCommanderDamageToPlayer(commanderDamageButton.dataset.playerId || '');
+      return;
+    }
+
+    const eliminateButton = event.target.closest('[data-action="manual-eliminate"]');
+    if (eliminateButton) {
+      manuallyEliminatePlayer(eliminateButton.dataset.playerId || '');
       return;
     }
 
@@ -3657,6 +3686,7 @@ function setupSyncUi() {
 async function initializeApp() {
   appState = loadLocalState();
   activeGameState = loadActiveGameState();
+  hideLiveSourcePrompt();
   setupSyncUi();
 
   if (hasSyncCredentials()) {
