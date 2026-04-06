@@ -1409,54 +1409,99 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-player-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    height: 100dvh;
+    grid-template-areas:
+      "seat3 seat2"
+      "seat4 seat1";
+    gap: 10px;
+    min-height: 100dvh;
     margin: 0;
-    padding: 6px;
+    padding: 10px 10px 76px;
     align-content: stretch;
   }
 
   .page-live-game.live-table-mode .live-player-card {
-    min-height: calc(50dvh - 12px);
-    padding: 12px;
-    border-radius: 20px;
+    min-height: calc(50dvh - 48px);
+    padding: 14px 12px;
+    border-radius: 18px;
     overflow: hidden;
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    align-content: start;
   }
 
   .page-live-game.live-table-mode .live-seat-1 {
-    transform: rotate(180deg);
+    grid-area: seat1;
   }
 
   .page-live-game.live-table-mode .live-seat-2 {
-    transform: rotate(90deg);
+    grid-area: seat2;
   }
 
   .page-live-game.live-table-mode .live-seat-3 {
-    transform: rotate(0deg);
+    grid-area: seat3;
   }
 
   .page-live-game.live-table-mode .live-seat-4 {
-    transform: rotate(-90deg);
+    grid-area: seat4;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header {
+    margin-bottom: 8px;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header h3 {
+    font-size: 1rem;
+    line-height: 1.1;
+  }
+
+  .page-live-game.live-table-mode .live-player-card-header p {
+    font-size: 0.8rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-header-badges {
+    gap: 4px;
+  }
+
+  .page-live-game.live-table-mode .live-seat-badge,
+  .page-live-game.live-table-mode .live-first-player-indicator {
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
   }
 
   .page-live-game.live-table-mode .live-player-life {
-    font-size: clamp(3rem, 12vw, 5rem);
+    font-size: clamp(3rem, 11vw, 4.5rem);
     text-align: center;
-    margin: 12px 0;
+    margin: 6px 0 10px;
   }
 
   .page-live-game.live-table-mode .live-quick-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
+    margin-bottom: 10px;
   }
 
-  .page-live-game.live-table-mode .live-player-meta {
-    gap: 4px;
+  .page-live-game.live-table-mode .live-quick-action {
+    min-height: 38px;
+    padding: 8px 6px;
     font-size: 0.82rem;
   }
 
+  .page-live-game.live-table-mode .live-player-meta {
+    gap: 3px;
+    font-size: 0.76rem;
+  }
+
   .page-live-game.live-table-mode .live-player-toggle {
-    font-size: 0.8rem;
+    align-items: flex-start;
+    font-size: 0.76rem;
+    line-height: 1.2;
+  }
+
+  .page-live-game.live-table-mode .live-card-damage-list {
+    max-height: 64px;
+    overflow: auto;
+    padding-left: 16px;
   }
 
   .app-shell {
