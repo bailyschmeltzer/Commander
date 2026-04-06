@@ -1128,8 +1128,7 @@ function describeWheelSegment(startAngle, endAngle) {
   ].join(' ');
 }
 
-function getDeckWheelLabelFontSize(labelLength, segmentSize) {
-  const radialPathLength = 26;
+function getDeckWheelLabelFontSize(labelLength, segmentSize, radialPathLength = 26) {
   const averageRadius = 31;
   const segmentRadians = (segmentSize * Math.PI) / 180;
   const wedgeWidth = averageRadius * segmentRadians;
@@ -1137,6 +1136,42 @@ function getDeckWheelLabelFontSize(labelLength, segmentSize) {
   const lengthConstrainedSize = radialPathLength / Math.max(estimatedLengthUnits, 1);
   const wedgeConstrainedSize = wedgeWidth * 0.72;
   return Math.max(2.1, Math.min(4.6, lengthConstrainedSize, wedgeConstrainedSize));
+}
+
+function splitDeckWheelLabel(labelText) {
+  const words = labelText.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) {
+    return [labelText];
+  }
+
+  let bestSplit = 1;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let index = 1; index < words.length; index += 1) {
+    const firstLine = words.slice(0, index).join(' ');
+    const secondLine = words.slice(index).join(' ');
+    const score = Math.abs(firstLine.length - secondLine.length);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestSplit = index;
+    }
+  }
+
+  return [
+    words.slice(0, bestSplit).join(' '),
+    words.slice(bestSplit).join(' '),
+  ];
+}
+
+function getDeckWheelLabelPath(midAngle, innerRadius, outerRadius) {
+  const innerPoint = polarToCartesian(50, 50, innerRadius, midAngle);
+  const outerPoint = polarToCartesian(50, 50, outerRadius, midAngle);
+  const isLeftSide = midAngle > 90 && midAngle < 270;
+  return {
+    start: isLeftSide ? outerPoint : innerPoint,
+    end: isLeftSide ? innerPoint : outerPoint,
+  };
 }
 
 function getDeckWheelSvgMarkup(deckPool) {
@@ -1148,22 +1183,38 @@ function getDeckWheelSvgMarkup(deckPool) {
     const startAngle = index * segmentSize;
     const endAngle = startAngle + segmentSize;
     const midAngle = startAngle + (segmentSize / 2);
-    const innerLabelPoint = polarToCartesian(50, 50, 18, midAngle);
-    const outerLabelPoint = polarToCartesian(50, 50, 44, midAngle);
-    const isLeftSide = midAngle > 90 && midAngle < 270;
-    const pathStart = isLeftSide ? outerLabelPoint : innerLabelPoint;
-    const pathEnd = isLeftSide ? innerLabelPoint : outerLabelPoint;
-    const pathId = `deck-wheel-label-path-${index}`;
     const labelText = deck.commander.length > 28 ? `${deck.commander.slice(0, 27)}…` : deck.commander;
-    const label = escapeHtml(labelText);
-    const labelFontSize = getDeckWheelLabelFontSize(labelText.length, segmentSize);
+    const singleLineSize = getDeckWheelLabelFontSize(labelText.length, segmentSize);
+    const splitLines = splitDeckWheelLabel(labelText);
+    const shouldWrapLabel = singleLineSize <= 2.35 && splitLines.length === 2;
+    const labelMarkup = shouldWrapLabel
+      ? splitLines.map((line, lineIndex) => {
+        const pathId = `deck-wheel-label-path-${index}-${lineIndex}`;
+        const path = lineIndex === 0
+          ? getDeckWheelLabelPath(midAngle, 22, 33)
+          : getDeckWheelLabelPath(midAngle, 34, 45);
+        const fontSize = getDeckWheelLabelFontSize(line.length, segmentSize, 11);
+
+        return `
+      <path id="${pathId}" d="M ${path.start.x} ${path.start.y} L ${path.end.x} ${path.end.y}" class="deck-wheel-label-guide" />
+      <text class="deck-wheel-segment-text deck-wheel-segment-text-wrapped" style="font-size: ${fontSize.toFixed(2)}px;" text-anchor="middle">
+        <textPath href="#${pathId}" startOffset="50%">${escapeHtml(line)}</textPath>
+      </text>`;
+      }).join('')
+      : (() => {
+        const pathId = `deck-wheel-label-path-${index}`;
+        const path = getDeckWheelLabelPath(midAngle, 18, 44);
+
+        return `
+      <path id="${pathId}" d="M ${path.start.x} ${path.start.y} L ${path.end.x} ${path.end.y}" class="deck-wheel-label-guide" />
+      <text class="deck-wheel-segment-text" style="font-size: ${singleLineSize.toFixed(2)}px;">
+        <textPath href="#${pathId}" startOffset="8%">${escapeHtml(labelText)}</textPath>
+      </text>`;
+      })();
 
     return `
       <path d="${describeWheelSegment(startAngle, endAngle)}" fill="${colors[index]}" class="deck-wheel-segment" />
-      <path id="${pathId}" d="M ${pathStart.x} ${pathStart.y} L ${pathEnd.x} ${pathEnd.y}" class="deck-wheel-label-guide" />
-      <text class="deck-wheel-segment-text" style="font-size: ${labelFontSize.toFixed(2)}px;">
-        <textPath href="#${pathId}" startOffset="8%">${label}</textPath>
-      </text>`;
+      ${labelMarkup}`;
   }).join('');
 
   return `<svg viewBox="0 0 100 100" class="deck-wheel-svg" aria-hidden="true">${segments}</svg>`;

@@ -976,6 +976,10 @@ button[type="submit"] {
   stroke-linejoin: round;
 }
 
+.deck-wheel-segment-text-wrapped {
+  letter-spacing: 0.03px;
+}
+
 .deck-selector-wheel-status {
   margin: 0;
   text-align: center;
