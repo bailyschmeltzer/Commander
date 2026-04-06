@@ -362,32 +362,13 @@ label {
 }
 
 .records-table {
-  table-layout: auto;
-}
-
-.records-table th:nth-child(2),
-.records-table td:nth-child(2) {
-  width: 9%;
-}
-
-.records-table th:nth-child(4),
-.records-table td:nth-child(4) {
-  width: 16.5%;
-}
-
-.records-table th:nth-child(5),
-.records-table td:nth-child(5) {
-  width: 2.5%;
-}
-
-.records-table th:nth-child(7),
-.records-table td:nth-child(7) {
-  width: 30%;
+  table-layout: fixed;
 }
 
 .records-table th,
 .records-table td {
   vertical-align: top;
+  overflow: hidden;
 }
 
 .records-table input,
@@ -395,8 +376,13 @@ label {
   width: 100%;
 }
 
+.records-table .combined-input-wrapper,
+.records-table .lookup-input {
+  min-width: 0;
+}
+
 .record-title-cell {
-  min-width: 190px;
+  min-width: 140px;
 }
 
 .record-value-cell {
@@ -408,7 +394,7 @@ label {
 }
 
 .record-commander-cell {
-  min-width: 40px;
+  min-width: 56px;
 }
 
 .record-badge,
@@ -448,6 +434,10 @@ label {
 
 .record-lookup-wrapper .lookup-input {
   padding-right: 42px;
+}
+
+.records-table textarea {
+  min-height: 72px;
 }
 
 .confidence-bar span {
