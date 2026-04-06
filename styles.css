@@ -1046,6 +1046,44 @@ button[type="submit"] {
     min-width: 620px;
   }
 
+  .page-game-tracker .player-table tbody {
+    gap: 10px;
+  }
+
+  .page-game-tracker .player-table tr {
+    padding: 10px;
+  }
+
+  .page-game-tracker .player-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 5px 0;
+  }
+
+  .page-game-tracker .player-table td::before {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .page-game-tracker .player-table .combined-input-wrapper,
+  .page-game-tracker .player-table input,
+  .page-game-tracker .player-table textarea,
+  .page-game-tracker .player-table select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker .player-table textarea {
+    min-height: 72px;
+  }
+
+  .page-game-tracker .player-table td:nth-child(2),
+  .page-game-tracker .player-table td:nth-child(3),
+  .page-game-tracker .player-table td:nth-child(4),
+  .page-game-tracker .player-table td:nth-child(5) {
+    width: 100%;
+  }
+
   .page-records .records-table textarea {
     min-width: 180px;
     min-height: 64px;
@@ -1192,11 +1230,20 @@ button[type="submit"] {
     padding: 10px;
   }
 
+  .page-game-tracker .player-table tr {
+    padding: 8px;
+  }
+
   .player-table td,
   .history-game-table td {
     grid-template-columns: 86px minmax(0, 1fr);
     gap: 8px;
     padding: 5px 0;
+  }
+
+  .page-game-tracker .player-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .dropdown-menu {
