@@ -1583,6 +1583,7 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-player-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "seat3 seat2"
       "seat4 seat1";
@@ -1594,7 +1595,8 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-card {
-    min-height: calc(50dvh - 12px);
+    min-height: 0;
+    height: 100%;
     padding: 0;
     border-radius: 20px;
     overflow: hidden;
