@@ -601,6 +601,10 @@ textarea:focus {
   transition: all 0.2s ease;
 }
 
+.combined-input-wrapper .dropdown-button {
+  display: none;
+}
+
 .dropdown-button:hover {
   background-color: #eef0f9;
   border-color: #b8c5d6;
@@ -954,16 +958,16 @@ button[type="submit"] {
   }
 
   .combined-input-wrapper .dropdown-button {
-    pointer-events: none;
+    display: none;
   }
 
   .combined-input-wrapper .mobile-native-picker {
     display: block;
     position: absolute;
     top: 0;
-    right: 0;
-    bottom: 0;
-    width: 42px;
+    left: 0;
+    width: 1px;
+    height: 1px;
     opacity: 0;
     z-index: 3;
     border: none;

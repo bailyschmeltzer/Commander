@@ -748,6 +748,22 @@ function syncMobileLookupSelect(wrapper) {
   mobileSelect.disabled = optionValues.length === 0;
 }
 
+function openLookupOptions(wrapper) {
+  if (!wrapper) {
+    return;
+  }
+
+  if (isMobileDropdownMode()) {
+    const mobileSelect = wrapper.querySelector('.mobile-native-picker');
+    if (mobileSelect && !mobileSelect.disabled && typeof mobileSelect.showPicker === 'function') {
+      mobileSelect.showPicker();
+      return;
+    }
+  }
+
+  toggleLookupMenu(wrapper);
+}
+
 function closeAllDropdownMenus(exceptMenu = null) {
   document.querySelectorAll('.dropdown-menu.active').forEach((activeMenu) => {
     if (activeMenu !== exceptMenu) {
@@ -816,24 +832,15 @@ function attachLookupWrapperHandlers(scope = document) {
 
     syncMobileLookupSelect(wrapper);
 
+    input.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openLookupOptions(wrapper);
+    });
+
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-
-      if (isMobileDropdownMode()) {
-        const mobileSelect = wrapper.querySelector('.mobile-native-picker');
-        if (mobileSelect && !mobileSelect.disabled) {
-          if (typeof mobileSelect.showPicker === 'function') {
-            mobileSelect.showPicker();
-          } else {
-            mobileSelect.focus();
-            mobileSelect.click();
-          }
-        }
-        return;
-      }
-
-      toggleLookupMenu(wrapper);
+      openLookupOptions(wrapper);
     });
 
     menu.addEventListener('mousedown', (event) => {
