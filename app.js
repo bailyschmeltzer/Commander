@@ -550,9 +550,9 @@ async function resolveLiveSourceSelection({ targetPlayerId, eventType, amount, p
   const description = eventType === 'commander-damage'
     ? `Who dealt ${amount} commander damage to ${targetPlayer.name}?`
     : eventType === 'elimination'
-      ? `Who eliminated ${targetPlayer.name}?`
+      ? `Who eliminated ${targetPlayer.name}? Choose self for no kill credit.`
       : `Who caused ${targetPlayer.name} to lose ${amount} life?`;
-  const requireOpponent = eventType === 'commander-damage' || eventType === 'elimination';
+  const requireOpponent = eventType === 'commander-damage';
   const selectedSourceId = await promptForLiveSource({
     targetPlayerId,
     title,
@@ -878,7 +878,7 @@ function renderLivePlayerGrid() {
                 <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
                 <label class="live-player-toggle live-player-toggle-compact">
                   <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
-                  <span>Can&apos;t lose</span>
+                  <span>No lose</span>
                 </label>
               </div>
               <div class="live-player-counter-column">
