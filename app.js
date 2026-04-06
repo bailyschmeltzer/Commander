@@ -37,7 +37,6 @@ const deckLookupResult = document.getElementById('deck-lookup-result');
 const deckSelectorForm = document.getElementById('deck-selector-form');
 const deckSelectorOwnerList = document.getElementById('deck-selector-owner-list');
 const deckSelectorResults = document.getElementById('deck-selector-results');
-const deckSelectorRerollButton = document.getElementById('deck-selector-reroll');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -1071,13 +1070,12 @@ function chooseRandomDeck(deckOptions) {
 }
 
 function renderDeckSelectorAssignments(selectedOwners) {
-  if (!deckSelectorResults || !deckSelectorRerollButton) {
+  if (!deckSelectorResults) {
     return;
   }
 
   if (!selectedOwners.length) {
     deckSelectorResults.innerHTML = '<p>Select at least one player to randomize decks.</p>';
-    deckSelectorRerollButton.hidden = true;
     return;
   }
 
@@ -1088,7 +1086,6 @@ function renderDeckSelectorAssignments(selectedOwners) {
 
   if (!assignments.length) {
     deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
-    deckSelectorRerollButton.hidden = true;
     return;
   }
 
@@ -1106,11 +1103,10 @@ function renderDeckSelectorAssignments(selectedOwners) {
     })
     .join('');
 
-  deckSelectorRerollButton.hidden = false;
 }
 
 function renderDeckSelector() {
-  if (!deckSelectorOwnerList || !deckSelectorResults || !deckSelectorRerollButton) {
+  if (!deckSelectorOwnerList || !deckSelectorResults) {
     return;
   }
 
@@ -1121,7 +1117,6 @@ function renderDeckSelector() {
   if (!owners.length) {
     deckSelectorOwnerList.innerHTML = '<p>No owned decks available yet. Add deck owners in Deck Lists first.</p>';
     deckSelectorResults.innerHTML = '<p>Add deck owners in Deck Lists to start randomizing decks.</p>';
-    deckSelectorRerollButton.hidden = true;
     return;
   }
 
@@ -2254,12 +2249,6 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
 if (deckSelectorForm) {
   deckSelectorForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    renderDeckSelectorAssignments(getSelectedDeckSelectorOwners());
-  });
-}
-
-if (deckSelectorRerollButton) {
-  deckSelectorRerollButton.addEventListener('click', () => {
     renderDeckSelectorAssignments(getSelectedDeckSelectorOwners());
   });
 }

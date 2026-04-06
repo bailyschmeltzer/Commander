@@ -937,6 +937,28 @@ button[type="submit"] {
   text-decoration: underline;
 }
 
+.deck-selector-donation-row {
+  margin-top: 14px;
+}
+
+.deck-selector-donation-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #fff3d6;
+  border: 1px solid #f0cf7a;
+  color: #6b4a00;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.deck-selector-donation-link:hover {
+  background: #ffe9b0;
+}
+
 .sortable-header {
   cursor: pointer;
   user-select: none;
