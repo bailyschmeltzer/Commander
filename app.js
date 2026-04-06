@@ -1066,8 +1066,6 @@ function collectRecordsFromTable() {
   return Array.from(recordsTableBody.querySelectorAll('tr[data-record-id]'))
     .map((row, index) => {
       const isCustom = row.dataset.custom === 'true';
-      const titleInput = row.querySelector('[name="title"]');
-      const unitInput = row.querySelector('[name="unit"]');
       const valueInput = row.querySelector('[name="value"]');
       const holderInput = row.querySelector('[name="holder"]');
       const commanderInput = row.querySelector('[name="commander"]');
@@ -1077,8 +1075,8 @@ function collectRecordsFromTable() {
       return normalizeRecordEntry({
         id: row.dataset.recordId,
         key: row.dataset.key || '',
-        title: isCustom ? (titleInput?.value || '') : (row.dataset.title || ''),
-        unit: isCustom ? (unitInput?.value || '') : (row.dataset.unit || ''),
+        title: row.dataset.title || '',
+        unit: row.dataset.unit || '',
         value: valueInput?.value || '',
         holder: holderInput?.value || '',
         commander: commanderInput?.value || '',
@@ -1097,16 +1095,7 @@ function renderRecords() {
 
   const records = loadRecords();
   recordsTableBody.innerHTML = records
-    .map((record) => {
-      const titleContent = record.isCustom
-        ? `
-          <div class="record-title-row">
-            <input type="text" name="title" value="${escapeHtml(record.title)}" placeholder="Record title" />
-            <button type="button" class="history-delete-button record-delete-button" data-id="${escapeHtml(record.id)}">Delete</button>
-          </div>`
-        : `<strong>${escapeHtml(record.title)}</strong>`;
-
-      return `
+    .map((record) => `
         <tr
           data-record-id="${escapeHtml(record.id)}"
           data-key="${escapeHtml(record.key || '')}"
@@ -1115,13 +1104,11 @@ function renderRecords() {
           data-custom="${record.isCustom ? 'true' : 'false'}"
         >
           <td class="record-title-cell">
-            ${titleContent}
+            <strong>${escapeHtml(record.title)}</strong>
           </td>
           <td class="record-value-cell"><input type="text" name="value" value="${escapeHtml(record.value)}" placeholder="Record" /></td>
           <td class="record-unit-cell">
-            ${record.isCustom
-              ? `<input type="text" name="unit" value="${escapeHtml(record.unit)}" placeholder="Unit" />`
-              : `<span class="record-unit-badge">${escapeHtml(record.unit || 'open')}</span>`}
+            <span class="record-unit-badge">${escapeHtml(record.unit || 'open')}</span>
           </td>
           <td>
             <div class="combined-input-wrapper record-lookup-wrapper">
@@ -1139,27 +1126,10 @@ function renderRecords() {
           </td>
           <td><input type="date" name="date" value="${escapeHtml(record.date)}" /></td>
           <td><textarea name="notes" rows="2" placeholder="How it happened, matchup, table notes...">${escapeHtml(record.notes)}</textarea></td>
-        </tr>`;
-    })
+        </tr>`)
     .join('');
 
   populateRecordLookupMenus();
-}
-
-function handleRecordTableClick(event) {
-  const deleteButton = event.target.closest('.record-delete-button');
-  if (!deleteButton || !recordsTableBody?.contains(deleteButton)) {
-    return;
-  }
-
-  const recordId = deleteButton.dataset.id;
-  if (!recordId) {
-    return;
-  }
-
-  const nextRecords = collectRecordsFromTable().filter((record) => record.id !== recordId);
-  saveRecords(nextRecords);
-  renderRecords();
 }
 
 function handleDeckListTableAction(event) {
@@ -2116,10 +2086,6 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     resetDeckListForm();
     refresh();
   });
-}
-
-if (recordsTableBody) {
-  recordsTableBody.addEventListener('click', handleRecordTableClick);
 }
 
 if (recordsForm) {
