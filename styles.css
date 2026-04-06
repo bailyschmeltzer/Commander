@@ -368,6 +368,10 @@ label {
 .records-table th,
 .records-table td {
   vertical-align: top;
+  overflow: visible;
+}
+
+.records-table th {
   overflow: hidden;
 }
 
@@ -379,6 +383,14 @@ label {
 .records-table .combined-input-wrapper,
 .records-table .lookup-input {
   min-width: 0;
+}
+
+.records-table .combined-input-wrapper {
+  z-index: 1;
+}
+
+.records-table .combined-input-wrapper:focus-within {
+  z-index: 25;
 }
 
 .record-title-cell {
