@@ -616,7 +616,8 @@ textarea:focus {
 
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: auto;
+  bottom: calc(100% + 4px);
   right: 0;
   background-color: white;
   border: 1px solid #cfd6e4;
