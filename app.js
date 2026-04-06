@@ -26,6 +26,7 @@ const deckListForm = document.getElementById('deck-list-form');
 const deckCommanderInput = document.getElementById('deck-commander');
 const deckCommanderMenu = document.getElementById('deck-commander-menu');
 const deckCommanderDropdownButton = document.getElementById('deck-commander-dropdown');
+const deckOwnerInput = document.getElementById('deck-owner');
 const deckUrlInput = document.getElementById('deck-url');
 const deckListTableBody = document.getElementById('deck-list-body');
 const deckListCancelButton = document.getElementById('deck-list-cancel');
@@ -916,6 +917,7 @@ function normalizeDeckListEntry(entry) {
   }
 
   const commander = String(entry.commander || '').trim();
+  const owner = String(entry.owner || '').trim();
   const url = String(entry.url || '').trim();
   if (!commander || !url) {
     return null;
@@ -924,6 +926,7 @@ function normalizeDeckListEntry(entry) {
   return {
     id: entry.id || generateId(),
     commander,
+    owner,
     url,
   };
 }
@@ -1000,8 +1003,10 @@ function renderDeckLookup() {
 
   const safeCommander = escapeHtml(selectedDeck.commander);
   const safeUrl = escapeHtml(selectedDeck.url);
+  const safeOwner = escapeHtml(selectedDeck.owner || 'Unassigned');
   deckLookupResult.innerHTML = `
     <p class="deck-lookup-label">${safeCommander}</p>
+    <p>Owner: ${safeOwner}</p>
     <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${safeUrl}</a>
   `;
 }
@@ -1033,6 +1038,9 @@ function startDeckListEdit(deckId) {
 
   editingDeckListId = entry.id;
   deckCommanderInput.value = entry.commander;
+  if (deckOwnerInput) {
+    deckOwnerInput.value = entry.owner || '';
+  }
   deckUrlInput.value = entry.url;
 
   if (deckListSubmitButton) {
@@ -1062,7 +1070,7 @@ function renderDeckLists() {
   const deckLists = getSortedDeckLists();
 
   if (!deckLists.length) {
-    deckListTableBody.innerHTML = '<tr><td colspan="3">No deck lists saved yet.</td></tr>';
+    deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists saved yet.</td></tr>';
     return;
   }
 
@@ -1072,6 +1080,7 @@ function renderDeckLists() {
       return `
         <tr>
           <td>${escapeHtml(entry.commander)}</td>
+          <td>${escapeHtml(entry.owner || '—')}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a></td>
           <td>
             <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}">Edit</button>
@@ -2044,6 +2053,7 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     event.preventDefault();
 
     const commander = deckCommanderInput.value.trim();
+    const owner = deckOwnerInput?.value.trim() || '';
     const url = deckUrlInput.value.trim();
 
     if (!commander) {
@@ -2085,9 +2095,9 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     if (editingDeckListId) {
       const index = deckLists.findIndex((entry) => entry.id === editingDeckListId);
       if (index >= 0) {
-        deckLists[index] = { id: editingDeckListId, commander, url: normalizedUrl };
+        deckLists[index] = { id: editingDeckListId, commander, owner, url: normalizedUrl };
       } else {
-        deckLists.push({ id: generateId(), commander, url: normalizedUrl });
+        deckLists.push({ id: generateId(), commander, owner, url: normalizedUrl });
       }
 
       if (duplicateCommanderIndex >= 0) {
@@ -2098,10 +2108,11 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
         deckLists[duplicateCommanderIndex] = {
           ...deckLists[duplicateCommanderIndex],
           commander,
+          owner,
           url: normalizedUrl,
         };
       } else {
-        deckLists.push({ id: generateId(), commander, url: normalizedUrl });
+        deckLists.push({ id: generateId(), commander, owner, url: normalizedUrl });
       }
     }
 

@@ -824,7 +824,7 @@ button[type="submit"] {
   word-break: break-all;
 }
 
-.deck-list-table td:nth-child(2) a {
+.deck-list-table td:nth-child(3) a {
   color: #2c3a72;
   text-decoration: underline;
   display: block;
@@ -840,16 +840,21 @@ button[type="submit"] {
 
 .deck-list-table th:nth-child(1),
 .deck-list-table td:nth-child(1) {
-  width: 10%;
+  width: 16%;
 }
 
 .deck-list-table th:nth-child(2),
 .deck-list-table td:nth-child(2) {
-  width: auto;
+  width: 14%;
 }
 
 .deck-list-table th:nth-child(3),
 .deck-list-table td:nth-child(3) {
+  width: auto;
+}
+
+.deck-list-table th:nth-child(4),
+.deck-list-table td:nth-child(4) {
   width: 220px;
   min-width: 220px;
   display: flex;
@@ -859,7 +864,7 @@ button[type="submit"] {
   word-break: normal;
 }
 
-.deck-list-table td:nth-child(3) button {
+.deck-list-table td:nth-child(4) button {
   white-space: nowrap;
   min-width: 84px;
 }
@@ -1216,32 +1221,32 @@ button[type="submit"] {
     min-height: 64px;
   }
 
-  .page-decklists .deck-list-table td:nth-child(2) a {
+  .page-decklists .deck-list-table td:nth-child(3) a {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
     word-break: break-all;
   }
 
-  .page-decklists .deck-list-table td:nth-child(3),
-  .page-decklists .deck-list-table td:nth-child(3) button {
+  .page-decklists .deck-list-table td:nth-child(4),
+  .page-decklists .deck-list-table td:nth-child(4) button {
     min-width: 0;
     width: 100% !important;
   }
 
-  .page-decklists .deck-list-table td:nth-child(3) {
+  .page-decklists .deck-list-table td:nth-child(4) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     align-items: stretch;
   }
 
-  .page-decklists .deck-list-table td:nth-child(3)::before {
+  .page-decklists .deck-list-table td:nth-child(4)::before {
     grid-column: 1 / -1;
     margin-bottom: 2px;
   }
 
-  .page-decklists .deck-list-table td:nth-child(3) button {
+  .page-decklists .deck-list-table td:nth-child(4) button {
     margin-top: 0;
   }
 
@@ -1303,8 +1308,8 @@ button[type="submit"] {
     max-width: 88px;
   }
 
-  .page-decklists .deck-list-table th:nth-child(3),
-  .page-decklists .deck-list-table td:nth-child(3) {
+  .page-decklists .deck-list-table th:nth-child(4),
+  .page-decklists .deck-list-table td:nth-child(4) {
     width: 100% !important;
     min-width: 0;
   }

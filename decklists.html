@@ -49,6 +49,12 @@
               <input id="deck-url" type="url" placeholder="https://example.com/deck" required />
             </div>
 
+            <div class="field">
+              <label for="deck-owner">Owner</label>
+              <input id="deck-owner" type="text" list="player-list" placeholder="Who owns this deck?" />
+              <datalist id="player-list"></datalist>
+            </div>
+
             <div class="actions">
               <button type="submit">Add deck list</button>
               <button type="button" id="deck-list-cancel" class="secondary-button" hidden>Cancel edit</button>
@@ -76,6 +82,7 @@
               <thead>
                 <tr>
                   <th>Commander</th>
+                  <th>Owner</th>
                   <th>URL</th>
                   <th>Actions</th>
                 </tr>
