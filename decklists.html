@@ -51,7 +51,11 @@
 
             <div class="field">
               <label for="deck-owner">Owner</label>
-              <input id="deck-owner" type="text" list="player-list" placeholder="Who owns this deck?" />
+              <div class="combined-input-wrapper">
+                <input id="deck-owner" class="lookup-input" type="text" list="player-list" placeholder="Who owns this deck?" />
+                <button type="button" class="dropdown-button" title="Show players">▼</button>
+                <div id="deck-owner-menu" class="dropdown-menu"></div>
+              </div>
               <datalist id="player-list"></datalist>
             </div>
 

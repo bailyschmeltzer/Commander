@@ -27,6 +27,7 @@ const deckCommanderInput = document.getElementById('deck-commander');
 const deckCommanderMenu = document.getElementById('deck-commander-menu');
 const deckCommanderDropdownButton = document.getElementById('deck-commander-dropdown');
 const deckOwnerInput = document.getElementById('deck-owner');
+const deckOwnerMenu = document.getElementById('deck-owner-menu');
 const deckUrlInput = document.getElementById('deck-url');
 const deckListTableBody = document.getElementById('deck-list-body');
 const deckListCancelButton = document.getElementById('deck-list-cancel');
@@ -940,9 +941,17 @@ function getSortedDeckLists() {
 
 function populateDeckCommanderSelector() {
   if (!deckCommanderMenu) {
+    if (deckOwnerMenu) {
+      buildDropdownMenu(deckOwnerMenu, knownPlayers);
+      attachLookupWrapperHandlers(deckListForm || document);
+    }
     return;
   }
+
   buildDropdownMenu(deckCommanderMenu, knownCommanders);
+  if (deckOwnerMenu) {
+    buildDropdownMenu(deckOwnerMenu, knownPlayers);
+  }
   attachLookupWrapperHandlers(deckListForm || document);
 }
 
