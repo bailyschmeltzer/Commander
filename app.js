@@ -386,7 +386,9 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
 }
 
 function isLiveMobileTableMode() {
-  return window.matchMedia('(max-width: 900px)').matches && Boolean(activeGameState);
+  return window.matchMedia('(max-width: 900px)').matches
+    && Boolean(activeGameState)
+    && getActiveAlivePlayers(activeGameState).length === 4;
 }
 
 function updateLiveTableModeClass() {
