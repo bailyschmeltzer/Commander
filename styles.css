@@ -968,21 +968,12 @@ button[type="submit"] {
 
 .deck-wheel-segment-text {
   fill: #1f2742;
-  font-size: 4px;
   font-weight: 700;
   letter-spacing: 0.08px;
   paint-order: stroke;
   stroke: rgba(255, 255, 255, 0.75);
   stroke-width: 0.35px;
   stroke-linejoin: round;
-}
-
-.deck-wheel-segment-text-small {
-  font-size: 3.4px;
-}
-
-.deck-wheel-segment-text-tiny {
-  font-size: 2.8px;
 }
 
 .deck-selector-wheel-status {
@@ -1291,18 +1282,6 @@ button[type="submit"] {
     min-height: 94px;
     padding: 14px;
     font-size: 0.9rem;
-  }
-
-  .page-deck-selector .deck-wheel-segment-text {
-    font-size: 3.4px;
-  }
-
-  .page-deck-selector .deck-wheel-segment-text-small {
-    font-size: 3px;
-  }
-
-  .page-deck-selector .deck-wheel-segment-text-tiny {
-    font-size: 2.5px;
   }
 
   .page-game-tracker #game-form .player-table,

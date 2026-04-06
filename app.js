@@ -1128,15 +1128,21 @@ function describeWheelSegment(startAngle, endAngle) {
   ].join(' ');
 }
 
+function getDeckWheelLabelFontSize(labelLength, segmentSize) {
+  const radialPathLength = 26;
+  const averageRadius = 31;
+  const segmentRadians = (segmentSize * Math.PI) / 180;
+  const wedgeWidth = averageRadius * segmentRadians;
+  const estimatedLengthUnits = (labelLength * 0.62) + 1.2;
+  const lengthConstrainedSize = radialPathLength / Math.max(estimatedLengthUnits, 1);
+  const wedgeConstrainedSize = wedgeWidth * 0.72;
+  return Math.max(2.1, Math.min(4.6, lengthConstrainedSize, wedgeConstrainedSize));
+}
+
 function getDeckWheelSvgMarkup(deckPool) {
   const count = deckPool.length;
   const colors = getDeckWheelPalette(count);
   const segmentSize = 360 / count;
-  const textClass = count > 16
-    ? 'deck-wheel-segment-text deck-wheel-segment-text-tiny'
-    : count > 10
-      ? 'deck-wheel-segment-text deck-wheel-segment-text-small'
-      : 'deck-wheel-segment-text';
 
   const segments = deckPool.map((deck, index) => {
     const startAngle = index * segmentSize;
@@ -1148,12 +1154,14 @@ function getDeckWheelSvgMarkup(deckPool) {
     const pathStart = isLeftSide ? outerLabelPoint : innerLabelPoint;
     const pathEnd = isLeftSide ? innerLabelPoint : outerLabelPoint;
     const pathId = `deck-wheel-label-path-${index}`;
-    const label = escapeHtml(deck.commander.length > 20 ? `${deck.commander.slice(0, 19)}…` : deck.commander);
+    const labelText = deck.commander.length > 28 ? `${deck.commander.slice(0, 27)}…` : deck.commander;
+    const label = escapeHtml(labelText);
+    const labelFontSize = getDeckWheelLabelFontSize(labelText.length, segmentSize);
 
     return `
       <path d="${describeWheelSegment(startAngle, endAngle)}" fill="${colors[index]}" class="deck-wheel-segment" />
       <path id="${pathId}" d="M ${pathStart.x} ${pathStart.y} L ${pathEnd.x} ${pathEnd.y}" class="deck-wheel-label-guide" />
-      <text class="${textClass}">
+      <text class="deck-wheel-segment-text" style="font-size: ${labelFontSize.toFixed(2)}px;">
         <textPath href="#${pathId}" startOffset="8%">${label}</textPath>
       </text>`;
   }).join('');
