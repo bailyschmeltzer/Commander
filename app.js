@@ -803,8 +803,12 @@ function renderLivePlayerGrid() {
     .map((player) => {
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
       const damageMarkup = damageEntries.length
-        ? `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`
-        : '<p>No commander damage tracked.</p>';
+        ? `
+            <div class="live-player-meta-row live-player-meta-row-damage">
+              <div>Commander damage received:</div>
+              <ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>
+            </div>`
+        : '';
       const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
         ? '<span class="live-first-player-indicator">First</span>'
         : '';
@@ -834,14 +838,13 @@ function renderLivePlayerGrid() {
             <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
           </div>
           <div class="live-player-meta">
-            <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
-            <div>Kills: <strong>${player.kills}</strong></div>
-            <div>Killed: <strong>${escapeHtml((player.killedPlayers || []).join(', ') || 'None')}</strong></div>
-            <label class="live-player-toggle">
+            <div class="live-player-meta-row live-player-meta-row-status">Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
+            <div class="live-player-meta-row live-player-meta-row-kills">Kills: <strong>${player.kills}</strong></div>
+            <div class="live-player-meta-row live-player-meta-row-killed">Killed: <strong>${escapeHtml((player.killedPlayers || []).join(', ') || 'None')}</strong></div>
+            <label class="live-player-toggle live-player-meta-row live-player-meta-row-cannot-lose">
               <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
               <span>Cannot lose the game</span>
             </label>
-            <div>Commander damage received:</div>
             ${damageMarkup}
           </div>
           </div>

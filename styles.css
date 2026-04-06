@@ -1252,6 +1252,10 @@ button[type="submit"] {
   font-size: 0.94rem;
 }
 
+.live-player-meta-row {
+  min-width: 0;
+}
+
 .live-player-meta strong {
   color: #1f2742;
 }
@@ -1499,6 +1503,17 @@ button[type="submit"] {
   .page-live-game.live-table-mode .live-player-meta {
     gap: 4px;
     font-size: 0.82rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-meta-row-status,
+  .page-live-game.live-table-mode .live-player-meta-row-kills,
+  .page-live-game.live-table-mode .live-player-meta-row-killed {
+    display: none;
+  }
+
+  .page-live-game.live-table-mode .live-player-meta-row-damage {
+    display: grid;
+    gap: 2px;
   }
 
   .page-live-game.live-table-mode .live-player-toggle {
