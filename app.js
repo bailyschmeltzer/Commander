@@ -3915,29 +3915,50 @@ function setupSyncUi() {
     setSyncStatus('Cloud sync configured. Pulling latest state...', 'neutral');
   }
 
-  if (syncConnectButton) {
-    syncConnectButton.addEventListener('click', async () => {
-      const user = syncUserInput.value.trim();
-      const token = syncTokenInput.value.trim();
+  const handleSyncConnect = async (event) => {
+    event?.preventDefault?.();
 
-      if (!user || !token) {
-        setSyncStatus('Enter both display name and pod access code.', 'error');
-        return;
+    const user = syncUserInput.value.trim();
+    const token = syncTokenInput.value.trim();
+
+    if (!user || !token) {
+      setSyncStatus('Enter both display name and pod access code.', 'error');
+      return;
+    }
+
+    setSyncUiCollapsed(false);
+    localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
+    localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
+    updateSyncControls();
+    setSyncStatus('Connecting to cloud...', 'neutral');
+
+    if (syncConnectButton) {
+      syncConnectButton.disabled = true;
+    }
+
+    try {
+      await pullCloudState();
+      setSyncStatus(`Connected as ${user}.`, 'success');
+    } catch (error) {
+      setSyncStatus(`Connection failed: ${error.message}`, 'error');
+    } finally {
+      if (syncConnectButton) {
+        syncConnectButton.disabled = false;
       }
+    }
+  };
 
-      localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
-      localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
-      updateSyncControls();
-      setSyncStatus('Connecting to cloud...', 'neutral');
+  if (syncConnectButton) {
+    syncConnectButton.addEventListener('click', handleSyncConnect);
+  }
 
-      try {
-        await pullCloudState();
-        setSyncStatus(`Connected as ${user}.`, 'success');
-      } catch (error) {
-        setSyncStatus(`Connection failed: ${error.message}`, 'error');
+  [syncUserInput, syncTokenInput].forEach((input) => {
+    input?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        handleSyncConnect(event);
       }
     });
-  }
+  });
 
   if (syncDisconnectButton) {
     syncDisconnectButton.addEventListener('click', () => {
