@@ -804,8 +804,7 @@ function renderLivePlayerGrid() {
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
       const damageMarkup = damageEntries.length
         ? `
-            <div class="live-player-meta-row live-player-meta-row-damage">
-              <div>Commander damage received:</div>
+            <div class="live-player-damage-summary">
               <ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>
             </div>`
         : '';
@@ -817,51 +816,34 @@ function renderLivePlayerGrid() {
       return `
         <article class="live-player-card live-seat-${seatOrientation}${player.eliminatedAt ? ' is-eliminated' : ''}">
           <div class="live-player-card-body live-orientation-${seatOrientation}">
-            <div class="live-player-mobile-layout">
-              <div class="live-mobile-action-rail live-mobile-action-rail-leading">
+            <div class="live-player-card-topline">
+              <div class="live-player-title-block">
+                <h3>${escapeHtml(player.name)}</h3>
+                <p>${escapeHtml(player.commander || 'No commander')}</p>
+              </div>
+              ${firstPlayerMarkup}
+            </div>
+            <div class="live-player-main-layout">
+              <div class="live-player-action-column live-player-action-column-loss">
                 <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-5">-5</button>
                 <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
                 <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
+                <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
               </div>
-              <div class="live-player-mobile-center">
-                <div class="live-player-card-header">
-                  <div>
-                    <h3>${escapeHtml(player.name)}</h3>
-                    <p>${escapeHtml(player.commander || 'No commander')}</p>
-                  </div>
-                  <div class="live-player-header-badges">
-                    ${firstPlayerMarkup}
-                    <span class="live-seat-badge">Seat ${player.seat}</span>
-                  </div>
-                </div>
+              <div class="live-player-counter-column">
                 <div class="live-player-life">${player.life}</div>
-                <div class="live-quick-actions">
-                  <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
-                  <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-5">-5</button>
-                  <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
-                  <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
-                  <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
-                  <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
-                  <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
-                </div>
-                <div class="live-player-meta">
-                  <div class="live-player-meta-row live-player-meta-row-status">Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
-                  <div class="live-player-meta-row live-player-meta-row-kills">Kills: <strong>${player.kills}</strong></div>
-                  <div class="live-player-meta-row live-player-meta-row-killed">Killed: <strong>${escapeHtml((player.killedPlayers || []).join(', ') || 'None')}</strong></div>
-                  <label class="live-player-toggle live-player-meta-row live-player-meta-row-cannot-lose">
-                    <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
-                    <span>Cannot lose the game</span>
-                  </label>
-                  ${damageMarkup}
-                </div>
               </div>
-              <div class="live-mobile-action-rail live-mobile-action-rail-trailing">
+              <div class="live-player-action-column live-player-action-column-gain">
                 <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
                 <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
-                <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
                 <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
+                <label class="live-player-toggle live-player-toggle-compact">
+                  <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
+                  <span>Can&apos;t lose</span>
+                </label>
               </div>
-          </div>
+            </div>
+            ${damageMarkup}
           </div>
         </article>`;
     })

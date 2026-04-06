@@ -1184,12 +1184,66 @@ button[type="submit"] {
   height: 100%;
 }
 
-.live-player-mobile-layout {
-  display: block;
+.live-player-card-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.live-mobile-action-rail {
-  display: none;
+.live-player-title-block h3,
+.live-player-title-block p {
+  margin: 0;
+}
+
+.live-player-title-block p {
+  color: #5d6884;
+}
+
+.live-player-main-layout {
+  display: grid;
+  grid-template-columns: minmax(60px, 88px) 1fr minmax(60px, 88px);
+  align-items: stretch;
+  gap: 10px;
+}
+
+.live-player-action-column {
+  display: grid;
+  gap: 8px;
+  align-content: stretch;
+}
+
+.live-player-counter-column {
+  display: grid;
+  align-content: center;
+}
+
+.live-player-damage-summary {
+  margin-top: 10px;
+}
+
+.live-player-toggle-compact {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid #d4dcf0;
+  background: #ffffff;
+  color: #243661;
+  font-weight: 700;
+  text-align: center;
+}
+
+.live-player-toggle-compact span {
+  line-height: 1.1;
+}
+
+.live-player-toggle-compact input {
+  width: auto;
+  min-width: auto;
+  margin: 0;
 }
 
 .live-player-card.is-current-turn {
@@ -1475,33 +1529,6 @@ button[type="submit"] {
     transform-origin: center center;
   }
 
-  .page-live-game.live-table-mode .live-player-mobile-layout {
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: 8px;
-    height: 100%;
-  }
-
-  .page-live-game.live-table-mode .live-player-mobile-center {
-    display: grid;
-    align-content: center;
-    gap: 4px;
-    min-height: 0;
-  }
-
-  .page-live-game.live-table-mode .live-mobile-action-rail {
-    display: grid;
-    gap: 6px;
-  }
-
-  .page-live-game.live-table-mode .live-mobile-action-rail-leading {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .page-live-game.live-table-mode .live-mobile-action-rail-trailing {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .page-live-game.live-table-mode .live-orientation-1 {
     transform: translate(-50%, -50%) rotate(-90deg);
   }
@@ -1519,59 +1546,57 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-life {
-    font-size: clamp(3.75rem, 13vw, 5.5rem);
+    font-size: clamp(4.25rem, 16vw, 6.5rem);
     text-align: center;
-    margin: 6px 0;
-  }
-
-  .page-live-game.live-table-mode .live-quick-actions {
-    display: none;
+    margin: 0;
   }
 
   .page-live-game.live-table-mode .live-quick-action {
-    min-height: 36px;
-    padding: 8px 6px;
+    min-height: 0;
+    height: 100%;
+    padding: 8px 4px;
     font-size: 0.8rem;
   }
 
-  .page-live-game.live-table-mode .live-player-card-header {
+  .page-live-game.live-table-mode .live-player-card-topline {
     margin-bottom: 4px;
   }
 
-  .page-live-game.live-table-mode .live-player-card-header h3 {
+  .page-live-game.live-table-mode .live-player-title-block h3 {
     font-size: 0.92rem;
   }
 
-  .page-live-game.live-table-mode .live-player-card-header p,
-  .page-live-game.live-table-mode .live-player-meta,
-  .page-live-game.live-table-mode .live-player-toggle {
+  .page-live-game.live-table-mode .live-player-title-block p,
+  .page-live-game.live-table-mode .live-player-toggle-compact {
     font-size: 0.76rem;
   }
 
-  .page-live-game.live-table-mode .live-player-meta {
-    gap: 4px;
-    font-size: 0.82rem;
+  .page-live-game.live-table-mode .live-player-main-layout {
+    grid-template-columns: minmax(54px, 72px) 1fr minmax(54px, 72px);
+    gap: 8px;
+    min-height: 0;
+    flex: 1;
   }
 
-  .page-live-game.live-table-mode .live-player-meta-row-status,
-  .page-live-game.live-table-mode .live-player-meta-row-kills,
-  .page-live-game.live-table-mode .live-player-meta-row-killed {
-    display: none;
+  .page-live-game.live-table-mode .live-player-action-column {
+    gap: 6px;
   }
 
-  .page-live-game.live-table-mode .live-player-meta-row-damage {
-    display: grid;
-    gap: 2px;
+  .page-live-game.live-table-mode .live-player-counter-column {
+    align-content: center;
   }
 
-  .page-live-game.live-table-mode .live-player-toggle {
-    font-size: 0.8rem;
+  .page-live-game.live-table-mode .live-player-damage-summary {
+    min-height: 22px;
+    margin-top: 6px;
+    font-size: 0.72rem;
   }
 
   .page-live-game.live-table-mode .live-card-damage-list {
-    max-height: none;
-    overflow: visible;
-    padding-left: 18px;
+    margin: 0;
+    padding-left: 16px;
+    max-height: 100%;
+    overflow: hidden;
   }
 
   .app-shell {
