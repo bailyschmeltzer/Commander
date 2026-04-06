@@ -1177,6 +1177,7 @@ button[type="submit"] {
   padding: 16px;
   background: linear-gradient(180deg, #fcfdff 0%, #f6f8fe 100%);
   box-shadow: 0 10px 22px rgba(32, 43, 79, 0.08);
+  container-type: size;
 }
 
 .live-player-card-body {
@@ -1456,30 +1457,30 @@ button[type="submit"] {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 118%;
-    height: 118%;
+    width: calc(100cqh - 24px);
+    height: calc(100cqw - 24px);
     padding: 12px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    transform: translate(-50%, -50%) scale(0.84);
+    justify-content: flex-start;
     transform-origin: center center;
   }
 
   .page-live-game.live-table-mode .live-orientation-1 {
-    transform: translate(-50%, -50%) rotate(-90deg) scale(0.84);
+    transform: translate(-50%, -50%) rotate(-90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-2 {
-    transform: translate(-50%, -50%) rotate(-90deg) scale(0.84);
+    transform: translate(-50%, -50%) rotate(-90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-3 {
-    transform: translate(-50%, -50%) rotate(90deg) scale(0.84);
+    transform: translate(-50%, -50%) rotate(90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-4 {
-    transform: translate(-50%, -50%) rotate(90deg) scale(0.84);
+    transform: translate(-50%, -50%) rotate(90deg);
   }
 
   .page-live-game.live-table-mode .live-player-life {
