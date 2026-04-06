@@ -64,6 +64,31 @@ header p {
   font-size: 0.86rem;
 }
 
+.page-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #d7deef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #31415f;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.page-link:hover {
+  background: #eef4ff;
+  border-color: #bfd0f4;
+}
+
 
 .status-neutral {
   color: #44507e;
@@ -316,6 +341,74 @@ label {
   border-radius: 999px;
   background: #e8ecf4;
   overflow: hidden;
+}
+
+.confidence-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7ba5ff, #3558b6);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.records-helper-text {
+  margin-top: 0;
+  color: #5d6884;
+}
+
+.records-table {
+  table-layout: auto;
+}
+
+.records-table th,
+.records-table td {
+  vertical-align: top;
+}
+
+.records-table input,
+.records-table textarea {
+  width: 100%;
+}
+
+.record-title-cell {
+  min-width: 190px;
+}
+
+.record-value-cell {
+  min-width: 110px;
+}
+
+.record-unit-cell {
+  min-width: 100px;
+}
+
+.record-action-cell {
+  min-width: 92px;
+}
+
+.record-badge,
+.record-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #40527c;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.custom-record-form {
+  display: grid;
+  gap: 8px;
 }
 
 .confidence-bar span {

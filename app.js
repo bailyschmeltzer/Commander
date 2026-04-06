@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
 const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
+const RECORDS_STORAGE_KEY = 'commanderTrackerRecords';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
@@ -31,6 +32,16 @@ const deckListCancelButton = document.getElementById('deck-list-cancel');
 const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
 const deckLookupSelect = document.getElementById('deck-lookup-commander');
 const deckLookupResult = document.getElementById('deck-lookup-result');
+const recordsForm = document.getElementById('records-form');
+const recordsTableBody = document.getElementById('records-table-body');
+const customRecordForm = document.getElementById('custom-record-form');
+const customRecordTitleInput = document.getElementById('custom-record-title');
+const customRecordUnitInput = document.getElementById('custom-record-unit');
+const customRecordValueInput = document.getElementById('custom-record-value');
+const customRecordHolderInput = document.getElementById('custom-record-holder');
+const customRecordCommanderInput = document.getElementById('custom-record-commander');
+const customRecordDateInput = document.getElementById('custom-record-date');
+const customRecordNotesInput = document.getElementById('custom-record-notes');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -47,10 +58,21 @@ let knownPlayers = [];
 let knownCommanders = [];
 let commanderSortColumn = 'games';
 let commanderSortDescending = true;
-let appState = { games: [], powerLevels: {}, deckLists: [] };
+let appState = { games: [], powerLevels: {}, deckLists: [], records: [] };
 let editingDeckListId = null;
 let syncQueueTimer = null;
 let syncInFlight = false;
+
+const DEFAULT_RECORD_DEFINITIONS = [
+  { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
+  { key: 'highest-damage-dealt', title: 'Highest Damage Dealt', unit: 'damage' },
+  { key: 'highest-hit-to-life', title: 'Highest Hit to Life', unit: 'damage' },
+  { key: 'most-kills-one-game', title: 'Most Kills in One Game', unit: 'kills' },
+  { key: 'highest-life-total', title: 'Highest Life Total', unit: 'life' },
+  { key: 'most-commander-damage', title: 'Most Commander Damage', unit: 'damage' },
+  { key: 'longest-game', title: 'Longest Game', unit: 'minutes' },
+  { key: 'fastest-elimination', title: 'Fastest Elimination', unit: 'turns' },
+];
 
 function parseJsonSafe(value, fallback) {
   try {
@@ -64,10 +86,12 @@ function loadLocalState() {
   const games = parseJsonSafe(localStorage.getItem(STORAGE_KEY) || '[]', []);
   const powerLevels = parseJsonSafe(localStorage.getItem(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
   const deckLists = parseJsonSafe(localStorage.getItem(DECK_LIST_STORAGE_KEY) || '[]', []);
+  const records = parseJsonSafe(localStorage.getItem(RECORDS_STORAGE_KEY) || '[]', []);
   return {
     games: Array.isArray(games) ? games : [],
     powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
     deckLists: Array.isArray(deckLists) ? deckLists : [],
+    records: Array.isArray(records) ? records : [],
   };
 }
 
@@ -75,6 +99,7 @@ function persistLocalState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.games || []));
   localStorage.setItem(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
   localStorage.setItem(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
+  localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
 }
 
 function getSyncCredentials() {
@@ -162,7 +187,8 @@ async function pullCloudState() {
   const games = Array.isArray(payload.games) ? payload.games : [];
   const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
   const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
-  appState = { games, powerLevels, deckLists };
+  const records = Array.isArray(payload.records) ? payload.records : [];
+  appState = { games, powerLevels, deckLists, records };
   persistLocalState(appState);
   refresh();
 }
@@ -180,6 +206,7 @@ async function pushCloudState() {
         games: appState.games,
         powerLevels: appState.powerLevels,
         deckLists: appState.deckLists,
+        records: appState.records,
       }),
     });
     setSyncStatus('Synced to cloud.', 'success');
@@ -421,6 +448,86 @@ function setCommanderExpectedPower(commander, value) {
 function getCommanderExpectedPower(commander) {
   const levels = loadCommanderPowerLevels();
   return typeof levels[commander] === 'number' ? levels[commander] : '';
+}
+
+function normalizeRecordEntry(entry, index = 0) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const isCustom = Boolean(entry.isCustom);
+  const key = isCustom ? '' : String(entry.key || '').trim();
+  const title = String(entry.title || '').trim();
+  if (!title) {
+    return null;
+  }
+
+  const fallbackId = key || `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'record'}-${index}`;
+  return {
+    id: String(entry.id || fallbackId),
+    key,
+    title,
+    unit: String(entry.unit || '').trim(),
+    value: String(entry.value || '').trim(),
+    holder: String(entry.holder || '').trim(),
+    commander: String(entry.commander || '').trim(),
+    date: String(entry.date || '').trim(),
+    notes: String(entry.notes || '').trim(),
+    isCustom,
+  };
+}
+
+function getDefaultRecords() {
+  return DEFAULT_RECORD_DEFINITIONS.map((definition, index) => normalizeRecordEntry({
+    id: definition.key,
+    key: definition.key,
+    title: definition.title,
+    unit: definition.unit,
+    value: '',
+    holder: '',
+    commander: '',
+    date: '',
+    notes: '',
+    isCustom: false,
+  }, index));
+}
+
+function mergeRecordsWithDefaults(records) {
+  const normalized = Array.isArray(records)
+    ? records.map((entry, index) => normalizeRecordEntry(entry, index)).filter(Boolean)
+    : [];
+
+  const predefinedByKey = new Map(
+    normalized
+      .filter((entry) => !entry.isCustom && entry.key)
+      .map((entry) => [entry.key, entry]),
+  );
+
+  const mergedDefaults = getDefaultRecords().map((entry) => ({
+    ...entry,
+    ...(predefinedByKey.get(entry.key) || {}),
+    id: entry.key,
+    key: entry.key,
+    title: entry.title,
+    unit: entry.unit,
+    isCustom: false,
+  }));
+
+  const customRecords = normalized
+    .filter((entry) => entry.isCustom)
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  return [...mergedDefaults, ...customRecords];
+}
+
+function loadRecords() {
+  return mergeRecordsWithDefaults(appState.records);
+}
+
+function saveRecords(records) {
+  appState.records = mergeRecordsWithDefaults(records);
+  persistLocalState(appState);
+  queueCloudSync();
 }
 
 function getGameById(id) {
@@ -838,6 +945,95 @@ function renderDeckLists() {
         </tr>`;
     })
     .join('');
+}
+
+function collectRecordsFromTable() {
+  if (!recordsTableBody) {
+    return loadRecords();
+  }
+
+  return Array.from(recordsTableBody.querySelectorAll('tr[data-record-id]'))
+    .map((row, index) => {
+      const isCustom = row.dataset.custom === 'true';
+      const titleInput = row.querySelector('[name="title"]');
+      const unitInput = row.querySelector('[name="unit"]');
+      const valueInput = row.querySelector('[name="value"]');
+      const holderInput = row.querySelector('[name="holder"]');
+      const commanderInput = row.querySelector('[name="commander"]');
+      const dateField = row.querySelector('[name="date"]');
+      const notesInput = row.querySelector('[name="notes"]');
+
+      return normalizeRecordEntry({
+        id: row.dataset.recordId,
+        key: row.dataset.key || '',
+        title: isCustom ? (titleInput?.value || '') : (row.dataset.title || ''),
+        unit: isCustom ? (unitInput?.value || '') : (row.dataset.unit || ''),
+        value: valueInput?.value || '',
+        holder: holderInput?.value || '',
+        commander: commanderInput?.value || '',
+        date: dateField?.value || '',
+        notes: notesInput?.value || '',
+        isCustom,
+      }, index);
+    })
+    .filter(Boolean);
+}
+
+function renderRecords() {
+  if (!recordsTableBody) {
+    return;
+  }
+
+  const records = loadRecords();
+  recordsTableBody.innerHTML = records
+    .map((record) => {
+      const actionCell = record.isCustom
+        ? `<button type="button" class="history-delete-button record-delete-button" data-id="${escapeHtml(record.id)}">Delete</button>`
+        : '<span class="record-badge">Core</span>';
+
+      return `
+        <tr
+          data-record-id="${escapeHtml(record.id)}"
+          data-key="${escapeHtml(record.key || '')}"
+          data-title="${escapeHtml(record.title)}"
+          data-unit="${escapeHtml(record.unit || '')}"
+          data-custom="${record.isCustom ? 'true' : 'false'}"
+        >
+          <td class="record-title-cell">
+            ${record.isCustom
+              ? `<input type="text" name="title" value="${escapeHtml(record.title)}" placeholder="Record title" />`
+              : `<strong>${escapeHtml(record.title)}</strong>`}
+          </td>
+          <td class="record-value-cell"><input type="text" name="value" value="${escapeHtml(record.value)}" placeholder="Record" /></td>
+          <td class="record-unit-cell">
+            ${record.isCustom
+              ? `<input type="text" name="unit" value="${escapeHtml(record.unit)}" placeholder="Unit" />`
+              : `<span class="record-unit-badge">${escapeHtml(record.unit || 'open')}</span>`}
+          </td>
+          <td><input type="text" name="holder" list="player-list" value="${escapeHtml(record.holder)}" placeholder="Player" /></td>
+          <td><input type="text" name="commander" list="commander-list" value="${escapeHtml(record.commander)}" placeholder="Commander or deck" /></td>
+          <td><input type="date" name="date" value="${escapeHtml(record.date)}" /></td>
+          <td><textarea name="notes" rows="2" placeholder="How it happened, matchup, table notes...">${escapeHtml(record.notes)}</textarea></td>
+          <td class="record-action-cell">${actionCell}</td>
+        </tr>`;
+    })
+    .join('');
+}
+
+function handleRecordTableClick(event) {
+  const deleteButton = event.target.closest('.record-delete-button');
+  if (!deleteButton || !recordsTableBody?.contains(deleteButton)) {
+    return;
+  }
+
+  const recordId = deleteButton.dataset.id;
+  if (!recordId) {
+    return;
+  }
+
+  const nextRecords = collectRecordsFromTable().filter((record) => record.id !== recordId);
+  saveRecords(nextRecords);
+  renderRecords();
 }
 
 function handleDeckListTableAction(event) {
@@ -1558,6 +1754,7 @@ function refresh() {
   renderCommanderStats(games);
   renderDeckLookup();
   renderDeckLists();
+  renderRecords();
 }
 
 function resetForm() {
@@ -1795,6 +1992,50 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
   });
 }
 
+if (recordsTableBody) {
+  recordsTableBody.addEventListener('click', handleRecordTableClick);
+}
+
+if (recordsForm) {
+  recordsForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const records = collectRecordsFromTable();
+    saveRecords(records);
+    renderRecords();
+  });
+}
+
+if (customRecordForm) {
+  customRecordForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const title = customRecordTitleInput?.value.trim() || '';
+    if (!title) {
+      alert('Please enter a title for the custom record.');
+      return;
+    }
+
+    const records = collectRecordsFromTable();
+    records.push({
+      id: generateId(),
+      key: '',
+      title,
+      unit: customRecordUnitInput?.value.trim() || '',
+      value: customRecordValueInput?.value.trim() || '',
+      holder: customRecordHolderInput?.value.trim() || '',
+      commander: customRecordCommanderInput?.value.trim() || '',
+      date: customRecordDateInput?.value || '',
+      notes: customRecordNotesInput?.value.trim() || '',
+      isCustom: true,
+    });
+
+    saveRecords(records);
+    customRecordForm.reset();
+    renderRecords();
+  });
+}
+
 const commanderStatsTable = document.querySelector('.commander-stats-table');
 if (commanderStatsTable) {
   commanderStatsTable.addEventListener('click', handleCommanderHeaderClick);
@@ -1803,7 +2044,12 @@ if (commanderStatsTable) {
 updateHistorySortOrderLabel();
 
 window.addEventListener('storage', (event) => {
-  if (event.key === STORAGE_KEY || event.key === EXPECTED_POWER_STORAGE_KEY || event.key === DECK_LIST_STORAGE_KEY) {
+  if (
+    event.key === STORAGE_KEY
+    || event.key === EXPECTED_POWER_STORAGE_KEY
+    || event.key === DECK_LIST_STORAGE_KEY
+    || event.key === RECORDS_STORAGE_KEY
+  ) {
     appState = loadLocalState();
     refresh();
   }

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pod Records</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>Pod Records</h1>
+        <p>Manually track the wildest table achievements and update them whenever a new high score happens.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <div class="page-switch">
+          <a href="index.html" class="page-link">Game Tracker</a>
+          <a href="player.html" class="page-link">Player Stats</a>
+          <a href="commander.html" class="page-link">Commander Stats</a>
+          <a href="history.html" class="page-link">Full History</a>
+          <a href="decklists.html" class="page-link">Deck Lists</a>
+          <a href="records.html" class="page-link">Pod Records</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Core Records</h2>
+          <p class="records-helper-text">These are manual records, so use whatever evidence your pod agrees on. Add a player, a commander, the value, and any notes worth remembering.</p>
+          <form id="records-form">
+            <div class="player-table-wrapper">
+              <table class="player-table records-table">
+                <thead>
+                  <tr>
+                    <th>Record</th>
+                    <th>Value</th>
+                    <th>Unit</th>
+                    <th>Player</th>
+                    <th>Commander / Deck</th>
+                    <th>Date</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="records-table-body"></tbody>
+              </table>
+              <datalist id="player-list"></datalist>
+              <datalist id="commander-list"></datalist>
+            </div>
+
+            <div class="actions">
+              <button type="submit">Save records</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Add Custom Record</h2>
+          <form id="custom-record-form" class="custom-record-form">
+            <div class="field-grid">
+              <div class="field">
+                <label for="custom-record-title">Title</label>
+                <input id="custom-record-title" type="text" placeholder="Most treasures created" required />
+              </div>
+              <div class="field">
+                <label for="custom-record-unit">Unit</label>
+                <input id="custom-record-unit" type="text" placeholder="treasures, copies, cards..." />
+              </div>
+              <div class="field">
+                <label for="custom-record-value">Value</label>
+                <input id="custom-record-value" type="text" placeholder="27" />
+              </div>
+              <div class="field">
+                <label for="custom-record-holder">Player</label>
+                <input id="custom-record-holder" type="text" list="player-list" placeholder="Player" />
+              </div>
+              <div class="field">
+                <label for="custom-record-commander">Commander / Deck</label>
+                <input id="custom-record-commander" type="text" list="commander-list" placeholder="Commander or deck" />
+              </div>
+              <div class="field">
+                <label for="custom-record-date">Date</label>
+                <input id="custom-record-date" type="date" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="custom-record-notes">Notes</label>
+              <textarea id="custom-record-notes" rows="3" placeholder="What happened? Combo line, table context, how the record was set..."></textarea>
+            </div>
+
+            <div class="actions">
+              <button type="submit">Add custom record</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

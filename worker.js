@@ -64,8 +64,9 @@ export default {
 
       if (request.method === 'GET') {
         const raw = await env.POD_STATE.get(stateKey, 'json');
-        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [] };
+        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], records: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
+        state.records = Array.isArray(state.records) ? state.records : [];
         return jsonResponse(state, 200);
       }
 
@@ -80,11 +81,13 @@ export default {
         const games = Array.isArray(body.games) ? body.games : [];
         const powerLevels = body.powerLevels && typeof body.powerLevels === 'object' ? body.powerLevels : {};
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : [];
+        const records = Array.isArray(body.records) ? body.records : [];
 
         await env.POD_STATE.put(stateKey, JSON.stringify({
           games,
           powerLevels,
           deckLists,
+          records,
           updatedAt: new Date().toISOString(),
           updatedBy: auth.user,
         }));
