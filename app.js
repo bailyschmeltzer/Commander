@@ -696,6 +696,54 @@ function buildDropdownMenu(menuElement, values) {
     .join('');
 }
 
+function closeAllDropdownMenus(exceptMenu = null) {
+  document.querySelectorAll('.dropdown-menu.active').forEach((activeMenu) => {
+    if (activeMenu !== exceptMenu) {
+      activeMenu.classList.remove('active');
+    }
+  });
+  updateDropdownLayeringState();
+}
+
+function toggleLookupMenu(wrapper) {
+  if (!wrapper) {
+    return;
+  }
+
+  const menu = wrapper.querySelector('.dropdown-menu');
+  if (!menu) {
+    return;
+  }
+
+  const shouldOpen = !menu.classList.contains('active');
+  closeAllDropdownMenus(menu);
+  menu.classList.toggle('active', shouldOpen);
+  updateDropdownLayeringState();
+}
+
+function applyLookupSelection(wrapper, value) {
+  if (!wrapper) {
+    return;
+  }
+
+  const input = wrapper.querySelector('.lookup-input');
+  const menu = wrapper.querySelector('.dropdown-menu');
+  if (!input) {
+    return;
+  }
+
+  input.value = value || '';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+
+  if (menu) {
+    menu.classList.remove('active');
+  }
+
+  input.focus();
+  updateDropdownLayeringState();
+}
+
 function attachLookupWrapperHandlers(scope = document) {
   scope.querySelectorAll('.combined-input-wrapper').forEach((wrapper) => {
     if (wrapper.dataset.dropdownHandlersAttached) {
@@ -713,14 +761,12 @@ function attachLookupWrapperHandlers(scope = document) {
 
     button.addEventListener('click', (event) => {
       event.preventDefault();
-      document.querySelectorAll('.dropdown-menu.active').forEach((activeMenu) => {
-        if (activeMenu !== menu) {
-          activeMenu.classList.remove('active');
-        }
-      });
+      event.stopPropagation();
+      toggleLookupMenu(wrapper);
+    });
 
-      menu.classList.toggle('active');
-      updateDropdownLayeringState();
+    menu.addEventListener('mousedown', (event) => {
+      event.preventDefault();
     });
 
     menu.addEventListener('click', (event) => {
@@ -729,9 +775,9 @@ function attachLookupWrapperHandlers(scope = document) {
         return;
       }
 
-      input.value = item.dataset.value || '';
-      menu.classList.remove('active');
-      updateDropdownLayeringState();
+      event.preventDefault();
+      event.stopPropagation();
+      applyLookupSelection(wrapper, item.dataset.value || '');
     });
   });
 }
@@ -792,8 +838,7 @@ function attachDropdownHandlers(row) {
 // Global outside-click handler — registered once
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.combined-input-wrapper')) {
-    document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.remove('active'));
-    updateDropdownLayeringState();
+    closeAllDropdownMenus();
   }
 });
 

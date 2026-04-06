@@ -406,7 +406,7 @@ label {
 }
 
 .record-commander-cell {
-  min-width: 56px;
+  min-width: 44px;
 }
 
 .record-badge,
@@ -446,6 +446,10 @@ label {
 
 .record-lookup-wrapper .lookup-input {
   padding-right: 42px;
+}
+
+.record-commander-cell .dropdown-button {
+  padding: 8px 7px;
 }
 
 .records-table textarea {
