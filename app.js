@@ -338,6 +338,564 @@ function formatPlayerCommanders(list) {
   return list.map(({ player, commander }) => `${player}: ${commander || '—'}`).join(', ');
 }
 
+function getPlayerNameById(playerId, activeGame = activeGameState) {
+  return activeGame?.players?.find((player) => player.id === playerId)?.name || 'Unknown player';
+}
+
+function getActiveAlivePlayers(activeGame = activeGameState) {
+  return (activeGame?.players || []).filter((player) => !player.eliminatedAt);
+}
+
+function getCurrentTurnPlayer(activeGame = activeGameState) {
+  if (!activeGame || !Array.isArray(activeGame.turnOrder) || !activeGame.turnOrder.length) {
+    return null;
+  }
+
+  const currentPlayerId = activeGame.turnOrder[activeGame.currentTurnIndex] || '';
+  return activeGame.players.find((player) => player.id === currentPlayerId) || null;
+}
+
+function getTurnOrderPreview(rows, firstPlayerId) {
+  const normalizedRows = Array.isArray(rows) ? rows.filter((row) => row.player) : [];
+  if (!normalizedRows.length) {
+    return [];
+  }
+
+  const firstIndex = normalizedRows.findIndex((row) => row.id === firstPlayerId);
+  if (firstIndex < 0) {
+    return normalizedRows;
+  }
+
+  return [
+    ...normalizedRows.slice(firstIndex),
+    ...normalizedRows.slice(0, firstIndex),
+  ];
+}
+
+function createLiveSetupRow(data = {}) {
+  const row = document.createElement('tr');
+  row.dataset.playerId = data.id || generateId();
+  row.innerHTML = `
+    <td><span class="live-seat-badge"></span></td>
+    <td class="lookup-field-cell">
+      <div class="combined-input-wrapper">
+        <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+        <button type="button" class="dropdown-button player-dropdown-button" title="Show options">▼</button>
+        <div class="dropdown-menu player-dropdown-menu"></div>
+      </div>
+    </td>
+    <td class="lookup-field-cell">
+      <div class="combined-input-wrapper">
+        <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+        <button type="button" class="dropdown-button commander-dropdown-button" title="Show options">▼</button>
+        <div class="dropdown-menu commander-dropdown-menu"></div>
+      </div>
+    </td>
+  `;
+
+  populateRowSelectors(row);
+  attachLookupWrapperHandlers(row);
+  return row;
+}
+
+function updateLiveSetupSeatLabels() {
+  if (!liveGamePlayerBody) {
+    return;
+  }
+
+  Array.from(liveGamePlayerBody.querySelectorAll('tr')).forEach((row, index) => {
+    const badge = row.querySelector('.live-seat-badge');
+    if (badge) {
+      badge.textContent = `Seat ${index + 1}`;
+    }
+  });
+}
+
+function addLiveSetupRow(data = {}) {
+  if (!liveGamePlayerBody) {
+    return;
+  }
+
+  liveGamePlayerBody.appendChild(createLiveSetupRow(data));
+  updateLiveSetupSeatLabels();
+}
+
+function removeLiveSetupRow() {
+  if (!liveGamePlayerBody) {
+    return;
+  }
+
+  const rows = liveGamePlayerBody.querySelectorAll('tr');
+  if (rows.length > 2) {
+    rows[rows.length - 1].remove();
+  }
+  updateLiveSetupSeatLabels();
+}
+
+function getLiveSetupRows() {
+  if (!liveGamePlayerBody) {
+    return [];
+  }
+
+  return Array.from(liveGamePlayerBody.querySelectorAll('tr'))
+    .map((row, index) => ({
+      id: row.dataset.playerId || generateId(),
+      player: row.querySelector('[name="player"]')?.value.trim() || '',
+      commander: row.querySelector('[name="commander"]')?.value.trim() || '',
+      seat: index + 1,
+    }))
+    .filter((row) => row.player);
+}
+
+function renderLiveOrderPreview() {
+  if (!liveOrderPreview) {
+    return;
+  }
+
+  const rows = getLiveSetupRows();
+  if (!rows.length) {
+    liveOrderPreview.textContent = 'Add players to preview the randomized turn order.';
+    return;
+  }
+
+  if (!liveSetupFirstPlayerId || !rows.some((row) => row.id === liveSetupFirstPlayerId)) {
+    liveSetupFirstPlayerId = rows[0].id;
+  }
+
+  const orderedRows = getTurnOrderPreview(rows, liveSetupFirstPlayerId);
+  liveOrderPreview.textContent = `First player: ${orderedRows[0]?.player || '—'}. Turn order: ${orderedRows.map((row) => row.player).join(' → ')}.`;
+}
+
+function randomizeLiveFirstPlayer() {
+  const rows = getLiveSetupRows();
+  if (!rows.length) {
+    renderLiveOrderPreview();
+    return;
+  }
+
+  const randomIndex = Math.floor(Math.random() * rows.length);
+  liveSetupFirstPlayerId = rows[randomIndex].id;
+  renderLiveOrderPreview();
+}
+
+function buildLivePlayerOptions(selectElement, blankLabel) {
+  if (!selectElement) {
+    return;
+  }
+
+  const players = activeGameState?.players || [];
+  const currentValue = selectElement.value;
+  selectElement.innerHTML = [
+    `<option value="">${escapeHtml(blankLabel)}</option>`,
+    ...players.map((player) => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`),
+  ].join('');
+  selectElement.value = players.some((player) => player.id === currentValue) ? currentValue : '';
+}
+
+function generateLiveEventDescription(event, activeGame = activeGameState) {
+  const actor = event.actorPlayerId ? getPlayerNameById(event.actorPlayerId, activeGame) : 'Environment';
+  const target = event.targetPlayerId ? getPlayerNameById(event.targetPlayerId, activeGame) : 'Unknown player';
+
+  if (event.type === 'life-loss') {
+    return `${target} lost ${event.amount} life${event.actorPlayerId ? ` from ${actor}` : ''}.`;
+  }
+  if (event.type === 'life-gain') {
+    return `${target} gained ${event.amount} life.`;
+  }
+  if (event.type === 'commander-damage') {
+    return `${actor} dealt ${event.amount} commander damage to ${target}.`;
+  }
+  if (event.type === 'elimination') {
+    return `${actor} eliminated ${target}.`;
+  }
+  if (event.type === 'next-turn') {
+    return `${target} started turn ${event.turnNumber}.`;
+  }
+  return 'Event recorded.';
+}
+
+function renderLivePlayerGrid() {
+  if (!livePlayerGrid) {
+    return;
+  }
+
+  if (!activeGameState) {
+    livePlayerGrid.innerHTML = '<p>No game in progress.</p>';
+    return;
+  }
+
+  const currentPlayer = getCurrentTurnPlayer(activeGameState);
+  livePlayerGrid.innerHTML = activeGameState.players
+    .slice()
+    .sort((a, b) => a.seat - b.seat)
+    .map((player) => {
+      const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
+      const damageMarkup = damageEntries.length
+        ? `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`
+        : '<p>No commander damage tracked.</p>';
+
+      return `
+        <article class="live-player-card${currentPlayer?.id === player.id ? ' is-current-turn' : ''}${player.eliminatedAt ? ' is-eliminated' : ''}">
+          <div class="live-player-card-header">
+            <div>
+              <h3>${escapeHtml(player.name)}</h3>
+              <p>${escapeHtml(player.commander || 'No commander')}</p>
+            </div>
+            <span class="live-seat-badge">Seat ${player.seat}</span>
+          </div>
+          <div class="live-player-life">${player.life}</div>
+          <div class="live-player-meta">
+            <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
+            <div>Kills: <strong>${player.kills}</strong></div>
+            <div>Killed: <strong>${escapeHtml((player.killedPlayers || []).join(', ') || 'None')}</strong></div>
+            <div>Commander damage received:</div>
+            ${damageMarkup}
+          </div>
+        </article>`;
+    })
+    .join('');
+}
+
+function renderLiveEventLog() {
+  if (!liveEventLog) {
+    return;
+  }
+
+  if (!activeGameState?.events?.length) {
+    liveEventLog.innerHTML = '<p>No events yet.</p>';
+    return;
+  }
+
+  liveEventLog.innerHTML = activeGameState.events
+    .slice()
+    .reverse()
+    .slice(0, 10)
+    .map((event) => `
+      <div class="live-event-item">
+        <p>${escapeHtml(generateLiveEventDescription(event, activeGameState))}</p>
+        <small>Turn ${event.turnNumber || activeGameState.turnNumber} · ${new Date(event.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small>
+      </div>`)
+    .join('');
+}
+
+function renderLiveGameStatus() {
+  if (!liveActiveCard) {
+    return;
+  }
+
+  if (!activeGameState) {
+    if (liveGameStatus) {
+      liveGameStatus.textContent = 'No game in progress.';
+    }
+    if (liveFirstPlayer) {
+      liveFirstPlayer.textContent = '—';
+    }
+    if (liveTurnIndicator) {
+      liveTurnIndicator.textContent = 'Turn 1';
+    }
+    if (liveFirstBlood) {
+      liveFirstBlood.textContent = 'None yet';
+    }
+    renderLivePlayerGrid();
+    renderLiveEventLog();
+    return;
+  }
+
+  const currentPlayer = getCurrentTurnPlayer(activeGameState);
+  const elapsedMinutes = Math.max(1, Math.round((Date.now() - new Date(activeGameState.startedAt).getTime()) / 60000));
+
+  if (liveGameStatus) {
+    liveGameStatus.textContent = `${getActiveAlivePlayers(activeGameState).length} players alive · ${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} elapsed.`;
+  }
+  if (liveFirstPlayer) {
+    liveFirstPlayer.textContent = getPlayerNameById(activeGameState.startingPlayerId, activeGameState);
+  }
+  if (liveTurnIndicator) {
+    liveTurnIndicator.textContent = currentPlayer ? `Turn ${activeGameState.turnNumber} · ${currentPlayer.name}` : `Turn ${activeGameState.turnNumber}`;
+  }
+  if (liveFirstBlood) {
+    if (activeGameState.firstBlood) {
+      const actor = activeGameState.firstBlood.actorPlayerId
+        ? getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState)
+        : 'Environment';
+      liveFirstBlood.textContent = `${actor} drew first blood on ${getPlayerNameById(activeGameState.firstBlood.targetPlayerId, activeGameState)} during turn ${activeGameState.firstBlood.turnNumber}.`;
+    } else {
+      liveFirstBlood.textContent = 'None yet';
+    }
+  }
+
+  buildLivePlayerOptions(liveEventActor, 'Environment / self');
+  buildLivePlayerOptions(liveEventTarget, 'Select player');
+  renderLivePlayerGrid();
+  renderLiveEventLog();
+}
+
+function refreshLiveTrackerUi() {
+  renderLiveOrderPreview();
+  renderLiveGameStatus();
+}
+
+function buildActiveGameSummary(gameState) {
+  const killLeader = gameState.players.slice().sort((a, b) => b.kills - a.kills)[0];
+  const finishOrderSummary = gameState.players
+    .slice()
+    .sort((a, b) => (a.place || 999) - (b.place || 999))
+    .map((player) => `${player.place || '—'}. ${player.name}`)
+    .join(' | ');
+  const firstBloodSummary = gameState.firstBlood
+    ? `${gameState.firstBlood.actorPlayerId ? getPlayerNameById(gameState.firstBlood.actorPlayerId, gameState) : 'Environment'} drew first blood on ${getPlayerNameById(gameState.firstBlood.targetPlayerId, gameState)} on turn ${gameState.firstBlood.turnNumber}`
+    : 'No first blood was recorded';
+
+  return [
+    `First player: ${getPlayerNameById(gameState.startingPlayerId, gameState)}`,
+    firstBloodSummary,
+    `Kill leader: ${killLeader ? `${killLeader.name} (${killLeader.kills})` : 'None'}`,
+    `Finish order: ${finishOrderSummary}`,
+  ].join(' · ');
+}
+
+function startLiveGame() {
+  const players = getLiveSetupRows();
+  if (players.length < 2) {
+    alert('Add at least two players to start a live game.');
+    return;
+  }
+
+  const startingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
+  if (!startingLife || startingLife < 1) {
+    alert('Enter a valid starting life total.');
+    return;
+  }
+
+  if (!liveSetupFirstPlayerId || !players.some((player) => player.id === liveSetupFirstPlayerId)) {
+    liveSetupFirstPlayerId = players[Math.floor(Math.random() * players.length)].id;
+  }
+
+  const turnOrder = getTurnOrderPreview(players, liveSetupFirstPlayerId).map((player) => player.id);
+  persistActiveGameState({
+    id: generateId(),
+    date: liveGameDateInput?.value || new Date().toISOString().slice(0, 10),
+    startedAt: new Date().toISOString(),
+    turnNumber: 1,
+    currentTurnIndex: 0,
+    startingPlayerId: liveSetupFirstPlayerId,
+    turnOrder,
+    firstBlood: null,
+    events: [],
+    players: players.map((player) => ({
+      id: player.id,
+      name: player.player,
+      commander: player.commander,
+      seat: player.seat,
+      startingLife,
+      life: startingLife,
+      kills: 0,
+      killedPlayers: [],
+      commanderDamageTaken: {},
+      eliminatedAt: '',
+      eliminatedByPlayerId: '',
+      place: null,
+    })),
+  });
+  refreshLiveTrackerUi();
+}
+
+function advanceLiveTurn() {
+  if (!activeGameState?.turnOrder?.length) {
+    return;
+  }
+
+  const aliveIds = new Set(getActiveAlivePlayers(activeGameState).map((player) => player.id));
+  if (!aliveIds.size) {
+    return;
+  }
+
+  let nextIndex = activeGameState.currentTurnIndex;
+  let wrapped = false;
+  do {
+    nextIndex = (nextIndex + 1) % activeGameState.turnOrder.length;
+    if (nextIndex === 0) {
+      wrapped = true;
+    }
+  } while (!aliveIds.has(activeGameState.turnOrder[nextIndex]));
+
+  activeGameState.currentTurnIndex = nextIndex;
+  if (wrapped) {
+    activeGameState.turnNumber += 1;
+  }
+
+  activeGameState.events.push({
+    id: generateId(),
+    type: 'next-turn',
+    actorPlayerId: '',
+    targetPlayerId: activeGameState.turnOrder[nextIndex],
+    amount: 0,
+    turnNumber: activeGameState.turnNumber,
+    timestamp: new Date().toISOString(),
+  });
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+}
+
+function applyLiveEvent() {
+  if (!activeGameState) {
+    return;
+  }
+
+  const type = liveEventType?.value || 'life-loss';
+  const actorPlayerId = liveEventActor?.value || '';
+  const targetPlayerId = liveEventTarget?.value || '';
+  const amount = Math.max(1, parseInt(liveEventAmount?.value || '1', 10));
+  const targetPlayer = activeGameState.players.find((player) => player.id === targetPlayerId);
+  const actorPlayer = activeGameState.players.find((player) => player.id === actorPlayerId);
+
+  if (!targetPlayer) {
+    alert('Choose a target player.');
+    return;
+  }
+
+  if ((type === 'commander-damage' || type === 'elimination') && (!actorPlayer || actorPlayer.id === targetPlayer.id)) {
+    alert('Choose another player as the source for commander damage or elimination.');
+    return;
+  }
+
+  if (targetPlayer.eliminatedAt) {
+    alert('That player has already been eliminated.');
+    return;
+  }
+
+  if (type === 'life-loss' || type === 'commander-damage') {
+    targetPlayer.life -= amount;
+    if (type === 'commander-damage') {
+      targetPlayer.commanderDamageTaken[actorPlayerId] = (targetPlayer.commanderDamageTaken[actorPlayerId] || 0) + amount;
+    }
+    if (!activeGameState.firstBlood) {
+      activeGameState.firstBlood = {
+        actorPlayerId,
+        targetPlayerId,
+        turnNumber: activeGameState.turnNumber,
+      };
+    }
+  }
+
+  if (type === 'life-gain') {
+    targetPlayer.life += amount;
+  }
+
+  if (type === 'elimination') {
+    const aliveCount = getActiveAlivePlayers(activeGameState).length;
+    targetPlayer.eliminatedAt = new Date().toISOString();
+    targetPlayer.eliminatedByPlayerId = actorPlayerId;
+    targetPlayer.place = aliveCount;
+    actorPlayer.kills += 1;
+    actorPlayer.killedPlayers = [...new Set([...(actorPlayer.killedPlayers || []), targetPlayer.name])];
+  }
+
+  activeGameState.events.push({
+    id: generateId(),
+    type,
+    actorPlayerId,
+    targetPlayerId,
+    amount,
+    turnNumber: activeGameState.turnNumber,
+    timestamp: new Date().toISOString(),
+  });
+
+  const alivePlayers = getActiveAlivePlayers(activeGameState);
+  if (alivePlayers.length === 1) {
+    alivePlayers[0].place = 1;
+  }
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+
+  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
+    completeActiveGame();
+  }
+}
+
+function completeActiveGame() {
+  if (!activeGameState) {
+    return;
+  }
+
+  const alivePlayers = getActiveAlivePlayers(activeGameState);
+  if (alivePlayers.length > 1 && !confirm('More than one player is still alive. Finish and score remaining players by life total?')) {
+    return;
+  }
+
+  const completedPlayers = activeGameState.players
+    .map((player) => ({ ...player }))
+    .sort((a, b) => {
+      if (a.eliminatedAt && b.eliminatedAt) {
+        return new Date(a.eliminatedAt).getTime() - new Date(b.eliminatedAt).getTime();
+      }
+      if (a.eliminatedAt) {
+        return -1;
+      }
+      if (b.eliminatedAt) {
+        return 1;
+      }
+      return a.life - b.life;
+    });
+
+  let nextPlace = completedPlayers.length;
+  completedPlayers.forEach((player) => {
+    if (player.place) {
+      nextPlace = Math.min(nextPlace, player.place - 1);
+      return;
+    }
+    player.place = nextPlace;
+    nextPlace -= 1;
+  });
+
+  const finalPlayers = completedPlayers.slice().sort((a, b) => a.place - b.place);
+  const playerRows = finalPlayers.map((player) => ({
+    player: player.name,
+    commander: player.commander,
+    place: player.place,
+    kills: player.kills,
+    killed: player.killedPlayers || [],
+  }));
+  const finishOrder = finalPlayers.map((player) => player.name);
+
+  const games = loadGames();
+  games.push({
+    id: activeGameState.id,
+    date: activeGameState.date,
+    playerRows,
+    players: playerRows.map((row) => row.player),
+    playerCommanders: playerRows.map((row) => ({ player: row.player, commander: row.commander })),
+    finishOrder,
+    notes: buildActiveGameSummary({ ...activeGameState, players: finalPlayers }),
+    liveSummary: {
+      startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
+      firstBlood: activeGameState.firstBlood,
+      turnNumber: activeGameState.turnNumber,
+      eventCount: activeGameState.events.length,
+    },
+  });
+  saveGames(games);
+  persistActiveGameState(null);
+  refresh();
+  refreshLiveTrackerUi();
+  alert('Live game saved to history.');
+}
+
+function abandonActiveGame() {
+  if (!activeGameState) {
+    return;
+  }
+
+  if (!confirm('Abandon the current live game? This removes the in-progress tracker without saving to history.')) {
+    return;
+  }
+
+  persistActiveGameState(null);
+  refreshLiveTrackerUi();
+}
+
 function createPlayerRow(data = {}) {
   const row = document.createElement('tr');
   const killedValue = Array.isArray(data.killed) ? data.killed.join(', ') : data.killed || '';
@@ -2369,6 +2927,7 @@ function refresh() {
   renderDeckLists();
   renderDeckSelector();
   renderRecords();
+  refreshLiveTrackerUi();
   applyResponsiveTableLabels();
 }
 
@@ -2404,6 +2963,13 @@ if (playerTableBody) {
 
     // Update dropdown menus as user types
     populateRowSelectors(row);
+  });
+}
+
+if (liveGamePlayerBody) {
+  liveGamePlayerBody.addEventListener('input', () => {
+    updateLiveSetupSeatLabels();
+    renderLiveOrderPreview();
   });
 }
 
@@ -2451,6 +3017,58 @@ if (form) {
     resetEditMode();
     refresh();
     resetForm();
+  });
+}
+
+if (liveAddPlayerButton) {
+  liveAddPlayerButton.addEventListener('click', () => {
+    addLiveSetupRow();
+    renderLiveOrderPreview();
+  });
+}
+
+if (liveRemovePlayerButton) {
+  liveRemovePlayerButton.addEventListener('click', () => {
+    removeLiveSetupRow();
+    renderLiveOrderPreview();
+  });
+}
+
+if (liveRandomizeFirstButton) {
+  liveRandomizeFirstButton.addEventListener('click', () => {
+    randomizeLiveFirstPlayer();
+  });
+}
+
+if (liveGameForm) {
+  liveGameForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    startLiveGame();
+  });
+}
+
+if (liveEventForm) {
+  liveEventForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    applyLiveEvent();
+  });
+}
+
+if (liveNextTurnButton) {
+  liveNextTurnButton.addEventListener('click', () => {
+    advanceLiveTurn();
+  });
+}
+
+if (liveFinishGameButton) {
+  liveFinishGameButton.addEventListener('click', () => {
+    completeActiveGame();
+  });
+}
+
+if (liveAbandonGameButton) {
+  liveAbandonGameButton.addEventListener('click', () => {
+    abandonActiveGame();
   });
 }
 
@@ -2646,8 +3264,10 @@ window.addEventListener('storage', (event) => {
     || event.key === EXPECTED_POWER_STORAGE_KEY
     || event.key === DECK_LIST_STORAGE_KEY
     || event.key === RECORDS_STORAGE_KEY
+    || event.key === ACTIVE_GAME_STORAGE_KEY
   ) {
     appState = loadLocalState();
+    activeGameState = loadActiveGameState();
     refresh();
   }
 });
@@ -2713,6 +3333,7 @@ function setupSyncUi() {
 
 async function initializeApp() {
   appState = loadLocalState();
+  activeGameState = loadActiveGameState();
   setupSyncUi();
 
   if (hasSyncCredentials()) {
@@ -2735,6 +3356,16 @@ async function initializeApp() {
         setEditMode(game);
       }
     }
+  }
+
+  if (liveGameForm) {
+    liveGameDateInput.value = new Date().toISOString().slice(0, 10);
+    if (!liveGamePlayerBody.children.length) {
+      for (let index = 0; index < 4; index += 1) {
+        addLiveSetupRow();
+      }
+    }
+    renderLiveOrderPreview();
   }
 
   refresh();
