@@ -1555,37 +1555,38 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-player-card-body {
     position: absolute;
-    width: calc(100cqh - 24px);
-    height: calc(100cqw - 24px);
-    padding: 12px;
+    width: 100cqh;
+    height: 100cqw;
+    padding: 8px;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+    overflow: hidden;
     transform-origin: top left;
   }
 
   .page-live-game.live-table-mode .live-orientation-1 {
-    top: calc(100cqh - 12px);
-    left: 12px;
+    top: 100cqh;
+    left: 0;
     transform: rotate(-90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-2 {
-    top: calc(100cqh - 12px);
-    left: 12px;
+    top: 100cqh;
+    left: 0;
     transform: rotate(-90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-3 {
-    top: 12px;
-    left: calc(100cqw - 12px);
+    top: 0;
+    left: 100cqw;
     transform: rotate(90deg);
   }
 
   .page-live-game.live-table-mode .live-orientation-4 {
-    top: 12px;
-    left: calc(100cqw - 12px);
+    top: 0;
+    left: 100cqw;
     transform: rotate(90deg);
   }
 
@@ -1607,7 +1608,8 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-card-topline {
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    min-height: 0;
   }
 
   .page-live-game.live-table-mode .live-player-title-block h3 {
@@ -1620,18 +1622,21 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-main-layout {
-    grid-template-columns: minmax(58px, 78px) 1fr minmax(56px, 82px);
-    gap: 8px;
+    grid-template-columns: 54px minmax(0, 1fr) 48px;
+    gap: 6px;
     min-height: 0;
-    flex: 1;
+    height: 100%;
   }
 
   .page-live-game.live-table-mode .live-player-action-column {
-    gap: 6px;
+    gap: 4px;
+    grid-auto-rows: minmax(0, 1fr);
+    min-height: 0;
   }
 
   .page-live-game.live-table-mode .live-player-counter-column {
     align-content: center;
+    min-height: 0;
   }
 
   .page-live-game.live-table-mode .live-player-damage-column {
@@ -1639,8 +1644,9 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-damage-panel {
-    padding: 4px 4px;
+    padding: 2px 2px;
     font-size: 0.7rem;
+    overflow: hidden;
   }
 
   .page-live-game.live-table-mode .live-player-damage-title {
@@ -1650,7 +1656,15 @@ button[type="submit"] {
   .page-live-game.live-table-mode .live-card-damage-list {
     max-height: 100%;
     overflow: hidden;
-    padding-left: 14px;
+    padding-left: 12px;
+    font-size: 0.66rem;
+  }
+
+  .page-live-game.live-table-mode .live-player-life-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
   }
 
   .app-shell {
@@ -2260,5 +2274,12 @@ button[type="submit"] {
   .dropdown-menu {
     min-width: 140px;
     max-width: min(88vw, 220px);
+  }
+
+  .player-dropdown-menu,
+  .commander-dropdown-menu {
+    width: 100%;
+    min-width: 100%;
+    max-width: none;
   }
 }
