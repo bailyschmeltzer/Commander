@@ -1108,19 +1108,57 @@ function getDeckWheelPalette(count) {
   return Array.from({ length: count }, (_, index) => palette[index % palette.length]);
 }
 
-function getDeckWheelLabelMarkup(deckPool) {
-  const count = deckPool.length;
-  const compactClass = count > 16 ? ' deck-wheel-label-tiny' : count > 10 ? ' deck-wheel-label-small' : '';
+function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+  return {
+    x: centerX + (radius * Math.cos(angleInRadians)),
+    y: centerY + (radius * Math.sin(angleInRadians)),
+  };
+}
 
-  return deckPool.map((deck, index) => {
-    const segmentSize = 360 / count;
-    const angle = (index * segmentSize) + (segmentSize / 2) - 90;
-    const radians = (angle * Math.PI) / 180;
-    const x = 50 + (Math.cos(radians) * 36);
-    const y = 50 + (Math.sin(radians) * 36);
+function describeWheelSegment(startAngle, endAngle) {
+  const start = polarToCartesian(50, 50, 48, endAngle);
+  const end = polarToCartesian(50, 50, 48, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+  return [
+    'M 50 50',
+    `L ${start.x} ${start.y}`,
+    `A 48 48 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z',
+  ].join(' ');
+}
+
+function getDeckWheelSvgMarkup(deckPool) {
+  const count = deckPool.length;
+  const colors = getDeckWheelPalette(count);
+  const segmentSize = 360 / count;
+  const textClass = count > 16
+    ? 'deck-wheel-segment-text deck-wheel-segment-text-tiny'
+    : count > 10
+      ? 'deck-wheel-segment-text deck-wheel-segment-text-small'
+      : 'deck-wheel-segment-text';
+
+  const segments = deckPool.map((deck, index) => {
+    const startAngle = index * segmentSize;
+    const endAngle = startAngle + segmentSize;
+    const midAngle = startAngle + (segmentSize / 2);
+    const labelPoint = polarToCartesian(50, 50, 31, midAngle);
+    const labelRotation = midAngle > 180 ? midAngle + 180 : midAngle;
     const label = escapeHtml(deck.commander.length > 20 ? `${deck.commander.slice(0, 19)}…` : deck.commander);
-    return `<div class="deck-wheel-label${compactClass}" style="left:${x}%; top:${y}%;">${label}</div>`;
+
+    return `
+      <path d="${describeWheelSegment(startAngle, endAngle)}" fill="${colors[index]}" class="deck-wheel-segment" />
+      <text
+        x="${labelPoint.x}"
+        y="${labelPoint.y}"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        transform="rotate(${labelRotation} ${labelPoint.x} ${labelPoint.y})"
+        class="${textClass}"
+      >${label}</text>`;
   }).join('');
+
+  return `<svg viewBox="0 0 100 100" class="deck-wheel-svg" aria-hidden="true">${segments}</svg>`;
 }
 
 function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
@@ -1130,22 +1168,14 @@ function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
 
   if (!deckPool.length) {
     deckSelectorWheel.classList.add('is-empty');
-    deckSelectorWheelDisc.style.background = 'radial-gradient(circle at center, #ffffff 0%, #f3f6ff 72%, #e4e8f2 100%)';
     deckSelectorWheelDisc.innerHTML = `<div class="deck-wheel-center-label">${escapeHtml(centerLabel)}</div>`;
     deckSelectorWheelDisc.style.transform = 'rotate(0deg)';
     return;
   }
 
   deckSelectorWheel.classList.remove('is-empty');
-  const colors = getDeckWheelPalette(deckPool.length);
-  const segmentSize = 360 / deckPool.length;
-  const gradient = colors
-    .map((color, index) => `${color} ${index * segmentSize}deg ${(index + 1) * segmentSize}deg`)
-    .join(', ');
-
-  deckSelectorWheelDisc.style.background = `conic-gradient(from -90deg, ${gradient})`;
   deckSelectorWheelDisc.innerHTML = `
-    ${getDeckWheelLabelMarkup(deckPool)}
+    ${getDeckWheelSvgMarkup(deckPool)}
     <div class="deck-wheel-center-label">${escapeHtml(centerLabel)}</div>
   `;
   deckSelectorWheelDisc.style.transform = `rotate(${deckSelectorRotation}deg)`;
@@ -1200,7 +1230,8 @@ function renderDeckSelectorAssignments(selectedOwners) {
     return;
   }
 
-  const deck = chooseRandomDeck(pooledDecks);
+  const winningIndex = Math.floor(Math.random() * pooledDecks.length);
+  const deck = pooledDecks[winningIndex];
   if (!deck) {
     deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
     if (deckSelectorWheelStatus) {
@@ -1209,11 +1240,12 @@ function renderDeckSelectorAssignments(selectedOwners) {
     return;
   }
 
-  const winningIndex = pooledDecks.findIndex((entry) => entry.id === deck.id);
   const segmentSize = 360 / pooledDecks.length;
   const winningCenterAngle = (winningIndex * segmentSize) + (segmentSize / 2);
   const extraTurns = 5 + Math.floor(Math.random() * 2);
-  const targetRotation = deckSelectorRotation + (extraTurns * 360) + (360 - winningCenterAngle);
+  const normalizedRotation = ((deckSelectorRotation % 360) + 360) % 360;
+  const neededOffset = ((360 - winningCenterAngle - normalizedRotation) + 360) % 360;
+  const targetRotation = deckSelectorRotation + (extraTurns * 360) + neededOffset;
   const spinDuration = 5200;
 
   renderDeckSelectorWheel(pooledDecks, 'Spinning');
