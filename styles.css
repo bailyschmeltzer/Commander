@@ -1121,6 +1121,50 @@ button[type="submit"] {
     width: 56px;
   }
 
+  .page-commander-stats .commander-stats-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .page-commander-stats .commander-stats-table tr {
+    width: 100%;
+    border: 1px solid #e4e8f2;
+    border-radius: 14px;
+    background: #fbfcff;
+    padding: 12px;
+  }
+
+  .page-commander-stats .commander-stats-table td {
+    width: 100% !important;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    grid-template-columns: minmax(96px, 120px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 6px 0;
+  }
+
+  .page-commander-stats .commander-stats-table td::before {
+    font-weight: 700;
+    color: #44507e;
+  }
+
+  .page-commander-stats .commander-stats-table .confidence-cell {
+    gap: 6px;
+  }
+
+  .page-commander-stats .commander-stats-table .confidence-bar {
+    max-width: 220px;
+  }
+
+  .page-commander-stats .commander-stats-table .commander-expected-input {
+    width: 100%;
+    max-width: 88px;
+  }
+
   .page-decklists .deck-list-table th:nth-child(3),
   .page-decklists .deck-list-table td:nth-child(3) {
     width: 170px;
@@ -1270,6 +1314,16 @@ button[type="submit"] {
 
   .page-game-tracker .player-table tr {
     padding: 8px;
+  }
+
+  .page-commander-stats .commander-stats-table tr {
+    padding: 10px;
+  }
+
+  .page-commander-stats .commander-stats-table td {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
   }
 
   .player-table td,
