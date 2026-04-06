@@ -691,6 +691,11 @@ function buildDropdownMenu(menuElement, values) {
   }
   
   const normalized = getUniqueValues(values);
+  if (!normalized.length) {
+    menuElement.innerHTML = '<div class="dropdown-empty">No saved options yet</div>';
+    return;
+  }
+
   menuElement.innerHTML = normalized
     .map((value) => `<div class="dropdown-item" data-value="${escapeHtml(value)}">${escapeHtml(value)}</div>`)
     .join('');
@@ -798,38 +803,23 @@ function attachDropdownHandlers(row) {
   row.querySelectorAll('.dropdown-button').forEach((button) => {
     button.addEventListener('click', (e) => {
       e.preventDefault();
-      const wrapper = button.closest('.combined-input-wrapper');
-      const menu = wrapper.querySelector('.dropdown-menu');
-      
-      // Close all other menus
-      document.querySelectorAll('.dropdown-menu.active').forEach((m) => {
-        if (m !== menu) m.classList.remove('active');
-      });
-      
-      // Toggle this menu
-      if (menu.classList.contains('active')) {
-        menu.classList.remove('active');
-      } else {
-        menu.classList.add('active');
-      }
-
-      updateDropdownLayeringState();
+      e.stopPropagation();
+      toggleLookupMenu(button.closest('.combined-input-wrapper'));
     });
   });
 
-  // Use event delegation on dropdown menus
   row.querySelectorAll('.dropdown-menu').forEach((menu) => {
+    menu.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+    });
+
     menu.addEventListener('click', (e) => {
       const item = e.target.closest('.dropdown-item');
       if (!item) return;
-      
-      const value = item.dataset.value;
-      const wrapper = menu.closest('.combined-input-wrapper');
-      const input = wrapper.querySelector('input[name]');
-      
-      input.value = value;
-      menu.classList.remove('active');
-      updateDropdownLayeringState();
+
+      e.preventDefault();
+      e.stopPropagation();
+      applyLookupSelection(menu.closest('.combined-input-wrapper'), item.dataset.value || '');
     });
   });
 

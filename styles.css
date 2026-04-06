@@ -637,6 +637,12 @@ textarea:focus {
 .dropdown-item:last-child {
   border-radius: 0 0 6px 6px;
 }
+
+.dropdown-empty {
+  padding: 8px 12px;
+  color: #66708f;
+  font-size: 0.9rem;
+}
 textarea {
   resize: vertical;
 }
@@ -1042,8 +1048,19 @@ button[type="submit"] {
     margin-bottom: 0;
   }
 
-  .page-game-tracker #game-form .player-table {
-    min-width: 620px;
+  .page-game-tracker #game-form .player-table,
+  .page-game-tracker #game-form .player-table tbody,
+  .page-game-tracker #game-form .player-table tr,
+  .page-game-tracker #game-form .player-table td {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker #game-form .player-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .page-game-tracker .player-table tbody {
@@ -1228,6 +1245,21 @@ button[type="submit"] {
   .player-table tr,
   .history-game-table tr {
     padding: 10px;
+  }
+
+  .page-game-tracker .player-table,
+  .page-game-tracker .player-table tbody,
+  .page-game-tracker .player-table tr,
+  .page-game-tracker .player-table td {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker .player-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .page-game-tracker .player-table tr {
