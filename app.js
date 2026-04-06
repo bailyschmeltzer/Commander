@@ -312,7 +312,7 @@ function createPlayerRow(data = {}) {
   `;
 
   populateRowSelectors(row);
-  attachDropdownHandlers(row);
+  attachLookupWrapperHandlers(row);
   return row;
 }
 
@@ -794,37 +794,6 @@ function updateDropdownLayeringState() {
   });
 }
 
-function attachDropdownHandlers(row) {
-  if (!row || row.dataset.dropdownHandlersAttached) {
-    return;
-  }
-  row.dataset.dropdownHandlersAttached = 'true';
-
-  row.querySelectorAll('.dropdown-button').forEach((button) => {
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleLookupMenu(button.closest('.combined-input-wrapper'));
-    });
-  });
-
-  row.querySelectorAll('.dropdown-menu').forEach((menu) => {
-    menu.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-    });
-
-    menu.addEventListener('click', (e) => {
-      const item = e.target.closest('.dropdown-item');
-      if (!item) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      applyLookupSelection(menu.closest('.combined-input-wrapper'), item.dataset.value || '');
-    });
-  });
-
-}
-
 // Global outside-click handler — registered once
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.combined-input-wrapper')) {
@@ -835,7 +804,7 @@ document.addEventListener('click', (e) => {
 function refreshRowSelectors() {
   Array.from(document.querySelectorAll('tr')).forEach((row) => {
     populateRowSelectors(row);
-    attachDropdownHandlers(row);
+    attachLookupWrapperHandlers(row);
   });
 }
 
