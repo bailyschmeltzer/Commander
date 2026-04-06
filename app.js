@@ -1069,6 +1069,15 @@ function chooseRandomDeck(deckOptions) {
   return deckOptions[index] || null;
 }
 
+function shuffleList(items) {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 function renderDeckSelectorAssignments(selectedOwners) {
   if (!deckSelectorResults) {
     return;
@@ -1080,8 +1089,20 @@ function renderDeckSelectorAssignments(selectedOwners) {
   }
 
   const ownerGroups = getDeckOwnerGroups();
+  const pooledDecks = shuffleList(
+    selectedOwners.flatMap((owner) => ownerGroups[owner] || []),
+  );
+
+  if (!pooledDecks.length) {
+    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    return;
+  }
+
   const assignments = selectedOwners
-    .map((owner) => ({ owner, deck: chooseRandomDeck(ownerGroups[owner] || []) }))
+    .map((player, index) => {
+      const deck = pooledDecks[index] || chooseRandomDeck(pooledDecks);
+      return { player, deck };
+    })
     .filter(({ deck }) => deck);
 
   if (!assignments.length) {
@@ -1090,14 +1111,16 @@ function renderDeckSelectorAssignments(selectedOwners) {
   }
 
   deckSelectorResults.innerHTML = assignments
-    .map(({ owner, deck }) => {
-      const safeOwner = escapeHtml(owner);
+    .map(({ player, deck }) => {
+      const safePlayer = escapeHtml(player);
       const safeCommander = escapeHtml(deck.commander);
       const safeUrl = escapeHtml(deck.url);
+      const safeOwner = escapeHtml(deck.owner || 'Unassigned');
       return `
         <article class="deck-selector-card">
-          <p class="deck-selector-owner">${safeOwner}</p>
+          <p class="deck-selector-owner">For ${safePlayer}</p>
           <h3>${safeCommander}</h3>
+          <p>Owned by ${safeOwner}</p>
           <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
         </article>`;
     })
