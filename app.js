@@ -888,6 +888,27 @@ function renderLivePlayerGrid() {
         </article>`;
     })
     .join('');
+
+  updateLivePlayerCardMeasurements();
+}
+
+function updateLivePlayerCardMeasurements() {
+  if (!livePlayerGrid) {
+    return;
+  }
+
+  const cards = livePlayerGrid.querySelectorAll('.live-player-card');
+  if (!cards.length) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--live-card-width', `${rect.width}px`);
+      card.style.setProperty('--live-card-height', `${rect.height}px`);
+    });
+  });
 }
 
 function renderLiveEventLog() {
@@ -962,13 +983,17 @@ function buildActiveGameSummary(gameState) {
   const firstBloodSummary = gameState.firstBlood
     ? `${gameState.firstBlood.actorPlayerId ? getPlayerNameById(gameState.firstBlood.actorPlayerId, gameState) : 'Environment'} drew first blood on ${getPlayerNameById(gameState.firstBlood.targetPlayerId, gameState)} on turn ${gameState.firstBlood.turnNumber}`
     : 'No first blood was recorded';
+  const alternateWinSummary = gameState.alternateWinCondition
+    ? `Alternate win: ${gameState.alternateWinCondition}`
+    : '';
 
   return [
     `First player: ${getPlayerNameById(gameState.startingPlayerId, gameState)}`,
     firstBloodSummary,
+    alternateWinSummary,
     `Kill leader: ${killLeader ? `${killLeader.name} (${killLeader.kills})` : 'None'}`,
     `Finish order: ${finishOrderSummary}`,
-  ].join(' · ');
+  ].filter(Boolean).join(' · ');
 }
 
 function startLiveGame() {
@@ -995,6 +1020,7 @@ function startLiveGame() {
     date: liveGameDateInput?.value || new Date().toISOString().slice(0, 10),
     startedAt: new Date().toISOString(),
     turnNumber: 1,
+    alternateWinCondition: '',
     startingPlayerId: liveSetupFirstPlayerId,
     turnOrder,
     firstBlood: null,
@@ -1333,8 +1359,14 @@ function markPlayerAutomaticWinner(playerId) {
     return;
   }
 
+  const alternateWinCondition = window.prompt(`Enter ${winner.name}'s alternate win condition for the notes. Leave blank for a normal win.`, activeGameState.alternateWinCondition || '');
+  if (alternateWinCondition === null) {
+    return;
+  }
+
   saveUndoSnapshot();
   activeGameState.turnNumber = turnNumber;
+  activeGameState.alternateWinCondition = alternateWinCondition.trim();
   activeGameState.players.forEach((player) => {
     if (player.id === winner.id) {
       player.place = 1;
@@ -1355,6 +1387,7 @@ function markPlayerAutomaticWinner(playerId) {
     targetPlayerId: winner.id,
     amount: 0,
     turnNumber,
+    notes: activeGameState.alternateWinCondition ? `Alternate win: ${activeGameState.alternateWinCondition}` : '',
   });
   completeActiveGame();
 }
@@ -1428,6 +1461,7 @@ function completeActiveGame() {
     notes: buildActiveGameSummary({ ...activeGameState, players: finalPlayers }),
     liveSummary: {
       startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
+      alternateWinCondition: activeGameState.alternateWinCondition || '',
       firstBlood: activeGameState.firstBlood
         ? {
           actorPlayer: getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState),
