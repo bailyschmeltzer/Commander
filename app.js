@@ -1135,7 +1135,7 @@ function getDeckWheelLabelFontSize(labelLength, segmentSize, radialPathLength = 
   const estimatedLengthUnits = (labelLength * 0.62) + 1.2;
   const lengthConstrainedSize = radialPathLength / Math.max(estimatedLengthUnits, 1);
   const wedgeConstrainedSize = wedgeWidth * 0.72;
-  return Math.max(1.55, Math.min(4.6, lengthConstrainedSize, wedgeConstrainedSize));
+  return Math.max(1.55, Math.min(2, lengthConstrainedSize, wedgeConstrainedSize));
 }
 
 function truncateDeckWheelLabel(labelText, maxCharacters) {
