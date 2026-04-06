@@ -1149,12 +1149,14 @@ function truncateDeckWheelLabel(labelText, maxCharacters) {
     return `${labelText.slice(0, Math.max(1, maxCharacters - 1))}…`;
   }
 
-  const shortened = labelText.slice(0, maxCharacters - 1).trim();
-  const lastSpaceIndex = shortened.lastIndexOf(' ');
-  const softCutoffIndex = Math.floor((maxCharacters - 1) * 0.92);
-  const trimmed = lastSpaceIndex >= softCutoffIndex
-    ? shortened.slice(0, lastSpaceIndex)
-    : shortened;
+  const hardTrimmed = labelText.slice(0, maxCharacters - 1).trimEnd();
+  const lastSpaceIndex = hardTrimmed.lastIndexOf(' ');
+  const charactersDroppedForWordBoundary = lastSpaceIndex >= 0
+    ? hardTrimmed.length - lastSpaceIndex
+    : Number.POSITIVE_INFINITY;
+  const trimmed = charactersDroppedForWordBoundary <= 2
+    ? hardTrimmed.slice(0, lastSpaceIndex)
+    : hardTrimmed;
 
   return `${trimmed.trim()}…`;
 }
@@ -1202,6 +1204,8 @@ function getDeckWheelSvgMarkup(deckPool) {
 
 function fitDeckWheelSvgLabels(rootElement) {
   const minFontSize = 1.55;
+  const guaranteedLabelLength = 31;
+  const guaranteedMinFontSize = 0.95;
   const labelElements = rootElement?.querySelectorAll?.('.deck-wheel-segment-text') || [];
 
   labelElements.forEach((labelElement) => {
@@ -1228,6 +1232,12 @@ function fitDeckWheelSvgLabels(rootElement) {
 
     let renderedLength = labelElement.getComputedTextLength();
     if (renderedLength <= availableLength) {
+      return;
+    }
+
+    if (fullLabel.length <= guaranteedLabelLength) {
+      const guaranteedSize = Math.max(guaranteedMinFontSize, preferredFontSize * (availableLength / renderedLength));
+      labelElement.style.fontSize = `${guaranteedSize.toFixed(2)}px`;
       return;
     }
 
