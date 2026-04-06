@@ -693,12 +693,57 @@ function buildDropdownMenu(menuElement, values) {
   const normalized = getUniqueValues(values);
   if (!normalized.length) {
     menuElement.innerHTML = '<div class="dropdown-empty">No saved options yet</div>';
+    syncMobileLookupSelect(menuElement.closest('.combined-input-wrapper'));
     return;
   }
 
   menuElement.innerHTML = normalized
     .map((value) => `<div class="dropdown-item" data-value="${escapeHtml(value)}">${escapeHtml(value)}</div>`)
     .join('');
+
+  syncMobileLookupSelect(menuElement.closest('.combined-input-wrapper'));
+}
+
+function isMobileDropdownMode() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function syncMobileLookupSelect(wrapper) {
+  if (!wrapper) {
+    return;
+  }
+
+  const menu = wrapper.querySelector('.dropdown-menu');
+  if (!menu) {
+    return;
+  }
+
+  let mobileSelect = wrapper.querySelector('.mobile-native-picker');
+  if (!mobileSelect) {
+    mobileSelect = document.createElement('select');
+    mobileSelect.className = 'mobile-native-picker';
+    mobileSelect.setAttribute('aria-label', 'Choose saved option');
+    mobileSelect.tabIndex = -1;
+
+    mobileSelect.addEventListener('change', () => {
+      if (mobileSelect.value) {
+        applyLookupSelection(wrapper, mobileSelect.value);
+      }
+      mobileSelect.selectedIndex = 0;
+    });
+
+    wrapper.appendChild(mobileSelect);
+  }
+
+  const optionValues = getUniqueValues(
+    Array.from(menu.querySelectorAll('.dropdown-item')).map((item) => item.dataset.value || '').filter(Boolean),
+  );
+
+  mobileSelect.innerHTML = [
+    `<option value="">${optionValues.length ? 'Choose saved option' : 'No saved options yet'}</option>`,
+    ...optionValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+  ].join('');
+  mobileSelect.disabled = optionValues.length === 0;
 }
 
 function closeAllDropdownMenus(exceptMenu = null) {
@@ -767,9 +812,25 @@ function attachLookupWrapperHandlers(scope = document) {
 
     wrapper.dataset.dropdownHandlersAttached = 'true';
 
+    syncMobileLookupSelect(wrapper);
+
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+
+      if (isMobileDropdownMode()) {
+        const mobileSelect = wrapper.querySelector('.mobile-native-picker');
+        if (mobileSelect && !mobileSelect.disabled) {
+          if (typeof mobileSelect.showPicker === 'function') {
+            mobileSelect.showPicker();
+          } else {
+            mobileSelect.focus();
+            mobileSelect.click();
+          }
+        }
+        return;
+      }
+
       toggleLookupMenu(wrapper);
     });
 
