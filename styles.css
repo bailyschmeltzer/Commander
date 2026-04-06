@@ -573,6 +573,12 @@ textarea:focus {
   position: relative;
   display: flex;
   align-items: center;
+  z-index: 1;
+}
+
+.combined-input-wrapper.dropdown-open,
+.combined-input-wrapper:focus-within {
+  z-index: 60;
 }
 
 .combined-input-wrapper .lookup-input {

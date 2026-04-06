@@ -705,6 +705,7 @@ function closeAllDropdownMenus(exceptMenu = null) {
   document.querySelectorAll('.dropdown-menu.active').forEach((activeMenu) => {
     if (activeMenu !== exceptMenu) {
       activeMenu.classList.remove('active');
+      activeMenu.closest('.combined-input-wrapper')?.classList.remove('dropdown-open');
     }
   });
   updateDropdownLayeringState();
@@ -723,6 +724,7 @@ function toggleLookupMenu(wrapper) {
   const shouldOpen = !menu.classList.contains('active');
   closeAllDropdownMenus(menu);
   menu.classList.toggle('active', shouldOpen);
+  wrapper.classList.toggle('dropdown-open', shouldOpen);
   updateDropdownLayeringState();
 }
 
@@ -744,6 +746,7 @@ function applyLookupSelection(wrapper, value) {
   if (menu) {
     menu.classList.remove('active');
   }
+  wrapper.classList.remove('dropdown-open');
 
   input.focus();
   updateDropdownLayeringState();
