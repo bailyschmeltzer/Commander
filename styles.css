@@ -2271,6 +2271,36 @@ button[type="submit"] {
     gap: 4px;
   }
 
+  .page-live-game .live-setup-table,
+  .page-live-game .live-setup-table tbody,
+  .page-live-game .live-setup-table tr,
+  .page-live-game .live-setup-table td {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .page-live-game .live-setup-table th:nth-child(1),
+  .page-live-game .live-setup-table td:nth-child(1),
+  .page-live-game .live-setup-table th:nth-child(2),
+  .page-live-game .live-setup-table td:nth-child(2),
+  .page-live-game .live-setup-table th:nth-child(3),
+  .page-live-game .live-setup-table td:nth-child(3) {
+    width: auto;
+  }
+
+  .page-live-game .live-setup-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .page-live-game .live-setup-table .combined-input-wrapper,
+  .page-live-game .live-setup-table .lookup-input,
+  .page-live-game .live-setup-table .dropdown-menu {
+    width: 100%;
+    min-width: 0;
+  }
+
   .dropdown-menu {
     min-width: 140px;
     max-width: min(88vw, 220px);
@@ -2278,6 +2308,15 @@ button[type="submit"] {
 
   .player-dropdown-menu,
   .commander-dropdown-menu {
+    width: 100%;
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .page-live-game .live-setup-table .player-dropdown-menu,
+  .page-live-game .live-setup-table .commander-dropdown-menu {
+    left: 0;
+    right: 0;
     width: 100%;
     min-width: 100%;
     max-width: none;

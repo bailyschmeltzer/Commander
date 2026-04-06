@@ -808,7 +808,7 @@ function renderLivePlayerGrid() {
               <div class="live-player-damage-title">Cmdr Dmg</div>
               <ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>
             </div>`
-        : '<div class="live-player-damage-panel"></div>';
+        : '';
       const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
         ? '<span class="live-first-player-indicator">First</span>'
         : '';
