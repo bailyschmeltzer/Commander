@@ -36,7 +36,11 @@ const deckLookupSelect = document.getElementById('deck-lookup-commander');
 const deckLookupResult = document.getElementById('deck-lookup-result');
 const deckSelectorForm = document.getElementById('deck-selector-form');
 const deckSelectorOwnerList = document.getElementById('deck-selector-owner-list');
+const deckSelectorWheel = document.getElementById('deck-selector-wheel');
+const deckSelectorWheelDisc = document.getElementById('deck-selector-wheel-disc');
+const deckSelectorWheelStatus = document.getElementById('deck-selector-wheel-status');
 const deckSelectorResults = document.getElementById('deck-selector-results');
+const deckSelectorSubmitButton = document.querySelector('#deck-selector-form button[type="submit"]');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -69,6 +73,8 @@ let appState = { games: [], powerLevels: {}, deckLists: [], records: [] };
 let editingDeckListId = null;
 let syncQueueTimer = null;
 let syncInFlight = false;
+let deckSelectorSpinTimer = null;
+let deckSelectorRotation = 0;
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
@@ -1078,29 +1084,75 @@ function shuffleList(items) {
   return shuffled;
 }
 
-function renderDeckSelectorAssignments(selectedOwners) {
-  if (!deckSelectorResults) {
-    return;
-  }
-
-  if (!selectedOwners.length) {
-    deckSelectorResults.innerHTML = '<p>Select at least one player to randomize decks.</p>';
-    return;
-  }
-
+function getDeckSelectorPool(selectedOwners) {
   const ownerGroups = getDeckOwnerGroups();
-  const pooledDecks = shuffleList(
+  return shuffleList(
     selectedOwners.flatMap((owner) => ownerGroups[owner] || []),
   );
+}
 
-  if (!pooledDecks.length) {
-    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+function getDeckWheelPalette(count) {
+  const palette = [
+    '#6aa9ff',
+    '#7fd4b8',
+    '#ffd36d',
+    '#ff9f7a',
+    '#c8a8ff',
+    '#8fd3ff',
+    '#ffb6c7',
+    '#b7df76',
+    '#ffc280',
+    '#8ec5a4',
+  ];
+
+  return Array.from({ length: count }, (_, index) => palette[index % palette.length]);
+}
+
+function getDeckWheelLabelMarkup(deckPool) {
+  const count = deckPool.length;
+  const compactClass = count > 16 ? ' deck-wheel-label-tiny' : count > 10 ? ' deck-wheel-label-small' : '';
+
+  return deckPool.map((deck, index) => {
+    const segmentSize = 360 / count;
+    const angle = (index * segmentSize) + (segmentSize / 2) - 90;
+    const radians = (angle * Math.PI) / 180;
+    const x = 50 + (Math.cos(radians) * 36);
+    const y = 50 + (Math.sin(radians) * 36);
+    const label = escapeHtml(deck.commander.length > 20 ? `${deck.commander.slice(0, 19)}…` : deck.commander);
+    return `<div class="deck-wheel-label${compactClass}" style="left:${x}%; top:${y}%;">${label}</div>`;
+  }).join('');
+}
+
+function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
+  if (!deckSelectorWheel || !deckSelectorWheelDisc) {
     return;
   }
 
-  const deck = chooseRandomDeck(pooledDecks);
-  if (!deck) {
-    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+  if (!deckPool.length) {
+    deckSelectorWheel.classList.add('is-empty');
+    deckSelectorWheelDisc.style.background = 'radial-gradient(circle at center, #ffffff 0%, #f3f6ff 72%, #e4e8f2 100%)';
+    deckSelectorWheelDisc.innerHTML = `<div class="deck-wheel-center-label">${escapeHtml(centerLabel)}</div>`;
+    deckSelectorWheelDisc.style.transform = 'rotate(0deg)';
+    return;
+  }
+
+  deckSelectorWheel.classList.remove('is-empty');
+  const colors = getDeckWheelPalette(deckPool.length);
+  const segmentSize = 360 / deckPool.length;
+  const gradient = colors
+    .map((color, index) => `${color} ${index * segmentSize}deg ${(index + 1) * segmentSize}deg`)
+    .join(', ');
+
+  deckSelectorWheelDisc.style.background = `conic-gradient(from -90deg, ${gradient})`;
+  deckSelectorWheelDisc.innerHTML = `
+    ${getDeckWheelLabelMarkup(deckPool)}
+    <div class="deck-wheel-center-label">${escapeHtml(centerLabel)}</div>
+  `;
+  deckSelectorWheelDisc.style.transform = `rotate(${deckSelectorRotation}deg)`;
+}
+
+function renderDeckSelectorResult(selectedOwners, deck) {
+  if (!deckSelectorResults) {
     return;
   }
 
@@ -1116,6 +1168,83 @@ function renderDeckSelectorAssignments(selectedOwners) {
       <p>Owned by ${safeOwner}</p>
       <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
     </article>`;
+}
+
+function renderDeckSelectorAssignments(selectedOwners) {
+  if (!deckSelectorResults || !deckSelectorWheelDisc) {
+    return;
+  }
+
+  if (deckSelectorSpinTimer) {
+    clearTimeout(deckSelectorSpinTimer);
+    deckSelectorSpinTimer = null;
+  }
+
+  if (!selectedOwners.length) {
+    deckSelectorResults.innerHTML = '<p>Select at least one player to randomize decks.</p>';
+    if (deckSelectorWheelStatus) {
+      deckSelectorWheelStatus.textContent = 'Select players and click Randomize decks.';
+    }
+    renderDeckSelectorWheel([], 'Select Players');
+    return;
+  }
+
+  const pooledDecks = getDeckSelectorPool(selectedOwners);
+
+  if (!pooledDecks.length) {
+    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    if (deckSelectorWheelStatus) {
+      deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
+    }
+    renderDeckSelectorWheel([], 'No Decks');
+    return;
+  }
+
+  const deck = chooseRandomDeck(pooledDecks);
+  if (!deck) {
+    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    if (deckSelectorWheelStatus) {
+      deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
+    }
+    return;
+  }
+
+  const winningIndex = pooledDecks.findIndex((entry) => entry.id === deck.id);
+  const segmentSize = 360 / pooledDecks.length;
+  const winningCenterAngle = (winningIndex * segmentSize) + (segmentSize / 2);
+  const extraTurns = 5 + Math.floor(Math.random() * 2);
+  const targetRotation = deckSelectorRotation + (extraTurns * 360) + (360 - winningCenterAngle);
+  const spinDuration = 5200;
+
+  renderDeckSelectorWheel(pooledDecks, 'Spinning');
+  deckSelectorResults.innerHTML = '<p>The wheel is spinning...</p>';
+  if (deckSelectorWheelStatus) {
+    deckSelectorWheelStatus.textContent = `Spinning through ${pooledDecks.length} eligible decks...`;
+  }
+  if (deckSelectorSubmitButton) {
+    deckSelectorSubmitButton.disabled = true;
+  }
+
+  deckSelectorWheelDisc.style.transition = 'none';
+  deckSelectorWheelDisc.style.transform = `rotate(${deckSelectorRotation}deg)`;
+  deckSelectorWheelDisc.getBoundingClientRect();
+  deckSelectorWheelDisc.style.transition = `transform ${spinDuration}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+  deckSelectorWheelDisc.style.transform = `rotate(${targetRotation}deg)`;
+  deckSelectorRotation = targetRotation;
+
+  deckSelectorSpinTimer = window.setTimeout(() => {
+    deckSelectorSpinTimer = null;
+    renderDeckSelectorWheel(pooledDecks, 'Winner');
+    deckSelectorWheelDisc.style.transition = 'none';
+    deckSelectorWheelDisc.style.transform = `rotate(${deckSelectorRotation}deg)`;
+    renderDeckSelectorResult(selectedOwners, deck);
+    if (deckSelectorWheelStatus) {
+      deckSelectorWheelStatus.textContent = `${deck.commander} selected.`;
+    }
+    if (deckSelectorSubmitButton) {
+      deckSelectorSubmitButton.disabled = false;
+    }
+  }, spinDuration + 80);
 
 }
 
@@ -1131,6 +1260,10 @@ function renderDeckSelector() {
   if (!owners.length) {
     deckSelectorOwnerList.innerHTML = '<p>No owned decks available yet. Add deck owners in Deck Lists first.</p>';
     deckSelectorResults.innerHTML = '<p>Add deck owners in Deck Lists to start randomizing decks.</p>';
+    if (deckSelectorWheelStatus) {
+      deckSelectorWheelStatus.textContent = 'Add deck owners in Deck Lists to enable the wheel.';
+    }
+    renderDeckSelectorWheel([], 'No Decks');
     return;
   }
 
@@ -1145,6 +1278,15 @@ function renderDeckSelector() {
   if (!deckSelectorResults.dataset.initialized) {
     deckSelectorResults.innerHTML = '<p>Select players and click Randomize decks.</p>';
     deckSelectorResults.dataset.initialized = 'true';
+  }
+
+  if (deckSelectorWheelStatus && !deckSelectorWheelStatus.dataset.initialized) {
+    deckSelectorWheelStatus.textContent = 'Select players and click Randomize decks.';
+    deckSelectorWheelStatus.dataset.initialized = 'true';
+  }
+
+  if (deckSelectorWheel && deckSelectorWheel.classList.contains('is-empty')) {
+    renderDeckSelectorWheel([], 'Ready to Spin');
   }
 }
 

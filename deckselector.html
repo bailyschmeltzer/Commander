@@ -45,9 +45,22 @@
           <form id="deck-selector-form" class="deck-selector-form">
             <div id="deck-selector-owner-list" class="deck-selector-grid"></div>
             <div class="actions">
-              <button type="submit">Randomize decks</button>
+              <button type="submit">Spin the wheel</button>
             </div>
           </form>
+        </section>
+
+        <section class="card deck-wheel-card">
+          <h2>Wheel</h2>
+          <div id="deck-selector-wheel" class="deck-selector-wheel is-empty">
+            <div class="deck-wheel-pointer" aria-hidden="true"></div>
+            <div class="deck-wheel-frame">
+              <div id="deck-selector-wheel-disc" class="deck-wheel-disc">
+                <div class="deck-wheel-center-label">Ready to Spin</div>
+              </div>
+            </div>
+          </div>
+          <p id="deck-selector-wheel-status" class="deck-selector-wheel-status">Select players and click Spin the wheel.</p>
         </section>
 
         <section class="card">
