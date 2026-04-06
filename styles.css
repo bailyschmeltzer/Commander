@@ -1208,6 +1208,16 @@ button[type="submit"] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    align-items: stretch;
+  }
+
+  .page-decklists .deck-list-table td:nth-child(3)::before {
+    grid-column: 1 / -1;
+    margin-bottom: 2px;
+  }
+
+  .page-decklists .deck-list-table td:nth-child(3) button {
+    margin-top: 0;
   }
 
   .page-history .history-item p,
@@ -1270,8 +1280,8 @@ button[type="submit"] {
 
   .page-decklists .deck-list-table th:nth-child(3),
   .page-decklists .deck-list-table td:nth-child(3) {
-    width: 170px;
-    min-width: 170px;
+    width: 100% !important;
+    min-width: 0;
   }
 
   .player-table,
