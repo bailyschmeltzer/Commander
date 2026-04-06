@@ -1053,9 +1053,13 @@ function renderRecords() {
   const records = loadRecords();
   recordsTableBody.innerHTML = records
     .map((record) => {
-      const actionCell = record.isCustom
-        ? `<button type="button" class="history-delete-button record-delete-button" data-id="${escapeHtml(record.id)}">Delete</button>`
-        : '<span class="record-badge">Core</span>';
+      const titleContent = record.isCustom
+        ? `
+          <div class="record-title-row">
+            <input type="text" name="title" value="${escapeHtml(record.title)}" placeholder="Record title" />
+            <button type="button" class="history-delete-button record-delete-button" data-id="${escapeHtml(record.id)}">Delete</button>
+          </div>`
+        : `<strong>${escapeHtml(record.title)}</strong>`;
 
       return `
         <tr
@@ -1066,9 +1070,7 @@ function renderRecords() {
           data-custom="${record.isCustom ? 'true' : 'false'}"
         >
           <td class="record-title-cell">
-            ${record.isCustom
-              ? `<input type="text" name="title" value="${escapeHtml(record.title)}" placeholder="Record title" />`
-              : `<strong>${escapeHtml(record.title)}</strong>`}
+            ${titleContent}
           </td>
           <td class="record-value-cell"><input type="text" name="value" value="${escapeHtml(record.value)}" placeholder="Record" /></td>
           <td class="record-unit-cell">
@@ -1092,7 +1094,6 @@ function renderRecords() {
           </td>
           <td><input type="date" name="date" value="${escapeHtml(record.date)}" /></td>
           <td><textarea name="notes" rows="2" placeholder="How it happened, matchup, table notes...">${escapeHtml(record.notes)}</textarea></td>
-          <td class="record-action-cell">${actionCell}</td>
         </tr>`;
     })
     .join('');

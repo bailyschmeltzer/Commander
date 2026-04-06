@@ -372,7 +372,12 @@ label {
 
 .records-table th:nth-child(5),
 .records-table td:nth-child(5) {
-  width: 15%;
+  width: 8%;
+}
+
+.records-table th:nth-child(7),
+.records-table td:nth-child(7) {
+  width: 30%;
 }
 
 .records-table th,
@@ -398,11 +403,7 @@ label {
 }
 
 .record-commander-cell {
-  min-width: 150px;
-}
-
-.record-action-cell {
-  min-width: 92px;
+  min-width: 110px;
 }
 
 .record-badge,
@@ -423,6 +424,21 @@ label {
 .custom-record-form {
   display: grid;
   gap: 8px;
+}
+
+.record-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-title-row input {
+  flex: 1;
+}
+
+.record-title-row .record-delete-button {
+  margin-top: 0;
+  flex: 0 0 auto;
 }
 
 .record-lookup-wrapper .lookup-input {
