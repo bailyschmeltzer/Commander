@@ -804,10 +804,11 @@ function renderLivePlayerGrid() {
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
       const damageMarkup = damageEntries.length
         ? `
-            <div class="live-player-damage-summary">
+            <div class="live-player-damage-panel has-damage">
+              <div class="live-player-damage-title">Cmdr Dmg</div>
               <ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>
             </div>`
-        : '';
+        : '<div class="live-player-damage-panel"></div>';
       const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
         ? '<span class="live-first-player-indicator">First</span>'
         : '';
@@ -825,25 +826,23 @@ function renderLivePlayerGrid() {
             </div>
             <div class="live-player-main-layout">
               <div class="live-player-action-column live-player-action-column-loss">
-                <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-5">-5</button>
                 <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
+                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
                 <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
                 <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
-              </div>
-              <div class="live-player-counter-column">
-                <div class="live-player-life">${player.life}</div>
-              </div>
-              <div class="live-player-action-column live-player-action-column-gain">
-                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
-                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
                 <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
                 <label class="live-player-toggle live-player-toggle-compact">
                   <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
                   <span>Can&apos;t lose</span>
                 </label>
               </div>
+              <div class="live-player-counter-column">
+                <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}">${player.life}</button>
+              </div>
+              <div class="live-player-damage-column">
+                ${damageMarkup}
+              </div>
             </div>
-            ${damageMarkup}
           </div>
         </article>`;
     })
@@ -992,6 +991,21 @@ function promptForPositiveNumber(message, defaultValue = 1) {
   }
 
   return parsed;
+}
+
+function promptForSignedNumber(message, defaultValue = -1) {
+  const rawValue = window.prompt(message, String(defaultValue));
+  if (rawValue === null) {
+    return null;
+  }
+
+  const parsedValue = parseInt(rawValue, 10);
+  if (!Number.isFinite(parsedValue) || parsedValue === 0) {
+    window.alert('Enter a whole number greater than 0 or less than 0.');
+    return null;
+  }
+
+  return parsedValue;
 }
 
 async function applyCommanderDamageToPlayer(targetPlayerId) {
@@ -1168,6 +1182,24 @@ async function applyQuickLifeChange(playerId, delta) {
   if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
     completeActiveGame();
   }
+}
+
+async function applyManualLifeEntry(playerId) {
+  if (!activeGameState) {
+    return;
+  }
+
+  const player = activeGameState.players.find((entry) => entry.id === playerId);
+  if (!player || player.eliminatedAt) {
+    return;
+  }
+
+  const delta = promptForSignedNumber(`Enter life change for ${player.name}. Use negative for damage and positive for life gain.`, -1);
+  if (delta === null) {
+    return;
+  }
+
+  await applyQuickLifeChange(playerId, delta);
 }
 
 async function setPlayerCannotLoseState(playerId, isEnabled) {
@@ -3622,6 +3654,12 @@ if (livePlayerGrid) {
     const commanderDamageButton = event.target.closest('[data-action="manual-commander-damage"]');
     if (commanderDamageButton) {
       applyCommanderDamageToPlayer(commanderDamageButton.dataset.playerId || '');
+      return;
+    }
+
+    const manualLifeEntryButton = event.target.closest('[data-action="manual-life-entry"]');
+    if (manualLifeEntryButton) {
+      applyManualLifeEntry(manualLifeEntryButton.dataset.playerId || '');
       return;
     }
 
