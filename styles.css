@@ -1112,6 +1112,108 @@ button[type="submit"] {
     min-height: 64px;
   }
 
+  .page-player-stats .player-stats-table tbody,
+  .page-records .records-table tbody,
+  .page-decklists .deck-list-table tbody,
+  .page-history .history-game-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .page-player-stats .player-stats-table tr,
+  .page-records .records-table tr,
+  .page-decklists .deck-list-table tr,
+  .page-history .history-game-table tr {
+    width: 100%;
+    border: 1px solid #e4e8f2;
+    border-radius: 14px;
+    background: #fbfcff;
+    padding: 12px;
+  }
+
+  .page-player-stats .player-stats-table td,
+  .page-records .records-table td,
+  .page-decklists .deck-list-table td,
+  .page-history .history-game-table td {
+    width: 100% !important;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    grid-template-columns: minmax(96px, 120px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 6px 0;
+  }
+
+  .page-player-stats .player-stats-table td::before,
+  .page-records .records-table td::before,
+  .page-decklists .deck-list-table td::before,
+  .page-history .history-game-table td::before {
+    font-weight: 700;
+    color: #44507e;
+  }
+
+  .page-player-stats .player-stats-table td[colspan],
+  .page-records .records-table td[colspan],
+  .page-decklists .deck-list-table td[colspan],
+  .page-history .history-game-table td[colspan] {
+    display: block;
+    padding: 0;
+  }
+
+  .page-player-stats .player-stats-table td[colspan]::before,
+  .page-records .records-table td[colspan]::before,
+  .page-decklists .deck-list-table td[colspan]::before,
+  .page-history .history-game-table td[colspan]::before {
+    content: none;
+  }
+
+  .page-player-stats .player-stats-table .combined-input-wrapper,
+  .page-records .records-table .combined-input-wrapper,
+  .page-decklists .deck-list-table .combined-input-wrapper,
+  .page-history .history-game-table .combined-input-wrapper,
+  .page-player-stats .player-stats-table input,
+  .page-records .records-table input,
+  .page-decklists .deck-list-table input,
+  .page-history .history-game-table input,
+  .page-player-stats .player-stats-table textarea,
+  .page-records .records-table textarea,
+  .page-decklists .deck-list-table textarea,
+  .page-history .history-game-table textarea {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-records .records-table textarea,
+  .page-history .history-game-table textarea {
+    min-height: 64px;
+  }
+
+  .page-decklists .deck-list-table td:nth-child(2) a {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-all;
+  }
+
+  .page-decklists .deck-list-table td:nth-child(3),
+  .page-decklists .deck-list-table td:nth-child(3) button {
+    min-width: 0;
+    width: 100% !important;
+  }
+
+  .page-decklists .deck-list-table td:nth-child(3) {
+    display: grid;
+    gap: 8px;
+  }
+
+  .page-history .history-item p,
+  .page-history .history-item small {
+    line-height: 1.45;
+  }
+
   .page-records #custom-record-form .combined-input-wrapper,
   .page-records #custom-record-form .lookup-input {
     min-width: 0;
@@ -1320,7 +1422,23 @@ button[type="submit"] {
     padding: 10px;
   }
 
+  .page-player-stats .player-stats-table tr,
+  .page-records .records-table tr,
+  .page-decklists .deck-list-table tr,
+  .page-history .history-game-table tr {
+    padding: 10px;
+  }
+
   .page-commander-stats .commander-stats-table td {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+  }
+
+  .page-player-stats .player-stats-table td,
+  .page-records .records-table td,
+  .page-decklists .deck-list-table td,
+  .page-history .history-game-table td {
     grid-template-columns: 88px minmax(0, 1fr);
     gap: 8px;
     padding: 5px 0;
