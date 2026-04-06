@@ -3,6 +3,7 @@ const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
 const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
 const RECORDS_STORAGE_KEY = 'commanderTrackerRecords';
 const ACTIVE_GAME_STORAGE_KEY = 'commanderTrackerActiveGame';
+const ACTIVE_GAME_UNDO_STORAGE_KEY = 'commanderTrackerActiveGameUndo';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
@@ -69,6 +70,7 @@ const liveTurnNumberInput = document.getElementById('live-turn-number');
 const liveFirstBlood = document.getElementById('live-first-blood');
 const livePlayerGrid = document.getElementById('live-player-grid');
 const liveEventLog = document.getElementById('live-event-log');
+const liveUndoButton = document.getElementById('live-undo');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
 const liveSourcePrompt = document.getElementById('live-source-prompt');
@@ -99,6 +101,7 @@ let syncInFlight = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let activeGameState = null;
+let activeGameUndoState = null;
 let liveSetupFirstPlayerId = null;
 let liveSourcePromptResolver = null;
 let liveHoldTimerId = null;
@@ -146,6 +149,33 @@ function persistLocalState(state) {
 
 function loadActiveGameState() {
   return parseJsonSafe(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
+}
+
+function loadActiveGameUndoState() {
+  return parseJsonSafe(localStorage.getItem(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
+}
+
+function persistActiveGameUndoState(state) {
+  activeGameUndoState = state || null;
+  if (!state) {
+    localStorage.removeItem(ACTIVE_GAME_UNDO_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(state));
+}
+
+function cloneActiveGameState(state) {
+  return state ? parseJsonSafe(JSON.stringify(state), null) : null;
+}
+
+function saveUndoSnapshot() {
+  if (!activeGameState) {
+    persistActiveGameUndoState(null);
+    return;
+  }
+
+  persistActiveGameUndoState(cloneActiveGameState(activeGameState));
 }
 
 function persistActiveGameState(state) {
@@ -474,6 +504,10 @@ function eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, reason) {
   return true;
 }
 
+function hasCommanderDamageLethal(player) {
+  return Object.values(player?.commanderDamageTaken || {}).some((amount) => amount > 20);
+}
+
 function evaluateLiveElimination(targetPlayer, sourcePlayerId, turnNumber, eventType) {
   if (!targetPlayer || targetPlayer.cannotLoseTheGame) {
     return false;
@@ -720,6 +754,9 @@ function generateLiveEventDescription(event, activeGame = activeGameState) {
   if (event.type === 'elimination') {
     return `${actor} eliminated ${target}.`;
   }
+  if (event.type === 'automatic-win') {
+    return `${target} was marked as the winner.`;
+  }
   if (event.type === 'next-turn') {
     return `${target} started turn ${event.turnNumber}.`;
   }
@@ -762,6 +799,7 @@ function renderLivePlayerGrid() {
             <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="5">+5</button>
             <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
             <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
+            <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
           </div>
           <div class="live-player-meta">
             <div>Status: <strong>${escapeHtml(player.eliminatedAt ? `Out in place ${player.place || '—'}` : 'Still alive')}</strong></div>
@@ -819,6 +857,9 @@ function renderLiveGameStatus() {
     if (liveFirstBlood) {
       liveFirstBlood.textContent = 'None yet';
     }
+    if (liveUndoButton) {
+      liveUndoButton.disabled = true;
+    }
     renderLivePlayerGrid();
     renderLiveEventLog();
     return;
@@ -844,6 +885,9 @@ function renderLiveGameStatus() {
     } else {
       liveFirstBlood.textContent = 'None yet';
     }
+  }
+  if (liveUndoButton) {
+    liveUndoButton.disabled = !activeGameUndoState;
   }
   renderLivePlayerGrid();
   renderLiveEventLog();
@@ -894,6 +938,7 @@ function startLiveGame() {
   }
 
   const turnOrder = getTurnOrderPreview(players, liveSetupFirstPlayerId).map((player) => player.id);
+  persistActiveGameUndoState(null);
   persistActiveGameState({
     id: generateId(),
     date: liveGameDateInput?.value || new Date().toISOString().slice(0, 10),
@@ -964,6 +1009,7 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
     return;
   }
 
+  saveUndoSnapshot();
   targetPlayer.life -= amount;
   targetPlayer.commanderDamageTaken[sourcePlayerId] = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
   maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, eventTurnNumber);
@@ -1010,6 +1056,7 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     return;
   }
 
+  saveUndoSnapshot();
   eliminateLivePlayer(targetPlayer, sourcePlayerId, eventTurnNumber, 'manual');
   recordLiveEvent({
     type: 'elimination',
@@ -1056,6 +1103,7 @@ async function applyQuickLifeChange(playerId, delta) {
     return;
   }
 
+  saveUndoSnapshot();
   player.life += delta;
 
   const eventType = delta < 0 ? 'life-loss' : 'life-gain';
@@ -1083,6 +1131,120 @@ async function applyQuickLifeChange(playerId, delta) {
   if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
     completeActiveGame();
   }
+}
+
+async function setPlayerCannotLoseState(playerId, isEnabled) {
+  if (!activeGameState) {
+    return;
+  }
+
+  const player = activeGameState.players.find((entry) => entry.id === playerId);
+  if (!player || player.eliminatedAt) {
+    refreshLiveTrackerUi();
+    return;
+  }
+
+  if (isEnabled) {
+    saveUndoSnapshot();
+    player.cannotLoseTheGame = true;
+    persistActiveGameState(activeGameState);
+    refreshLiveTrackerUi();
+    return;
+  }
+
+  const lethalWhileDisabled = player.life <= 0 || hasCommanderDamageLethal(player);
+  if (!lethalWhileDisabled) {
+    saveUndoSnapshot();
+    player.cannotLoseTheGame = false;
+    persistActiveGameState(activeGameState);
+    refreshLiveTrackerUi();
+    return;
+  }
+
+  const turnNumber = syncActiveGameTurnFromInput();
+  const sourcePlayerId = await resolveLiveSourceSelection({
+    targetPlayerId: player.id,
+    eventType: 'elimination',
+    amount: 0,
+    projectedLife: player.life,
+  });
+  if (sourcePlayerId === null) {
+    refreshLiveTrackerUi();
+    return;
+  }
+
+  saveUndoSnapshot();
+  player.cannotLoseTheGame = false;
+  const reason = player.life <= 0 ? 'life-total' : 'commander-damage';
+  eliminateLivePlayer(player, sourcePlayerId, turnNumber, reason);
+  recordLiveEvent({
+    type: 'elimination',
+    actorPlayerId: sourcePlayerId,
+    targetPlayerId: player.id,
+    amount: 0,
+    turnNumber,
+    notes: 'Resolved after cannot lose was disabled.',
+  });
+
+  const alivePlayers = getActiveAlivePlayers(activeGameState);
+  if (alivePlayers.length === 1) {
+    alivePlayers[0].place = 1;
+  }
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+
+  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
+    completeActiveGame();
+  }
+}
+
+function markPlayerAutomaticWinner(playerId) {
+  if (!activeGameState) {
+    return;
+  }
+
+  const winner = activeGameState.players.find((entry) => entry.id === playerId);
+  if (!winner || winner.eliminatedAt) {
+    return;
+  }
+
+  if (!confirm(`Mark ${winner.name} as the winner and finish the game?`)) {
+    return;
+  }
+
+  activeGameState.players.forEach((player) => {
+    if (player.id === winner.id) {
+      player.place = 1;
+      return;
+    }
+
+    if (!player.eliminatedAt) {
+      player.eliminatedAt = new Date().toISOString();
+      player.eliminatedTurnNumber = activeGameState.turnNumber;
+      player.eliminatedByPlayerId = '';
+      player.eliminationReason = 'automatic-win';
+    }
+  });
+
+  recordLiveEvent({
+    type: 'automatic-win',
+    actorPlayerId: winner.id,
+    targetPlayerId: winner.id,
+    amount: 0,
+    turnNumber: activeGameState.turnNumber,
+  });
+  completeActiveGame();
+}
+
+function undoLastLiveAction() {
+  if (!activeGameUndoState) {
+    return;
+  }
+
+  persistActiveGameState(cloneActiveGameState(activeGameUndoState));
+  persistActiveGameUndoState(null);
+  refresh();
 }
 
 function completeActiveGame() {
@@ -1151,6 +1313,7 @@ function completeActiveGame() {
   });
   saveGames(games);
   persistActiveGameState(null);
+  persistActiveGameUndoState(null);
   refresh();
   refreshLiveTrackerUi();
   alert('Live game saved to history.');
@@ -1166,6 +1329,7 @@ function abandonActiveGame() {
   }
 
   persistActiveGameState(null);
+  persistActiveGameUndoState(null);
   refreshLiveTrackerUi();
 }
 
@@ -3348,14 +3512,7 @@ if (livePlayerGrid) {
   livePlayerGrid.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
     if (toggle) {
-      const player = activeGameState?.players?.find((entry) => entry.id === (toggle.dataset.playerId || ''));
-      if (!player) {
-        return;
-      }
-
-      player.cannotLoseTheGame = Boolean(toggle.checked);
-      persistActiveGameState(activeGameState);
-      refreshLiveTrackerUi();
+      setPlayerCannotLoseState(toggle.dataset.playerId || '', Boolean(toggle.checked));
       return;
     }
 
@@ -3368,6 +3525,12 @@ if (livePlayerGrid) {
     const eliminateButton = event.target.closest('[data-action="manual-eliminate"]');
     if (eliminateButton) {
       manuallyEliminatePlayer(eliminateButton.dataset.playerId || '');
+      return;
+    }
+
+    const autoWinButton = event.target.closest('[data-action="auto-win"]');
+    if (autoWinButton) {
+      markPlayerAutomaticWinner(autoWinButton.dataset.playerId || '');
       return;
     }
 
@@ -3409,6 +3572,12 @@ if (livePlayerGrid) {
     document.addEventListener(eventName, () => {
       stopLiveHoldRepeat();
     });
+  });
+}
+
+if (liveUndoButton) {
+  liveUndoButton.addEventListener('click', () => {
+    undoLastLiveAction();
   });
 }
 
@@ -3617,9 +3786,11 @@ window.addEventListener('storage', (event) => {
     || event.key === DECK_LIST_STORAGE_KEY
     || event.key === RECORDS_STORAGE_KEY
     || event.key === ACTIVE_GAME_STORAGE_KEY
+    || event.key === ACTIVE_GAME_UNDO_STORAGE_KEY
   ) {
     appState = loadLocalState();
     activeGameState = loadActiveGameState();
+    activeGameUndoState = loadActiveGameUndoState();
     refresh();
   }
 });
@@ -3686,6 +3857,7 @@ function setupSyncUi() {
 async function initializeApp() {
   appState = loadLocalState();
   activeGameState = loadActiveGameState();
+  activeGameUndoState = loadActiveGameUndoState();
   hideLiveSourcePrompt();
   setupSyncUi();
 
