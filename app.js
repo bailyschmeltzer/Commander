@@ -2,6 +2,7 @@ const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
 const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
 const RECORDS_STORAGE_KEY = 'commanderTrackerRecords';
+const ACTIVE_GAME_STORAGE_KEY = 'commanderTrackerActiveGame';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
@@ -53,6 +54,29 @@ const customRecordDateInput = document.getElementById('custom-record-date');
 const customRecordNotesInput = document.getElementById('custom-record-notes');
 const customRecordHolderMenu = document.getElementById('custom-record-holder-menu');
 const customRecordCommanderMenu = document.getElementById('custom-record-commander-menu');
+const liveGameForm = document.getElementById('live-game-form');
+const liveGameDateInput = document.getElementById('live-game-date');
+const liveStartingLifeInput = document.getElementById('live-starting-life');
+const liveGamePlayerBody = document.getElementById('live-game-player-body');
+const liveAddPlayerButton = document.getElementById('live-add-player');
+const liveRemovePlayerButton = document.getElementById('live-remove-player');
+const liveRandomizeFirstButton = document.getElementById('live-randomize-first');
+const liveOrderPreview = document.getElementById('live-order-preview');
+const liveActiveCard = document.getElementById('live-active-card');
+const liveGameStatus = document.getElementById('live-game-status');
+const liveFirstPlayer = document.getElementById('live-first-player');
+const liveTurnIndicator = document.getElementById('live-turn-indicator');
+const liveFirstBlood = document.getElementById('live-first-blood');
+const liveEventForm = document.getElementById('live-event-form');
+const liveEventActor = document.getElementById('live-event-actor');
+const liveEventTarget = document.getElementById('live-event-target');
+const liveEventType = document.getElementById('live-event-type');
+const liveEventAmount = document.getElementById('live-event-amount');
+const livePlayerGrid = document.getElementById('live-player-grid');
+const liveEventLog = document.getElementById('live-event-log');
+const liveNextTurnButton = document.getElementById('live-next-turn');
+const liveFinishGameButton = document.getElementById('live-finish-game');
+const liveAbandonGameButton = document.getElementById('live-abandon-game');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -75,6 +99,8 @@ let syncQueueTimer = null;
 let syncInFlight = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
+let activeGameState = null;
+let liveSetupFirstPlayerId = null;
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
@@ -113,6 +139,20 @@ function persistLocalState(state) {
   localStorage.setItem(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
   localStorage.setItem(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
   localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
+}
+
+function loadActiveGameState() {
+  return parseJsonSafe(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
+}
+
+function persistActiveGameState(state) {
+  activeGameState = state || null;
+  if (!state) {
+    localStorage.removeItem(ACTIVE_GAME_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(state));
 }
 
 function getSyncCredentials() {

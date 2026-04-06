@@ -1031,6 +1031,157 @@ button[type="submit"] {
   font-weight: 700;
 }
 
+.live-setup-table th:nth-child(1),
+.live-setup-table td:nth-child(1) {
+  width: 12%;
+}
+
+.live-setup-table th:nth-child(2),
+.live-setup-table td:nth-child(2),
+.live-setup-table th:nth-child(3),
+.live-setup-table td:nth-child(3) {
+  width: 44%;
+}
+
+.live-seat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  min-width: 56px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #31415f;
+  font-weight: 700;
+}
+
+.live-order-preview {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #d7deef;
+  border-radius: 14px;
+  background: #fbfcff;
+  color: #44507e;
+}
+
+.live-active-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.live-active-header h2 {
+  margin-bottom: 4px;
+}
+
+.live-game-status {
+  margin: 0;
+  color: #5d6884;
+}
+
+.live-active-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.live-event-form {
+  margin: 18px 0;
+}
+
+.live-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.live-player-card {
+  border: 1px solid #dde3f2;
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, #fcfdff 0%, #f6f8fe 100%);
+  box-shadow: 0 10px 22px rgba(32, 43, 79, 0.08);
+}
+
+.live-player-card.is-current-turn {
+  border-color: #8ca0ff;
+  box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12), 0 10px 22px rgba(32, 43, 79, 0.08);
+}
+
+.live-player-card.is-eliminated {
+  opacity: 0.72;
+}
+
+.live-player-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.live-player-card-header h3,
+.live-player-card-header p {
+  margin: 0;
+}
+
+.live-player-card-header p {
+  color: #5d6884;
+}
+
+.live-player-life {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1;
+  margin: 10px 0 14px;
+  color: #1f2742;
+}
+
+.live-player-meta {
+  display: grid;
+  gap: 6px;
+  color: #4e5770;
+  font-size: 0.94rem;
+}
+
+.live-player-meta strong {
+  color: #1f2742;
+}
+
+.live-card-damage-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.live-card-damage-list li {
+  margin-bottom: 4px;
+}
+
+.live-event-log {
+  display: grid;
+  gap: 10px;
+}
+
+.live-event-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f4f7ff;
+  border: 1px solid #dbe3f5;
+}
+
+.live-event-item p,
+.live-event-item small {
+  margin: 0;
+}
+
+.live-event-item small {
+  color: #66708f;
+}
+
 .deck-selector-card a {
   color: #2c3a72;
   text-decoration: underline;
@@ -1091,6 +1242,10 @@ button[type="submit"] {
 @media (max-width: 900px) {
   body {
     font-size: 15px;
+  }
+
+  .live-active-header {
+    flex-direction: column;
   }
 
   .app-shell {

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Game Tracker</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page-live-game">
+    <div class="app-shell">
+      <header>
+        <h1>Live Game Tracker</h1>
+        <p>Start a pod, randomize first play, track life and eliminations, then save a full game summary automatically.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <div class="page-switch">
+          <a href="index.html" class="page-link">Game Tracker</a>
+          <a href="livegame.html" class="page-link">Live Tracker</a>
+          <a href="player.html" class="page-link">Player Stats</a>
+          <a href="commander.html" class="page-link">Commander Stats</a>
+          <a href="history.html" class="page-link">Full History</a>
+          <a href="decklists.html" class="page-link">Deck Lists</a>
+          <a href="deckselector.html" class="page-link">Deck Selector</a>
+          <a href="records.html" class="page-link">Pod Records</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Setup</h2>
+          <form id="live-game-form" autocomplete="off">
+            <div class="field-grid">
+              <div class="field">
+                <label for="live-game-date">Game date</label>
+                <input id="live-game-date" type="date" required />
+              </div>
+              <div class="field">
+                <label for="live-starting-life">Starting life</label>
+                <input id="live-starting-life" type="number" min="1" value="40" required />
+              </div>
+            </div>
+
+            <div class="field full-width">
+              <label>Seats</label>
+              <small>Seat order is table order. First play is randomized from these seats.</small>
+              <div class="player-table-wrapper">
+                <table class="player-table live-setup-table">
+                  <thead>
+                    <tr>
+                      <th>Seat</th>
+                      <th>Player</th>
+                      <th>Commander</th>
+                    </tr>
+                  </thead>
+                  <tbody id="live-game-player-body"></tbody>
+                </table>
+                <div class="button-group">
+                  <button type="button" id="live-add-player" class="secondary-button">Add player</button>
+                  <button type="button" id="live-remove-player" class="secondary-button">Remove player</button>
+                  <button type="button" id="live-randomize-first" class="secondary-button">Randomize first play</button>
+                </div>
+                <datalist id="player-list"></datalist>
+                <datalist id="commander-list"></datalist>
+              </div>
+            </div>
+
+            <div id="live-order-preview" class="live-order-preview">Add players to preview the randomized turn order.</div>
+
+            <div class="actions">
+              <button type="submit">Start live game</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" id="live-active-card">
+          <div class="live-active-header">
+            <div>
+              <h2>Active Game</h2>
+              <p id="live-game-status" class="live-game-status">No game in progress.</p>
+            </div>
+            <div class="live-active-actions">
+              <button type="button" id="live-next-turn" class="secondary-button">Next turn</button>
+              <button type="button" id="live-finish-game">Finish game</button>
+              <button type="button" id="live-abandon-game" class="history-delete-button">Abandon</button>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="stats-card">
+              <h3>First player</h3>
+              <p id="live-first-player">—</p>
+            </div>
+            <div class="stats-card">
+              <h3>Current turn</h3>
+              <p id="live-turn-indicator">Turn 1</p>
+            </div>
+            <div class="stats-card">
+              <h3>First blood</h3>
+              <p id="live-first-blood">None yet</p>
+            </div>
+          </div>
+
+          <form id="live-event-form" class="live-event-form">
+            <div class="field-grid">
+              <div class="field">
+                <label for="live-event-actor">Source</label>
+                <select id="live-event-actor">
+                  <option value="">Environment / self</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="live-event-target">Target</label>
+                <select id="live-event-target" required>
+                  <option value="">Select player</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="live-event-type">Action</label>
+                <select id="live-event-type" required>
+                  <option value="life-loss">Life loss</option>
+                  <option value="life-gain">Life gain</option>
+                  <option value="commander-damage">Commander damage</option>
+                  <option value="elimination">Elimination</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="live-event-amount">Amount</label>
+                <input id="live-event-amount" type="number" min="1" value="1" required />
+              </div>
+            </div>
+            <div class="actions">
+              <button type="submit">Apply event</button>
+            </div>
+          </form>
+
+          <div id="live-player-grid" class="live-player-grid">
+            <p>No game in progress.</p>
+          </div>
+
+          <div class="stats-card">
+            <h3>Event Log</h3>
+            <div id="live-event-log" class="live-event-log">
+              <p>No events yet.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
