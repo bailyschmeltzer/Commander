@@ -1,0 +1,16 @@
+{
+  "name": "Commander Game Tracker",
+  "short_name": "Commander",
+  "description": "Track commander games, stats, deck lists, and pod records.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6fb",
+  "theme_color": "#f5f6fb",
+  "icons": [
+    {
+      "src": "image.png",
+      "type": "image/png"
+    }
+  ]
+}
