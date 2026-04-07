@@ -2416,20 +2416,14 @@ button[type="submit"] {
     word-break: normal;
   }
 
+  .page-rankings .rankings-table td {
+    grid-template-columns: minmax(132px, 164px) minmax(0, 1fr);
+  }
+
   .page-rankings .rankings-main-table td.rankings-games-cell {
     width: 100% !important;
     max-width: none;
     text-align: left;
-  }
-
-  .page-rankings .rankings-main-table td:nth-child(7),
-  .page-rankings .rankings-main-table td:nth-child(8) {
-    grid-template-columns: minmax(122px, 148px) minmax(0, 1fr);
-  }
-
-  .page-rankings .rankings-streaks-table td:nth-child(3),
-  .page-rankings .rankings-streaks-table td:nth-child(4) {
-    grid-template-columns: minmax(122px, 148px) minmax(0, 1fr);
   }
 
   .player-table td[colspan],
