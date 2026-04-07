@@ -718,6 +718,31 @@ button[type="submit"] {
   gap: 12px;
 }
 
+.rankings-summary {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 18px;
+}
+
+.rankings-helper-text {
+  margin-top: 0;
+  color: #5f6882;
+}
+
+.rankings-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.rankings-split-grid h3 {
+  margin: 0 0 12px;
+}
+
+.rankings-table th,
+.rankings-table td {
+  white-space: nowrap;
+}
+
 .stats-card,
 .history-item {
   border: 1px solid #e4e8f2;
@@ -1903,6 +1928,10 @@ button[type="submit"] {
   .sync-row button {
     width: 100%;
     min-width: 0;
+  }
+
+  .rankings-split-grid {
+    grid-template-columns: 1fr;
   }
 
   .page-switch {

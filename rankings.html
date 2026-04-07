@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pod Rankings</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page-rankings">
+    <div class="app-shell">
+      <header>
+        <h1>Pod Rankings</h1>
+        <p>Rank the pod, track who is trending up lately, and spot the streaks shaping your meta.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <div class="page-switch">
+          <a href="index.html" class="page-link">Game Tracker</a>
+          <a href="livegame.html" class="page-link">Live Tracker</a>
+          <a href="player.html" class="page-link">Player Stats</a>
+          <a href="commander.html" class="page-link">Commander Stats</a>
+          <a href="history.html" class="page-link">Full History</a>
+          <a href="decklists.html" class="page-link">Deck Lists</a>
+          <a href="deckselector.html" class="page-link">Deck Selector</a>
+          <a href="records.html" class="page-link">Pod Records</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Pod Rankings</h2>
+          <p class="rankings-helper-text">Standings use a placement-weighted pod score: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1, 5th = 0, plus 1 per kill and 1 for first blood.</p>
+          <div id="rankings-summary" class="stats-panel rankings-summary"></div>
+          <div class="player-table-wrapper">
+            <table class="player-table rankings-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Points</th>
+                  <th>Pts/Game</th>
+                  <th>Games</th>
+                  <th>Wins</th>
+                  <th>Kills</th>
+                  <th>First Blood</th>
+                  <th>Avg Place</th>
+                  <th>Favorite Commander</th>
+                </tr>
+              </thead>
+              <tbody id="rankings-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Recent Trends</h2>
+          <p class="rankings-helper-text">Recent trends use the last 10 recorded games so you can see who is hot right now without losing the bigger picture.</p>
+          <div id="recent-trends-summary" class="stats-panel rankings-summary"></div>
+          <div class="rankings-split-grid">
+            <div>
+              <h3>Players, Last 10 Games</h3>
+              <div class="player-table-wrapper">
+                <table class="player-table rankings-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Games</th>
+                      <th>Points</th>
+                      <th>Win Rate</th>
+                      <th>Kills</th>
+                      <th>First Blood</th>
+                      <th>Avg Place</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-player-trends-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3>Commanders, Last 10 Games</h3>
+              <div class="player-table-wrapper">
+                <table class="player-table rankings-table">
+                  <thead>
+                    <tr>
+                      <th>Commander</th>
+                      <th>Games</th>
+                      <th>Points</th>
+                      <th>Win Rate</th>
+                      <th>Kills</th>
+                      <th>First Blood</th>
+                      <th>Avg Place</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-commander-trends-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Streaks</h2>
+          <p class="rankings-helper-text">Streaks are based on consecutive appearances, not calendar gaps, so idle decks and absent players do not break a run.</p>
+          <div id="streaks-summary" class="stats-panel rankings-summary"></div>
+          <div class="rankings-split-grid">
+            <div>
+              <h3>Player Streaks</h3>
+              <div class="player-table-wrapper">
+                <table class="player-table rankings-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Games</th>
+                      <th>Current Wins</th>
+                      <th>Best Wins</th>
+                      <th>Drought</th>
+                      <th>Last Win</th>
+                    </tr>
+                  </thead>
+                  <tbody id="player-streaks-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3>Commander Streaks</h3>
+              <div class="player-table-wrapper">
+                <table class="player-table rankings-table">
+                  <thead>
+                    <tr>
+                      <th>Commander</th>
+                      <th>Games</th>
+                      <th>Current Wins</th>
+                      <th>Best Wins</th>
+                      <th>Drought</th>
+                      <th>Last Win</th>
+                    </tr>
+                  </thead>
+                  <tbody id="commander-streaks-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

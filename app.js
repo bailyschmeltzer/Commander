@@ -16,6 +16,14 @@ const summaryEl = document.getElementById('summary');
 const playerDatalist = document.getElementById('player-list');
 const commanderDatalist = document.getElementById('commander-list');
 const playerStatsTableBody = document.getElementById('player-stats-body');
+const rankingsSummary = document.getElementById('rankings-summary');
+const rankingsTableBody = document.getElementById('rankings-table-body');
+const recentTrendsSummary = document.getElementById('recent-trends-summary');
+const recentPlayerTrendsBody = document.getElementById('recent-player-trends-body');
+const recentCommanderTrendsBody = document.getElementById('recent-commander-trends-body');
+const streaksSummary = document.getElementById('streaks-summary');
+const playerStreaksBody = document.getElementById('player-streaks-body');
+const commanderStreaksBody = document.getElementById('commander-streaks-body');
 const historyList = document.getElementById('history-list');
 const historySortSelect = document.getElementById('history-sort');
 const historySortOrderButton = document.getElementById('history-sort-order');
@@ -3449,6 +3457,495 @@ function getGameFirstBloodLabel(game) {
   return `${firstBlood.actorPlayer}${commanderText} on ${firstBlood.targetPlayer}${turnText}`;
 }
 
+function getGamesSortedByDateAscending(games) {
+  return [...games]
+    .map((game, index) => ({ game, index }))
+    .sort((a, b) => {
+      const dateResult = (a.game.date || '').localeCompare(b.game.date || '');
+      if (dateResult) {
+        return dateResult;
+      }
+      return a.index - b.index;
+    })
+    .map(({ game }) => game);
+}
+
+function getGameRowPlace(row, game) {
+  if (typeof row?.place === 'number' && row.place > 0) {
+    return row.place;
+  }
+
+  if (Array.isArray(game?.finishOrder) && row?.player) {
+    const finishIndex = game.finishOrder.indexOf(row.player);
+    if (finishIndex >= 0) {
+      return finishIndex + 1;
+    }
+  }
+
+  return null;
+}
+
+function getPlacementPoints(place) {
+  if (place === 1) {
+    return 5;
+  }
+  if (place === 2) {
+    return 3;
+  }
+  if (place === 3) {
+    return 2;
+  }
+  if (place === 4) {
+    return 1;
+  }
+  return 0;
+}
+
+function getRowKills(row) {
+  const killedList = getCleanKilledList(row?.killed);
+  if (typeof row?.kills === 'number' && !Number.isNaN(row.kills)) {
+    return row.kills;
+  }
+  return killedList.length;
+}
+
+function formatAveragePlace(value) {
+  return Number.isFinite(value) ? value.toFixed(2) : '—';
+}
+
+function formatPointsPerGame(value) {
+  return Number.isFinite(value) ? value.toFixed(2) : '0.00';
+}
+
+function compareAggregateEntries(a, b) {
+  if (b.points !== a.points) {
+    return b.points - a.points;
+  }
+  if (b.wins !== a.wins) {
+    return b.wins - a.wins;
+  }
+  if (b.pointsPerGame !== a.pointsPerGame) {
+    return b.pointsPerGame - a.pointsPerGame;
+  }
+  if (b.kills !== a.kills) {
+    return b.kills - a.kills;
+  }
+  if ((a.avgPlace || 999) !== (b.avgPlace || 999)) {
+    return (a.avgPlace || 999) - (b.avgPlace || 999);
+  }
+  if (b.games !== a.games) {
+    return b.games - a.games;
+  }
+  return a.name.localeCompare(b.name);
+}
+
+function buildPlayerRankingEntries(games) {
+  const stats = {};
+
+  games.forEach((game) => {
+    const rows = getGameRows(game);
+    const firstBlood = getGameFirstBloodInfo(game);
+
+    rows.forEach((row) => {
+      const player = String(row.player || '').trim();
+      if (!player) {
+        return;
+      }
+
+      if (!stats[player]) {
+        stats[player] = {
+          name: player,
+          games: 0,
+          wins: 0,
+          kills: 0,
+          firstBloods: 0,
+          points: 0,
+          placementTotal: 0,
+          placementGames: 0,
+          commanders: {},
+        };
+      }
+
+      const entry = stats[player];
+      const place = getGameRowPlace(row, game);
+      const kills = getRowKills(row);
+      const commander = String(row.commander || '').trim();
+      const firstBloodBonus = firstBlood?.actorPlayer === player ? 1 : 0;
+
+      entry.games += 1;
+      entry.kills += kills;
+      entry.firstBloods += firstBloodBonus;
+      entry.points += getPlacementPoints(place) + kills + firstBloodBonus;
+      if (place === 1) {
+        entry.wins += 1;
+      }
+      if (place) {
+        entry.placementTotal += place;
+        entry.placementGames += 1;
+      }
+      if (commander) {
+        entry.commanders[commander] = (entry.commanders[commander] || 0) + 1;
+      }
+    });
+  });
+
+  return Object.values(stats)
+    .map((entry) => ({
+      ...entry,
+      avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
+      pointsPerGame: entry.games ? entry.points / entry.games : 0,
+      winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
+      favoriteCommander: getMaxCountKey(entry.commanders),
+    }))
+    .sort(compareAggregateEntries);
+}
+
+function buildCommanderRankingEntries(games) {
+  const stats = {};
+
+  games.forEach((game) => {
+    const rows = getGameRows(game);
+    const firstBlood = getGameFirstBloodInfo(game);
+
+    rows.forEach((row) => {
+      const commander = String(row.commander || '').trim();
+      if (!commander) {
+        return;
+      }
+
+      if (!stats[commander]) {
+        stats[commander] = {
+          name: commander,
+          games: 0,
+          wins: 0,
+          kills: 0,
+          firstBloods: 0,
+          points: 0,
+          placementTotal: 0,
+          placementGames: 0,
+        };
+      }
+
+      const entry = stats[commander];
+      const place = getGameRowPlace(row, game);
+      const kills = getRowKills(row);
+      const firstBloodBonus = firstBlood?.actorPlayer === row.player ? 1 : 0;
+
+      entry.games += 1;
+      entry.kills += kills;
+      entry.firstBloods += firstBloodBonus;
+      entry.points += getPlacementPoints(place) + kills + firstBloodBonus;
+      if (place === 1) {
+        entry.wins += 1;
+      }
+      if (place) {
+        entry.placementTotal += place;
+        entry.placementGames += 1;
+      }
+    });
+  });
+
+  return Object.values(stats)
+    .map((entry) => ({
+      ...entry,
+      avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
+      pointsPerGame: entry.games ? entry.points / entry.games : 0,
+      winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
+    }))
+    .sort(compareAggregateEntries);
+}
+
+function buildStreakEntries(games, keySelector) {
+  const appearances = {};
+
+  getGamesSortedByDateAscending(games).forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const key = String(keySelector(row) || '').trim();
+      if (!key) {
+        return;
+      }
+
+      if (!appearances[key]) {
+        appearances[key] = [];
+      }
+
+      appearances[key].push({
+        date: String(game.date || '').trim(),
+        win: getGameRowPlace(row, game) === 1,
+      });
+    });
+  });
+
+  return Object.entries(appearances)
+    .map(([name, gamesPlayed]) => {
+      let currentWinStreak = 0;
+      for (let index = gamesPlayed.length - 1; index >= 0; index -= 1) {
+        if (!gamesPlayed[index].win) {
+          break;
+        }
+        currentWinStreak += 1;
+      }
+
+      let bestWinStreak = 0;
+      let runningWinStreak = 0;
+      gamesPlayed.forEach((entry) => {
+        if (entry.win) {
+          runningWinStreak += 1;
+          bestWinStreak = Math.max(bestWinStreak, runningWinStreak);
+          return;
+        }
+        runningWinStreak = 0;
+      });
+
+      const lastWinIndex = gamesPlayed.map((entry) => entry.win).lastIndexOf(true);
+      const drought = lastWinIndex >= 0 ? (gamesPlayed.length - 1) - lastWinIndex : gamesPlayed.length;
+      const lastWinDate = lastWinIndex >= 0 ? gamesPlayed[lastWinIndex].date : '';
+
+      return {
+        name,
+        games: gamesPlayed.length,
+        currentWinStreak,
+        bestWinStreak,
+        drought,
+        lastWinDate,
+      };
+    })
+    .sort((a, b) => {
+      if (b.currentWinStreak !== a.currentWinStreak) {
+        return b.currentWinStreak - a.currentWinStreak;
+      }
+      if (b.bestWinStreak !== a.bestWinStreak) {
+        return b.bestWinStreak - a.bestWinStreak;
+      }
+      if (b.games !== a.games) {
+        return b.games - a.games;
+      }
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function renderStatCardGroup(container, cards) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = '';
+  cards.forEach(({ title, body }) => {
+    container.appendChild(createStatCard(title, body));
+  });
+}
+
+function renderPodRankings(games) {
+  if (!rankingsSummary || !rankingsTableBody) {
+    return;
+  }
+
+  const entries = buildPlayerRankingEntries(games);
+  const recentEntries = buildPlayerRankingEntries(getGamesSortedByDateAscending(games).slice(-10));
+  const commanderEntries = buildCommanderRankingEntries(games);
+  const playerStreaks = buildStreakEntries(games, (row) => row.player);
+
+  if (!entries.length) {
+    renderStatCardGroup(rankingsSummary, [
+      { title: 'No rankings yet', body: 'Save a few games to generate pod standings.' },
+    ]);
+    rankingsTableBody.innerHTML = '<tr><td colspan="10">No rankings available yet.</td></tr>';
+    return;
+  }
+
+  const topPlayer = entries[0];
+  const bestEfficiency = entries
+    .filter((entry) => entry.games >= 3)
+    .sort((a, b) => b.pointsPerGame - a.pointsPerGame)[0] || topPlayer;
+  const hottestRecent = recentEntries[0] || topPlayer;
+  const activeStreakLeader = playerStreaks.find((entry) => entry.currentWinStreak > 0) || null;
+  const topCommander = commanderEntries[0] || null;
+
+  renderStatCardGroup(rankingsSummary, [
+    {
+      title: '#1 Player',
+      body: `${topPlayer.name} with ${topPlayer.points} points across ${topPlayer.games} games.`,
+    },
+    {
+      title: 'Best Efficiency',
+      body: `${bestEfficiency.name} at ${formatPointsPerGame(bestEfficiency.pointsPerGame)} points per game.`,
+    },
+    {
+      title: 'Hottest Last 10',
+      body: `${hottestRecent.name} leads the last 10 with ${hottestRecent.points} points.`,
+    },
+    {
+      title: 'Top Commander',
+      body: topCommander ? `${topCommander.name} with ${topCommander.points} pod points.` : 'No commander data yet.',
+    },
+    {
+      title: 'Active Win Streak',
+      body: activeStreakLeader ? `${activeStreakLeader.name} is on ${activeStreakLeader.currentWinStreak} straight wins.` : 'No active player win streak right now.',
+    },
+  ]);
+
+  rankingsTableBody.innerHTML = entries
+    .map((entry, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${entry.points}</td>
+        <td>${formatPointsPerGame(entry.pointsPerGame)}</td>
+        <td>${entry.games}</td>
+        <td>${entry.wins}</td>
+        <td>${entry.kills}</td>
+        <td>${entry.firstBloods}</td>
+        <td>${formatAveragePlace(entry.avgPlace)}</td>
+        <td>${escapeHtml(entry.favoriteCommander)}</td>
+      </tr>`)
+    .join('');
+}
+
+function renderRecentTrends(games) {
+  if (!recentTrendsSummary || !recentPlayerTrendsBody || !recentCommanderTrendsBody) {
+    return;
+  }
+
+  const recentGames = getGamesSortedByDateAscending(games).slice(-10);
+  const playerEntries = buildPlayerRankingEntries(recentGames);
+  const commanderEntries = buildCommanderRankingEntries(recentGames);
+
+  if (!recentGames.length) {
+    renderStatCardGroup(recentTrendsSummary, [
+      { title: 'No recent trend data', body: 'Play a few games and the last-10-game view will appear here.' },
+    ]);
+    recentPlayerTrendsBody.innerHTML = '<tr><td colspan="7">No recent player trend data yet.</td></tr>';
+    recentCommanderTrendsBody.innerHTML = '<tr><td colspan="7">No recent commander trend data yet.</td></tr>';
+    return;
+  }
+
+  const hottestPlayer = playerEntries
+    .filter((entry) => entry.games >= 2)
+    .sort((a, b) => b.winRate - a.winRate || compareAggregateEntries(a, b))[0] || playerEntries[0] || null;
+  const hottestCommander = commanderEntries
+    .filter((entry) => entry.games >= 2)
+    .sort((a, b) => b.winRate - a.winRate || compareAggregateEntries(a, b))[0] || commanderEntries[0] || null;
+  const killLeader = playerEntries.slice().sort((a, b) => b.kills - a.kills || compareAggregateEntries(a, b))[0] || null;
+  const firstBloodLeader = playerEntries.slice().sort((a, b) => b.firstBloods - a.firstBloods || compareAggregateEntries(a, b))[0] || null;
+
+  renderStatCardGroup(recentTrendsSummary, [
+    {
+      title: 'Hottest Player',
+      body: hottestPlayer ? `${hottestPlayer.name} is at ${formatPercent(hottestPlayer.winRate)} over the last 10 games.` : 'No player trend data yet.',
+    },
+    {
+      title: 'Hottest Commander',
+      body: hottestCommander ? `${hottestCommander.name} is at ${formatPercent(hottestCommander.winRate)} lately.` : 'No commander trend data yet.',
+    },
+    {
+      title: 'Recent Kill Leader',
+      body: killLeader ? `${killLeader.name} logged ${killLeader.kills} kills in the last 10 games.` : 'No recent kills logged yet.',
+    },
+    {
+      title: 'First Blood Leader',
+      body: firstBloodLeader ? `${firstBloodLeader.name} opened ${firstBloodLeader.firstBloods} games with first blood.` : 'No recent first blood leader yet.',
+    },
+  ]);
+
+  recentPlayerTrendsBody.innerHTML = (playerEntries.length ? playerEntries : [])
+    .map((entry) => `
+      <tr>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${entry.games}</td>
+        <td>${entry.points}</td>
+        <td>${formatPercent(entry.winRate)}</td>
+        <td>${entry.kills}</td>
+        <td>${entry.firstBloods}</td>
+        <td>${formatAveragePlace(entry.avgPlace)}</td>
+      </tr>`)
+    .join('') || '<tr><td colspan="7">No recent player trend data yet.</td></tr>';
+
+  recentCommanderTrendsBody.innerHTML = (commanderEntries.length ? commanderEntries : [])
+    .map((entry) => `
+      <tr>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${entry.games}</td>
+        <td>${entry.points}</td>
+        <td>${formatPercent(entry.winRate)}</td>
+        <td>${entry.kills}</td>
+        <td>${entry.firstBloods}</td>
+        <td>${formatAveragePlace(entry.avgPlace)}</td>
+      </tr>`)
+    .join('') || '<tr><td colspan="7">No recent commander trend data yet.</td></tr>';
+}
+
+function renderStreaks(games) {
+  if (!streaksSummary || !playerStreaksBody || !commanderStreaksBody) {
+    return;
+  }
+
+  const playerEntries = buildStreakEntries(games, (row) => row.player);
+  const commanderEntries = buildStreakEntries(games, (row) => row.commander);
+
+  if (!playerEntries.length && !commanderEntries.length) {
+    renderStatCardGroup(streaksSummary, [
+      { title: 'No streak data yet', body: 'Streaks appear once you have saved a few games.' },
+    ]);
+    playerStreaksBody.innerHTML = '<tr><td colspan="6">No player streaks available yet.</td></tr>';
+    commanderStreaksBody.innerHTML = '<tr><td colspan="6">No commander streaks available yet.</td></tr>';
+    return;
+  }
+
+  const activePlayerStreak = playerEntries.find((entry) => entry.currentWinStreak > 0) || null;
+  const bestPlayerStreak = playerEntries.slice().sort((a, b) => b.bestWinStreak - a.bestWinStreak || a.name.localeCompare(b.name))[0] || null;
+  const activeCommanderStreak = commanderEntries.find((entry) => entry.currentWinStreak > 0) || null;
+  const longestDrought = playerEntries.slice().sort((a, b) => b.drought - a.drought || a.name.localeCompare(b.name))[0] || null;
+
+  renderStatCardGroup(streaksSummary, [
+    {
+      title: 'Active Player Streak',
+      body: activePlayerStreak ? `${activePlayerStreak.name} has ${activePlayerStreak.currentWinStreak} consecutive wins.` : 'No active player win streak right now.',
+    },
+    {
+      title: 'Best Player Run',
+      body: bestPlayerStreak ? `${bestPlayerStreak.name} peaked at ${bestPlayerStreak.bestWinStreak} straight wins.` : 'No player win streaks yet.',
+    },
+    {
+      title: 'Active Commander Streak',
+      body: activeCommanderStreak ? `${activeCommanderStreak.name} has ${activeCommanderStreak.currentWinStreak} consecutive wins.` : 'No active commander streak right now.',
+    },
+    {
+      title: 'Longest Drought',
+      body: longestDrought ? `${longestDrought.name} has gone ${longestDrought.drought} appearances without a win.` : 'No drought data yet.',
+    },
+  ]);
+
+  playerStreaksBody.innerHTML = playerEntries.length
+    ? playerEntries.map((entry) => `
+        <tr>
+          <td>${escapeHtml(entry.name)}</td>
+          <td>${entry.games}</td>
+          <td>${entry.currentWinStreak}</td>
+          <td>${entry.bestWinStreak}</td>
+          <td>${entry.drought}</td>
+          <td>${escapeHtml(entry.lastWinDate || '—')}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="6">No player streaks available yet.</td></tr>';
+
+  commanderStreaksBody.innerHTML = commanderEntries.length
+    ? commanderEntries.map((entry) => `
+        <tr>
+          <td>${escapeHtml(entry.name)}</td>
+          <td>${entry.games}</td>
+          <td>${entry.currentWinStreak}</td>
+          <td>${entry.bestWinStreak}</td>
+          <td>${entry.drought}</td>
+          <td>${escapeHtml(entry.lastWinDate || '—')}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="6">No commander streaks available yet.</td></tr>';
+}
+
+function renderRankingsPage(games) {
+  renderPodRankings(games);
+  renderRecentTrends(games);
+  renderStreaks(games);
+}
+
 function getPlayerStatsData(games) {
   const stats = {};
 
@@ -3974,6 +4471,7 @@ function refresh() {
   const games = loadGames();
   updateFormDatalists(games);
   renderSummary(games);
+  renderRankingsPage(games);
   renderPlayerStats(games);
   updateHistoryFilters(games);
   renderHistory(games);
