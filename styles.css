@@ -2403,12 +2403,14 @@ button[type="submit"] {
     color: #44507e;
   }
 
-  .page-rankings .rankings-table td:last-child::before {
+  .page-rankings .rankings-main-table td:last-child::before {
     content: 'Favorite\ACommander';
     white-space: pre-line;
+    hyphens: none;
+    word-break: normal;
   }
 
-  .page-rankings .rankings-table td:last-child {
+  .page-rankings .rankings-main-table td:last-child {
     grid-template-columns: minmax(112px, 136px) minmax(0, 1fr);
     word-break: normal;
   }

@@ -3582,6 +3582,8 @@ function compareRankingsEntries(a, b) {
 function buildPlayerRankingEntries(games) {
   const stats = {};
   const eloKFactor = 28;
+  const streakBonusStep = 3;
+  const maxStreakBonus = 18;
 
   getGamesSortedByDateAscending(games).forEach((game) => {
     const rows = getGameRows(game);
@@ -3603,6 +3605,7 @@ function buildPlayerRankingEntries(games) {
           firstBloods: 0,
           points: 0,
           rating: 1500,
+          currentWinStreak: 0,
           placementTotal: 0,
           placementGames: 0,
           commanders: {},
@@ -3657,7 +3660,18 @@ function buildPlayerRankingEntries(games) {
         ratingDelta += actualScore - expectedScore;
       });
 
-      stats[player].rating += eloKFactor * (ratingDelta / (participants.length - 1));
+      const baseRatingChange = eloKFactor * (ratingDelta / (participants.length - 1));
+      if (place === 1) {
+        stats[player].currentWinStreak += 1;
+      } else {
+        stats[player].currentWinStreak = 0;
+      }
+
+      const streakBonus = stats[player].currentWinStreak > 1
+        ? Math.min(maxStreakBonus, (stats[player].currentWinStreak - 1) * streakBonusStep)
+        : 0;
+
+      stats[player].rating += baseRatingChange + streakBonus;
     });
   });
 
