@@ -393,7 +393,7 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
 function isLiveMobileTableMode() {
   return window.matchMedia('(max-width: 900px)').matches
     && Boolean(activeGameState)
-    && getActiveAlivePlayers(activeGameState).length === 4;
+    && (activeGameState.players || []).length === 4;
 }
 
 function updateLiveTableModeClass() {
@@ -454,6 +454,10 @@ function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePla
   }
 
   if (eventType === 'elimination' || eventType === 'commander-damage') {
+    return true;
+  }
+
+  if (eventType === 'life-loss' && !activeGameState.firstBlood) {
     return true;
   }
 
@@ -567,7 +571,10 @@ async function resolveLiveSourceSelection({ targetPlayerId, eventType, amount, p
   }
 
   if (eventType !== 'elimination') {
-    activeGameState.shouldPromptForSource = projectedLife <= 0 && !targetPlayer.cannotLoseTheGame;
+    const stillNeedsFirstBlood = eventType === 'life-loss'
+      && !activeGameState.firstBlood
+      && (!selectedSourceId || selectedSourceId === targetPlayerId);
+    activeGameState.shouldPromptForSource = stillNeedsFirstBlood || (projectedLife <= 0 && !targetPlayer.cannotLoseTheGame);
   }
 
   return selectedSourceId || '';
@@ -801,7 +808,7 @@ function renderLivePlayerGrid() {
   }
 
   const isMobileTable = isLiveMobileTableMode();
-  const playersToRender = isMobileTable ? getActiveAlivePlayers(activeGameState) : activeGameState.players;
+  const playersToRender = activeGameState.players;
 
   livePlayerGrid.innerHTML = playersToRender
     .slice()
@@ -879,7 +886,7 @@ function renderLivePlayerGrid() {
                 <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
                 <label class="live-player-toggle live-player-toggle-compact">
                   <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
-                  <span>No lose</span>
+                  <span>No<br />lose</span>
                 </label>
               </div>
               <div class="live-player-counter-column">

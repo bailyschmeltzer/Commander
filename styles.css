@@ -1287,24 +1287,31 @@ button[type="submit"] {
 .live-player-toggle-compact {
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: 8px 6px;
+  align-content: center;
+  gap: 2px;
+  min-height: 0;
+  padding: 4px 2px;
   border-radius: 10px;
   border: 1px solid #d4dcf0;
   background: #ffffff;
   color: #243661;
   font-weight: 700;
   text-align: center;
+  overflow: hidden;
 }
 
 .live-player-toggle-compact span {
-  line-height: 1.1;
+  display: block;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  word-break: keep-all;
 }
 
 .live-player-toggle-compact input {
   width: auto;
   min-width: auto;
   margin: 0;
+  transform: scale(0.9);
 }
 
 .live-card-damage-list {
@@ -1322,7 +1329,8 @@ button[type="submit"] {
 }
 
 .live-player-card.is-eliminated {
-  opacity: 0.72;
+  opacity: 0.58;
+  filter: grayscale(0.35);
 }
 
 .live-player-card-header {
@@ -1703,13 +1711,14 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-toggle-compact {
-    padding: 4px 2px;
-    gap: 2px;
+    padding: 3px 1px;
+    gap: 1px;
   }
 
   .page-live-game.live-table-mode .live-player-toggle-compact span {
-    line-height: 0.95;
-    letter-spacing: -0.01em;
+    font-size: 0.58rem;
+    line-height: 0.86;
+    letter-spacing: -0.02em;
   }
 
   .page-live-game.live-table-mode .live-player-counter-column {
