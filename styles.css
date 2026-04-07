@@ -738,9 +738,15 @@ button[type="submit"] {
   margin: 0 0 12px;
 }
 
+.page-rankings .rankings-table {
+  table-layout: auto;
+}
+
 .rankings-table th,
 .rankings-table td {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rankings-games-column,
@@ -748,6 +754,22 @@ button[type="submit"] {
   width: 4ch;
   max-width: 4ch;
   text-align: center;
+}
+
+.page-rankings .rankings-table th:nth-child(2),
+.page-rankings .rankings-table td:nth-child(2),
+.page-rankings .rankings-table th:nth-child(3),
+.page-rankings .rankings-table td:nth-child(3),
+.page-rankings .rankings-table th:nth-child(4),
+.page-rankings .rankings-table td:nth-child(4),
+.page-rankings .rankings-table th:nth-child(5),
+.page-rankings .rankings-table td:nth-child(5) {
+  width: auto;
+}
+
+.page-rankings .rankings-table th:last-child,
+.page-rankings .rankings-table td:last-child {
+  white-space: nowrap;
 }
 
 .stats-card,
