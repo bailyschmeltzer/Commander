@@ -13,6 +13,7 @@ const playerTableBody = document.getElementById('player-table-body');
 const addPlayerRowButton = document.getElementById('add-player-row');
 const notesInput = document.getElementById('game-notes');
 const firstBloodPlayerInput = document.getElementById('game-first-blood-player');
+const firstBloodPlayerMenu = document.getElementById('game-first-blood-menu');
 const firstBloodTurnInput = document.getElementById('game-first-blood-turn');
 const winningTurnInput = document.getElementById('game-winning-turn');
 const summaryEl = document.getElementById('summary');
@@ -2619,8 +2620,12 @@ function updateFormDatalists(games) {
   if (commanderDatalist) {
     buildDatalistOptions(commanderDatalist, knownCommanders);
   }
+  if (firstBloodPlayerMenu) {
+    buildDropdownMenu(firstBloodPlayerMenu, knownPlayers);
+  }
 
   refreshRowSelectors();
+  attachLookupWrapperHandlers(form || document);
   populateDeckCommanderSelector();
   populateRecordLookupMenus();
 }

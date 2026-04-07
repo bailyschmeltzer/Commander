@@ -53,7 +53,11 @@
             <div class="field-grid">
               <div class="field">
                 <label for="game-first-blood-player">First blood</label>
-                <input id="game-first-blood-player" type="text" list="player-list" placeholder="Player who drew first blood" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+                <div class="combined-input-wrapper">
+                  <input id="game-first-blood-player" class="lookup-input" type="text" list="player-list" placeholder="Player who drew first blood" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+                  <button type="button" class="dropdown-button" title="Show options">▼</button>
+                  <div id="game-first-blood-menu" class="dropdown-menu"></div>
+                </div>
               </div>
               <div class="field">
                 <label for="game-first-blood-turn">First blood turn</label>
