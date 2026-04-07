@@ -3831,12 +3831,13 @@ function renderPodRankings(games) {
   const recentEntries = buildPlayerRankingEntries(getGamesSortedByDateAscending(games).slice(-10));
   const commanderEntries = buildCommanderRankingEntries(games);
   const playerStreaks = buildStreakEntries(games, (row) => row.player);
+  const playerStreaksByName = new Map(playerStreaks.map((entry) => [entry.name, entry]));
 
   if (!entries.length) {
     renderStatCardGroup(rankingsSummary, [
       { title: 'No rankings yet', body: 'Save a few games to generate pod standings.' },
     ]);
-    rankingsTableBody.innerHTML = '<tr><td colspan="10">No rankings available yet.</td></tr>';
+    rankingsTableBody.innerHTML = '<tr><td colspan="12">No rankings available yet.</td></tr>';
     return;
   }
 
@@ -3876,7 +3877,9 @@ function renderPodRankings(games) {
   ]);
 
   rankingsTableBody.innerHTML = entries
-    .map((entry, index) => `
+    .map((entry, index) => {
+      const streakEntry = playerStreaksByName.get(entry.name) || { currentWinStreak: 0, bestWinStreak: 0 };
+      return `
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(entry.name)}</td>
@@ -3884,11 +3887,14 @@ function renderPodRankings(games) {
         <td>${formatPointsPerGame(entry.pointsPerGame)}</td>
         <td class="rankings-games-cell">${entry.games}</td>
         <td>${entry.wins}</td>
+        <td>${streakEntry.currentWinStreak}</td>
+        <td>${streakEntry.bestWinStreak}</td>
         <td>${entry.kills}</td>
         <td>${entry.firstBloods}</td>
         <td>${formatAveragePlace(entry.avgPlace)}</td>
         <td>${escapeHtml(entry.favoriteCommander)}</td>
-      </tr>`)
+      </tr>`;
+    })
     .join('');
 }
 

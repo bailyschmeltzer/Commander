@@ -749,8 +749,8 @@ button[type="submit"] {
   text-overflow: ellipsis;
 }
 
-.rankings-games-column,
-.rankings-games-cell {
+.page-rankings .rankings-main-table .rankings-games-column,
+.page-rankings .rankings-main-table .rankings-games-cell {
   width: 4ch;
   max-width: 4ch;
   text-align: center;
@@ -2404,15 +2404,22 @@ button[type="submit"] {
   }
 
   .page-rankings .rankings-main-table td:last-child::before {
-    content: 'Favorite\ACommander';
-    white-space: pre-line;
+    content: 'Favorite Commander';
+    white-space: nowrap;
     hyphens: none;
+    overflow-wrap: normal;
     word-break: normal;
   }
 
   .page-rankings .rankings-main-table td:last-child {
-    grid-template-columns: minmax(112px, 136px) minmax(0, 1fr);
+    grid-template-columns: minmax(132px, 164px) minmax(0, 1fr);
     word-break: normal;
+  }
+
+  .page-rankings .rankings-main-table td.rankings-games-cell {
+    width: 100% !important;
+    max-width: none;
+    text-align: left;
   }
 
   .player-table td[colspan],
