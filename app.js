@@ -3675,6 +3675,7 @@ function compareRankingsEntries(a, b) {
 function buildPlayerRankingEntries(games) {
   const stats = {};
   const eloKFactor = 28;
+  const eloKillBonus = 2;
   const streakBonusStep = 3;
   const maxStreakBonus = 18;
 
@@ -3742,6 +3743,7 @@ function buildPlayerRankingEntries(games) {
 
     participants.forEach(({ player, place }) => {
       let ratingDelta = 0;
+      const kills = getRowKills(rows.find((row) => String(row.player || '').trim() === player));
 
       participants.forEach((opponent) => {
         if (opponent.player === player) {
@@ -3764,7 +3766,7 @@ function buildPlayerRankingEntries(games) {
         ? Math.min(maxStreakBonus, (stats[player].currentWinStreak - 1) * streakBonusStep)
         : 0;
 
-      stats[player].rating += baseRatingChange + streakBonus;
+      stats[player].rating += baseRatingChange + streakBonus + (kills * eloKillBonus);
     });
   });
 
