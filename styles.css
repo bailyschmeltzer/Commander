@@ -2427,6 +2427,11 @@ button[type="submit"] {
     grid-template-columns: minmax(122px, 148px) minmax(0, 1fr);
   }
 
+  .page-rankings .rankings-streaks-table td:nth-child(3),
+  .page-rankings .rankings-streaks-table td:nth-child(4) {
+    grid-template-columns: minmax(122px, 148px) minmax(0, 1fr);
+  }
+
   .player-table td[colspan],
   .history-game-table td[colspan] {
     display: block;
