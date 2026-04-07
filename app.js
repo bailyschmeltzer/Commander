@@ -3672,12 +3672,39 @@ function compareRankingsEntries(a, b) {
   return a.name.localeCompare(b.name);
 }
 
+function getPlayerGameWindowLookup(games, gameLimit = 10) {
+  const appearancesByPlayer = new Map();
+
+  getGamesSortedByDateAscending(games).forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const player = String(row.player || '').trim();
+      if (!player) {
+        return;
+      }
+
+      if (!appearancesByPlayer.has(player)) {
+        appearancesByPlayer.set(player, []);
+      }
+
+      appearancesByPlayer.get(player).push(game.id);
+    });
+  });
+
+  return new Map(
+    Array.from(appearancesByPlayer.entries()).map(([player, gameIds]) => [
+      player,
+      new Set(gameIds.slice(-gameLimit)),
+    ]),
+  );
+}
+
 function buildPlayerRankingEntries(games) {
   const stats = {};
   const eloKFactor = 28;
   const eloKillBonus = 2;
   const streakBonusStep = 3;
   const maxStreakBonus = 18;
+  const playerGameWindowLookup = getPlayerGameWindowLookup(games, 10);
 
   getGamesSortedByDateAscending(games).forEach((game) => {
     const rows = getGameRows(game);
@@ -3711,25 +3738,30 @@ function buildPlayerRankingEntries(games) {
       const kills = getRowKills(row);
       const commander = String(row.commander || '').trim();
       const firstBloodBonus = firstBlood?.actorPlayer === player ? 1 : 0;
+      const isInPlayerWindow = playerGameWindowLookup.get(player)?.has(game.id) ?? true;
 
-      entry.games += 1;
-      entry.kills += kills;
-      entry.firstBloods += firstBloodBonus;
-      entry.points += getPlacementPoints(place) + kills + firstBloodBonus;
-      if (place === 1) {
-        entry.wins += 1;
-      }
-      if (place) {
-        entry.placementTotal += place;
-        entry.placementGames += 1;
-      }
-      if (commander) {
-        entry.commanders[commander] = (entry.commanders[commander] || 0) + 1;
+      if (isInPlayerWindow) {
+        entry.games += 1;
+        entry.kills += kills;
+        entry.firstBloods += firstBloodBonus;
+        entry.points += getPlacementPoints(place) + kills + firstBloodBonus;
+        if (place === 1) {
+          entry.wins += 1;
+        }
+        if (place) {
+          entry.placementTotal += place;
+          entry.placementGames += 1;
+        }
+        if (commander) {
+          entry.commanders[commander] = (entry.commanders[commander] || 0) + 1;
+        }
       }
 
       participants.push({
         player,
         place,
+        kills,
+        isInPlayerWindow,
       });
     });
 
@@ -3741,9 +3773,12 @@ function buildPlayerRankingEntries(games) {
       participants.map(({ player }) => [player, stats[player].rating]),
     );
 
-    participants.forEach(({ player, place }) => {
+    participants.forEach(({ player, place, kills, isInPlayerWindow }) => {
+      if (!isInPlayerWindow) {
+        return;
+      }
+
       let ratingDelta = 0;
-      const kills = getRowKills(rows.find((row) => String(row.player || '').trim() === player));
 
       participants.forEach((opponent) => {
         if (opponent.player === player) {
@@ -3771,6 +3806,7 @@ function buildPlayerRankingEntries(games) {
   });
 
   return Object.values(stats)
+    .filter((entry) => entry.games > 0)
     .map((entry) => ({
       ...entry,
       rating: Math.round(entry.rating),
