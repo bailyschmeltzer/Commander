@@ -44,7 +44,7 @@
       <main>
         <section class="card">
           <h2>Pod Rankings</h2>
-          <p class="rankings-helper-text">Standings use a placement-weighted pod score: 1st = 5, 2nd = 3, 3rd = 2, 4th = 1, 5th = 0, plus 1 per kill and 1 for first blood.</p>
+          <p class="rankings-helper-text">Standings use a multiplayer ELO-style rating based on where each player finished against the rest of the table. Volume helps confidence, but strong results matter more than simply playing more often.</p>
           <div id="rankings-summary" class="stats-panel rankings-summary"></div>
           <div class="player-table-wrapper">
             <table class="player-table rankings-table">
@@ -52,9 +52,9 @@
                 <tr>
                   <th>Rank</th>
                   <th>Player</th>
-                  <th>Points</th>
-                  <th>Pts/Game</th>
-                  <th>Games</th>
+                  <th>Rating</th>
+                  <th>Perf/Game</th>
+                  <th class="rankings-games-column">Games</th>
                   <th>Wins</th>
                   <th>Kills</th>
                   <th>First Blood</th>

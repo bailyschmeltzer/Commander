@@ -743,6 +743,13 @@ button[type="submit"] {
   white-space: nowrap;
 }
 
+.rankings-games-column,
+.rankings-games-cell {
+  width: 4ch;
+  max-width: 4ch;
+  text-align: center;
+}
+
 .stats-card,
 .history-item {
   border: 1px solid #e4e8f2;

@@ -3501,6 +3501,23 @@ function getPlacementPoints(place) {
   return 0;
 }
 
+function getPairwiseActualScore(placeA, placeB) {
+  if (!placeA || !placeB) {
+    return 0.5;
+  }
+  if (placeA < placeB) {
+    return 1;
+  }
+  if (placeA > placeB) {
+    return 0;
+  }
+  return 0.5;
+}
+
+function getExpectedEloScore(ratingA, ratingB) {
+  return 1 / (1 + (10 ** ((ratingB - ratingA) / 400)));
+}
+
 function getRowKills(row) {
   const killedList = getCleanKilledList(row?.killed);
   if (typeof row?.kills === 'number' && !Number.isNaN(row.kills)) {
@@ -3515,6 +3532,10 @@ function formatAveragePlace(value) {
 
 function formatPointsPerGame(value) {
   return Number.isFinite(value) ? value.toFixed(2) : '0.00';
+}
+
+function formatRating(value) {
+  return Number.isFinite(value) ? String(Math.round(value)) : '1500';
 }
 
 function compareAggregateEntries(a, b) {
@@ -3539,12 +3560,33 @@ function compareAggregateEntries(a, b) {
   return a.name.localeCompare(b.name);
 }
 
+function compareRankingsEntries(a, b) {
+  if (b.rating !== a.rating) {
+    return b.rating - a.rating;
+  }
+  if (b.pointsPerGame !== a.pointsPerGame) {
+    return b.pointsPerGame - a.pointsPerGame;
+  }
+  if (b.winRate !== a.winRate) {
+    return b.winRate - a.winRate;
+  }
+  if ((a.avgPlace || 999) !== (b.avgPlace || 999)) {
+    return (a.avgPlace || 999) - (b.avgPlace || 999);
+  }
+  if (b.games !== a.games) {
+    return b.games - a.games;
+  }
+  return a.name.localeCompare(b.name);
+}
+
 function buildPlayerRankingEntries(games) {
   const stats = {};
+  const eloKFactor = 28;
 
-  games.forEach((game) => {
+  getGamesSortedByDateAscending(games).forEach((game) => {
     const rows = getGameRows(game);
     const firstBlood = getGameFirstBloodInfo(game);
+    const participants = [];
 
     rows.forEach((row) => {
       const player = String(row.player || '').trim();
@@ -3560,6 +3602,7 @@ function buildPlayerRankingEntries(games) {
           kills: 0,
           firstBloods: 0,
           points: 0,
+          rating: 1500,
           placementTotal: 0,
           placementGames: 0,
           commanders: {},
@@ -3586,18 +3629,48 @@ function buildPlayerRankingEntries(games) {
       if (commander) {
         entry.commanders[commander] = (entry.commanders[commander] || 0) + 1;
       }
+
+      participants.push({
+        player,
+        place,
+      });
+    });
+
+    if (participants.length < 2) {
+      return;
+    }
+
+    const preGameRatings = Object.fromEntries(
+      participants.map(({ player }) => [player, stats[player].rating]),
+    );
+
+    participants.forEach(({ player, place }) => {
+      let ratingDelta = 0;
+
+      participants.forEach((opponent) => {
+        if (opponent.player === player) {
+          return;
+        }
+
+        const actualScore = getPairwiseActualScore(place, opponent.place);
+        const expectedScore = getExpectedEloScore(preGameRatings[player], preGameRatings[opponent.player]);
+        ratingDelta += actualScore - expectedScore;
+      });
+
+      stats[player].rating += eloKFactor * (ratingDelta / (participants.length - 1));
     });
   });
 
   return Object.values(stats)
     .map((entry) => ({
       ...entry,
+      rating: Math.round(entry.rating),
       avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
       pointsPerGame: entry.games ? entry.points / entry.games : 0,
       winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
       favoriteCommander: getMaxCountKey(entry.commanders),
     }))
-    .sort(compareAggregateEntries);
+    .sort(compareRankingsEntries);
 }
 
 function buildCommanderRankingEntries(games) {
@@ -3759,24 +3832,28 @@ function renderPodRankings(games) {
     .sort((a, b) => b.pointsPerGame - a.pointsPerGame)[0] || topPlayer;
   const hottestRecent = recentEntries[0] || topPlayer;
   const activeStreakLeader = playerStreaks.find((entry) => entry.currentWinStreak > 0) || null;
-  const topCommander = commanderEntries[0] || null;
+  const topCommander = commanderEntries
+    .filter((entry) => entry.games >= 3)
+    .sort((a, b) => b.pointsPerGame - a.pointsPerGame || compareAggregateEntries(a, b))[0]
+    || commanderEntries[0]
+    || null;
 
   renderStatCardGroup(rankingsSummary, [
     {
       title: '#1 Player',
-      body: `${topPlayer.name} with ${topPlayer.points} points across ${topPlayer.games} games.`,
+      body: `${topPlayer.name} leads at ${formatRating(topPlayer.rating)} ELO across ${topPlayer.games} games.`,
     },
     {
       title: 'Best Efficiency',
-      body: `${bestEfficiency.name} at ${formatPointsPerGame(bestEfficiency.pointsPerGame)} points per game.`,
+      body: `${bestEfficiency.name} averages ${formatPointsPerGame(bestEfficiency.pointsPerGame)} placement points per game.`,
     },
     {
       title: 'Hottest Last 10',
-      body: `${hottestRecent.name} leads the last 10 with ${hottestRecent.points} points.`,
+      body: `${hottestRecent.name} tops the last 10 at ${formatRating(hottestRecent.rating)} ELO.`,
     },
     {
-      title: 'Top Commander',
-      body: topCommander ? `${topCommander.name} with ${topCommander.points} pod points.` : 'No commander data yet.',
+      title: 'Best Commander Form',
+      body: topCommander ? `${topCommander.name} averages ${formatPointsPerGame(topCommander.pointsPerGame)} placement points per game.` : 'No commander data yet.',
     },
     {
       title: 'Active Win Streak',
@@ -3789,9 +3866,9 @@ function renderPodRankings(games) {
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(entry.name)}</td>
-        <td>${entry.points}</td>
+        <td>${formatRating(entry.rating)}</td>
         <td>${formatPointsPerGame(entry.pointsPerGame)}</td>
-        <td>${entry.games}</td>
+        <td class="rankings-games-cell">${entry.games}</td>
         <td>${entry.wins}</td>
         <td>${entry.kills}</td>
         <td>${entry.firstBloods}</td>
