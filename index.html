@@ -50,17 +50,33 @@
               <input type="date" id="game-date" required />
             </div>
 
+            <div class="field-grid">
+              <div class="field">
+                <label for="game-first-blood-player">First blood</label>
+                <input id="game-first-blood-player" type="text" list="player-list" placeholder="Player who drew first blood" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+              </div>
+              <div class="field">
+                <label for="game-first-blood-turn">First blood turn</label>
+                <input id="game-first-blood-turn" type="number" min="1" placeholder="Optional" />
+              </div>
+              <div class="field">
+                <label for="game-winning-turn">Turn won</label>
+                <input id="game-winning-turn" type="number" min="1" placeholder="Optional" />
+              </div>
+            </div>
+
             <div class="field full-width">
               <label>Player details</label>
               <small>Choose an existing player or commander from the dropdown, or type a new one.</small>
               <div class="player-table-wrapper">
                 <table class="player-table">
                   <colgroup>
-                    <col style="width: 18%;" />
-                    <col style="width: 22%;" />
+                    <col style="width: 16%;" />
+                    <col style="width: 19%;" />
                     <col style="width: 8%;" />
                     <col style="width: 8%;" />
-                    <col style="width: 44%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 39%;" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -68,6 +84,7 @@
                       <th>Commander</th>
                       <th>Place</th>
                       <th>Kills</th>
+                      <th>Turn Killed</th>
                       <th>Killed (Separate with a comma)</th>
                   </thead>
                   <tbody id="player-table-body"></tbody>

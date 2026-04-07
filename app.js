@@ -12,6 +12,9 @@ const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
 const addPlayerRowButton = document.getElementById('add-player-row');
 const notesInput = document.getElementById('game-notes');
+const firstBloodPlayerInput = document.getElementById('game-first-blood-player');
+const firstBloodTurnInput = document.getElementById('game-first-blood-turn');
+const winningTurnInput = document.getElementById('game-winning-turn');
 const summaryEl = document.getElementById('summary');
 const playerDatalist = document.getElementById('player-list');
 const commanderDatalist = document.getElementById('commander-list');
@@ -1731,6 +1734,7 @@ function createPlayerRow(data = {}) {
     </td>
     <td><input type="number" name="place" min="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
     <td><input type="number" name="kills" min="0" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
+    <td><input type="number" name="turnKilled" min="1" value="${escapeHtml(data.turnKilled || '')}" placeholder="Turn" /></td>
     <td><textarea name="killed" placeholder="Killed">${escapeHtml(killedValue)}</textarea></td>
   `;
 
@@ -1763,6 +1767,7 @@ function getPlayerRows() {
     const commander = row.querySelector('[name="commander"]').value.trim();
     const placeRaw = row.querySelector('input[name="place"]').value;
     const killsRaw = row.querySelector('input[name="kills"]').value;
+    const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value;
     const killed = normalizeList(row.querySelector('[name="killed"]').value);
 
     return {
@@ -1770,9 +1775,81 @@ function getPlayerRows() {
       commander,
       place: placeRaw ? parseInt(placeRaw, 10) : null,
       kills: killsRaw ? parseInt(killsRaw, 10) : 0,
+      turnKilled: turnKilledRaw ? parseInt(turnKilledRaw, 10) : null,
       killed,
     };
   }).filter((row) => row.player);
+}
+
+function parseOptionalPositiveInteger(value) {
+  const parsedValue = parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function buildManualGameRecordStats(rows, gameDate) {
+  const eliminatedRows = rows.filter((row) => typeof row.turnKilled === 'number' && row.turnKilled > 0);
+  if (!eliminatedRows.length) {
+    return null;
+  }
+
+  const fastestEliminationRow = eliminatedRows.slice().sort((a, b) => a.turnKilled - b.turnKilled || a.player.localeCompare(b.player))[0];
+  return {
+    fastestElimination: createRecordCandidate({
+      value: fastestEliminationRow.turnKilled,
+      holder: '',
+      commander: '',
+      date: gameDate,
+      notes: `${fastestEliminationRow.player} was eliminated on turn ${fastestEliminationRow.turnKilled}.`,
+    }),
+  };
+}
+
+function buildManualGameLiveSummary(rows, gameDate, firstBloodPlayer, firstBloodTurn, winningTurn) {
+  const normalizedFirstBloodPlayer = String(firstBloodPlayer || '').trim();
+  const normalizedFirstBloodTurn = parseOptionalPositiveInteger(firstBloodTurn);
+  const normalizedWinningTurn = parseOptionalPositiveInteger(winningTurn);
+  const firstBloodCommander = normalizedFirstBloodPlayer
+    ? rows.find((row) => row.player === normalizedFirstBloodPlayer)?.commander || ''
+    : '';
+  const recordStats = buildManualGameRecordStats(rows, gameDate);
+
+  if (!normalizedFirstBloodPlayer && !normalizedWinningTurn && !recordStats) {
+    return null;
+  }
+
+  return {
+    firstBlood: normalizedFirstBloodPlayer
+      ? {
+        actorPlayer: normalizedFirstBloodPlayer,
+        actorCommander: firstBloodCommander,
+        targetPlayer: '',
+        turnNumber: normalizedFirstBloodTurn,
+      }
+      : null,
+    recordStats,
+    turnNumber: normalizedWinningTurn,
+  };
+}
+
+function mergeEditedGameLiveSummary(existingLiveSummary, manualLiveSummary) {
+  if (!manualLiveSummary) {
+    return null;
+  }
+
+  const existingFirstBlood = existingLiveSummary?.firstBlood;
+  const manualFirstBlood = manualLiveSummary.firstBlood;
+
+  return {
+    ...manualLiveSummary,
+    firstBlood: manualFirstBlood
+      ? {
+        ...existingFirstBlood,
+        ...manualFirstBlood,
+        targetPlayer: manualFirstBlood.targetPlayer || existingFirstBlood?.targetPlayer || '',
+      }
+      : null,
+    recordStats: manualLiveSummary.recordStats || existingLiveSummary?.recordStats || null,
+  };
 }
 
 function createStatCard(title, body) {
@@ -2166,9 +2243,17 @@ function setEditMode(game) {
 
   dateInput.value = game.date || new Date().toISOString().slice(0, 10);
   notesInput.value = game.notes || '';
+  if (firstBloodPlayerInput) {
+    firstBloodPlayerInput.value = game.liveSummary?.firstBlood?.actorPlayer || '';
+  }
+  if (firstBloodTurnInput) {
+    firstBloodTurnInput.value = game.liveSummary?.firstBlood?.turnNumber || '';
+  }
+  if (winningTurnInput) {
+    winningTurnInput.value = game.liveSummary?.turnNumber || '';
+  }
 
   resetPlayerTable();
-  const rows = getPlayerRows();
   const existingRows = game.playerRows && game.playerRows.length ? game.playerRows : getGameRows(game);
 
   playerTableBody.innerHTML = '';
@@ -3434,7 +3519,7 @@ function getGameFirstBloodInfo(game) {
   const targetPlayer = String(firstBlood.targetPlayer || '').trim();
   const turnNumber = typeof firstBlood.turnNumber === 'number' ? firstBlood.turnNumber : null;
 
-  if (!actorPlayer || !targetPlayer) {
+  if (!actorPlayer) {
     return null;
   }
 
@@ -3454,6 +3539,9 @@ function getGameFirstBloodLabel(game) {
 
   const commanderText = firstBlood.actorCommander ? ` (${firstBlood.actorCommander})` : '';
   const turnText = firstBlood.turnNumber ? ` on turn ${firstBlood.turnNumber}` : '';
+  if (!firstBlood.targetPlayer) {
+    return `${firstBlood.actorPlayer}${commanderText}${turnText}`;
+  }
   return `${firstBlood.actorPlayer}${commanderText} on ${firstBlood.targetPlayer}${turnText}`;
 }
 
@@ -4627,10 +4715,25 @@ if (form) {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const games = loadGames();
+    const existingGame = editingGameId ? games.find((game) => game.id === editingGameId) || null : null;
 
     const rows = getPlayerRows();
     if (!rows.length) {
       alert('Please add at least one player row with a player name.');
+      return;
+    }
+
+    const firstBloodPlayer = firstBloodPlayerInput?.value.trim() || '';
+    const firstBloodTurn = parseOptionalPositiveInteger(firstBloodTurnInput?.value || '');
+    const winningTurn = parseOptionalPositiveInteger(winningTurnInput?.value || '');
+
+    if (firstBloodTurn && !firstBloodPlayer) {
+      alert('Enter the player who got first blood before adding a first blood turn.');
+      return;
+    }
+
+    if (firstBloodPlayer && !rows.some((row) => row.player === firstBloodPlayer)) {
+      alert('First blood must match one of the players in this game.');
       return;
     }
 
@@ -4641,6 +4744,13 @@ if (form) {
       .filter((row) => row.place !== null)
       .sort((a, b) => (a.place || 999) - (b.place || 999))
       .map((row) => row.player);
+    const manualLiveSummary = buildManualGameLiveSummary(
+      rows,
+      dateInput.value || new Date().toISOString().slice(0, 10),
+      firstBloodPlayer,
+      firstBloodTurn,
+      winningTurn,
+    );
 
     const newGame = {
       id: editingGameId || generateId(),
@@ -4649,6 +4759,7 @@ if (form) {
       players: rows.map(({ player }) => player),
       playerCommanders,
       finishOrder,
+      liveSummary: mergeEditedGameLiveSummary(existingGame?.liveSummary, manualLiveSummary),
       notes: notesInput.value.trim(),
     };
 
