@@ -101,7 +101,7 @@ let syncInFlight = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let activeGameState = null;
-let activeGameUndoState = null;
+let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
 let liveSourcePromptResolver = null;
 let liveHoldTimerId = null;
@@ -153,17 +153,27 @@ function loadActiveGameState() {
 }
 
 function loadActiveGameUndoState() {
-  return parseJsonSafe(localStorage.getItem(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
+  const storedState = parseJsonSafe(localStorage.getItem(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
+  if (Array.isArray(storedState)) {
+    return storedState.map((entry) => cloneActiveGameState(entry)).filter(Boolean);
+  }
+  return storedState ? [cloneActiveGameState(storedState)] : [];
 }
 
 function persistActiveGameUndoState(state) {
-  activeGameUndoState = state || null;
-  if (!state) {
+  const normalizedState = Array.isArray(state)
+    ? state.map((entry) => cloneActiveGameState(entry)).filter(Boolean)
+    : state
+      ? [cloneActiveGameState(state)]
+      : [];
+
+  activeGameUndoState = normalizedState;
+  if (!normalizedState.length) {
     localStorage.removeItem(ACTIVE_GAME_UNDO_STORAGE_KEY);
     return;
   }
 
-  localStorage.setItem(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(normalizedState));
 }
 
 function cloneActiveGameState(state) {
@@ -176,7 +186,10 @@ function saveUndoSnapshot() {
     return;
   }
 
-  persistActiveGameUndoState(cloneActiveGameState(activeGameState));
+  persistActiveGameUndoState([
+    ...activeGameUndoState,
+    cloneActiveGameState(activeGameState),
+  ]);
 }
 
 function persistActiveGameState(state) {
@@ -390,14 +403,47 @@ function getCurrentTurnPlayer(activeGame = activeGameState) {
   return activeGame.players.find((player) => player.id === currentPlayerId) || null;
 }
 
+function getLiveMobileTablePlayerCount(activeGame = activeGameState) {
+  if (!window.matchMedia('(max-width: 900px)').matches || !activeGame) {
+    return 0;
+  }
+
+  const playerCount = (activeGame.players || []).length;
+  return playerCount === 4 || playerCount === 5 ? playerCount : 0;
+}
+
 function isLiveMobileTableMode() {
-  return window.matchMedia('(max-width: 900px)').matches
-    && Boolean(activeGameState)
-    && (activeGameState.players || []).length === 4;
+  return getLiveMobileTablePlayerCount() > 0;
 }
 
 function updateLiveTableModeClass() {
-  document.body.classList.toggle('live-table-mode', isLiveMobileTableMode());
+  const mobileTablePlayerCount = getLiveMobileTablePlayerCount();
+  document.body.classList.toggle('live-table-mode', mobileTablePlayerCount > 0);
+  document.body.classList.toggle('live-table-mode-4', mobileTablePlayerCount === 4);
+  document.body.classList.toggle('live-table-mode-5', mobileTablePlayerCount === 5);
+}
+
+function getLiveMobileSeatLayout(player, playerCount = getLiveMobileTablePlayerCount()) {
+  const seat = Number.parseInt(`${player?.seat || 0}`, 10);
+  if (playerCount === 5) {
+    const orientationBySeat = {
+      1: 'right',
+      2: 'left',
+      3: 'up',
+      4: 'left',
+      5: 'right',
+    };
+
+    return {
+      seatClass: `live-seat-${seat}`,
+      orientationClass: `live-orientation-${orientationBySeat[seat] || 'up'}`,
+    };
+  }
+
+  return {
+    seatClass: `live-seat-${seat}`,
+    orientationClass: `live-orientation-${seat}`,
+  };
 }
 
 function hideLiveSourcePrompt(selectedSourceId = null) {
@@ -807,7 +853,8 @@ function renderLivePlayerGrid() {
     return;
   }
 
-  const isMobileTable = isLiveMobileTableMode();
+  const mobileTablePlayerCount = getLiveMobileTablePlayerCount();
+  const isMobileTable = mobileTablePlayerCount > 0;
   const playersToRender = activeGameState.players;
 
   livePlayerGrid.innerHTML = playersToRender
@@ -833,7 +880,7 @@ function renderLivePlayerGrid() {
       const firstPlayerMarkup = player.id === activeGameState.startingPlayerId
         ? '<span class="live-first-player-indicator">First</span>'
         : '';
-      const seatOrientation = ((player.seat - 1) % 4) + 1;
+      const mobileSeatLayout = getLiveMobileSeatLayout(player, mobileTablePlayerCount);
 
       if (!isMobileTable) {
         return `
@@ -868,8 +915,8 @@ function renderLivePlayerGrid() {
       }
 
       return `
-        <article class="live-player-card live-seat-${seatOrientation}${player.eliminatedAt ? ' is-eliminated' : ''}">
-          <div class="live-player-card-body live-orientation-${seatOrientation}">
+        <article class="live-player-card ${mobileSeatLayout.seatClass}${player.eliminatedAt ? ' is-eliminated' : ''}">
+          <div class="live-player-card-body ${mobileSeatLayout.orientationClass}">
             <div class="live-player-card-topline">
               <div class="live-player-title-block">
                 <h3>${escapeHtml(player.name)}</h3>
@@ -978,7 +1025,7 @@ function renderLiveGameStatus() {
     liveGameStatus.textContent = `${getActiveAlivePlayers(activeGameState).length} players alive · ${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} elapsed.`;
   }
   if (liveUndoButton) {
-    liveUndoButton.disabled = !activeGameUndoState;
+    liveUndoButton.disabled = !activeGameUndoState.length;
   }
   renderLivePlayerGrid();
   renderLiveEventLog();
@@ -1544,12 +1591,13 @@ function markPlayerAutomaticWinner(playerId) {
 }
 
 function undoLastLiveAction() {
-  if (!activeGameUndoState) {
+  if (!activeGameUndoState.length) {
     return;
   }
 
-  persistActiveGameState(cloneActiveGameState(activeGameUndoState));
-  persistActiveGameUndoState(null);
+  const previousState = activeGameUndoState[activeGameUndoState.length - 1] || null;
+  persistActiveGameState(cloneActiveGameState(previousState));
+  persistActiveGameUndoState(activeGameUndoState.slice(0, -1));
   refresh();
 }
 
