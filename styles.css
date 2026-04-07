@@ -2232,6 +2232,43 @@ button[type="submit"] {
     content: none;
   }
 
+  .page-rankings .rankings-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .page-rankings .rankings-table tr {
+    width: 100%;
+    border: 1px solid #e4e8f2;
+    border-radius: 14px;
+    background: #fbfcff;
+    padding: 12px;
+  }
+
+  .page-rankings .rankings-table td {
+    width: 100% !important;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+    grid-template-columns: minmax(108px, 132px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 6px 0;
+  }
+
+  .page-rankings .rankings-table td::before {
+    font-weight: 700;
+    color: #44507e;
+    font-size: 0.84rem;
+    line-height: 1.15;
+  }
+
+  .page-rankings .rankings-table td:last-child {
+    word-break: normal;
+  }
+
   .page-player-stats .player-stats-table .combined-input-wrapper,
   .page-records .records-table .combined-input-wrapper,
   .page-decklists .deck-list-table .combined-input-wrapper,
