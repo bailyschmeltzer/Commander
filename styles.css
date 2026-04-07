@@ -1449,28 +1449,6 @@ button[type="submit"] {
   text-decoration: underline;
 }
 
-.deck-selector-donation-row {
-  margin-top: 14px;
-}
-
-.deck-selector-donation-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: #fff3d6;
-  border: 1px solid #f0cf7a;
-  color: #6b4a00;
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.deck-selector-donation-link:hover {
-  background: #ffe9b0;
-}
-
 .sortable-header {
   cursor: pointer;
   user-select: none;
@@ -1604,7 +1582,7 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1.12fr) minmax(0, 1.12fr) minmax(0, 0.7fr);
     grid-template-areas:
       "seat5 seat4"
       "seat1 seat2"
@@ -1647,8 +1625,8 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 {
-    width: calc(50% - 3px);
-    justify-self: center;
+    width: auto;
+    justify-self: stretch;
   }
 
   .page-live-game.live-table-mode .live-player-card-body {
@@ -1724,6 +1702,11 @@ button[type="submit"] {
     font-size: clamp(5.2rem, 18vw, 8rem);
   }
 
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-life,
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-life-button {
+    font-size: clamp(4rem, 13vw, 5.8rem);
+  }
+
   .page-live-game.live-table-mode .live-quick-action {
     min-height: 0;
     height: 100%;
@@ -1758,15 +1741,33 @@ button[type="submit"] {
     gap: 4px;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-main-layout {
+    grid-template-columns: 88px minmax(0, 1fr) 9ch;
+    gap: 6px;
+  }
+
   .page-live-game.live-table-mode .live-player-action-column {
     gap: 4px;
     grid-auto-rows: minmax(0, 1fr);
     min-height: 0;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-action-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+    gap: 3px;
+    align-content: stretch;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-5 .live-quick-action {
     padding: 4px 1px;
     font-size: 0.58rem;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-quick-action {
+    padding: 3px 4px;
+    font-size: 0.56rem;
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-title-block h3 {
@@ -1782,6 +1783,10 @@ button[type="submit"] {
     margin-bottom: 4px;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-card-topline {
+    margin-bottom: 2px;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-damage-panel {
     padding: 2px 3px;
     font-size: 0.62rem;
@@ -1793,6 +1798,15 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-card-damage-list {
     font-size: 0.54rem;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-toggle-compact {
+    padding: 2px 1px;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-toggle-compact span {
+    font-size: 0.5rem;
+    line-height: 0.84;
   }
 
   .page-live-game.live-table-mode .live-player-toggle-compact {
