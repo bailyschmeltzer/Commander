@@ -83,6 +83,7 @@ const liveActiveActions = document.getElementById('live-active-actions');
 const liveActionsToggleButton = document.getElementById('live-actions-toggle');
 const liveBackButton = document.getElementById('live-back');
 const liveUndoButton = document.getElementById('live-undo');
+const liveSwapLifeButton = document.getElementById('live-swap-life');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
 const liveSourcePrompt = document.getElementById('live-source-prompt');
@@ -90,6 +91,15 @@ const liveSourceTitle = document.getElementById('live-source-title');
 const liveSourceCopy = document.getElementById('live-source-copy');
 const liveSourceOptions = document.getElementById('live-source-options');
 const liveSourceCancelButton = document.getElementById('live-source-cancel');
+const liveModalPrompt = document.getElementById('live-modal-prompt');
+const liveModalTitle = document.getElementById('live-modal-title');
+const liveModalCopy = document.getElementById('live-modal-copy');
+const liveModalField = document.getElementById('live-modal-field');
+const liveModalInput = document.getElementById('live-modal-input');
+const liveModalTextarea = document.getElementById('live-modal-textarea');
+const liveModalError = document.getElementById('live-modal-error');
+const liveModalCancelButton = document.getElementById('live-modal-cancel');
+const liveModalConfirmButton = document.getElementById('live-modal-confirm');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -116,6 +126,8 @@ let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
 let liveSourcePromptResolver = null;
+let liveModalResolver = null;
+let liveModalConfig = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
@@ -473,6 +485,187 @@ function hideLiveSourcePrompt(selectedSourceId = null) {
   }
 }
 
+function getActiveLiveModalControl() {
+  if (!liveModalField || liveModalField.hidden) {
+    return null;
+  }
+  return liveModalConfig?.multiline ? liveModalTextarea : liveModalInput;
+}
+
+function resetLiveModalState() {
+  if (liveModalField) {
+    liveModalField.hidden = true;
+  }
+  if (liveModalInput) {
+    liveModalInput.hidden = true;
+    liveModalInput.value = '';
+    liveModalInput.placeholder = '';
+    liveModalInput.type = 'text';
+    liveModalInput.inputMode = '';
+  }
+  if (liveModalTextarea) {
+    liveModalTextarea.hidden = true;
+    liveModalTextarea.value = '';
+    liveModalTextarea.placeholder = '';
+  }
+  if (liveModalError) {
+    liveModalError.hidden = true;
+    liveModalError.textContent = '';
+  }
+  if (liveModalCancelButton) {
+    liveModalCancelButton.hidden = false;
+    liveModalCancelButton.textContent = 'Cancel';
+  }
+  if (liveModalConfirmButton) {
+    liveModalConfirmButton.textContent = 'Confirm';
+  }
+  liveModalConfig = null;
+}
+
+function hideLiveModal(result = null) {
+  if (liveModalPrompt) {
+    liveModalPrompt.hidden = true;
+  }
+
+  const resolver = liveModalResolver;
+  liveModalResolver = null;
+  resetLiveModalState();
+
+  if (resolver) {
+    resolver(result);
+  }
+}
+
+function setLiveModalError(message = '') {
+  if (!liveModalError) {
+    return;
+  }
+  liveModalError.textContent = message;
+  liveModalError.hidden = !message;
+}
+
+function showLiveModal({
+  title,
+  description = '',
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  showCancel = true,
+  showInput = false,
+  defaultValue = '',
+  placeholder = '',
+  inputType = 'text',
+  inputMode = '',
+  multiline = false,
+  validate = null,
+}) {
+  if (!liveModalPrompt || !liveModalTitle || !liveModalCopy || !liveModalConfirmButton || !liveModalCancelButton) {
+    return Promise.resolve(null);
+  }
+
+  resetLiveModalState();
+  liveModalConfig = { validate, multiline };
+  liveModalTitle.textContent = title;
+  liveModalCopy.textContent = description;
+  liveModalConfirmButton.textContent = confirmLabel;
+  liveModalCancelButton.textContent = cancelLabel;
+  liveModalCancelButton.hidden = !showCancel;
+
+  const activeControl = showInput ? (multiline ? liveModalTextarea : liveModalInput) : null;
+  if (activeControl) {
+    if (liveModalField) {
+      liveModalField.hidden = false;
+    }
+    activeControl.hidden = false;
+    activeControl.value = defaultValue;
+    activeControl.placeholder = placeholder;
+    if (!multiline) {
+      activeControl.type = inputType;
+      activeControl.inputMode = inputMode;
+    }
+  }
+
+  liveModalPrompt.hidden = false;
+  setLiveModalError('');
+
+  requestAnimationFrame(() => {
+    const control = getActiveLiveModalControl();
+    if (control) {
+      control.focus();
+      if (typeof control.select === 'function') {
+        control.select();
+      }
+      return;
+    }
+
+    liveModalConfirmButton.focus();
+  });
+
+  return new Promise((resolve) => {
+    liveModalResolver = resolve;
+  });
+}
+
+async function promptLiveAlert(message, title = 'Notice') {
+  await showLiveModal({
+    title,
+    description: message,
+    confirmLabel: 'OK',
+    showInput: false,
+    showCancel: false,
+  });
+}
+
+async function promptLiveConfirm(message, {
+  title = 'Confirm action',
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+} = {}) {
+  const result = await showLiveModal({
+    title,
+    description: message,
+    confirmLabel,
+    cancelLabel,
+    showInput: false,
+    showCancel: true,
+  });
+  return result === true;
+}
+
+function parseLiveModalInteger(rawValue, validatorMessage) {
+  const parsedValue = parseInt(String(rawValue || '').trim(), 10);
+  if (!Number.isFinite(parsedValue)) {
+    return { error: validatorMessage };
+  }
+  return { value: parsedValue };
+}
+
+async function promptLiveText(message, {
+  title = 'Enter value',
+  confirmLabel = 'Save',
+  cancelLabel = 'Cancel',
+  defaultValue = '',
+  placeholder = '',
+  multiline = false,
+  inputType = 'text',
+  inputMode = '',
+  validate = null,
+} = {}) {
+  return showLiveModal({
+    title,
+    description: message,
+    confirmLabel,
+    cancelLabel,
+    showCancel: true,
+    showInput: true,
+    defaultValue,
+    placeholder,
+    multiline,
+    inputType,
+    inputMode,
+    validate,
+  });
+}
+
 function promptForLiveSource({ targetPlayerId, title, description, allowSelf = true, requireOpponent = false }) {
   if (!liveSourcePrompt || !liveSourceOptions) {
     return Promise.resolve(null);
@@ -493,6 +686,32 @@ function promptForLiveSource({ targetPlayerId, title, description, allowSelf = t
     .forEach((player) => {
       options.push({ id: player.id, label: player.name });
     });
+
+  liveSourceTitle.textContent = title;
+  liveSourceCopy.textContent = description;
+  liveSourceOptions.innerHTML = options
+    .map((option) => `<button type="button" class="live-source-option" data-source-id="${escapeHtml(option.id)}">${escapeHtml(option.label)}</button>`)
+    .join('');
+  liveSourcePrompt.hidden = false;
+
+  return new Promise((resolve) => {
+    liveSourcePromptResolver = resolve;
+  });
+}
+
+function promptForLivePlayerChoice({ title, description, excludePlayerIds = [] }) {
+  if (!liveSourcePrompt || !liveSourceOptions || !activeGameState) {
+    return Promise.resolve(null);
+  }
+
+  const excludedIds = new Set(excludePlayerIds.filter(Boolean));
+  const options = activeGameState.players
+    .filter((player) => !player.eliminatedAt && !excludedIds.has(player.id))
+    .map((player) => ({ id: player.id, label: player.name }));
+
+  if (!options.length) {
+    return Promise.resolve(null);
+  }
 
   liveSourceTitle.textContent = title;
   liveSourceCopy.textContent = description;
@@ -638,6 +857,64 @@ async function resolveLiveSourceSelection({ targetPlayerId, eventType, amount, p
   return selectedSourceId || '';
 }
 
+async function swapLivePlayerLifeTotals() {
+  if (!activeGameState) {
+    return;
+  }
+
+  const eligiblePlayers = activeGameState.players.filter((player) => !player.eliminatedAt);
+  if (eligiblePlayers.length < 2) {
+    await promptLiveAlert('At least two active players are required to swap life totals.', 'Unable to swap life');
+    return;
+  }
+
+  const firstPlayerId = await promptForLivePlayerChoice({
+    title: 'Select first player',
+    description: 'Choose the first player for the life-total swap.',
+  });
+  if (!firstPlayerId) {
+    return;
+  }
+
+  const firstPlayer = activeGameState.players.find((player) => player.id === firstPlayerId && !player.eliminatedAt);
+  if (!firstPlayer) {
+    return;
+  }
+
+  const secondPlayerId = await promptForLivePlayerChoice({
+    title: 'Select second player',
+    description: `Choose who should swap life totals with ${firstPlayer.name}.`,
+    excludePlayerIds: [firstPlayerId],
+  });
+  if (!secondPlayerId) {
+    return;
+  }
+
+  const secondPlayer = activeGameState.players.find((player) => player.id === secondPlayerId && !player.eliminatedAt);
+  if (!secondPlayer) {
+    return;
+  }
+
+  const firstLifeBeforeSwap = firstPlayer.life;
+  const secondLifeBeforeSwap = secondPlayer.life;
+
+  saveUndoSnapshot();
+  firstPlayer.life = secondLifeBeforeSwap;
+  secondPlayer.life = firstLifeBeforeSwap;
+
+  recordLiveEvent({
+    type: 'life-swap',
+    actorPlayerId: firstPlayer.id,
+    targetPlayerId: secondPlayer.id,
+    amount: 0,
+    turnNumber: getLiveTrackedTurnNumber(),
+    notes: `${firstPlayer.name} (${firstLifeBeforeSwap}) swapped life totals with ${secondPlayer.name} (${secondLifeBeforeSwap}).`,
+  });
+
+  persistActiveGameState(activeGameState);
+  refreshLiveTrackerUi();
+}
+
 function stopLiveHoldRepeat() {
   if (liveHoldTimerId) {
     clearTimeout(liveHoldTimerId);
@@ -689,15 +966,22 @@ function syncActiveGameTurnFromInput() {
   return turnNumber;
 }
 
-function promptForTurnNumber(message, defaultValue = getLiveTrackedTurnNumber()) {
-  const rawValue = window.prompt(message, String(defaultValue));
-  if (rawValue === null) {
-    return null;
-  }
-
-  const parsed = parseInt(rawValue, 10);
-  if (Number.isNaN(parsed) || parsed < 1) {
-    alert('Enter a whole number greater than 0.');
+async function promptForTurnNumber(message, defaultValue = getLiveTrackedTurnNumber()) {
+  const parsed = await promptLiveText(message, {
+    title: 'Turn number',
+    confirmLabel: 'Save',
+    defaultValue: String(defaultValue),
+    inputType: 'number',
+    inputMode: 'numeric',
+    validate: (rawValue) => {
+      const result = parseLiveModalInteger(rawValue, 'Enter a whole number greater than 0.');
+      if (result.error || result.value < 1) {
+        return { error: 'Enter a whole number greater than 0.' };
+      }
+      return { value: result.value };
+    },
+  });
+  if (parsed === null) {
     return null;
   }
 
@@ -848,6 +1132,9 @@ function generateLiveEventDescription(event, activeGame = activeGameState) {
   }
   if (event.type === 'automatic-win') {
     return `${target} was marked as the winner.`;
+  }
+  if (event.type === 'life-swap') {
+    return `${actor} and ${target} swapped life totals.`;
   }
   if (event.type === 'next-turn') {
     return `${target} started turn ${event.turnNumber}.`;
@@ -1197,16 +1484,16 @@ function toggleLiveActionsMenu() {
   }
 }
 
-function startLiveGame() {
+async function startLiveGame() {
   const players = getLiveSetupRows();
   if (players.length < 2) {
-    alert('Add at least two players to start a live game.');
+    await promptLiveAlert('Add at least two players to start a live game.', 'Unable to start game');
     return;
   }
 
   const startingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
   if (!startingLife || startingLife < 1) {
-    alert('Enter a valid starting life total.');
+    await promptLiveAlert('Enter a valid starting life total.', 'Unable to start game');
     return;
   }
 
@@ -1248,34 +1535,38 @@ function startLiveGame() {
   refreshLiveTrackerUi();
 }
 
-function promptForPositiveNumber(message, defaultValue = 1) {
-  const rawValue = window.prompt(message, String(defaultValue));
-  if (rawValue === null) {
-    return null;
-  }
-
-  const parsed = parseInt(rawValue, 10);
-  if (Number.isNaN(parsed) || parsed < 1) {
-    alert('Enter a whole number greater than 0.');
-    return null;
-  }
-
-  return parsed;
+async function promptForPositiveNumber(message, defaultValue = 1) {
+  return promptLiveText(message, {
+    title: 'Enter amount',
+    confirmLabel: 'Apply',
+    defaultValue: String(defaultValue),
+    inputType: 'number',
+    inputMode: 'numeric',
+    validate: (rawValue) => {
+      const result = parseLiveModalInteger(rawValue, 'Enter a whole number greater than 0.');
+      if (result.error || result.value < 1) {
+        return { error: 'Enter a whole number greater than 0.' };
+      }
+      return { value: result.value };
+    },
+  });
 }
 
-function promptForSignedNumber(message, defaultValue = -1) {
-  const rawValue = window.prompt(message, String(defaultValue));
-  if (rawValue === null) {
-    return null;
-  }
-
-  const parsedValue = parseInt(rawValue, 10);
-  if (!Number.isFinite(parsedValue) || parsedValue === 0) {
-    window.alert('Enter a whole number greater than 0 or less than 0.');
-    return null;
-  }
-
-  return parsedValue;
+async function promptForSignedNumber(message, defaultValue = -1) {
+  return promptLiveText(message, {
+    title: 'Enter life change',
+    confirmLabel: 'Apply',
+    defaultValue: String(defaultValue),
+    inputType: 'number',
+    inputMode: 'numeric',
+    validate: (rawValue) => {
+      const result = parseLiveModalInteger(rawValue, 'Enter a whole number greater than 0 or less than 0.');
+      if (result.error || result.value === 0) {
+        return { error: 'Enter a whole number greater than 0 or less than 0.' };
+      }
+      return { value: result.value };
+    },
+  });
 }
 
 async function applyCommanderDamageToPlayer(targetPlayerId) {
@@ -1288,7 +1579,7 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
     return;
   }
 
-  const amount = promptForPositiveNumber(`How much commander damage did ${targetPlayer.name} take?`, 1);
+  const amount = await promptForPositiveNumber(`How much commander damage did ${targetPlayer.name} take?`, 1);
   if (amount === null) {
     return;
   }
@@ -1309,7 +1600,7 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
   const needsKillTurn = !targetPlayer.cannotLoseTheGame && (projectedLife <= 0 || projectedCommanderDamage > 20);
   let eventTurnNumber = getLiveTrackedTurnNumber();
   if (needsFirstBloodTurn || needsKillTurn) {
-    const promptedTurn = promptForTurnNumber(`What turn was this commander damage on?`, eventTurnNumber);
+    const promptedTurn = await promptForTurnNumber(`What turn was this commander damage on?`, eventTurnNumber);
     if (promptedTurn === null) {
       return;
     }
@@ -1337,8 +1628,11 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
   persistActiveGameState(activeGameState);
   refreshLiveTrackerUi();
 
-  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
-    completeActiveGame();
+  if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
+    title: 'Finish game?',
+    confirmLabel: 'Finish and save',
+  })) {
+    await completeActiveGame();
   }
 }
 
@@ -1362,12 +1656,17 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     return;
   }
 
-  const eventTurnNumber = promptForTurnNumber(`What turn was ${targetPlayer.name} eliminated on?`);
+  const eventTurnNumber = await promptForTurnNumber(`What turn was ${targetPlayer.name} eliminated on?`);
   if (eventTurnNumber === null) {
     return;
   }
 
-  const eliminationDetails = window.prompt(`Enter ${targetPlayer.name}'s alternate lose condition for the notes. Leave blank for a normal elimination.`, targetPlayer.eliminationDetails || '');
+  const eliminationDetails = await promptLiveText(`Enter ${targetPlayer.name}'s alternate lose condition for the notes. Leave blank for a normal elimination.`, {
+    title: 'Alternate lose condition',
+    confirmLabel: 'Save',
+    defaultValue: targetPlayer.eliminationDetails || '',
+    placeholder: 'Optional details',
+  });
   if (eliminationDetails === null) {
     return;
   }
@@ -1392,8 +1691,11 @@ async function manuallyEliminatePlayer(targetPlayerId) {
   persistActiveGameState(activeGameState);
   refreshLiveTrackerUi();
 
-  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
-    completeActiveGame();
+  if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
+    title: 'Finish game?',
+    confirmLabel: 'Finish and save',
+  })) {
+    await completeActiveGame();
   }
 }
 
@@ -1424,7 +1726,7 @@ async function applyQuickLifeChange(playerId, delta) {
   const needsKillTurn = delta < 0 && !player.cannotLoseTheGame && projectedLife <= 0;
   let turnNumber = getLiveTrackedTurnNumber();
   if (needsFirstBloodTurn || needsKillTurn) {
-    const promptedTurn = promptForTurnNumber(`What turn was this damage on?`, turnNumber);
+    const promptedTurn = await promptForTurnNumber(`What turn was this damage on?`, turnNumber);
     if (promptedTurn === null) {
       return;
     }
@@ -1456,8 +1758,11 @@ async function applyQuickLifeChange(playerId, delta) {
   persistActiveGameState(activeGameState);
   refreshLiveTrackerUi();
 
-  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
-    completeActiveGame();
+  if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
+    title: 'Finish game?',
+    confirmLabel: 'Finish and save',
+  })) {
+    await completeActiveGame();
   }
 }
 
@@ -1471,7 +1776,7 @@ async function applyManualLifeEntry(playerId) {
     return;
   }
 
-  const delta = promptForSignedNumber(`Enter life change for ${player.name}. Use negative for damage and positive for life gain.`, -1);
+  const delta = await promptForSignedNumber(`Enter life change for ${player.name}. Use negative for damage and positive for life gain.`, -1);
   if (delta === null) {
     return;
   }
@@ -1518,7 +1823,7 @@ async function setPlayerCannotLoseState(playerId, isEnabled) {
     return;
   }
 
-  const turnNumber = promptForTurnNumber(`What turn was ${player.name} eliminated on?`);
+  const turnNumber = await promptForTurnNumber(`What turn was ${player.name} eliminated on?`);
   if (turnNumber === null) {
     refreshLiveTrackerUi();
     return;
@@ -1545,12 +1850,15 @@ async function setPlayerCannotLoseState(playerId, isEnabled) {
   persistActiveGameState(activeGameState);
   refreshLiveTrackerUi();
 
-  if (alivePlayers.length === 1 && confirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`)) {
-    completeActiveGame();
+  if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
+    title: 'Finish game?',
+    confirmLabel: 'Finish and save',
+  })) {
+    await completeActiveGame();
   }
 }
 
-function markPlayerAutomaticWinner(playerId) {
+async function markPlayerAutomaticWinner(playerId) {
   if (!activeGameState) {
     return;
   }
@@ -1560,16 +1868,24 @@ function markPlayerAutomaticWinner(playerId) {
     return;
   }
 
-  if (!confirm(`Mark ${winner.name} as the winner and finish the game?`)) {
+  if (!await promptLiveConfirm(`Mark ${winner.name} as the winner and finish the game?`, {
+    title: 'Confirm winner',
+    confirmLabel: 'Mark winner',
+  })) {
     return;
   }
 
-  const turnNumber = promptForTurnNumber(`What turn did ${winner.name} win on?`);
+  const turnNumber = await promptForTurnNumber(`What turn did ${winner.name} win on?`);
   if (turnNumber === null) {
     return;
   }
 
-  const alternateWinCondition = window.prompt(`Enter ${winner.name}'s alternate win condition for the notes. Leave blank for a normal win.`, activeGameState.alternateWinCondition || '');
+  const alternateWinCondition = await promptLiveText(`Enter ${winner.name}'s alternate win condition for the notes. Leave blank for a normal win.`, {
+    title: 'Alternate win condition',
+    confirmLabel: 'Save',
+    defaultValue: activeGameState.alternateWinCondition || '',
+    placeholder: 'Optional details',
+  });
   if (alternateWinCondition === null) {
     return;
   }
@@ -1599,7 +1915,7 @@ function markPlayerAutomaticWinner(playerId) {
     turnNumber,
     notes: activeGameState.alternateWinCondition ? `Alternate win: ${activeGameState.alternateWinCondition}` : '',
   });
-  completeActiveGame();
+  await completeActiveGame();
 }
 
 function undoLastLiveAction() {
@@ -1613,13 +1929,16 @@ function undoLastLiveAction() {
   refresh();
 }
 
-function completeActiveGame() {
+async function completeActiveGame() {
   if (!activeGameState) {
     return;
   }
 
   const alivePlayers = getActiveAlivePlayers(activeGameState);
-  if (alivePlayers.length > 1 && !confirm('More than one player is still alive. Finish and score remaining players by life total?')) {
+  if (alivePlayers.length > 1 && !await promptLiveConfirm('More than one player is still alive. Finish and score remaining players by life total?', {
+    title: 'Finish active game?',
+    confirmLabel: 'Finish game',
+  })) {
     return;
   }
 
@@ -1697,15 +2016,18 @@ function completeActiveGame() {
   persistActiveGameUndoState(null);
   refresh();
   refreshLiveTrackerUi();
-  alert('Live game saved to history.');
+  await promptLiveAlert('Live game saved to history.', 'Game saved');
 }
 
-function abandonActiveGame() {
+async function abandonActiveGame() {
   if (!activeGameState) {
     return;
   }
 
-  if (!confirm('Abandon the current live game? This removes the in-progress tracker without saving to history.')) {
+  if (!await promptLiveConfirm('Abandon the current live game? This removes the in-progress tracker without saving to history.', {
+    title: 'Abandon live game?',
+    confirmLabel: 'Abandon game',
+  })) {
     return;
   }
 
@@ -4868,6 +5190,49 @@ if (liveSourceCancelButton) {
   });
 }
 
+if (liveModalCancelButton) {
+  liveModalCancelButton.addEventListener('click', () => {
+    hideLiveModal(null);
+  });
+}
+
+if (liveModalConfirmButton) {
+  liveModalConfirmButton.addEventListener('click', () => {
+    if (!liveModalConfig) {
+      hideLiveModal(true);
+      return;
+    }
+
+    const activeControl = getActiveLiveModalControl();
+    if (!activeControl) {
+      hideLiveModal(true);
+      return;
+    }
+
+    const rawValue = activeControl.value;
+    const validationResult = typeof liveModalConfig.validate === 'function'
+      ? liveModalConfig.validate(rawValue)
+      : { value: rawValue };
+
+    if (validationResult && validationResult.error) {
+      setLiveModalError(validationResult.error);
+      activeControl.focus();
+      return;
+    }
+
+    hideLiveModal(validationResult && Object.prototype.hasOwnProperty.call(validationResult, 'value') ? validationResult.value : rawValue);
+  });
+}
+
+if (liveModalInput) {
+  liveModalInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      liveModalConfirmButton?.click();
+    }
+  });
+}
+
 if (livePlayerGrid) {
   livePlayerGrid.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
@@ -4965,6 +5330,13 @@ if (liveUndoButton) {
   });
 }
 
+if (liveSwapLifeButton) {
+  liveSwapLifeButton.addEventListener('click', () => {
+    closeLiveActionsMenu();
+    swapLivePlayerLifeTotals();
+  });
+}
+
 if (liveFinishGameButton) {
   liveFinishGameButton.addEventListener('click', () => {
     closeLiveActionsMenu();
@@ -4986,6 +5358,21 @@ document.addEventListener('click', (event) => {
 
   if (!event.target.closest('#live-active-actions')) {
     closeLiveActionsMenu();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') {
+    return;
+  }
+
+  if (liveModalPrompt && !liveModalPrompt.hidden) {
+    hideLiveModal(null);
+    return;
+  }
+
+  if (liveSourcePrompt && !liveSourcePrompt.hidden) {
+    hideLiveSourcePrompt(null);
   }
 });
 

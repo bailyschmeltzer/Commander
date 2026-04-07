@@ -99,6 +99,7 @@
               <div class="live-active-actions-menu" id="live-active-actions-menu">
                 <button type="button" id="live-back" class="secondary-button">Back</button>
                 <button type="button" id="live-undo" class="secondary-button">Undo</button>
+                <button type="button" id="live-swap-life" class="secondary-button">Swap life</button>
                 <button type="button" id="live-finish-game">Finish game</button>
                 <button type="button" id="live-abandon-game" class="history-delete-button">Abandon</button>
               </div>
@@ -124,6 +125,22 @@
             <div id="live-source-options" class="live-source-options"></div>
             <div class="actions">
               <button type="button" id="live-source-cancel" class="secondary-button">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="live-modal-prompt" class="live-source-prompt" hidden>
+          <div class="live-source-dialog live-modal-dialog">
+            <h3 id="live-modal-title">Confirm action</h3>
+            <p id="live-modal-copy"></p>
+            <div id="live-modal-field" class="live-modal-field" hidden>
+              <input id="live-modal-input" class="live-modal-input" type="text" autocomplete="off" hidden />
+              <textarea id="live-modal-textarea" class="live-modal-textarea" rows="4" hidden></textarea>
+              <p id="live-modal-error" class="live-modal-error" hidden></p>
+            </div>
+            <div class="actions live-modal-actions">
+              <button type="button" id="live-modal-cancel" class="secondary-button">Cancel</button>
+              <button type="button" id="live-modal-confirm">Confirm</button>
             </div>
           </div>
         </div>

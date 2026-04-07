@@ -1239,6 +1239,40 @@ button[type="submit"] {
   margin-top: 0;
 }
 
+.live-modal-field {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.live-modal-input,
+.live-modal-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd6e4;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8f9fd;
+  font: inherit;
+  color: #1c1f2a;
+}
+
+.live-modal-textarea {
+  resize: vertical;
+  min-height: 104px;
+}
+
+.live-modal-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.live-modal-actions {
+  justify-content: flex-end;
+}
+
 .live-source-options {
   display: grid;
   gap: 10px;
