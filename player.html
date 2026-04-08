@@ -45,7 +45,7 @@
         <section class="card">
           <h2>Player leaderboard</h2>
           <div class="player-table-wrapper">
-            <table class="player-table player-stats-table">
+            <table class="player-table player-stats-table" data-sort-table="playerStats">
               <colgroup>
                 <col style="width: 16%;" />
                 <col style="width: 6%;" />
@@ -61,17 +61,17 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th>Player</th>
-                  <th>Games</th>
-                  <th>Wins</th>
-                  <th>Win Rate</th>
-                  <th>First Blood</th>
-                  <th>Favorite Commander</th>
-                  <th>Nemesis</th>
-                  <th>Victim</th>
-                  <th>Total Kills</th>
-                  <th>K/D</th>
-                  <th>Best Deck</th>
+                  <th class="sortable-header" data-column="player" tabindex="0" aria-sort="none">Player <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="wins" tabindex="0" aria-sort="none">Wins <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="winRate" tabindex="0" aria-sort="none">Win Rate <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="firstBlood" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="favoriteCommander" tabindex="0" aria-sort="none">Favorite Commander <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="nemesis" tabindex="0" aria-sort="none">Nemesis <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="victim" tabindex="0" aria-sort="none">Victim <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Total Kills <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="kd" tabindex="0" aria-sort="none">K/D <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="bestDeck" tabindex="0" aria-sort="none">Best Deck <span class="sort-indicator"></span></th>
                 </tr>
               </thead>
               <tbody id="player-stats-body"></tbody>

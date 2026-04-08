@@ -47,7 +47,7 @@
           <p class="rankings-helper-text">Standings use a multiplayer ELO-style rating based on where each player finished against the rest of the table. Volume helps confidence, but strong results matter more than simply playing more often.</p>
           <div id="rankings-summary" class="stats-panel rankings-summary"></div>
           <div class="player-table-wrapper">
-            <table class="player-table rankings-table rankings-main-table">
+            <table class="player-table rankings-table rankings-main-table" data-sort-table="rankingsMain">
               <colgroup>
                 <col style="width: 4%;" />
                 <col style="width: 15%;" />
@@ -64,18 +64,18 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  <th>Rating</th>
-                  <th>Perf/Game</th>
-                  <th class="rankings-games-column">Games</th>
-                  <th>Wins</th>
-                  <th>Current Streak</th>
-                  <th>Longest Streak</th>
-                  <th>Kills</th>
-                  <th>First Blood</th>
-                  <th>Avg Place</th>
-                  <th>Favorite Commander</th>
+                  <th class="sortable-header" data-column="rank" tabindex="0" aria-sort="none">Rank <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="player" tabindex="0" aria-sort="none">Player <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="rating" tabindex="0" aria-sort="none">Rating <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="perfGame" tabindex="0" aria-sort="none">Perf/Game <span class="sort-indicator"></span></th>
+                  <th class="rankings-games-column sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="wins" tabindex="0" aria-sort="none">Wins <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="currentStreak" tabindex="0" aria-sort="none">Current Streak <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="longestStreak" tabindex="0" aria-sort="none">Longest Streak <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Kills <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="firstBlood" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="avgPlace" tabindex="0" aria-sort="none">Avg Place <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="favoriteCommander" tabindex="0" aria-sort="none">Favorite Commander <span class="sort-indicator"></span></th>
                 </tr>
               </thead>
               <tbody id="rankings-table-body"></tbody>
@@ -91,16 +91,16 @@
             <div>
               <h3>Players, Last 10 Games</h3>
               <div class="player-table-wrapper">
-                <table class="player-table rankings-table rankings-streaks-table">
+                <table class="player-table rankings-table rankings-streaks-table" data-sort-table="recentPlayerTrends">
                   <thead>
                     <tr>
-                      <th>Player</th>
-                      <th>Games</th>
-                      <th>Points</th>
-                      <th>Win Rate</th>
-                      <th>Kills</th>
-                      <th>First Blood</th>
-                      <th>Avg Place</th>
+                      <th class="sortable-header" data-column="player" tabindex="0" aria-sort="none">Player <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="points" tabindex="0" aria-sort="none">Points <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="winRate" tabindex="0" aria-sort="none">Win Rate <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Kills <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="firstBlood" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="avgPlace" tabindex="0" aria-sort="none">Avg Place <span class="sort-indicator"></span></th>
                     </tr>
                   </thead>
                   <tbody id="recent-player-trends-body"></tbody>
@@ -110,16 +110,16 @@
             <div>
               <h3>Commanders, Last 10 Games</h3>
               <div class="player-table-wrapper">
-                <table class="player-table rankings-table rankings-streaks-table">
+                <table class="player-table rankings-table rankings-streaks-table" data-sort-table="recentCommanderTrends">
                   <thead>
                     <tr>
-                      <th>Commander</th>
-                      <th>Games</th>
-                      <th>Points</th>
-                      <th>Win Rate</th>
-                      <th>Kills</th>
-                      <th>First Blood</th>
-                      <th>Avg Place</th>
+                      <th class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="points" tabindex="0" aria-sort="none">Points <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="winRate" tabindex="0" aria-sort="none">Win Rate <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Kills <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="firstBlood" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="avgPlace" tabindex="0" aria-sort="none">Avg Place <span class="sort-indicator"></span></th>
                     </tr>
                   </thead>
                   <tbody id="recent-commander-trends-body"></tbody>
@@ -137,15 +137,15 @@
             <div>
               <h3>Player Streaks</h3>
               <div class="player-table-wrapper">
-                <table class="player-table rankings-table">
+                <table class="player-table rankings-table" data-sort-table="playerStreaks">
                   <thead>
                     <tr>
-                      <th>Player</th>
-                      <th>Games</th>
-                      <th>Current Wins</th>
-                      <th>Best Win Streak</th>
-                      <th>Drought</th>
-                      <th>Last Win</th>
+                      <th class="sortable-header" data-column="player" tabindex="0" aria-sort="none">Player <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="currentWins" tabindex="0" aria-sort="none">Current Wins <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="bestWinStreak" tabindex="0" aria-sort="none">Best Win Streak <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="drought" tabindex="0" aria-sort="none">Drought <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="lastWin" tabindex="0" aria-sort="none">Last Win <span class="sort-indicator"></span></th>
                     </tr>
                   </thead>
                   <tbody id="player-streaks-body"></tbody>
@@ -155,15 +155,15 @@
             <div>
               <h3>Commander Streaks</h3>
               <div class="player-table-wrapper">
-                <table class="player-table rankings-table">
+                <table class="player-table rankings-table" data-sort-table="commanderStreaks">
                   <thead>
                     <tr>
-                      <th>Commander</th>
-                      <th>Games</th>
-                      <th>Current Wins</th>
-                      <th>Best Win Streak</th>
-                      <th>Drought</th>
-                      <th>Last Win</th>
+                      <th class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="currentWins" tabindex="0" aria-sort="none">Current Wins <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="bestWinStreak" tabindex="0" aria-sort="none">Best Win Streak <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="drought" tabindex="0" aria-sort="none">Drought <span class="sort-indicator"></span></th>
+                      <th class="sortable-header" data-column="lastWin" tabindex="0" aria-sort="none">Last Win <span class="sort-indicator"></span></th>
                     </tr>
                   </thead>
                   <tbody id="commander-streaks-body"></tbody>

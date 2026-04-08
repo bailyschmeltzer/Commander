@@ -106,7 +106,7 @@
             </div>
           </div>
 
-          <div id="live-player-grid" class="live-player-grid">
+          <div id="live-player-grid" class="live-player-grid" aria-live="polite">
             <p>No game in progress.</p>
           </div>
 
@@ -119,7 +119,7 @@
         </section>
 
         <div id="live-source-prompt" class="live-source-prompt" hidden>
-          <div class="live-source-dialog">
+          <div class="live-source-dialog" role="dialog" aria-modal="true" aria-labelledby="live-source-title" aria-describedby="live-source-copy">
             <h3 id="live-source-title">Select source</h3>
             <p id="live-source-copy">Who caused this life loss?</p>
             <div id="live-source-options" class="live-source-options"></div>
@@ -130,7 +130,7 @@
         </div>
 
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
-          <div class="live-source-dialog live-modal-dialog">
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
             <h3 id="live-modal-title">Confirm action</h3>
             <p id="live-modal-copy"></p>
             <div id="live-modal-field" class="live-modal-field" hidden>

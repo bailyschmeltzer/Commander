@@ -64,15 +64,31 @@
                 <option value="all">All commanders</option>
               </select>
             </div>
+            <div class="field">
+              <label for="history-filter-player">Player</label>
+              <select id="history-filter-player">
+                <option value="all">All players</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="history-filter-date-from">From date</label>
+              <input id="history-filter-date-from" type="date" />
+            </div>
+            <div class="field">
+              <label for="history-filter-date-to">To date</label>
+              <input id="history-filter-date-to" type="date" />
+            </div>
             <button type="button" id="history-sort-order" class="secondary-button">Newest first</button>
+            <button type="button" id="history-reset-filters" class="secondary-button">Reset filters</button>
           </div>
+          <div id="history-active-filters" class="history-active-filters" role="status" aria-live="polite"></div>
           <div id="history-list">
             <p>Loading saved games...</p>
           </div>
         </section>
 
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
-          <div class="live-source-dialog live-modal-dialog">
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
             <h3 id="live-modal-title">Confirm action</h3>
             <p id="live-modal-copy"></p>
             <div id="live-modal-field" class="live-modal-field" hidden>

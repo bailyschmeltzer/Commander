@@ -33,6 +33,11 @@ const historySortSelect = document.getElementById('history-sort');
 const historySortOrderButton = document.getElementById('history-sort-order');
 const historyFilterWinner = document.getElementById('history-filter-winner');
 const historyFilterCommander = document.getElementById('history-filter-commander');
+const historyFilterPlayer = document.getElementById('history-filter-player');
+const historyFilterDateFrom = document.getElementById('history-filter-date-from');
+const historyFilterDateTo = document.getElementById('history-filter-date-to');
+const historyResetFiltersButton = document.getElementById('history-reset-filters');
+const historyActiveFilters = document.getElementById('history-active-filters');
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const removePlayerRowButton = document.getElementById('remove-player-row');
@@ -109,6 +114,27 @@ const syncNowButton = document.getElementById('sync-now');
 const syncStatus = document.getElementById('sync-status');
 const syncPanel = document.querySelector('.sync-panel');
 
+if (syncStatus) {
+  syncStatus.setAttribute('role', 'status');
+  syncStatus.setAttribute('aria-live', 'polite');
+}
+
+if (liveGameStatus) {
+  liveGameStatus.setAttribute('role', 'status');
+  liveGameStatus.setAttribute('aria-live', 'polite');
+}
+
+if (liveEventLog) {
+  liveEventLog.setAttribute('role', 'log');
+  liveEventLog.setAttribute('aria-live', 'polite');
+  liveEventLog.setAttribute('aria-relevant', 'additions text');
+}
+
+if (deckLookupResult) {
+  deckLookupResult.setAttribute('role', 'status');
+  deckLookupResult.setAttribute('aria-live', 'polite');
+}
+
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -116,6 +142,16 @@ let knownPlayers = [];
 let knownCommanders = [];
 let commanderSortColumn = 'games';
 let commanderSortDescending = true;
+const tableSortState = {
+  rankingsMain: { column: 'rank', descending: false },
+  playerStats: { column: 'games', descending: true },
+  commanderStats: { column: 'games', descending: true },
+  recentPlayerTrends: { column: 'points', descending: true },
+  recentCommanderTrends: { column: 'points', descending: true },
+  playerStreaks: { column: 'currentWins', descending: true },
+  commanderStreaks: { column: 'currentWins', descending: true },
+  deckLists: { column: 'commander', descending: false },
+};
 let appState = { games: [], powerLevels: {}, deckLists: [], records: [] };
 let editingDeckListId = null;
 let syncQueueTimer = null;
@@ -126,6 +162,7 @@ let syncPendingChanges = false;
 let syncLastSuccessAt = null;
 let syncConnectionState = 'local';
 let syncLastErrorMessage = '';
+let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let activeGameState = null;
@@ -511,6 +548,146 @@ function generateId() {
 
 function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
+}
+
+function buildHistoryFilterHref(filters = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    const normalizedValue = String(value || '').trim();
+    if (normalizedValue) {
+      query.set(key, normalizedValue);
+    }
+  });
+
+  const queryString = query.toString();
+  return `history.html${queryString ? `?${queryString}` : ''}`;
+}
+
+function buildHistoryFilterLink(label, filters = {}) {
+  const href = buildHistoryFilterHref(filters);
+  return `<a class="history-drilldown-link" href="${escapeHtml(href)}">${escapeHtml(label || '—')}</a>`;
+}
+
+function getTableSort(tableKey, fallbackColumn, fallbackDescending) {
+  const state = tableSortState[tableKey];
+  if (!state) {
+    return { column: fallbackColumn, descending: fallbackDescending };
+  }
+
+  if (!state.column) {
+    state.column = fallbackColumn;
+  }
+
+  if (typeof state.descending !== 'boolean') {
+    state.descending = fallbackDescending;
+  }
+
+  return state;
+}
+
+function compareTextValues(a, b) {
+  return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function compareNumberValues(a, b) {
+  const first = Number.isFinite(a) ? a : Number.NEGATIVE_INFINITY;
+  const second = Number.isFinite(b) ? b : Number.NEGATIVE_INFINITY;
+  return first - second;
+}
+
+function compareDateValues(a, b) {
+  return compareTextValues(a || '', b || '');
+}
+
+function finalizeSortResult(result, descending) {
+  return descending ? -result : result;
+}
+
+function updateSortableTableIndicators(tableKey) {
+  const state = tableSortState[tableKey];
+  const headers = document.querySelectorAll(`[data-sort-table="${tableKey}"] .sortable-header`);
+  headers.forEach((header) => {
+    const column = header.dataset.column;
+    const indicator = header.querySelector('.sort-indicator');
+    const isActive = Boolean(state) && column === state.column;
+
+    header.setAttribute('aria-sort', isActive ? (state.descending ? 'descending' : 'ascending') : 'none');
+
+    if (!indicator) {
+      return;
+    }
+
+    if (isActive) {
+      indicator.textContent = state.descending ? ' ▼' : ' ▲';
+      indicator.style.opacity = '1';
+    } else {
+      indicator.textContent = '';
+      indicator.style.opacity = '0.3';
+    }
+  });
+}
+
+function toggleTableSort(tableKey, column, fallbackDescending = true) {
+  const state = getTableSort(tableKey, column, fallbackDescending);
+  if (state.column === column) {
+    state.descending = !state.descending;
+  } else {
+    state.column = column;
+    state.descending = fallbackDescending;
+  }
+}
+
+function getTableSortDefaultDescending(tableKey, column) {
+  const ascendingColumns = new Set([
+    'rank',
+    'player',
+    'commander',
+    'favoriteCommander',
+    'bestDeck',
+    'nemesis',
+    'victim',
+    'owner',
+    'url',
+    'avgPlace',
+  ]);
+
+  if (column === 'lastWin') {
+    return true;
+  }
+
+  if (tableKey === 'deckLists') {
+    return false;
+  }
+
+  return !ascendingColumns.has(column);
+}
+
+function rerenderSortedTable(tableKey) {
+  const games = loadGames();
+  switch (tableKey) {
+    case 'rankingsMain':
+      renderPodRankings(games);
+      break;
+    case 'playerStats':
+      renderPlayerStats(games);
+      break;
+    case 'commanderStats':
+      renderCommanderStats(games);
+      break;
+    case 'recentPlayerTrends':
+    case 'recentCommanderTrends':
+    case 'playerStreaks':
+    case 'commanderStreaks':
+      renderRankingsPage(games);
+      break;
+    case 'deckLists':
+      renderDeckLists();
+      applyResponsiveTableLabels();
+      break;
+    default:
+      break;
+  }
 }
 
 function loadGames() {
@@ -1344,6 +1521,8 @@ function renderLivePlayerGrid() {
     .slice()
     .sort((a, b) => a.seat - b.seat)
     .map((player) => {
+      const playerName = escapeHtml(player.name);
+      const playerCommander = escapeHtml(player.commander || 'No commander');
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
       const damageListMarkup = `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`;
       const damageMarkup = damageEntries.length
@@ -1367,29 +1546,29 @@ function renderLivePlayerGrid() {
 
       if (!isMobileTable) {
         return `
-          <article class="live-player-card${player.eliminatedAt ? ' is-eliminated' : ''}">
+          <article class="live-player-card${player.eliminatedAt ? ' is-eliminated' : ''}" aria-label="${playerName}, ${playerCommander}">
             <div class="live-player-card-header">
               <div>
-                <h3>${escapeHtml(player.name)}</h3>
-                <p>${escapeHtml(player.commander || 'No commander')}</p>
+                <h3>${playerName}</h3>
+                <p>${playerCommander}</p>
               </div>
               <div class="live-player-header-badges">
                 ${firstPlayerMarkup}
               </div>
             </div>
             <div class="live-player-life">
-              <button type="button" class="live-player-life-button live-player-life-button-standard" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}">${player.life}</button>
+              <button type="button" class="live-player-life-button live-player-life-button-standard" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}" aria-label="Set life total for ${playerName}. Current life ${player.life}.">${player.life}</button>
             </div>
             <div class="live-quick-actions live-quick-actions-standard">
-              <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
-              <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
-              <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
-              <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
-              <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
+              <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1" aria-label="Subtract 1 life from ${playerName}">-1</button>
+              <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1" aria-label="Add 1 life to ${playerName}">+1</button>
+              <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}" aria-label="Add commander damage to ${playerName}">Cmdr</button>
+              <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} out of the game">Out</button>
+              <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} as the winner">Win</button>
             </div>
             <div class="live-player-meta live-player-meta-standard">
               <label class="live-player-toggle">
-                <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
+                <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}" aria-label="${playerName} cannot lose the game"${player.cannotLoseTheGame ? ' checked' : ''} />
                 <span>Cannot lose the game</span>
               </label>
               ${desktopDamageMarkup}
@@ -1398,29 +1577,29 @@ function renderLivePlayerGrid() {
       }
 
       return `
-        <article class="live-player-card ${mobileSeatLayout.seatClass}${player.eliminatedAt ? ' is-eliminated' : ''}">
+        <article class="live-player-card ${mobileSeatLayout.seatClass}${player.eliminatedAt ? ' is-eliminated' : ''}" aria-label="${playerName}, ${playerCommander}">
           <div class="live-player-card-body ${mobileSeatLayout.orientationClass}">
             <div class="live-player-card-topline">
               <div class="live-player-title-block">
-                <h3>${escapeHtml(player.name)}</h3>
-                <p>${escapeHtml(player.commander || 'No commander')}</p>
+                <h3>${playerName}</h3>
+                <p>${playerCommander}</p>
               </div>
               ${firstPlayerMarkup}
             </div>
             <div class="live-player-main-layout">
               <div class="live-player-action-column live-player-action-column-loss">
-                <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1">-1</button>
-                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1">+1</button>
-                <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}">Cmdr</button>
-                <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}">Out</button>
-                <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}">Win</button>
+                <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1" aria-label="Subtract 1 life from ${playerName}">-1</button>
+                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1" aria-label="Add 1 life to ${playerName}">+1</button>
+                <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}" aria-label="Add commander damage to ${playerName}">Cmdr</button>
+                <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} out of the game">Out</button>
+                <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} as the winner">Win</button>
                 <label class="live-player-toggle live-player-toggle-compact">
-                  <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}"${player.cannotLoseTheGame ? ' checked' : ''} />
+                  <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}" aria-label="${playerName} cannot lose the game"${player.cannotLoseTheGame ? ' checked' : ''} />
                   <span>No<br />lose</span>
                 </label>
               </div>
               <div class="live-player-counter-column">
-                <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}">${player.life}</button>
+                <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}" aria-label="Set life total for ${playerName}. Current life ${player.life}.">${player.life}</button>
               </div>
               <div class="live-player-damage-column">
                 ${damageMarkup}
@@ -2374,6 +2553,41 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
   const rowsByPlayerName = new Map(
     rows.map((row) => [row.player.toLocaleLowerCase(), row]),
   );
+  const winnerRow = rows.find((row) => row.place === 1) || null;
+  const eliminatedRows = rows
+    .filter((row) => row.place !== 1)
+    .slice()
+    .sort((a, b) => b.place - a.place);
+
+  for (const row of eliminatedRows) {
+    if (row.turnKilled === null) {
+      return `${row.player} finished in place ${row.place} and must have an elimination turn.`;
+    }
+  }
+
+  for (let index = 1; index < eliminatedRows.length; index += 1) {
+    const earlierElimination = eliminatedRows[index - 1];
+    const laterElimination = eliminatedRows[index];
+
+    if (laterElimination.turnKilled < earlierElimination.turnKilled) {
+      return `${laterElimination.player} finished ahead of ${earlierElimination.player} but is marked eliminated earlier.`;
+    }
+  }
+
+  if (winningTurn && eliminatedRows.some((row) => row.turnKilled !== null && row.turnKilled > winningTurn)) {
+    return 'Winning turn cannot be earlier than any recorded elimination turn.';
+  }
+
+  if (firstBloodPlayer && firstBloodTurn) {
+    const firstBloodRow = rowsByPlayerName.get(firstBloodPlayer.toLocaleLowerCase()) || null;
+    if (firstBloodRow?.turnKilled !== null && firstBloodTurn > firstBloodRow.turnKilled) {
+      return `${firstBloodPlayer} cannot be credited with first blood on turn ${firstBloodTurn} after dying on turn ${firstBloodRow.turnKilled}.`;
+    }
+  }
+
+  const victimToKiller = new Map();
+  const maximumCreditedKills = winnerRow ? rows.length - 1 : Math.max(0, rows.length - 1);
+  let totalCreditedKills = 0;
 
   for (const row of rows) {
     const kills = typeof row.kills === 'number' ? row.kills : 0;
@@ -2413,6 +2627,10 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
         return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
       }
 
+      if (victimToKiller.has(normalizedKilledPlayer)) {
+        return `${killedPlayer} is already credited as a kill for ${victimToKiller.get(normalizedKilledPlayer)}.`;
+      }
+
       if (killedRow.place <= row.place) {
         return `${row.player} cannot be credited with killing ${killedPlayer} because ${killedPlayer} finished ahead of them.`;
       }
@@ -2426,11 +2644,22 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
       }
 
       normalizedKilled.add(normalizedKilledPlayer);
+      victimToKiller.set(normalizedKilledPlayer, row.player);
     }
 
     if (killedPlayers.length > kills) {
       return `${row.player} lists more killed players than their kill total.`;
     }
+
+    totalCreditedKills += kills;
+  }
+
+  if (winnerRow && winnerRow.turnKilled !== null) {
+    return `${winnerRow.player} is marked as the winner and cannot also have an elimination turn.`;
+  }
+
+  if (totalCreditedKills > maximumCreditedKills) {
+    return `This game has ${totalCreditedKills} credited kills, but only ${maximumCreditedKills} eliminations were possible.`;
   }
 
   return '';
@@ -2938,6 +3167,7 @@ function deleteGame(gameId) {
 function getHistoryFilterOptions(games) {
   const winners = new Set();
   const commanders = new Set();
+  const players = new Set();
 
   games.forEach((game) => {
     const winner = getGameWinner(game);
@@ -2946,6 +3176,10 @@ function getHistoryFilterOptions(games) {
     }
 
     getGameRows(game).forEach((row) => {
+      if (row.player) {
+        players.add(row.player);
+      }
+
       if (row.commander) {
         commanders.add(row.commander);
       }
@@ -2955,6 +3189,7 @@ function getHistoryFilterOptions(games) {
   return {
     winners: [...winners].sort((a, b) => a.localeCompare(b)),
     commanders: [...commanders].sort((a, b) => a.localeCompare(b)),
+    players: [...players].sort((a, b) => a.localeCompare(b)),
   };
 }
 
@@ -2975,13 +3210,118 @@ function buildFilterOptions(selectElement, values, label) {
 }
 
 function updateHistoryFilters(games) {
-  if (!historyFilterWinner && !historyFilterCommander) {
+  if (!historyFilterWinner && !historyFilterCommander && !historyFilterPlayer) {
     return;
   }
 
   const filters = getHistoryFilterOptions(games);
   buildFilterOptions(historyFilterWinner, filters.winners, 'winners');
   buildFilterOptions(historyFilterCommander, filters.commanders, 'commanders');
+  buildFilterOptions(historyFilterPlayer, filters.players, 'players');
+}
+
+function applyHistoryQueryFilters() {
+  if (historyQueryFiltersApplied) {
+    return;
+  }
+
+  const winner = getQueryParam('winner');
+  const commander = getQueryParam('commander');
+  const player = getQueryParam('player');
+  const fromDate = getQueryParam('from');
+  const toDate = getQueryParam('to');
+
+  if (historyFilterWinner && winner) {
+    historyFilterWinner.value = winner;
+  }
+  if (historyFilterCommander && commander) {
+    historyFilterCommander.value = commander;
+  }
+  if (historyFilterPlayer && player) {
+    historyFilterPlayer.value = player;
+  }
+  if (historyFilterDateFrom && fromDate) {
+    historyFilterDateFrom.value = fromDate;
+  }
+  if (historyFilterDateTo && toDate) {
+    historyFilterDateTo.value = toDate;
+  }
+
+  historyQueryFiltersApplied = true;
+}
+
+function getCurrentHistoryFilters() {
+  return {
+    winner: historyFilterWinner?.value && historyFilterWinner.value !== 'all' ? historyFilterWinner.value : '',
+    commander: historyFilterCommander?.value && historyFilterCommander.value !== 'all' ? historyFilterCommander.value : '',
+    player: historyFilterPlayer?.value && historyFilterPlayer.value !== 'all' ? historyFilterPlayer.value : '',
+    from: historyFilterDateFrom?.value || '',
+    to: historyFilterDateTo?.value || '',
+  };
+}
+
+function syncHistoryFilterQuery() {
+  if (!historyList) {
+    return;
+  }
+
+  const href = buildHistoryFilterHref(getCurrentHistoryFilters());
+  const currentPath = `${window.location.pathname.split('/').pop() || 'history.html'}${window.location.search}`;
+  if (currentPath !== href) {
+    window.history.replaceState({}, '', href);
+  }
+}
+
+function renderHistoryActiveFilters(totalCount, filteredCount) {
+  if (!historyActiveFilters) {
+    return;
+  }
+
+  const filters = getCurrentHistoryFilters();
+  const activeFilters = [
+    filters.winner ? `Winner: ${filters.winner}` : '',
+    filters.commander ? `Commander: ${filters.commander}` : '',
+    filters.player ? `Player: ${filters.player}` : '',
+    filters.from ? `From: ${filters.from}` : '',
+    filters.to ? `To: ${filters.to}` : '',
+  ].filter(Boolean);
+
+  const summaryLabel = filteredCount === totalCount
+    ? `Showing all ${totalCount} game${totalCount === 1 ? '' : 's'}.`
+    : `Showing ${filteredCount} of ${totalCount} game${totalCount === 1 ? '' : 's'}.`;
+
+  if (!activeFilters.length) {
+    historyActiveFilters.innerHTML = `<p class="history-active-filter-summary">${summaryLabel}</p>`;
+    return;
+  }
+
+  historyActiveFilters.innerHTML = `
+    <p class="history-active-filter-summary">${summaryLabel}</p>
+    <div class="history-active-filter-list" aria-label="Active history filters">
+      ${activeFilters.map((label) => `<span class="history-active-filter-chip">${escapeHtml(label)}</span>`).join('')}
+    </div>`;
+}
+
+function resetHistoryFilters() {
+  if (historyFilterWinner) {
+    historyFilterWinner.value = 'all';
+  }
+  if (historyFilterCommander) {
+    historyFilterCommander.value = 'all';
+  }
+  if (historyFilterPlayer) {
+    historyFilterPlayer.value = 'all';
+  }
+  if (historyFilterDateFrom) {
+    historyFilterDateFrom.value = '';
+  }
+  if (historyFilterDateTo) {
+    historyFilterDateTo.value = '';
+  }
+
+  if (window.location.pathname.endsWith('/history.html') || window.location.pathname.endsWith('history.html')) {
+    window.history.replaceState({}, '', 'history.html');
+  }
 }
 
 function escapeHtml(value) {
@@ -3837,7 +4177,32 @@ function renderDeckLists() {
     return;
   }
 
-  const deckLists = getSortedDeckLists();
+  const sortState = getTableSort('deckLists', 'commander', false);
+  const deckLists = getSortedDeckLists()
+    .slice()
+    .sort((a, b) => {
+      let result = 0;
+      switch (sortState.column) {
+        case 'commander':
+          result = compareTextValues(a.commander, b.commander);
+          break;
+        case 'owner':
+          result = compareTextValues(a.owner, b.owner);
+          break;
+        case 'url':
+          result = compareTextValues(a.url, b.url);
+          break;
+        default:
+          result = compareTextValues(a.commander, b.commander);
+          break;
+      }
+
+      if (result === 0) {
+        result = compareTextValues(a.commander, b.commander);
+      }
+
+      return finalizeSortResult(result, sortState.descending);
+    });
 
   if (!deckLists.length) {
     deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists saved yet.</td></tr>';
@@ -3846,19 +4211,23 @@ function renderDeckLists() {
 
   deckListTableBody.innerHTML = deckLists
     .map((entry) => {
+      const safeCommander = escapeHtml(entry.commander);
+      const safeOwner = escapeHtml(entry.owner || '—');
       const safeUrl = escapeHtml(entry.url);
       return `
         <tr>
-          <td>${escapeHtml(entry.commander)}</td>
-          <td>${escapeHtml(entry.owner || '—')}</td>
-          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a></td>
+          <td>${safeCommander}</td>
+          <td>${safeOwner}</td>
+          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
-            <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}">Edit</button>
-            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}">Delete</button>
+            <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
+            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
           </td>
         </tr>`;
     })
     .join('');
+
+  updateSortableTableIndicators('deckLists');
 }
 
 function collectRecordsFromTable() {
@@ -4021,6 +4390,7 @@ function renderHistoryGame(game) {
   const playerCount = rows.length;
   const firstBloodLabel = getGameFirstBloodLabel(game);
   const notes = game.notes ? escapeHtml(game.notes) : 'No notes recorded.';
+  const gameDate = escapeHtml(game.date || 'Unknown date');
 
   const playerRows = rows
     .map((row) => {
@@ -4039,22 +4409,27 @@ function renderHistoryGame(game) {
   return `
     <article class="history-item">
       <div class="row history-item-meta">
-        <h3>${escapeHtml(game.date || 'Unknown date')}</h3>
-        <small>Winner: ${escapeHtml(winner)} · ${playerCount} players · ${totalKills} kills · First blood: ${escapeHtml(firstBloodLabel)}</small>
+        <h3>${gameDate}</h3>
+        <div class="history-item-facts" aria-label="Game summary">
+          <span class="history-item-fact">Winner: ${escapeHtml(winner)}</span>
+          <span class="history-item-fact">${playerCount} players</span>
+          <span class="history-item-fact">${totalKills} kills</span>
+          <span class="history-item-fact">First blood: ${escapeHtml(firstBloodLabel)}</span>
+        </div>
       </div>
       <div class="history-item-actions">
-        <button type="button" class="secondary-button history-edit-button" data-id="${escapeHtml(game.id)}">Edit</button>
-        <button type="button" class="history-delete-button" data-id="${escapeHtml(game.id)}">Delete</button>
+        <button type="button" class="secondary-button history-edit-button" data-id="${escapeHtml(game.id)}" aria-label="Edit saved game from ${gameDate}">Edit</button>
+        <button type="button" class="history-delete-button" data-id="${escapeHtml(game.id)}" aria-label="Delete saved game from ${gameDate}">Delete</button>
       </div>
       <p>${notes}</p>
-      <table class="player-table history-game-table">
+      <table class="player-table history-game-table" aria-label="Players for game on ${gameDate}">
         <thead>
           <tr>
-            <th>Player</th>
-            <th>Commander</th>
-            <th>Place</th>
-            <th>Kills</th>
-            <th>Killed</th>
+            <th scope="col">Player</th>
+            <th scope="col">Commander</th>
+            <th scope="col">Place</th>
+            <th scope="col">Kills</th>
+            <th scope="col">Killed</th>
           </tr>
         </thead>
         <tbody>
@@ -4072,10 +4447,28 @@ function renderHistory(games) {
   const sortedGames = getSortedHistoryGames(games);
   const winnerFilter = historyFilterWinner?.value || 'all';
   const commanderFilter = historyFilterCommander?.value || 'all';
+  const playerFilter = historyFilterPlayer?.value || 'all';
+  const dateFromFilter = historyFilterDateFrom?.value || '';
+  const dateToFilter = historyFilterDateTo?.value || '';
 
   const filteredGames = sortedGames.filter((game) => {
+    if (dateFromFilter && (game.date || '') < dateFromFilter) {
+      return false;
+    }
+
+    if (dateToFilter && (game.date || '') > dateToFilter) {
+      return false;
+    }
+
     if (winnerFilter !== 'all' && getGameWinner(game) !== winnerFilter) {
       return false;
+    }
+
+    if (playerFilter !== 'all') {
+      const foundPlayer = getGameRows(game).some((row) => row.player === playerFilter);
+      if (!foundPlayer) {
+        return false;
+      }
     }
 
     if (commanderFilter !== 'all') {
@@ -4088,8 +4481,11 @@ function renderHistory(games) {
     return true;
   });
 
+  syncHistoryFilterQuery();
+  renderHistoryActiveFilters(sortedGames.length, filteredGames.length);
+
   if (!filteredGames.length) {
-    historyList.innerHTML = '<p>No games match the current filters.</p>';
+    historyList.innerHTML = '<p class="history-empty-state">No games match the current filters.</p>';
     return;
   }
 
@@ -4613,6 +5009,7 @@ function renderPodRankings(games) {
     return;
   }
 
+  const sortState = getTableSort('rankingsMain', 'rank', false);
   const entries = buildPlayerRankingEntries(games);
   const recentEntries = buildPlayerRankingEntries(getGamesSortedByDateAscending(games).slice(-10));
   const commanderEntries = buildCommanderRankingEntries(games);
@@ -4662,13 +5059,84 @@ function renderPodRankings(games) {
     },
   ]);
 
-  rankingsTableBody.innerHTML = entries
-    .map((entry, index) => {
-      const streakEntry = playerStreaksByName.get(entry.name) || { currentWinStreak: 0, bestWinStreak: 0 };
+  const rankingRows = entries.map((entry, index) => {
+    const streakEntry = playerStreaksByName.get(entry.name) || { currentWinStreak: 0, bestWinStreak: 0 };
+    return {
+      rank: index + 1,
+      player: entry.name,
+      rating: entry.rating,
+      perfGame: entry.pointsPerGame,
+      games: entry.games,
+      wins: entry.wins,
+      currentStreak: streakEntry.currentWinStreak,
+      longestStreak: streakEntry.bestWinStreak,
+      kills: entry.kills,
+      firstBlood: entry.firstBloods,
+      avgPlace: entry.avgPlace,
+      favoriteCommander: entry.favoriteCommander || '',
+      entry,
+      streakEntry,
+    };
+  });
+
+  rankingRows.sort((a, b) => {
+    let result = 0;
+    switch (sortState.column) {
+      case 'rank':
+        result = compareNumberValues(a.rank, b.rank);
+        break;
+      case 'player':
+        result = compareTextValues(a.player, b.player);
+        break;
+      case 'rating':
+        result = compareNumberValues(a.rating, b.rating);
+        break;
+      case 'perfGame':
+        result = compareNumberValues(a.perfGame, b.perfGame);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'wins':
+        result = compareNumberValues(a.wins, b.wins);
+        break;
+      case 'currentStreak':
+        result = compareNumberValues(a.currentStreak, b.currentStreak);
+        break;
+      case 'longestStreak':
+        result = compareNumberValues(a.longestStreak, b.longestStreak);
+        break;
+      case 'kills':
+        result = compareNumberValues(a.kills, b.kills);
+        break;
+      case 'firstBlood':
+        result = compareNumberValues(a.firstBlood, b.firstBlood);
+        break;
+      case 'avgPlace':
+        result = compareNumberValues(a.avgPlace, b.avgPlace);
+        break;
+      case 'favoriteCommander':
+        result = compareTextValues(a.favoriteCommander, b.favoriteCommander);
+        break;
+      default:
+        result = compareNumberValues(a.rank, b.rank);
+        break;
+    }
+
+    if (result === 0) {
+      result = compareNumberValues(a.rank, b.rank);
+    }
+
+    return finalizeSortResult(result, sortState.descending);
+  });
+
+  rankingsTableBody.innerHTML = rankingRows
+    .map((row) => {
+      const { entry, streakEntry } = row;
       return `
       <tr>
-        <td>${index + 1}</td>
-        <td>${escapeHtml(entry.name)}</td>
+        <td>${row.rank}</td>
+        <td>${buildHistoryFilterLink(entry.name, { player: entry.name })}</td>
         <td>${formatRating(entry.rating)}</td>
         <td>${formatPointsPerGame(entry.pointsPerGame)}</td>
         <td class="rankings-games-cell">${entry.games}</td>
@@ -4678,10 +5146,12 @@ function renderPodRankings(games) {
         <td>${entry.kills}</td>
         <td>${entry.firstBloods}</td>
         <td>${formatAveragePlace(entry.avgPlace)}</td>
-        <td>${escapeHtml(entry.favoriteCommander)}</td>
+        <td>${entry.favoriteCommander ? buildHistoryFilterLink(entry.favoriteCommander, { commander: entry.favoriteCommander }) : '—'}</td>
       </tr>`;
     })
     .join('');
+
+  updateSortableTableIndicators('rankingsMain');
 }
 
 function renderRecentTrends(games) {
@@ -4689,6 +5159,8 @@ function renderRecentTrends(games) {
     return;
   }
 
+  const playerSortState = getTableSort('recentPlayerTrends', 'points', true);
+  const commanderSortState = getTableSort('recentCommanderTrends', 'points', true);
   const recentGames = getGamesSortedByDateAscending(games).slice(-10);
   const playerEntries = buildPlayerRankingEntries(recentGames);
   const commanderEntries = buildCommanderRankingEntries(recentGames);
@@ -4730,10 +5202,45 @@ function renderRecentTrends(games) {
     },
   ]);
 
-  recentPlayerTrendsBody.innerHTML = (playerEntries.length ? playerEntries : [])
+  const sortedPlayerEntries = playerEntries.slice().sort((a, b) => {
+    let result = 0;
+    switch (playerSortState.column) {
+      case 'player':
+        result = compareTextValues(a.name, b.name);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'points':
+        result = compareNumberValues(a.points, b.points);
+        break;
+      case 'winRate':
+        result = compareNumberValues(a.winRate, b.winRate);
+        break;
+      case 'kills':
+        result = compareNumberValues(a.kills, b.kills);
+        break;
+      case 'firstBlood':
+        result = compareNumberValues(a.firstBloods, b.firstBloods);
+        break;
+      case 'avgPlace':
+        result = compareNumberValues(a.avgPlace, b.avgPlace);
+        break;
+      default:
+        result = compareAggregateEntries(a, b);
+        return playerSortState.descending ? result : -result;
+    }
+    if (result === 0) {
+      result = compareAggregateEntries(a, b);
+      return playerSortState.descending ? result : -result;
+    }
+    return finalizeSortResult(result, playerSortState.descending);
+  });
+
+  recentPlayerTrendsBody.innerHTML = (sortedPlayerEntries.length ? sortedPlayerEntries : [])
     .map((entry) => `
       <tr>
-        <td>${escapeHtml(entry.name)}</td>
+        <td>${buildHistoryFilterLink(entry.name, { player: entry.name })}</td>
         <td>${entry.games}</td>
         <td>${entry.points}</td>
         <td>${formatPercent(entry.winRate)}</td>
@@ -4743,10 +5250,45 @@ function renderRecentTrends(games) {
       </tr>`)
     .join('') || '<tr><td colspan="7">No recent player trend data yet.</td></tr>';
 
-  recentCommanderTrendsBody.innerHTML = (commanderEntries.length ? commanderEntries : [])
+  const sortedCommanderEntries = commanderEntries.slice().sort((a, b) => {
+    let result = 0;
+    switch (commanderSortState.column) {
+      case 'commander':
+        result = compareTextValues(a.name, b.name);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'points':
+        result = compareNumberValues(a.points, b.points);
+        break;
+      case 'winRate':
+        result = compareNumberValues(a.winRate, b.winRate);
+        break;
+      case 'kills':
+        result = compareNumberValues(a.kills, b.kills);
+        break;
+      case 'firstBlood':
+        result = compareNumberValues(a.firstBloods, b.firstBloods);
+        break;
+      case 'avgPlace':
+        result = compareNumberValues(a.avgPlace, b.avgPlace);
+        break;
+      default:
+        result = compareAggregateEntries(a, b);
+        return commanderSortState.descending ? result : -result;
+    }
+    if (result === 0) {
+      result = compareAggregateEntries(a, b);
+      return commanderSortState.descending ? result : -result;
+    }
+    return finalizeSortResult(result, commanderSortState.descending);
+  });
+
+  recentCommanderTrendsBody.innerHTML = (sortedCommanderEntries.length ? sortedCommanderEntries : [])
     .map((entry) => `
       <tr>
-        <td>${escapeHtml(entry.name)}</td>
+        <td>${buildHistoryFilterLink(entry.name, { commander: entry.name })}</td>
         <td>${entry.games}</td>
         <td>${entry.points}</td>
         <td>${formatPercent(entry.winRate)}</td>
@@ -4755,6 +5297,9 @@ function renderRecentTrends(games) {
         <td>${formatAveragePlace(entry.avgPlace)}</td>
       </tr>`)
     .join('') || '<tr><td colspan="7">No recent commander trend data yet.</td></tr>';
+
+  updateSortableTableIndicators('recentPlayerTrends');
+  updateSortableTableIndicators('recentCommanderTrends');
 }
 
 function renderStreaks(games) {
@@ -4762,6 +5307,8 @@ function renderStreaks(games) {
     return;
   }
 
+  const playerSortState = getTableSort('playerStreaks', 'currentWins', true);
+  const commanderSortState = getTableSort('commanderStreaks', 'currentWins', true);
   const playerEntries = buildStreakEntries(games, (row) => row.player);
   const commanderEntries = buildStreakEntries(games, (row) => row.commander);
 
@@ -4798,10 +5345,41 @@ function renderStreaks(games) {
     },
   ]);
 
-  playerStreaksBody.innerHTML = playerEntries.length
-    ? playerEntries.map((entry) => `
+  const sortedPlayerEntries = playerEntries.slice().sort((a, b) => {
+    let result = 0;
+    switch (playerSortState.column) {
+      case 'player':
+        result = compareTextValues(a.name, b.name);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'currentWins':
+        result = compareNumberValues(a.currentWinStreak, b.currentWinStreak);
+        break;
+      case 'bestWinStreak':
+        result = compareNumberValues(a.bestWinStreak, b.bestWinStreak);
+        break;
+      case 'drought':
+        result = compareNumberValues(a.drought, b.drought);
+        break;
+      case 'lastWin':
+        result = compareDateValues(a.lastWinDate, b.lastWinDate);
+        break;
+      default:
+        result = compareNumberValues(a.currentWinStreak, b.currentWinStreak);
+        break;
+    }
+    if (result === 0) {
+      result = compareTextValues(a.name, b.name);
+    }
+    return finalizeSortResult(result, playerSortState.descending);
+  });
+
+  playerStreaksBody.innerHTML = sortedPlayerEntries.length
+    ? sortedPlayerEntries.map((entry) => `
         <tr>
-          <td>${escapeHtml(entry.name)}</td>
+          <td>${buildHistoryFilterLink(entry.name, { player: entry.name })}</td>
           <td>${entry.games}</td>
           <td>${entry.currentWinStreak}</td>
           <td>${entry.bestWinStreak}</td>
@@ -4810,10 +5388,41 @@ function renderStreaks(games) {
         </tr>`).join('')
     : '<tr><td colspan="6">No player streaks available yet.</td></tr>';
 
-  commanderStreaksBody.innerHTML = commanderEntries.length
-    ? commanderEntries.map((entry) => `
+  const sortedCommanderEntries = commanderEntries.slice().sort((a, b) => {
+    let result = 0;
+    switch (commanderSortState.column) {
+      case 'commander':
+        result = compareTextValues(a.name, b.name);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'currentWins':
+        result = compareNumberValues(a.currentWinStreak, b.currentWinStreak);
+        break;
+      case 'bestWinStreak':
+        result = compareNumberValues(a.bestWinStreak, b.bestWinStreak);
+        break;
+      case 'drought':
+        result = compareNumberValues(a.drought, b.drought);
+        break;
+      case 'lastWin':
+        result = compareDateValues(a.lastWinDate, b.lastWinDate);
+        break;
+      default:
+        result = compareNumberValues(a.currentWinStreak, b.currentWinStreak);
+        break;
+    }
+    if (result === 0) {
+      result = compareTextValues(a.name, b.name);
+    }
+    return finalizeSortResult(result, commanderSortState.descending);
+  });
+
+  commanderStreaksBody.innerHTML = sortedCommanderEntries.length
+    ? sortedCommanderEntries.map((entry) => `
         <tr>
-          <td>${escapeHtml(entry.name)}</td>
+          <td>${buildHistoryFilterLink(entry.name, { commander: entry.name })}</td>
           <td>${entry.games}</td>
           <td>${entry.currentWinStreak}</td>
           <td>${entry.bestWinStreak}</td>
@@ -4821,6 +5430,9 @@ function renderStreaks(games) {
           <td>${escapeHtml(entry.lastWinDate || '—')}</td>
         </tr>`).join('')
     : '<tr><td colspan="6">No commander streaks available yet.</td></tr>';
+
+  updateSortableTableIndicators('playerStreaks');
+  updateSortableTableIndicators('commanderStreaks');
 }
 
 function renderRankingsPage(games) {
@@ -4892,6 +5504,7 @@ function renderPlayerStats(games) {
     return;
   }
 
+  const sortState = getTableSort('playerStats', 'games', true);
   const stats = getPlayerStatsData(games);
   const players = Object.keys(stats);
 
@@ -4900,12 +5513,7 @@ function renderPlayerStats(games) {
     return;
   }
 
-  const html = players
-    .sort((a, b) => {
-      const diff = stats[b].games - stats[a].games;
-      if (diff) return diff;
-      return stats[b].wins - stats[a].wins;
-    })
+  const rows = players
     .map((player) => {
       const stat = stats[player];
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
@@ -4933,24 +5541,89 @@ function renderPlayerStats(games) {
         }
       });
 
+      return {
+        player,
+        games: stat.games,
+        wins: stat.wins,
+        winRate: winRateValue,
+        firstBloods: stat.firstBloods || 0,
+        favoriteCommander: favoriteCommander || '',
+        nemesis: nemesis || '',
+        victim: victim || '',
+        kills: stat.kills,
+        kd: Number.parseFloat(killAverage),
+        bestDeck,
+      };
+    });
+
+  rows.sort((a, b) => {
+    let result = 0;
+    switch (sortState.column) {
+      case 'player':
+        result = compareTextValues(a.player, b.player);
+        break;
+      case 'games':
+        result = compareNumberValues(a.games, b.games);
+        break;
+      case 'wins':
+        result = compareNumberValues(a.wins, b.wins);
+        break;
+      case 'winRate':
+        result = compareNumberValues(a.winRate, b.winRate);
+        break;
+      case 'firstBlood':
+        result = compareNumberValues(a.firstBloods, b.firstBloods);
+        break;
+      case 'favoriteCommander':
+        result = compareTextValues(a.favoriteCommander, b.favoriteCommander);
+        break;
+      case 'nemesis':
+        result = compareTextValues(a.nemesis, b.nemesis);
+        break;
+      case 'victim':
+        result = compareTextValues(a.victim, b.victim);
+        break;
+      case 'kills':
+        result = compareNumberValues(a.kills, b.kills);
+        break;
+      case 'kd':
+        result = compareNumberValues(a.kd, b.kd);
+        break;
+      case 'bestDeck':
+        result = compareTextValues(a.bestDeck, b.bestDeck);
+        break;
+      default:
+        result = compareNumberValues(a.games, b.games);
+        break;
+    }
+
+    if (result === 0) {
+      result = compareTextValues(a.player, b.player);
+    }
+
+    return finalizeSortResult(result, sortState.descending);
+  });
+
+  const html = rows.map((row) => {
       return `
         <tr>
-          <td>${player}</td>
-          <td>${stat.games}</td>
-          <td>${stat.wins}</td>
-          <td>${formatPercent(winRateValue)}</td>
-          <td>${stat.firstBloods || 0}</td>
-          <td>${favoriteCommander}</td>
-          <td>${nemesis}</td>
-          <td>${victim}</td>
-          <td>${stat.kills}</td>
-          <td>${killAverage}</td>
-          <td>${bestDeck}</td>
+          <td>${buildHistoryFilterLink(row.player, { player: row.player })}</td>
+          <td>${row.games}</td>
+          <td>${row.wins}</td>
+          <td>${formatPercent(row.winRate)}</td>
+          <td>${row.firstBloods}</td>
+          <td>${row.favoriteCommander ? buildHistoryFilterLink(row.favoriteCommander, { commander: row.favoriteCommander }) : '—'}</td>
+          <td>${row.nemesis ? buildHistoryFilterLink(row.nemesis, { player: row.nemesis }) : '—'}</td>
+          <td>${row.victim ? buildHistoryFilterLink(row.victim, { player: row.victim }) : '—'}</td>
+          <td>${row.kills}</td>
+          <td>${row.kd.toFixed(1)}</td>
+          <td>${row.bestDeck}</td>
         </tr>`;
     })
     .join('');
 
   playerStatsTableBody.innerHTML = html;
+  updateSortableTableIndicators('playerStats');
 }
 
 function getCommanderStatsData(games) {
@@ -5073,6 +5746,7 @@ function renderCommanderStats(games) {
     return;
   }
 
+  const sortState = getTableSort('commanderStats', 'games', true);
   const searchTerm = commanderSearch?.value.trim().toLowerCase() || '';
   const commanderStats = getCommanderStatsData(games);
   const actualPowers = getCommanderActualPower(commanderStats);
@@ -5107,14 +5781,13 @@ function renderCommanderStats(games) {
       delta: typeof entry.expected === 'number' ? entry.actualCal - entry.expected : 0,
     }));
 
-  // Sort by selected column
   entries.sort((a, b) => {
     let aVal, bVal;
-    switch (commanderSortColumn) {
+    switch (sortState.column) {
       case 'commander':
         aVal = a.commander.toLowerCase();
         bVal = b.commander.toLowerCase();
-        return commanderSortDescending ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+        return sortState.descending ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
       case 'games':
         aVal = a.games;
         bVal = b.games;
@@ -5167,7 +5840,7 @@ function renderCommanderStats(games) {
         return 0;
     }
     const diff = aVal - bVal;
-    return commanderSortDescending ? -diff : diff;
+    return sortState.descending ? -diff : diff;
   });
 
   const rows = entries
@@ -5190,7 +5863,7 @@ function renderCommanderStats(games) {
 
       return `
         <tr>
-          <td>${escapeHtml(commander)}</td>
+          <td>${buildHistoryFilterLink(commander, { commander })}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>
@@ -5224,7 +5897,7 @@ function renderCommanderStats(games) {
     .join('');
 
   commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="13">No commanders match your search.</td></tr>';
-  updateCommanderSortIndicators();
+  updateSortableTableIndicators('commanderStats');
 }
 
 function handleCommanderExpectedInput(event) {
@@ -5241,23 +5914,6 @@ function handleCommanderExpectedInput(event) {
     setCommanderExpectedPower(commander, value);
     input.value = Math.round(value * 10) / 10;
   }
-}
-
-function updateCommanderSortIndicators() {
-  const headers = document.querySelectorAll('.commander-stats-table .sortable-header');
-  headers.forEach((header) => {
-    const column = header.dataset.column;
-    const indicator = header.querySelector('.sort-indicator');
-    if (!indicator) return;
-
-    if (column === commanderSortColumn) {
-      indicator.textContent = commanderSortDescending ? ' ▼' : ' ▲';
-      indicator.style.opacity = '1';
-    } else {
-      indicator.textContent = '';
-      indicator.style.opacity = '0.3';
-    }
-  });
 }
 
 function applyResponsiveTableLabels() {
@@ -5281,21 +5937,30 @@ function applyResponsiveTableLabels() {
   });
 }
 
-function handleCommanderHeaderClick(event) {
+function handleSortableHeaderClick(event) {
   const header = event.target.closest('.sortable-header');
   if (!header) {
     return;
   }
 
+  const table = header.closest('[data-sort-table]');
+  const tableKey = table?.dataset.sortTable;
   const column = header.dataset.column;
-  if (column === commanderSortColumn) {
-    commanderSortDescending = !commanderSortDescending;
-  } else {
-    commanderSortColumn = column;
-    commanderSortDescending = true;
+  if (!tableKey || !column) {
+    return;
   }
 
-  renderCommanderStats(loadGames());
+  toggleTableSort(tableKey, column, getTableSortDefaultDescending(tableKey, column));
+  rerenderSortedTable(tableKey);
+}
+
+function handleSortableHeaderKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  event.preventDefault();
+  handleSortableHeaderClick(event);
 }
 
 function renderSummary(games) {
@@ -5357,6 +6022,7 @@ function refresh() {
   renderRankingsPage(games);
   renderPlayerStats(games);
   updateHistoryFilters(games);
+  applyHistoryQueryFilters();
   renderHistory(games);
   renderCommanderStats(games);
   renderDeckLookup();
@@ -5744,6 +6410,31 @@ if (historyFilterCommander) {
   });
 }
 
+if (historyFilterPlayer) {
+  historyFilterPlayer.addEventListener('change', () => {
+    renderHistory(loadGames());
+  });
+}
+
+if (historyFilterDateFrom) {
+  historyFilterDateFrom.addEventListener('change', () => {
+    renderHistory(loadGames());
+  });
+}
+
+if (historyFilterDateTo) {
+  historyFilterDateTo.addEventListener('change', () => {
+    renderHistory(loadGames());
+  });
+}
+
+if (historyResetFiltersButton) {
+  historyResetFiltersButton.addEventListener('click', () => {
+    resetHistoryFilters();
+    renderHistory(loadGames());
+  });
+}
+
 if (commanderSearch) {
   commanderSearch.addEventListener('input', () => {
     renderCommanderStats(loadGames());
@@ -5891,10 +6582,10 @@ if (customRecordForm) {
   });
 }
 
-const commanderStatsTable = document.querySelector('.commander-stats-table');
-if (commanderStatsTable) {
-  commanderStatsTable.addEventListener('click', handleCommanderHeaderClick);
-}
+document.querySelectorAll('[data-sort-table]').forEach((table) => {
+  table.addEventListener('click', handleSortableHeaderClick);
+  table.addEventListener('keydown', handleSortableHeaderKeydown);
+});
 
 updateHistorySortOrderLabel();
 

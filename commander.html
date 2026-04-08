@@ -47,22 +47,22 @@
             <input id="commander-search" type="search" placeholder="Search commander name" />
           </div>
           <div class="player-table-wrapper">
-            <table class="player-table commander-stats-table">
+            <table class="player-table commander-stats-table" data-sort-table="commanderStats">
               <thead>
                 <tr>
-                  <th class="sortable-header" data-column="commander">Commander <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="games">Games <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="wins">Wins <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="winRate">Win rate <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="kills">Kills <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="firstBloods">First Blood <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="kd">K/D <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="avgPlace">Avg place <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="expected">EDHPowerLevel <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="actual">In Pod <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="actualCal">Out of Pod <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="delta">Delta <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="confidence">Confidence <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="wins" tabindex="0" aria-sort="none">Wins <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="winRate" tabindex="0" aria-sort="none">Win rate <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Kills <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="firstBloods" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="kd" tabindex="0" aria-sort="none">K/D <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="avgPlace" tabindex="0" aria-sort="none">Avg place <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="expected" tabindex="0" aria-sort="none">EDHPowerLevel <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="actual" tabindex="0" aria-sort="none">In Pod <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="actualCal" tabindex="0" aria-sort="none">Out of Pod <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="delta" tabindex="0" aria-sort="none">Delta <span class="sort-indicator"></span></th>
+                  <th class="sortable-header" data-column="confidence" tabindex="0" aria-sort="none">Confidence <span class="sort-indicator"></span></th>
                 </tr>
               </thead>
               <tbody id="commander-stats-body"></tbody>

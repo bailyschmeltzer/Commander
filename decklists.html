@@ -93,13 +93,13 @@
         <section class="card">
           <h2>Saved Deck Lists</h2>
           <div class="player-table-wrapper">
-            <table class="player-table deck-list-table">
+            <table class="player-table deck-list-table" data-sort-table="deckLists">
               <thead>
                 <tr>
-                  <th>Commander</th>
-                  <th>Owner</th>
-                  <th>URL</th>
-                  <th>Actions</th>
+                      <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                      <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
+                      <th scope="col" class="sortable-header" data-column="url" tabindex="0" aria-sort="none">URL <span class="sort-indicator"></span></th>
+                      <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody id="deck-list-body"></tbody>
@@ -108,7 +108,7 @@
         </section>
 
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
-          <div class="live-source-dialog live-modal-dialog">
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
             <h3 id="live-modal-title">Confirm action</h3>
             <p id="live-modal-copy"></p>
             <div id="live-modal-field" class="live-modal-field" hidden>
