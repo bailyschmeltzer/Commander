@@ -786,11 +786,12 @@ function rerenderSortedTable(tableKey) {
       break;
     case 'deckLists':
       renderDeckLists();
-      applyResponsiveTableLabels();
       break;
     default:
       break;
   }
+
+  applyResponsiveTableLabels();
 }
 
 function loadGames() {
