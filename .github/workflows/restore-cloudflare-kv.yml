@@ -1,0 +1,81 @@
+name: Restore Cloudflare KV
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot_path:
+        description: Path to the backup JSON file to restore
+        required: true
+        default: backups/cloudflare-kv/latest.json
+      kv_key:
+        description: Cloudflare KV key to overwrite
+        required: true
+        default: pod:default:state
+      confirm_restore:
+        description: Type RESTORE to confirm overwrite
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate inputs and backup file
+        env:
+          SNAPSHOT_PATH: ${{ github.event.inputs.snapshot_path }}
+          CONFIRM_RESTORE: ${{ github.event.inputs.confirm_restore }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CONFIRM_RESTORE" != "RESTORE" ]; then
+            echo "Restore aborted: confirmation text did not match RESTORE." >&2
+            exit 1
+          fi
+
+          if [ ! -f "$SNAPSHOT_PATH" ]; then
+            echo "Restore aborted: backup file not found at $SNAPSHOT_PATH." >&2
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['SNAPSHOT_PATH'])
+          data = json.loads(path.read_text(encoding='utf-8'))
+          path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Restore backup into Cloudflare KV
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN_RESTORE: ${{ secrets.CLOUDFLARE_API_TOKEN_RESTORE }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          KV_KEY: ${{ github.event.inputs.kv_key }}
+          SNAPSHOT_PATH: ${{ github.event.inputs.snapshot_path }}
+        run: |
+          set -euo pipefail
+
+          encoded_key="$(python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          print(urllib.parse.quote(os.environ['KV_KEY'], safe=''))
+          PY
+          )"
+
+          curl --fail --silent --show-error \
+            -X PUT \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN_RESTORE" \
+            -H "Content-Type: application/json" \
+            --data-binary "@$SNAPSHOT_PATH" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces/$CLOUDFLARE_KV_NAMESPACE_ID/values/$encoded_key"
+
+          echo "Restore completed for KV key: $KV_KEY"
