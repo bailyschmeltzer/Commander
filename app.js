@@ -604,6 +604,107 @@ function finalizeSortResult(result, descending) {
   return descending ? -result : result;
 }
 
+function getSortableTableHeaders(table) {
+  return Array.from(table?.querySelectorAll('.sortable-header') || []);
+}
+
+function ensureMobileSortControls(table) {
+  const tableKey = table?.dataset.sortTable;
+  const wrapper = table?.closest('.player-table-wrapper');
+  const headers = getSortableTableHeaders(table);
+  if (!tableKey || !wrapper || !headers.length) {
+    return null;
+  }
+
+  let controls = wrapper.querySelector(`.mobile-sort-controls[data-sort-table="${tableKey}"]`);
+  if (!controls) {
+    controls = document.createElement('div');
+    controls.className = 'mobile-sort-controls';
+    controls.dataset.sortTable = tableKey;
+    controls.innerHTML = `
+      <label class="mobile-sort-field">
+        <span class="mobile-sort-label">Sort by</span>
+        <select class="mobile-sort-select"></select>
+      </label>
+      <button type="button" class="secondary-button mobile-sort-direction"></button>
+    `;
+
+    const select = controls.querySelector('.mobile-sort-select');
+    const directionButton = controls.querySelector('.mobile-sort-direction');
+
+    select?.addEventListener('change', (event) => {
+      const column = event.target.value;
+      if (!column) {
+        return;
+      }
+
+      const state = tableSortState[tableKey];
+      if (!state) {
+        return;
+      }
+
+      state.column = column;
+      state.descending = getTableSortDefaultDescending(tableKey, column);
+      rerenderSortedTable(tableKey);
+    });
+
+    directionButton?.addEventListener('click', () => {
+      const state = tableSortState[tableKey];
+      if (!state) {
+        return;
+      }
+
+      state.descending = !state.descending;
+      rerenderSortedTable(tableKey);
+    });
+
+    wrapper.insertBefore(controls, table);
+  }
+
+  const select = controls.querySelector('.mobile-sort-select');
+  const state = tableSortState[tableKey];
+  if (select && state) {
+    select.innerHTML = headers
+      .map((header) => {
+        const column = header.dataset.column || '';
+        const label = header.textContent.replace(/▲|▼/g, '').trim();
+        const selected = state.column === column ? ' selected' : '';
+        return `<option value="${escapeHtml(column)}"${selected}>${escapeHtml(label)}</option>`;
+      })
+      .join('');
+    select.value = state.column;
+  }
+
+  return controls;
+}
+
+function updateMobileSortControls(tableKey) {
+  const table = document.querySelector(`[data-sort-table="${tableKey}"]`);
+  const controls = table ? ensureMobileSortControls(table) : null;
+  const state = tableSortState[tableKey];
+  if (!controls || !state) {
+    return;
+  }
+
+  const directionButton = controls.querySelector('.mobile-sort-direction');
+  const select = controls.querySelector('.mobile-sort-select');
+  if (select) {
+    select.value = state.column;
+  }
+
+  if (directionButton) {
+    directionButton.textContent = state.descending ? 'Descending' : 'Ascending';
+    directionButton.setAttribute('aria-label', `${state.descending ? 'Descending' : 'Ascending'} sort order`);
+  }
+}
+
+function initializeMobileSortControls() {
+  document.querySelectorAll('[data-sort-table]').forEach((table) => {
+    ensureMobileSortControls(table);
+    updateMobileSortControls(table.dataset.sortTable || '');
+  });
+}
+
 function updateSortableTableIndicators(tableKey) {
   const state = tableSortState[tableKey];
   const headers = document.querySelectorAll(`[data-sort-table="${tableKey}"] .sortable-header`);
@@ -626,6 +727,8 @@ function updateSortableTableIndicators(tableKey) {
       indicator.style.opacity = '0.3';
     }
   });
+
+  updateMobileSortControls(tableKey);
 }
 
 function toggleTableSort(tableKey, column, fallbackDescending = true) {
@@ -6030,6 +6133,7 @@ function refresh() {
   renderDeckSelector();
   renderRecords();
   refreshLiveTrackerUi();
+  initializeMobileSortControls();
   applyResponsiveTableLabels();
 }
 
