@@ -31,11 +31,11 @@ jobs:
 
           timestamp="$(date -u +"%Y-%m-%dT%H-%M-%SZ")"
           encoded_key="$(python3 - <<'PY'
-import os
-import urllib.parse
+          import os
+          import urllib.parse
 
-print(urllib.parse.quote(os.environ['CLOUDFLARE_KV_KEY'], safe=''))
-PY
+          print(urllib.parse.quote(os.environ['CLOUDFLARE_KV_KEY'], safe=''))
+          PY
           )"
 
           mkdir -p "$BACKUP_ROOT/history"
@@ -46,14 +46,14 @@ PY
             -o "$BACKUP_ROOT/current.raw.json"
 
           python3 - <<'PY'
-import json
-import os
-from pathlib import Path
+          import json
+          import os
+          from pathlib import Path
 
-path = Path(os.environ['BACKUP_ROOT']) / 'current.raw.json'
-data = json.loads(path.read_text(encoding='utf-8'))
-path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-PY
+          path = Path(os.environ['BACKUP_ROOT']) / 'current.raw.json'
+          data = json.loads(path.read_text(encoding='utf-8'))
+          path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
 
           if [ -f "$BACKUP_ROOT/latest.json" ] && cmp -s "$BACKUP_ROOT/latest.json" "$BACKUP_ROOT/current.raw.json"; then
             echo "No data changes detected; skipping backup commit."
