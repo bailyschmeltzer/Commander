@@ -1,0 +1,2081 @@
+{
+  "deckLists": [
+    {
+      "commander": "Fire Lord Azula",
+      "id": "b96974c2-3387-4a82-8f83-7b50b9f4d5ed",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/18259455/copy_of_fire_nation_attacks_fire_lord_azula_lost_precon"
+    },
+    {
+      "commander": "Pantlaza, Sun-Favored",
+      "id": "3601378e-87d9-40c3-866d-0f715f323b8e",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/18259168/dinos"
+    },
+    {
+      "commander": "The Wise Mothman",
+      "id": "c524f95b-b8cc-4ff7-91d7-2cfee1afd812",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/18258806/mothman"
+    },
+    {
+      "commander": "Teval, the Balanced Scale",
+      "id": "2861f2ab-4842-476e-825f-8af375188b5a",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/18259444/copy_of_sultai_arisen_tarkir_dragonstorm_commander"
+    },
+    {
+      "commander": "Zhulodok, Void Gorger",
+      "id": "8fff7be0-499f-434b-93f8-83487972ade9",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/17585205/copy_of_flashy_colorless_eldrazi"
+    },
+    {
+      "commander": "The Mimeoplasm",
+      "id": "6fd69a45-4293-4052-b3a2-b359d08ceb32",
+      "owner": "Sevin",
+      "url": "https://archidekt.com/decks/18775673/copycat_ooze"
+    },
+    {
+      "commander": "Hearthhull, the Worldseed",
+      "id": "d2fd626f-fc5c-4e32-b62f-50fc33e9ab2a",
+      "owner": "Sevin",
+      "url": "https://archidekt.com/decks/18106215/jund_landsac"
+    },
+    {
+      "commander": "Korvold, Fae-Cursed King",
+      "id": "67b4a561-666b-47fe-9042-5d70de3feaf2",
+      "owner": "Sevin",
+      "url": "https://archidekt.com/decks/18106215/jund_landsac"
+    },
+    {
+      "commander": "Felothar the Steadfast",
+      "id": "6d23a3f2-5c39-47a9-8963-b4526a5ed652",
+      "owner": "Sevin",
+      "url": "https://archidekt.com/decks/17841624/abzan_walls"
+    },
+    {
+      "commander": "Maralen, Fae Ascendent",
+      "id": "9426c1e2-38e5-4d61-a9e5-220d2614cc22",
+      "owner": "Sevin",
+      "url": "https://archidekt.com/decks/20309120/elf_steal"
+    },
+    {
+      "commander": "Zimone, Mystery Unraveler",
+      "id": "011fdb84-3d05-4d92-8dde-cb65563064bc",
+      "owner": "Greg",
+      "url": "https://archidekt.com/decks/21380897/jump_scare"
+    },
+    {
+      "commander": "Inspirit, Flagship Vessel",
+      "id": "f2e90790-dd28-4d61-8720-1b64f3bab639",
+      "owner": "Greg",
+      "url": "https://archidekt.com/decks/21380178/counter_intelligence_"
+    },
+    {
+      "commander": "Caesar, Legion's Emperor",
+      "id": "e559acd7-91fe-4570-b5f8-25c4bc9dc0e1",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/19413496/caesar_legions_emperor"
+    },
+    {
+      "commander": "Chishiro, the Shattered Blade",
+      "id": "9a0ad395-5287-4311-b000-9f4fe1953a8e",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/21268205/chishiro_the_shattered_blade"
+    },
+    {
+      "commander": "Hashaton, Scarab's Fist",
+      "id": "614c8ea4-e1bf-4a23-a70d-97c6a22fba61",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/19409792/hashaton_sarabs_fist"
+    },
+    {
+      "commander": "Kyler, Sigardian Emissary",
+      "id": "59cac9f0-da5d-48c6-a6cc-9ec305d5958e",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/10175873/kyler_the_cleric"
+    },
+    {
+      "commander": "Magus Lucea Kane",
+      "id": "1495ea8c-0c66-43e4-a081-7ab0c2ae17f6",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/21265895/magus_lucea_kane"
+    },
+    {
+      "commander": "Ms. Bumbleflower",
+      "id": "8c7f3fdd-1c55-42c7-a664-c455ba134e44",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/21045042/ms_b"
+    },
+    {
+      "commander": "Toph, the First Metalbender",
+      "id": "04ffb2ce-dade-4abe-9a50-9aa60d2a3461",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/18536874/toph_the_first_metalbender"
+    },
+    {
+      "commander": "Y'shtola, Night's Blessed",
+      "id": "096f92cf-1972-4cd0-adc2-dbc8871435e4",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/14745920/yshtola_nb"
+    },
+    {
+      "commander": "SpongeBob SquarePants",
+      "id": "072b8828-b62f-44b0-b806-c73239ffe85a",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/20783808/gay_af"
+    },
+    {
+      "commander": "Mister Negative",
+      "id": "97307a02-48e2-4fe5-9716-2934966a2b51",
+      "owner": "Baily",
+      "url": "https://archidekt.com/decks/19881847/mister_negative"
+    },
+    {
+      "commander": "Eowyn, Shieldmaiden",
+      "id": "1085a29f-30c7-4db5-8c69-de83b9d023aa",
+      "owner": "Steve",
+      "url": "https://archidekt.com/decks/4693939/riders_of_rohan_tales_of_middleearth_commander"
+    },
+    {
+      "commander": "Kianne, Corrupted Memory",
+      "id": "e0a78821-59a8-4a02-ad7b-16749b70ce77",
+      "owner": "Greg",
+      "url": "https://archidekt.com/decks/21380897/jump_scare"
+    },
+    {
+      "commander": "Scion of the Ur-Dragon",
+      "id": "5ef5f36f-1690-4431-924c-af386d1474b6",
+      "owner": "Brandon",
+      "url": "https://moxfield.com/decks/PVHeErG8Q0ilyDRF0c_9_Q"
+    },
+    {
+      "commander": "Giada, Font of Hope",
+      "id": "88948632-a5b1-4ac5-9082-2d7d40be8880",
+      "owner": "Andrew",
+      "url": "https://archidekt.com/decks/18681533/angels_clerics"
+    },
+    {
+      "commander": "Shilgengar, Sire of Famine",
+      "id": "e194a4b9-6f7d-47b1-8636-82d5125c60d6",
+      "owner": "Lawrence",
+      "url": "https://archidekt.com/decks/19028830/angles_and_a_demon"
+    },
+    {
+      "commander": "Marneus Calgar",
+      "id": "4b84b9ce-df0d-49e1-9fda-100e9043bdde",
+      "owner": "Lawrence",
+      "url": "https://archidekt.com/decks/19022957/token_time"
+    },
+    {
+      "commander": "Saheeli, Radiant Collector",
+      "id": "d819b686-d8c6-42e7-b6d5-7abbe8aadcf6",
+      "owner": "Tyler",
+      "url": "https://archidekt.com/decks/21226546/saheeli_radiant_collector"
+    }
+  ],
+  "games": [
+    {
+      "date": "2026-03-12",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "11154073-69a9-42bd-a8a4-527486b2012d",
+      "notes": "Jumbo Cactuar go brrrr\nNew high score of 10,000 damage dealt directly to Greg\nJumbo Cactuar got 2 kills, totally about 20,000 damage dealt to life as another record",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "player": "Greg"
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Tyler",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-11-08",
+      "finishOrder": [
+        "Tyler",
+        "Andrew",
+        "Baily",
+        "Sevin"
+      ],
+      "id": "f8625a26-13ca-461a-8f39-48c608e649f7",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "killed": [
+            "Andrew",
+            "Sevin",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Tyler"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin"
+        }
+      ],
+      "players": [
+        "Tyler",
+        "Andrew",
+        "Baily",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-11-29",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Steve"
+      ],
+      "id": "38418659-4c87-4693-8612-9c6d2537e245",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [
+            "Steve"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Steve"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2025-12-10",
+      "finishOrder": [
+        "Sevin",
+        "Andrew",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "b2d91cb7-3621-4ee9-9032-054616b5b854",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Ms. Bumbleflower",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Andrew",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Sevin",
+        "Greg",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2025-12-21",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Greg"
+      ],
+      "id": "bda32d00-df15-4bc0-a138-defea5bafe42",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "killed": [
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-12-21",
+      "finishOrder": [
+        "Greg",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "74b6bb45-a078-4f31-9094-3afc6d12d4d2",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [
+            "Baily",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-01-03",
+      "finishOrder": [
+        "Andrew",
+        "Greg",
+        "Sevin",
+        "Baily",
+        "Tyler"
+      ],
+      "id": "03cf7e17-4e73-485c-83c3-6412395d406f",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "killed": [
+            "Sevin",
+            "Greg",
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-03",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Andrew",
+        "Greg",
+        "Baily"
+      ],
+      "id": "70fff8fb-7b75-4979-9d21-29e824f40c04",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "killed": [
+            "Andrew",
+            "Tyler",
+            "Greg",
+            "Baily"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-23",
+      "finishOrder": [
+        "Sevin",
+        "Andrew",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "1ba07f1b-948e-48dd-a01c-d76171a3fe11",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Andrew",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Andrew",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-29",
+      "finishOrder": [
+        "Andrew",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ],
+      "id": "8f7afbb0-671b-4799-a285-afdb7af2cc61",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-26",
+      "finishOrder": [
+        "Steve",
+        "Andrew",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "3156096b-c19a-46d2-8639-f410975f493b",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "killed": [
+            "Baily",
+            "Andrew"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Steve"
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-02-26",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Steve"
+      ],
+      "id": "5a9e5246-09aa-431d-bdb2-76d74a8fca25",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Steve"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Steve",
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Steve"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Steve",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-27",
+      "finishOrder": [
+        "Baily",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ],
+      "id": "fe363d0f-f8af-455b-a249-ea7cc0fb345a",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Baily"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "killed": [
+            "Greg",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg",
+        "Andrew"
+      ],
+      "id": "7d853894-5aff-493c-89df-2b53d8b6eda5",
+      "notes": "Eldrazi go brrrr",
+      "playerCommanders": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "player": "Baily"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "killed": [
+            "Sevin",
+            "Greg",
+            "Tyler",
+            "Andrew"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Baily"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Andrew",
+        "Sevin",
+        "Greg",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Baily",
+        "Tyler",
+        "Sevin",
+        "Greg"
+      ],
+      "id": "2abe2ca7-fcc2-46c3-b1a7-f17988aabf2e",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Baily"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "883ee3d3-e989-4a3a-8076-c93f52c45739",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Sevin",
+        "Lawrence",
+        "Baily"
+      ],
+      "id": "d60f5796-0166-4bc3-a1a0-2d6ebe04b029",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "killed": [
+            "Lawrence",
+            "Baily"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Lawrence"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Lawrence",
+        "Steve"
+      ],
+      "id": "643a99ac-beec-4831-9527-45ca9a225642",
+      "notes": "Steve took a new record of over 6000 damage to life",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Baily"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "killed": [
+            "Lawrence",
+            "Baily",
+            "Steve"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Steve"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Lawrence",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Steve",
+        "Lawrence",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "d36a38bb-bbe2-488a-9c3a-916cbed4a7a6",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "The Wise Mothman",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Eowyn, Shieldmaiden",
+          "killed": [
+            "Lawrence",
+            "Sevin",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Steve"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Lawrence",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Tyler",
+        "Greg",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "3b2ebad9-1569-4271-a136-1a50bc418737",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Kianne, Corrupted Memory",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Kianne, Corrupted Memory",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "killed": [
+            "Sevin",
+            "Greg"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Greg"
+      ],
+      "id": "c27d4034-ba9f-4f94-99ee-3fd3fa6ecf54",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "The Wise Mothman",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "killed": [
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "5d5d4738-e5ef-41f8-80a2-198cecaa7d1c",
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "killed": [
+            "Baily",
+            "Tyler",
+            "Greg"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler"
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-04-02",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Brandon",
+        "Greg",
+        "Baily"
+      ],
+      "id": "ca3ff618-9d89-49cf-a223-14654c4d38ba",
+      "liveSummary": {
+        "firstBlood": {
+          "actorCommander": "Mister Negative",
+          "actorPlayer": "Baily",
+          "targetPlayer": "",
+          "turnNumber": 6
+        },
+        "recordStats": null,
+        "turnNumber": null
+      },
+      "notes": "First Blood = Baily (Reduced Sevin's health from 40 to 10 on Turn 6)\nTyler mana fucked again\nHearthhull popped off doubling power",
+      "playerCommanders": [
+        {
+          "commander": "Mister Negative",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "player": "Brandon"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Mister Negative",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "killed": [
+            "Baily",
+            "Greg",
+            "Tyler",
+            "Brandon"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Brandon",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler",
+        "Brandon"
+      ]
+    },
+    {
+      "date": "2026-04-02",
+      "finishOrder": [
+        "Brandon",
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "167efbf6-eef0-485b-83a4-7650c321f249",
+      "liveSummary": {
+        "firstBlood": {
+          "actorCommander": "Inspirit, Flagship Vessel",
+          "actorPlayer": "Greg",
+          "targetPlayer": "",
+          "turnNumber": 3
+        },
+        "recordStats": null,
+        "turnNumber": null
+      },
+      "notes": "First Blood = Greg (3 combat damage to Sevin)\nGreg boardwiped everyone twice, then failed to draw any creatures.\nTyler knocked out Greg with massive Tyranids.\nSevin knocked out Tyler with an open board.\nBaily had a generational crash out\nBaily knocked out Sevin with 24 commander damage.\nBrandon used his remaining dragons to take down the rest of Baily's health",
+      "playerCommanders": [
+        {
+          "commander": "SpongeBob SquarePants",
+          "player": "Baily"
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "player": "Brandon"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "SpongeBob SquarePants",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Brandon",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Maralen, Fae Ascendent",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 4,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Brandon",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    }
+  ],
+  "powerLevels": {
+    "Caesar, Legion's Emperor": 6.1,
+    "Chishiro, the Shattered Blade": 7,
+    "Eowyn, Shieldmaiden": 5.5,
+    "Felothar the Steadfast": 6.5,
+    "Fire Lord Azula": 6.9,
+    "Giada, Font of Hope": 6.7,
+    "Hashaton, Scarab's Fist": 7.1,
+    "Hearthhull, the Worldseed": 7,
+    "Inspirit, Flagship Vessel": 6.3,
+    "Kianne, Corrupted Memory": 4.3,
+    "Korvold, Fae-Cursed King": 7,
+    "Kyler, Sigardian Emissary": 7.3,
+    "Magus Lucea Kane": 6.3,
+    "Maralen, Fae Ascendent": 7.3,
+    "Marneus Calgar": 4.2,
+    "Mister Negative": 7.1,
+    "Ms. Bumbleflower": 7.2,
+    "Pantlaza, Sun-Favored": 7,
+    "Scion of the Ur-Dragon": 4,
+    "Shilgengar, Sire of Famine": 2.9,
+    "SpongeBob SquarePants": 7.1,
+    "Teval, the Balanced Scale": 6.3,
+    "The Mimeoplasm": 6.9,
+    "The Wise Mothman": 7,
+    "Toph, the First Metalbender": 7.4,
+    "Y'shtola, Night's Blessed": 7.2,
+    "Zhulodok, Void Gorger": 7,
+    "Zimone, Mystery Unraveler": 4.3
+  },
+  "records": [
+    {
+      "commander": "",
+      "date": "",
+      "holder": "",
+      "id": "earliest-turn-win",
+      "isCustom": false,
+      "key": "earliest-turn-win",
+      "manualCommander": "",
+      "manualDate": "",
+      "manualHolder": "",
+      "manualNotes": "",
+      "manualValue": "",
+      "notes": "",
+      "title": "Earliest Turn Win",
+      "unit": "turns",
+      "value": ""
+    },
+    {
+      "commander": "Pantlaza, Sun-Favored",
+      "date": "2026-03-12",
+      "holder": "Baily",
+      "id": "highest-damage-dealt",
+      "isCustom": false,
+      "key": "highest-damage-dealt",
+      "manualCommander": "Pantlaza, Sun-Favored",
+      "manualDate": "2026-03-12",
+      "manualHolder": "Baily",
+      "manualNotes": "Jumbo Catuar",
+      "manualValue": "10000",
+      "notes": "Jumbo Catuar",
+      "title": "Highest Damage Dealt (Single Hit)",
+      "unit": "damage",
+      "value": "10000"
+    },
+    {
+      "commander": "Pantlaza, Sun-Favored",
+      "date": "2026-03-12",
+      "holder": "Baily",
+      "id": "highest-hit-to-life",
+      "isCustom": false,
+      "key": "highest-hit-to-life",
+      "manualCommander": "Pantlaza, Sun-Favored",
+      "manualDate": "2026-03-12",
+      "manualHolder": "Baily",
+      "manualNotes": "Jumbo Catuar",
+      "manualValue": "10000",
+      "notes": "Jumbo Catuar",
+      "title": "Highest Hit to Life",
+      "unit": "damage",
+      "value": "10000"
+    },
+    {
+      "commander": "Korvold, Fae-Cursed King",
+      "date": "2026-01-03",
+      "holder": "Sevin",
+      "id": "most-kills-one-game",
+      "isCustom": false,
+      "key": "most-kills-one-game",
+      "manualCommander": "Korvold, Fae-Cursed King",
+      "manualDate": "2026-01-03",
+      "manualHolder": "Sevin",
+      "manualNotes": "5 player pod, first one to sweep",
+      "manualValue": "4",
+      "notes": "5 player pod, first one to sweep",
+      "title": "Most Kills in One Game",
+      "unit": "kills",
+      "value": "4"
+    },
+    {
+      "commander": "Pantlaza, Sun-Favored",
+      "date": "2026-03-12",
+      "holder": "Baily",
+      "id": "highest-life-total",
+      "isCustom": false,
+      "key": "highest-life-total",
+      "manualCommander": "Pantlaza, Sun-Favored",
+      "manualDate": "2026-03-12",
+      "manualHolder": "Baily",
+      "manualNotes": "Board blinks with life gain ETB",
+      "manualValue": "134",
+      "notes": "Board blinks with life gain ETB",
+      "title": "Highest Life Total",
+      "unit": "life",
+      "value": "134"
+    },
+    {
+      "commander": "Hearthhull, the Worldseed",
+      "date": "2026-03-07",
+      "holder": "Sevin",
+      "id": "most-commander-damage",
+      "isCustom": false,
+      "key": "most-commander-damage",
+      "manualCommander": "Hearthhull, the Worldseed",
+      "manualDate": "2026-03-07",
+      "manualHolder": "Sevin",
+      "manualNotes": "Landfall triggers are fun. Sorry Steve",
+      "manualValue": "6144",
+      "notes": "Landfall triggers are fun. Sorry Steve",
+      "title": "Most Commander Damage",
+      "unit": "damage",
+      "value": "6144"
+    },
+    {
+      "commander": "Pantlaza, Sun-Favored",
+      "date": "2026-03-12",
+      "holder": "Baily",
+      "id": "longest-game",
+      "isCustom": false,
+      "key": "longest-game",
+      "manualCommander": "Pantlaza, Sun-Favored",
+      "manualDate": "2026-03-12",
+      "manualHolder": "Baily",
+      "manualNotes": "Passive play combined with multiple board wipes",
+      "manualValue": "150",
+      "notes": "Passive play combined with multiple board wipes",
+      "title": "Longest Game",
+      "unit": "minutes",
+      "value": "150"
+    },
+    {
+      "commander": "",
+      "date": "",
+      "holder": "",
+      "id": "fastest-elimination",
+      "isCustom": false,
+      "key": "fastest-elimination",
+      "manualCommander": "",
+      "manualDate": "",
+      "manualHolder": "",
+      "manualNotes": "",
+      "manualValue": "",
+      "notes": "",
+      "title": "Fastest Elimination",
+      "unit": "turns",
+      "value": ""
+    },
+    {
+      "commander": "Ms. Bumbleflower",
+      "date": "2026-04-02",
+      "holder": "Tyler",
+      "id": "32cb4c93-6b93-4cbf-b8bd-9a09d5427552",
+      "isCustom": true,
+      "key": "",
+      "manualCommander": "",
+      "manualDate": "",
+      "manualHolder": "",
+      "manualNotes": "",
+      "manualValue": "",
+      "notes": "I don't think this record will ever be broken, unless Tyler decides to keep a one land hand....",
+      "title": "Most Mana Fucked (Single Game)",
+      "unit": "lands",
+      "value": "2"
+    },
+    {
+      "commander": "Toph, the First Metalbender",
+      "date": "2026-02-20",
+      "holder": "Tyler",
+      "id": "b8f44915-ce14-4a9b-a65b-633c30191415",
+      "isCustom": true,
+      "key": "",
+      "manualCommander": "",
+      "manualDate": "",
+      "manualHolder": "",
+      "manualNotes": "",
+      "manualValue": "",
+      "notes": "Tyler HATES Mothman",
+      "title": "Was Milled Most",
+      "unit": "cards",
+      "value": "72"
+    }
+  ],
+  "updatedAt": "2026-04-07T16:32:03.799Z",
+  "updatedBy": "baily"
+}
