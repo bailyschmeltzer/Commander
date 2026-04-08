@@ -831,7 +831,7 @@ function promptForLiveSource({ targetPlayerId, title, description, allowSelf = t
   }
 
   activeGameState.players
-    .filter((player) => player.id !== targetPlayer.id)
+    .filter((player) => player.id !== targetPlayer.id && !player.eliminatedAt)
     .forEach((player) => {
       options.push({ id: player.id, label: player.name });
     });
@@ -902,6 +902,11 @@ function maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, turnNumber) {
     return;
   }
 
+  const sourcePlayer = activeGameState.players.find((player) => player.id === sourcePlayerId && !player.eliminatedAt);
+  if (!sourcePlayer) {
+    return;
+  }
+
   activeGameState.firstBlood = {
     actorPlayerId: sourcePlayerId,
     targetPlayerId,
@@ -922,20 +927,50 @@ function recordLiveEvent({ type, actorPlayerId = '', targetPlayerId = '', amount
   });
 }
 
+function getDuplicatePlayerName(rows) {
+  const seenPlayers = new Map();
+
+  for (const row of rows) {
+    const playerName = String(row?.player || '').trim();
+    if (!playerName) {
+      continue;
+    }
+
+    const normalizedPlayerName = playerName.toLocaleLowerCase();
+    if (seenPlayers.has(normalizedPlayerName)) {
+      return playerName;
+    }
+
+    seenPlayers.set(normalizedPlayerName, playerName);
+  }
+
+  return '';
+}
+
+function normalizeEliminationSourcePlayerId(targetPlayerId, sourcePlayerId) {
+  if (!activeGameState || !sourcePlayerId || sourcePlayerId === targetPlayerId) {
+    return '';
+  }
+
+  const sourcePlayer = activeGameState.players.find((player) => player.id === sourcePlayerId && !player.eliminatedAt);
+  return sourcePlayer ? sourcePlayer.id : '';
+}
+
 function eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, reason) {
   if (!targetPlayer || targetPlayer.eliminatedAt || targetPlayer.cannotLoseTheGame) {
     return false;
   }
 
   const aliveCount = getActiveAlivePlayers(activeGameState).length;
+  const creditedSourcePlayerId = normalizeEliminationSourcePlayerId(targetPlayer.id, sourcePlayerId);
   targetPlayer.eliminatedAt = new Date().toISOString();
   targetPlayer.eliminatedTurnNumber = turnNumber;
-  targetPlayer.eliminatedByPlayerId = sourcePlayerId || '';
+  targetPlayer.eliminatedByPlayerId = creditedSourcePlayerId;
   targetPlayer.eliminationReason = reason;
   targetPlayer.place = aliveCount;
 
-  if (sourcePlayerId && sourcePlayerId !== targetPlayer.id) {
-    const sourcePlayer = activeGameState.players.find((player) => player.id === sourcePlayerId);
+  if (creditedSourcePlayerId) {
+    const sourcePlayer = activeGameState.players.find((player) => player.id === creditedSourcePlayerId);
     if (sourcePlayer) {
       sourcePlayer.kills += 1;
       sourcePlayer.killedPlayers = [...new Set([...(sourcePlayer.killedPlayers || []), targetPlayer.name])];
@@ -1640,6 +1675,12 @@ async function startLiveGame() {
     return;
   }
 
+  const duplicatePlayerName = getDuplicatePlayerName(players);
+  if (duplicatePlayerName) {
+    await promptLiveAlert(`Each player can only appear once per match. Duplicate player: ${duplicatePlayerName}.`, 'Unable to start game');
+    return;
+  }
+
   const startingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
   if (!startingLife || startingLife < 1) {
     await promptLiveAlert('Enter a valid starting life total.', 'Unable to start game');
@@ -2330,13 +2371,26 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
     return 'First blood turn cannot be later than the winning turn.';
   }
 
+  const rowsByPlayerName = new Map(
+    rows.map((row) => [row.player.toLocaleLowerCase(), row]),
+  );
+
   for (const row of rows) {
     const kills = typeof row.kills === 'number' ? row.kills : 0;
     const killedPlayers = getCleanKilledList(row.killed);
     const normalizedKilled = new Set();
+    const maxPossibleKills = rows.length - row.place;
 
     if (kills > rows.length - 1) {
       return `${row.player} cannot record more kills than there were opponents in the game.`;
+    }
+
+    if (kills > maxPossibleKills) {
+      return `${row.player} cannot record ${kills} kills from place ${row.place}.`;
+    }
+
+    if (row.place === rows.length && kills > 0) {
+      return `${row.player} finished last and must have 0 kills.`;
     }
 
     if (row.place === 1 && row.turnKilled !== null) {
@@ -2352,6 +2406,19 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
 
       if (!playerNameLookup.has(normalizedKilledPlayer)) {
         return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
+      }
+
+      const killedRow = rowsByPlayerName.get(normalizedKilledPlayer);
+      if (!killedRow) {
+        return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
+      }
+
+      if (killedRow.place <= row.place) {
+        return `${row.player} cannot be credited with killing ${killedPlayer} because ${killedPlayer} finished ahead of them.`;
+      }
+
+      if (row.turnKilled !== null && killedRow.turnKilled !== null && killedRow.turnKilled > row.turnKilled) {
+        return `${row.player} cannot be credited with killing ${killedPlayer} on turn ${killedRow.turnKilled} after dying on turn ${row.turnKilled}.`;
       }
 
       if (normalizedKilled.has(normalizedKilledPlayer)) {
