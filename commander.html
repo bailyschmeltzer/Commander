@@ -42,6 +42,28 @@
       </header>
       <main>
         <section class="card">
+          <h2>Rename Commander</h2>
+          <p class="records-helper-text">Use this when a commander or deck identity should move to a new canonical name. It rewrites saved games, deck lists, records, power levels, and any live game saved on this device.</p>
+          <form id="commander-rename-form" class="identity-rename-form" autocomplete="off">
+            <div class="field-grid">
+              <div class="field">
+                <label for="commander-rename-current">Current name</label>
+                <input id="commander-rename-current" type="text" list="commander-rename-list" placeholder="Current commander name" required />
+              </div>
+              <div class="field">
+                <label for="commander-rename-next">New name</label>
+                <input id="commander-rename-next" type="text" placeholder="New commander name" required />
+              </div>
+            </div>
+            <p id="commander-rename-status" class="identity-rename-status status-muted">Choose the commander identity to migrate, then enter the new name you want to keep everywhere.</p>
+            <div class="actions">
+              <button type="submit">Rename commander</button>
+            </div>
+            <datalist id="commander-rename-list"></datalist>
+          </form>
+        </section>
+
+        <section class="card">
           <div class="field">
             <label for="commander-search">Filter by commander</label>
             <input id="commander-search" type="search" placeholder="Search commander name" />
@@ -69,6 +91,22 @@
             </table>
           </div>
         </section>
+
+        <div id="live-modal-prompt" class="live-source-prompt" hidden>
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
+            <h3 id="live-modal-title">Confirm action</h3>
+            <p id="live-modal-copy"></p>
+            <div id="live-modal-field" class="live-modal-field" hidden>
+              <input id="live-modal-input" class="live-modal-input" type="text" autocomplete="off" hidden />
+              <textarea id="live-modal-textarea" class="live-modal-textarea" rows="4" hidden></textarea>
+              <p id="live-modal-error" class="live-modal-error" hidden></p>
+            </div>
+            <div class="actions live-modal-actions">
+              <button type="button" id="live-modal-cancel" class="secondary-button">Cancel</button>
+              <button type="button" id="live-modal-confirm">Confirm</button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
     <script src="app.js"></script>

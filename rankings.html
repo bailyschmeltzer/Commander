@@ -172,6 +172,22 @@
             </div>
           </div>
         </section>
+
+        <div id="live-modal-prompt" class="live-source-prompt" hidden>
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
+            <h3 id="live-modal-title">Confirm action</h3>
+            <p id="live-modal-copy"></p>
+            <div id="live-modal-field" class="live-modal-field" hidden>
+              <input id="live-modal-input" class="live-modal-input" type="text" autocomplete="off" hidden />
+              <textarea id="live-modal-textarea" class="live-modal-textarea" rows="4" hidden></textarea>
+              <p id="live-modal-error" class="live-modal-error" hidden></p>
+            </div>
+            <div class="actions live-modal-actions">
+              <button type="button" id="live-modal-cancel" class="secondary-button">Cancel</button>
+              <button type="button" id="live-modal-confirm">Confirm</button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 

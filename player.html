@@ -43,6 +43,28 @@
 
       <main>
         <section class="card">
+          <h2>Rename Player</h2>
+          <p class="records-helper-text">Use this when a player should truly move to a different name. It rewrites saved games, deck ownership, records, and any live game saved on this device.</p>
+          <form id="player-rename-form" class="identity-rename-form" autocomplete="off">
+            <div class="field-grid">
+              <div class="field">
+                <label for="player-rename-current">Current name</label>
+                <input id="player-rename-current" type="text" list="player-rename-list" placeholder="Current player name" required />
+              </div>
+              <div class="field">
+                <label for="player-rename-next">New name</label>
+                <input id="player-rename-next" type="text" placeholder="New player name" required />
+              </div>
+            </div>
+            <p id="player-rename-status" class="identity-rename-status status-muted">Choose a player to migrate, then enter the new name you want to use everywhere.</p>
+            <div class="actions">
+              <button type="submit">Rename player</button>
+            </div>
+            <datalist id="player-rename-list"></datalist>
+          </form>
+        </section>
+
+        <section class="card">
           <h2>Player leaderboard</h2>
           <div class="player-table-wrapper">
             <table class="player-table player-stats-table" data-sort-table="playerStats">
@@ -78,6 +100,22 @@
             </table>
           </div>
         </section>
+
+        <div id="live-modal-prompt" class="live-source-prompt" hidden>
+          <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
+            <h3 id="live-modal-title">Confirm action</h3>
+            <p id="live-modal-copy"></p>
+            <div id="live-modal-field" class="live-modal-field" hidden>
+              <input id="live-modal-input" class="live-modal-input" type="text" autocomplete="off" hidden />
+              <textarea id="live-modal-textarea" class="live-modal-textarea" rows="4" hidden></textarea>
+              <p id="live-modal-error" class="live-modal-error" hidden></p>
+            </div>
+            <div class="actions live-modal-actions">
+              <button type="button" id="live-modal-cancel" class="secondary-button">Cancel</button>
+              <button type="button" id="live-modal-confirm">Confirm</button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 

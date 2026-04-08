@@ -1,7 +1,7 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-User-Name, X-Pod-Token',
+  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-User-Name, X-Pod-Token, X-State-Revision',
 };
 
 function jsonResponse(body, status = 200) {
@@ -67,6 +67,18 @@ export default {
         const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], records: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
         state.records = Array.isArray(state.records) ? state.records : [];
+        state.revision = Number.isFinite(Number(state.revision)) ? Number(state.revision) : 0;
+        state.updatedAt = String(state.updatedAt || '').trim();
+        state.updatedBy = String(state.updatedBy || '').trim();
+
+        if (url.searchParams.get('meta') === '1') {
+          return jsonResponse({
+            revision: state.revision,
+            updatedAt: state.updatedAt,
+            updatedBy: state.updatedBy,
+          }, 200);
+        }
+
         return jsonResponse(state, 200);
       }
 
@@ -82,17 +94,44 @@ export default {
         const powerLevels = body.powerLevels && typeof body.powerLevels === 'object' ? body.powerLevels : {};
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : [];
         const records = Array.isArray(body.records) ? body.records : [];
+        const expectedRevisionHeader = request.headers.get('X-State-Revision');
+        const expectedRevision = Number.parseInt(String(expectedRevisionHeader || '').trim(), 10);
+
+        if (!Number.isFinite(expectedRevision)) {
+          return jsonResponse({
+            error: 'Sync client is missing cloud revision metadata. Refresh the page and reconnect before syncing again.',
+          }, 409);
+        }
+
+        const currentRaw = await env.POD_STATE.get(stateKey, 'json');
+        const currentState = currentRaw && typeof currentRaw === 'object' ? currentRaw : null;
+        const currentRevision = Number.isFinite(Number(currentState?.revision)) ? Number(currentState.revision) : 0;
+
+        if (expectedRevision !== currentRevision) {
+          return jsonResponse({
+            error: 'Cloud state changed on another device before this sync completed.',
+            conflict: {
+              revision: currentRevision,
+              updatedAt: String(currentState?.updatedAt || '').trim(),
+              updatedBy: String(currentState?.updatedBy || '').trim(),
+            },
+          }, 409);
+        }
+
+        const updatedAt = new Date().toISOString();
+        const nextRevision = currentRevision + 1;
 
         await env.POD_STATE.put(stateKey, JSON.stringify({
           games,
           powerLevels,
           deckLists,
           records,
-          updatedAt: new Date().toISOString(),
+          revision: nextRevision,
+          updatedAt,
           updatedBy: auth.user,
         }));
 
-        return jsonResponse({ ok: true }, 200);
+        return jsonResponse({ ok: true, revision: nextRevision, updatedAt, updatedBy: auth.user }, 200);
       }
 
       return jsonResponse({ error: 'Method not allowed.' }, 405);

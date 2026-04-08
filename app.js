@@ -7,6 +7,7 @@ const ACTIVE_GAME_UNDO_STORAGE_KEY = 'commanderTrackerActiveGameUndo';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
+const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -20,6 +21,11 @@ const summaryEl = document.getElementById('summary');
 const playerDatalist = document.getElementById('player-list');
 const commanderDatalist = document.getElementById('commander-list');
 const playerStatsTableBody = document.getElementById('player-stats-body');
+const playerRenameForm = document.getElementById('player-rename-form');
+const playerRenameCurrentInput = document.getElementById('player-rename-current');
+const playerRenameNextInput = document.getElementById('player-rename-next');
+const playerRenameStatus = document.getElementById('player-rename-status');
+const playerRenameDatalist = document.getElementById('player-rename-list');
 const rankingsSummary = document.getElementById('rankings-summary');
 const rankingsTableBody = document.getElementById('rankings-table-body');
 const recentTrendsSummary = document.getElementById('recent-trends-summary');
@@ -40,6 +46,11 @@ const historyResetFiltersButton = document.getElementById('history-reset-filters
 const historyActiveFilters = document.getElementById('history-active-filters');
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
+const commanderRenameForm = document.getElementById('commander-rename-form');
+const commanderRenameCurrentInput = document.getElementById('commander-rename-current');
+const commanderRenameNextInput = document.getElementById('commander-rename-next');
+const commanderRenameStatus = document.getElementById('commander-rename-status');
+const commanderRenameDatalist = document.getElementById('commander-rename-list');
 const removePlayerRowButton = document.getElementById('remove-player-row');
 const deckListForm = document.getElementById('deck-list-form');
 const deckCommanderInput = document.getElementById('deck-commander');
@@ -162,6 +173,12 @@ let syncPendingChanges = false;
 let syncLastSuccessAt = null;
 let syncConnectionState = 'local';
 let syncLastErrorMessage = '';
+let syncCloudRevision = 0;
+let syncCloudUpdatedAt = '';
+let syncCloudUpdatedBy = '';
+let syncConflictInfo = null;
+let syncMetadataCheckInFlight = false;
+let syncLastFreshnessCheckAt = 0;
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
@@ -187,6 +204,10 @@ const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'fastest-elimination', title: 'Fastest Elimination', unit: 'turns' },
 ];
 
+const PLAYER_IDENTITY_KEYS = new Set(['player', 'holder', 'manualHolder', 'actorPlayer', 'targetPlayer', 'startingPlayer', 'owner']);
+const COMMANDER_IDENTITY_KEYS = new Set(['commander', 'manualCommander', 'actorCommander']);
+const PLAYER_IDENTITY_LIST_PARENTS = new Set(['players', 'finishOrder', 'killed']);
+
 function parseJsonSafe(value, fallback) {
   try {
     return JSON.parse(value);
@@ -195,17 +216,538 @@ function parseJsonSafe(value, fallback) {
   }
 }
 
+function normalizeIdentityLabel(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function getIdentityKey(value) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  return normalizedValue ? normalizedValue.toLocaleLowerCase() : '';
+}
+
+function getIdentityDisplayScore(value) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  let score = 0;
+  if (normalizedValue !== normalizedValue.toLocaleLowerCase()) {
+    score += 2;
+  }
+  if (/\b[A-Z]/.test(normalizedValue)) {
+    score += 1;
+  }
+  return score;
+}
+
+function recordIdentityVariant(bucketMap, value) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  const identityKey = getIdentityKey(normalizedValue);
+  if (!identityKey) {
+    return;
+  }
+
+  if (!bucketMap.has(identityKey)) {
+    bucketMap.set(identityKey, new Map());
+  }
+
+  const variants = bucketMap.get(identityKey);
+  variants.set(normalizedValue, (variants.get(normalizedValue) || 0) + 1);
+}
+
+function buildCanonicalIdentityMap(bucketMap) {
+  const canonicalMap = new Map();
+
+  bucketMap.forEach((variants, identityKey) => {
+    let preferredValue = '';
+    let preferredCount = -1;
+    let preferredScore = -1;
+
+    variants.forEach((count, value) => {
+      const displayScore = getIdentityDisplayScore(value);
+      const shouldReplace = count > preferredCount
+        || (count === preferredCount && displayScore > preferredScore)
+        || (count === preferredCount && displayScore === preferredScore && value.localeCompare(preferredValue) < 0);
+
+      if (shouldReplace) {
+        preferredValue = value;
+        preferredCount = count;
+        preferredScore = displayScore;
+      }
+    });
+
+    canonicalMap.set(identityKey, preferredValue);
+  });
+
+  return canonicalMap;
+}
+
+function buildCanonicalIdentityMapFromValues(values) {
+  const bucketMap = new Map();
+  (Array.isArray(values) ? values : []).forEach((value) => {
+    recordIdentityVariant(bucketMap, value);
+  });
+  return buildCanonicalIdentityMap(bucketMap);
+}
+
+function canonicalizeIdentityValue(value, canonicalMap) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  if (!normalizedValue) {
+    return '';
+  }
+
+  const identityKey = getIdentityKey(normalizedValue);
+  return canonicalMap?.get(identityKey) || normalizedValue;
+}
+
+function normalizeIdentityList(value, canonicalMap) {
+  const values = Array.isArray(value) ? value : String(value || '').split(',');
+  return values
+    .map((entry) => canonicalizeIdentityValue(entry, canonicalMap))
+    .filter(Boolean);
+}
+
+function isPlayerIdentityField(key) {
+  return PLAYER_IDENTITY_KEYS.has(key);
+}
+
+function isCommanderIdentityField(key) {
+  return COMMANDER_IDENTITY_KEYS.has(key);
+}
+
+function isPlayerIdentityListParent(key) {
+  return PLAYER_IDENTITY_LIST_PARENTS.has(key);
+}
+
+function scanIdentityValues(value, recordPlayer, recordCommander, parentKey = '') {
+  if (Array.isArray(value)) {
+    if (isPlayerIdentityListParent(parentKey)) {
+      value.forEach(recordPlayer);
+      return;
+    }
+
+    value.forEach((entry) => {
+      scanIdentityValues(entry, recordPlayer, recordCommander, parentKey);
+    });
+    return;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+
+  Object.entries(value).forEach(([key, nestedValue]) => {
+    if (isPlayerIdentityField(key)) {
+      recordPlayer(nestedValue);
+      return;
+    }
+
+    if (isCommanderIdentityField(key)) {
+      recordCommander(nestedValue);
+      return;
+    }
+
+    scanIdentityValues(nestedValue, recordPlayer, recordCommander, key);
+  });
+}
+
+function normalizeIdentityValues(value, { playerMap, commanderMap }, parentKey = '') {
+  if (Array.isArray(value)) {
+    if (isPlayerIdentityListParent(parentKey)) {
+      return normalizeIdentityList(value, playerMap);
+    }
+
+    return value.map((entry) => normalizeIdentityValues(entry, { playerMap, commanderMap }, parentKey));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const normalizedValue = {};
+  Object.entries(value).forEach(([key, nestedValue]) => {
+    if (isPlayerIdentityField(key)) {
+      normalizedValue[key] = canonicalizeIdentityValue(nestedValue, playerMap);
+      return;
+    }
+
+    if (isCommanderIdentityField(key)) {
+      normalizedValue[key] = canonicalizeIdentityValue(nestedValue, commanderMap);
+      return;
+    }
+
+    normalizedValue[key] = normalizeIdentityValues(nestedValue, { playerMap, commanderMap }, key);
+  });
+
+  return normalizedValue;
+}
+
+function buildAppStateIdentityMaps(state) {
+  const playerBuckets = new Map();
+  const commanderBuckets = new Map();
+  const recordPlayer = (value) => recordIdentityVariant(playerBuckets, value);
+  const recordCommander = (value) => recordIdentityVariant(commanderBuckets, value);
+
+  scanIdentityValues(Array.isArray(state?.games) ? state.games : [], recordPlayer, recordCommander, 'games');
+  scanIdentityValues(Array.isArray(state?.deckLists) ? state.deckLists : [], recordPlayer, recordCommander, 'deckLists');
+  scanIdentityValues(Array.isArray(state?.records) ? state.records : [], recordPlayer, recordCommander, 'records');
+  Object.keys(state?.powerLevels && typeof state.powerLevels === 'object' ? state.powerLevels : {}).forEach(recordCommander);
+
+  return {
+    playerMap: buildCanonicalIdentityMap(playerBuckets),
+    commanderMap: buildCanonicalIdentityMap(commanderBuckets),
+  };
+}
+
+function normalizeAppStateData(state) {
+  const baseState = {
+    games: Array.isArray(state?.games) ? state.games : [],
+    powerLevels: state?.powerLevels && typeof state.powerLevels === 'object' ? state.powerLevels : {},
+    deckLists: Array.isArray(state?.deckLists) ? state.deckLists : [],
+    records: Array.isArray(state?.records) ? state.records : [],
+  };
+
+  const identityMaps = buildAppStateIdentityMaps(baseState);
+  const normalizedPowerLevels = {};
+  Object.entries(baseState.powerLevels).forEach(([commander, value]) => {
+    const canonicalCommander = canonicalizeIdentityValue(commander, identityMaps.commanderMap);
+    if (!canonicalCommander || typeof value !== 'number' || Number.isNaN(value)) {
+      return;
+    }
+
+    normalizedPowerLevels[canonicalCommander] = value;
+  });
+
+  return {
+    games: normalizeIdentityValues(baseState.games, identityMaps, 'games'),
+    powerLevels: normalizedPowerLevels,
+    deckLists: normalizeIdentityValues(baseState.deckLists, identityMaps, 'deckLists'),
+    records: normalizeIdentityValues(baseState.records, identityMaps, 'records'),
+  };
+}
+
+function normalizeActiveGameStateData(state) {
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  const playerBuckets = new Map();
+  const commanderBuckets = new Map();
+  (Array.isArray(state.players) ? state.players : []).forEach((player) => {
+    recordIdentityVariant(playerBuckets, player?.name);
+    recordIdentityVariant(commanderBuckets, player?.commander);
+    (Array.isArray(player?.killedPlayers) ? player.killedPlayers : []).forEach((killedPlayer) => {
+      recordIdentityVariant(playerBuckets, killedPlayer);
+    });
+  });
+
+  const playerMap = buildCanonicalIdentityMap(playerBuckets);
+  const commanderMap = buildCanonicalIdentityMap(commanderBuckets);
+
+  return {
+    ...state,
+    players: (Array.isArray(state.players) ? state.players : []).map((player) => ({
+      ...player,
+      name: canonicalizeIdentityValue(player?.name, playerMap),
+      commander: canonicalizeIdentityValue(player?.commander, commanderMap),
+      killedPlayers: normalizeIdentityList(player?.killedPlayers || [], playerMap),
+    })),
+  };
+}
+
+function renameIdentityValue(value, sourceKey, replacementValue) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  if (!normalizedValue) {
+    return '';
+  }
+
+  return getIdentityKey(normalizedValue) === sourceKey ? replacementValue : normalizedValue;
+}
+
+function renameIdentityList(value, sourceKey, replacementValue) {
+  const values = Array.isArray(value) ? value : String(value || '').split(',');
+  return values
+    .map((entry) => renameIdentityValue(entry, sourceKey, replacementValue))
+    .filter(Boolean);
+}
+
+function renameIdentityValues(value, { sourceKey, replacementValue, type }, parentKey = '') {
+  if (Array.isArray(value)) {
+    if (type === 'player' && isPlayerIdentityListParent(parentKey)) {
+      return renameIdentityList(value, sourceKey, replacementValue);
+    }
+
+    return value.map((entry) => renameIdentityValues(entry, { sourceKey, replacementValue, type }, parentKey));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const renamedValue = {};
+  Object.entries(value).forEach(([key, nestedValue]) => {
+    if (type === 'player' && isPlayerIdentityField(key)) {
+      renamedValue[key] = renameIdentityValue(nestedValue, sourceKey, replacementValue);
+      return;
+    }
+
+    if (type === 'commander' && isCommanderIdentityField(key)) {
+      renamedValue[key] = renameIdentityValue(nestedValue, sourceKey, replacementValue);
+      return;
+    }
+
+    renamedValue[key] = renameIdentityValues(nestedValue, { sourceKey, replacementValue, type }, key);
+  });
+
+  return renamedValue;
+}
+
+function mergeDeckListsByCommander(deckLists) {
+  const mergedDeckLists = new Map();
+
+  (Array.isArray(deckLists) ? deckLists : [])
+    .map(normalizeDeckListEntry)
+    .filter(Boolean)
+    .forEach((entry) => {
+      const commanderKey = getIdentityKey(entry.commander);
+      if (!commanderKey) {
+        return;
+      }
+
+      if (!mergedDeckLists.has(commanderKey)) {
+        mergedDeckLists.set(commanderKey, entry);
+        return;
+      }
+
+      const existingEntry = mergedDeckLists.get(commanderKey);
+      mergedDeckLists.set(commanderKey, {
+        ...existingEntry,
+        commander: existingEntry.commander || entry.commander,
+        owner: existingEntry.owner || entry.owner,
+        url: existingEntry.url || entry.url,
+      });
+    });
+
+  return Array.from(mergedDeckLists.values());
+}
+
+function renameCommanderPowerLevels(powerLevels, sourceKey, replacementValue) {
+  const renamedPowerLevels = {};
+  const replacementKey = getIdentityKey(replacementValue);
+  let sourceValue = null;
+  let replacementExistingValue = null;
+
+  Object.entries(powerLevels && typeof powerLevels === 'object' ? powerLevels : {}).forEach(([commander, value]) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return;
+    }
+
+    const commanderKey = getIdentityKey(commander);
+    if (!commanderKey) {
+      return;
+    }
+
+    if (commanderKey === sourceKey) {
+      sourceValue = value;
+      return;
+    }
+
+    if (commanderKey === replacementKey) {
+      replacementExistingValue = value;
+      return;
+    }
+
+    renamedPowerLevels[normalizeIdentityLabel(commander)] = value;
+  });
+
+  if (replacementExistingValue !== null || sourceValue !== null) {
+    renamedPowerLevels[replacementValue] = replacementExistingValue !== null ? replacementExistingValue : sourceValue;
+  }
+
+  return renamedPowerLevels;
+}
+
+function renameAppStateIdentity(state, { type, sourceKey, replacementValue }) {
+  const renamedDeckLists = renameIdentityValues(Array.isArray(state?.deckLists) ? state.deckLists : [], {
+    sourceKey,
+    replacementValue,
+    type,
+  }, 'deckLists');
+
+  return {
+    games: renameIdentityValues(Array.isArray(state?.games) ? state.games : [], {
+      sourceKey,
+      replacementValue,
+      type,
+    }, 'games'),
+    powerLevels: type === 'commander'
+      ? renameCommanderPowerLevels(state?.powerLevels, sourceKey, replacementValue)
+      : { ...(state?.powerLevels && typeof state.powerLevels === 'object' ? state.powerLevels : {}) },
+    deckLists: type === 'commander' ? mergeDeckListsByCommander(renamedDeckLists) : renamedDeckLists,
+    records: renameIdentityValues(Array.isArray(state?.records) ? state.records : [], {
+      sourceKey,
+      replacementValue,
+      type,
+    }, 'records'),
+  };
+}
+
+function renameActiveGameStateIdentity(state, { type, sourceKey, replacementValue }) {
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  return normalizeActiveGameStateData({
+    ...state,
+    players: (Array.isArray(state.players) ? state.players : []).map((player) => ({
+      ...player,
+      name: type === 'player' ? renameIdentityValue(player?.name, sourceKey, replacementValue) : player?.name,
+      commander: type === 'commander' ? renameIdentityValue(player?.commander, sourceKey, replacementValue) : player?.commander,
+      killedPlayers: type === 'player' ? renameIdentityList(player?.killedPlayers || [], sourceKey, replacementValue) : player?.killedPlayers || [],
+    })),
+  });
+}
+
+function getKnownPlayerOptions() {
+  const players = [...knownPlayers];
+  loadRecords().forEach((record) => {
+    if (record?.holder) {
+      players.push(record.holder);
+    }
+    if (record?.manualHolder) {
+      players.push(record.manualHolder);
+    }
+  });
+  (activeGameState?.players || []).forEach((player) => {
+    if (player?.name) {
+      players.push(player.name);
+    }
+  });
+  return getUniqueValues(players.map((value) => normalizeIdentityLabel(value)).filter(Boolean));
+}
+
+function getKnownCommanderOptions() {
+  const commanders = [...knownCommanders, ...Object.keys(loadCommanderPowerLevels())];
+  loadRecords().forEach((record) => {
+    if (record?.commander) {
+      commanders.push(record.commander);
+    }
+    if (record?.manualCommander) {
+      commanders.push(record.manualCommander);
+    }
+  });
+  (activeGameState?.players || []).forEach((player) => {
+    if (player?.commander) {
+      commanders.push(player.commander);
+    }
+  });
+  return getUniqueValues(commanders.map((value) => normalizeIdentityLabel(value)).filter(Boolean));
+}
+
+function renderIdentityRenameOptions() {
+  buildDatalistOptions(playerRenameDatalist, getKnownPlayerOptions());
+  buildDatalistOptions(commanderRenameDatalist, getKnownCommanderOptions());
+}
+
+function setIdentityRenameStatus(element, message, tone = 'muted') {
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message;
+  element.classList.remove('status-muted', 'status-success', 'status-error', 'status-neutral');
+  element.classList.add(`status-${tone}`);
+}
+
+async function handleIdentityRenameSubmit({ type, currentInput, nextInput, statusElement }) {
+  const subjectLabel = type === 'player' ? 'player' : 'commander';
+  const currentValue = normalizeIdentityLabel(currentInput?.value || '');
+  const nextValue = normalizeIdentityLabel(nextInput?.value || '');
+
+  if (!currentValue || !nextValue) {
+    setIdentityRenameStatus(statusElement, `Enter both the current ${subjectLabel} name and the new one.`, 'error');
+    return;
+  }
+
+  const sourceKey = getIdentityKey(currentValue);
+  const replacementKey = getIdentityKey(nextValue);
+  const knownOptions = type === 'player' ? getKnownPlayerOptions() : getKnownCommanderOptions();
+  const matchingCurrentValue = knownOptions.find((value) => getIdentityKey(value) === sourceKey) || '';
+  const matchingReplacementValue = knownOptions.find((value) => getIdentityKey(value) === replacementKey) || '';
+
+  if (!matchingCurrentValue) {
+    setIdentityRenameStatus(statusElement, `Couldn't find that ${subjectLabel} in saved data.`, 'error');
+    return;
+  }
+
+  const mergeNotice = matchingReplacementValue && replacementKey !== sourceKey
+    ? ` Existing ${subjectLabel} data for ${matchingReplacementValue} will be merged into the renamed identity.`
+    : '';
+  const confirmed = await promptLiveConfirm(
+    `Rename ${matchingCurrentValue} to ${nextValue}? This updates saved games, records, deck lists${type === 'commander' ? ', commander power levels,' : ''} and any live game saved on this device.${mergeNotice}`,
+    {
+      title: `Rename ${subjectLabel}`,
+      confirmLabel: `Rename ${subjectLabel}`,
+      cancelLabel: 'Cancel',
+    },
+  );
+
+  if (!confirmed) {
+    setIdentityRenameStatus(statusElement, `Rename cancelled. ${matchingCurrentValue} was not changed.`, 'muted');
+    return;
+  }
+
+  appState = normalizeAppStateData(renameAppStateIdentity(appState, {
+    type,
+    sourceKey,
+    replacementValue: nextValue,
+  }));
+  appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
+  persistLocalState(appState);
+
+  persistActiveGameState(renameActiveGameStateIdentity(activeGameState, {
+    type,
+    sourceKey,
+    replacementValue: nextValue,
+  }));
+  persistActiveGameUndoState(activeGameUndoState.map((snapshot) => renameActiveGameStateIdentity(snapshot, {
+    type,
+    sourceKey,
+    replacementValue: nextValue,
+  })).filter(Boolean));
+
+  queueCloudSync();
+  refresh();
+
+  if (currentInput) {
+    currentInput.value = nextValue;
+  }
+  if (nextInput) {
+    nextInput.value = '';
+  }
+
+  setIdentityRenameStatus(statusElement, `${matchingCurrentValue} is now stored as ${nextValue}.`, 'success');
+}
+
 function loadLocalState() {
   const games = parseJsonSafe(localStorage.getItem(STORAGE_KEY) || '[]', []);
   const powerLevels = parseJsonSafe(localStorage.getItem(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
   const deckLists = parseJsonSafe(localStorage.getItem(DECK_LIST_STORAGE_KEY) || '[]', []);
   const records = parseJsonSafe(localStorage.getItem(RECORDS_STORAGE_KEY) || '[]', []);
-  return {
+  const rawState = {
     games: Array.isArray(games) ? games : [],
     powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
     deckLists: Array.isArray(deckLists) ? deckLists : [],
     records: Array.isArray(records) ? records : [],
   };
+  const normalizedState = normalizeAppStateData(rawState);
+
+  if (JSON.stringify(rawState) !== JSON.stringify(normalizedState)) {
+    persistLocalState(normalizedState);
+  }
+
+  return normalizedState;
 }
 
 function persistLocalState(state) {
@@ -216,22 +758,29 @@ function persistLocalState(state) {
 }
 
 function loadActiveGameState() {
-  return parseJsonSafe(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
+  const storedState = parseJsonSafe(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
+  const normalizedState = normalizeActiveGameStateData(storedState);
+
+  if (JSON.stringify(storedState) !== JSON.stringify(normalizedState)) {
+    persistActiveGameState(normalizedState);
+  }
+
+  return normalizedState;
 }
 
 function loadActiveGameUndoState() {
   const storedState = parseJsonSafe(localStorage.getItem(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
   if (Array.isArray(storedState)) {
-    return storedState.map((entry) => cloneActiveGameState(entry)).filter(Boolean);
+    return storedState.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean);
   }
-  return storedState ? [cloneActiveGameState(storedState)] : [];
+  return storedState ? [normalizeActiveGameStateData(storedState)] : [];
 }
 
 function persistActiveGameUndoState(state) {
   const normalizedState = Array.isArray(state)
-    ? state.map((entry) => cloneActiveGameState(entry)).filter(Boolean)
+    ? state.map((entry) => normalizeActiveGameStateData(cloneActiveGameState(entry))).filter(Boolean)
     : state
-      ? [cloneActiveGameState(state)]
+      ? [normalizeActiveGameStateData(cloneActiveGameState(state))]
       : [];
 
   activeGameUndoState = normalizedState;
@@ -260,13 +809,14 @@ function saveUndoSnapshot() {
 }
 
 function persistActiveGameState(state) {
-  activeGameState = state || null;
-  if (!state) {
+  const normalizedState = normalizeActiveGameStateData(state);
+  activeGameState = normalizedState;
+  if (!normalizedState) {
     localStorage.removeItem(ACTIVE_GAME_STORAGE_KEY);
     return;
   }
 
-  localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState));
 }
 
 function getSyncCredentials() {
@@ -295,6 +845,31 @@ function formatSyncTimestamp(value) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function updateSyncMetadata({ revision = 0, updatedAt = '', updatedBy = '' } = {}) {
+  syncCloudRevision = Number.isFinite(Number(revision)) ? Number(revision) : 0;
+  syncCloudUpdatedAt = String(updatedAt || '').trim();
+  syncCloudUpdatedBy = String(updatedBy || '').trim();
+}
+
+function clearSyncConflict() {
+  syncConflictInfo = null;
+}
+
+function hasNewerCloudRevision(metadata) {
+  const revision = Number(metadata?.revision);
+  return Number.isFinite(revision) && revision > syncCloudRevision;
+}
+
+function describeSyncConflict(conflict = syncConflictInfo) {
+  if (!conflict) {
+    return 'Cloud state changed on another device.';
+  }
+
+  const byText = conflict.updatedBy ? ` by ${conflict.updatedBy}` : '';
+  const atText = conflict.updatedAt ? ` at ${formatSyncTimestamp(conflict.updatedAt)}` : '';
+  return `Cloud state changed on another device${byText}${atText}.`;
 }
 
 function clearSyncRetryTimer() {
@@ -346,6 +921,13 @@ function getSyncStatusSnapshot() {
       message: syncRetryTimer
         ? `Sync failed: ${syncLastErrorMessage}. Local changes are still saved and will retry automatically.`
         : `Sync failed: ${syncLastErrorMessage}. Local changes are still saved on this device.`,
+    };
+  }
+
+  if (syncConflictInfo) {
+    return {
+      tone: 'error',
+      message: `${describeSyncConflict(syncConflictInfo)} Local changes are still on this device and will not sync until you resolve the conflict. Use Sync now to review the latest cloud state.`,
     };
   }
 
@@ -434,18 +1016,64 @@ async function cloudRequest(path, options = {}) {
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
+    let errorBody = null;
     try {
-      const body = await response.json();
-      if (body && body.error) {
-        message = body.error;
+      errorBody = await response.json();
+      if (errorBody && errorBody.error) {
+        message = errorBody.error;
       }
     } catch (error) {
       // Keep default message.
     }
-    throw new Error(message);
+
+    const requestError = new Error(message);
+    requestError.status = response.status;
+    requestError.body = errorBody;
+    throw requestError;
   }
 
   return response.json();
+}
+
+async function resolveSyncConflict(conflict = syncConflictInfo) {
+  syncConflictInfo = conflict || {
+    revision: syncCloudRevision,
+    updatedAt: syncCloudUpdatedAt,
+    updatedBy: syncCloudUpdatedBy,
+  };
+  syncConnectionState = 'configured';
+  syncLastErrorMessage = '';
+  clearSyncRetryTimer();
+  syncRetryCount = 0;
+  refreshSyncStatus();
+
+  const shouldPullLatest = await promptLiveConfirm(
+    `${describeSyncConflict(syncConflictInfo)} Pull the latest cloud state now? This will replace unsynced local changes on this device.`,
+    {
+      title: 'Cloud sync conflict',
+      confirmLabel: 'Pull latest cloud state',
+      cancelLabel: 'Keep local changes',
+    },
+  );
+
+  if (!shouldPullLatest) {
+    refreshSyncStatus();
+    return;
+  }
+
+  syncPendingChanges = false;
+  clearSyncConflict();
+  refreshSyncStatus();
+
+  try {
+    await pullCloudState();
+    setSyncUiCollapsed(true);
+    refreshSyncStatus();
+  } catch (error) {
+    syncConflictInfo = conflict || syncConflictInfo;
+    syncLastErrorMessage = `${error.message}. Unable to pull the latest cloud state.`;
+    refreshSyncStatus();
+  }
 }
 
 async function pullCloudState() {
@@ -459,12 +1087,80 @@ async function pullCloudState() {
   const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
   const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
   const records = Array.isArray(payload.records) ? payload.records : [];
-  appState = { games, powerLevels, deckLists, records };
+  updateSyncMetadata({
+    revision: payload.revision,
+    updatedAt: payload.updatedAt,
+    updatedBy: payload.updatedBy,
+  });
+  clearSyncConflict();
+  appState = normalizeAppStateData({ games, powerLevels, deckLists, records });
   persistLocalState(appState);
   syncConnectionState = 'connected';
   syncLastErrorMessage = '';
   syncLastSuccessAt = new Date().toISOString();
   refresh();
+}
+
+async function fetchCloudStateMetadata() {
+  const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET' });
+  return {
+    revision: Number.isFinite(Number(payload?.revision)) ? Number(payload.revision) : 0,
+    updatedAt: String(payload?.updatedAt || '').trim(),
+    updatedBy: String(payload?.updatedBy || '').trim(),
+  };
+}
+
+async function checkCloudStateFreshness({ autoPull = false, force = false } = {}) {
+  if (!hasSyncCredentials() || !navigator.onLine || syncInFlight || syncMetadataCheckInFlight) {
+    return;
+  }
+
+  const now = Date.now();
+  if (!force && now - syncLastFreshnessCheckAt < 15000) {
+    return;
+  }
+
+  syncMetadataCheckInFlight = true;
+  syncLastFreshnessCheckAt = now;
+
+  try {
+    const metadata = await fetchCloudStateMetadata();
+    if (!hasNewerCloudRevision(metadata)) {
+      return;
+    }
+
+    updateSyncMetadata(metadata);
+
+    if (syncPendingChanges) {
+      clearSyncRetryTimer();
+      if (syncQueueTimer) {
+        clearTimeout(syncQueueTimer);
+        syncQueueTimer = null;
+      }
+      syncConflictInfo = metadata;
+      syncLastErrorMessage = '';
+      refreshSyncStatus();
+      return;
+    }
+
+    if (autoPull) {
+      await pullCloudState();
+      setSyncUiCollapsed(true);
+      refreshSyncStatus();
+      return;
+    }
+
+    syncConnectionState = 'configured';
+    syncLastErrorMessage = '';
+    refreshSyncStatus();
+  } catch (error) {
+    if (force) {
+      syncLastErrorMessage = error.message;
+      refreshSyncStatus();
+    }
+  } finally {
+    syncMetadataCheckInFlight = false;
+  }
 }
 
 function scheduleSyncRetry(errorMessage) {
@@ -486,7 +1182,7 @@ function scheduleSyncRetry(errorMessage) {
 }
 
 async function pushCloudState() {
-  if (!hasSyncCredentials() || syncInFlight) {
+  if (!hasSyncCredentials() || syncInFlight || syncConflictInfo) {
     return;
   }
 
@@ -497,8 +1193,11 @@ async function pushCloudState() {
   refreshSyncStatus();
 
   try {
-    await cloudRequest(CLOUD_SYNC_ENDPOINT, {
+    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, {
       method: 'PUT',
+      headers: {
+        'X-State-Revision': String(syncCloudRevision),
+      },
       body: JSON.stringify({
         games: appState.games,
         powerLevels: appState.powerLevels,
@@ -506,14 +1205,29 @@ async function pushCloudState() {
         records: appState.records,
       }),
     });
+    updateSyncMetadata({
+      revision: payload.revision,
+      updatedAt: payload.updatedAt,
+      updatedBy: payload.updatedBy,
+    });
     syncPendingChanges = false;
     syncRetryCount = 0;
     syncLastErrorMessage = '';
+    clearSyncConflict();
     syncLastSuccessAt = new Date().toISOString();
     clearSyncRetryTimer();
     refreshSyncStatus();
   } catch (error) {
-    scheduleSyncRetry(error.message);
+    if (error.status === 409) {
+      updateSyncMetadata({
+        revision: error.body?.conflict?.revision,
+        updatedAt: error.body?.conflict?.updatedAt,
+        updatedBy: error.body?.conflict?.updatedBy,
+      });
+      await resolveSyncConflict(error.body?.conflict || null);
+    } else {
+      scheduleSyncRetry(error.message);
+    }
   } finally {
     syncInFlight = false;
     updateSyncControls();
@@ -529,6 +1243,10 @@ function queueCloudSync(delay = 500) {
   syncPendingChanges = true;
   syncLastErrorMessage = '';
   refreshSyncStatus();
+
+  if (syncConflictInfo) {
+    return;
+  }
 
   if (syncQueueTimer) {
     clearTimeout(syncQueueTimer);
@@ -813,7 +1531,10 @@ function loadGames() {
 }
 
 function saveGames(games) {
-  appState.games = Array.isArray(games) ? games : [];
+  appState = normalizeAppStateData({
+    ...appState,
+    games: Array.isArray(games) ? games : [],
+  });
   appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
   persistLocalState(appState);
   queueCloudSync();
@@ -824,7 +1545,10 @@ function loadDeckLists() {
 }
 
 function saveDeckLists(deckLists) {
-  appState.deckLists = Array.isArray(deckLists) ? deckLists : [];
+  appState = normalizeAppStateData({
+    ...appState,
+    deckLists: Array.isArray(deckLists) ? deckLists : [],
+  });
   persistLocalState(appState);
   queueCloudSync();
 }
@@ -832,7 +1556,7 @@ function saveDeckLists(deckLists) {
 function normalizeList(value) {
   return value
     .split(',')
-    .map((item) => item.trim())
+    .map((item) => normalizeIdentityLabel(item))
     .filter(Boolean);
 }
 
@@ -1538,11 +2262,14 @@ function getLiveSetupRows() {
     return [];
   }
 
+  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
+  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders);
+
   return Array.from(liveGamePlayerBody.querySelectorAll('tr'))
     .map((row, index) => ({
       id: row.dataset.playerId || generateId(),
-      player: row.querySelector('[name="player"]')?.value.trim() || '',
-      commander: row.querySelector('[name="commander"]')?.value.trim() || '',
+      player: canonicalizeIdentityValue(row.querySelector('[name="player"]')?.value || '', playerMap),
+      commander: canonicalizeIdentityValue(row.querySelector('[name="commander"]')?.value || '', commanderMap),
       seat: index + 1,
     }))
     .filter((row) => row.player);
@@ -2558,9 +3285,12 @@ function resetPlayerTable() {
 }
 
 function getPlayerRows() {
+  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
+  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders);
+
   return Array.from(playerTableBody.querySelectorAll('tr')).map((row) => {
-    const player = row.querySelector('[name="player"]').value.trim();
-    const commander = row.querySelector('[name="commander"]').value.trim();
+    const player = canonicalizeIdentityValue(row.querySelector('[name="player"]')?.value || '', playerMap);
+    const commander = canonicalizeIdentityValue(row.querySelector('[name="commander"]')?.value || '', commanderMap);
     const placeRaw = row.querySelector('input[name="place"]').value.trim();
     const killsRaw = row.querySelector('input[name="kills"]').value.trim();
     const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value.trim();
@@ -2601,7 +3331,26 @@ function parseOptionalNonNegativeInteger(value) {
 }
 
 function sanitizeManualGameRows(rows) {
-  return rows.map(({ placeRaw, killsRaw, turnKilledRaw, ...row }) => row);
+  const playerBuckets = new Map();
+  const commanderBuckets = new Map();
+
+  rows.forEach((row) => {
+    recordIdentityVariant(playerBuckets, row.player);
+    recordIdentityVariant(commanderBuckets, row.commander);
+    row.killed.forEach((player) => {
+      recordIdentityVariant(playerBuckets, player);
+    });
+  });
+
+  const playerMap = buildCanonicalIdentityMap(playerBuckets);
+  const commanderMap = buildCanonicalIdentityMap(commanderBuckets);
+
+  return rows.map(({ placeRaw, killsRaw, turnKilledRaw, ...row }) => ({
+    ...row,
+    player: canonicalizeIdentityValue(row.player, playerMap),
+    commander: canonicalizeIdentityValue(row.commander, commanderMap),
+    killed: normalizeIdentityList(row.killed, playerMap),
+  }));
 }
 
 function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
@@ -2916,30 +3665,42 @@ function loadCommanderPowerLevels() {
 }
 
 function saveCommanderPowerLevels(levels) {
-  appState.powerLevels = levels && typeof levels === 'object' ? levels : {};
+  appState = normalizeAppStateData({
+    ...appState,
+    powerLevels: levels && typeof levels === 'object' ? levels : {},
+  });
   persistLocalState(appState);
   queueCloudSync();
 }
 
 function setCommanderExpectedPower(commander, value) {
   const levels = loadCommanderPowerLevels();
+  const canonicalCommander = canonicalizeIdentityValue(commander, buildCanonicalIdentityMapFromValues(Object.keys(levels).concat(knownCommanders)));
+  if (!canonicalCommander) {
+    return;
+  }
+
   if (typeof value !== 'number' || Number.isNaN(value)) {
-    delete levels[commander];
+    delete levels[canonicalCommander];
   } else {
-    levels[commander] = Math.min(10, Math.max(0, Math.round(value * 10) / 10));
+    levels[canonicalCommander] = Math.min(10, Math.max(0, Math.round(value * 10) / 10));
   }
   saveCommanderPowerLevels(levels);
 }
 
 function getCommanderExpectedPower(commander) {
   const levels = loadCommanderPowerLevels();
-  return typeof levels[commander] === 'number' ? levels[commander] : '';
+  const canonicalCommander = canonicalizeIdentityValue(commander, buildCanonicalIdentityMapFromValues(Object.keys(levels).concat(knownCommanders)));
+  return typeof levels[canonicalCommander] === 'number' ? levels[canonicalCommander] : '';
 }
 
 function normalizeRecordEntry(entry, index = 0) {
   if (!entry || typeof entry !== 'object') {
     return null;
   }
+
+  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
+  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders.concat(Object.keys(loadCommanderPowerLevels())));
 
   const isCustom = Boolean(entry.isCustom);
   const key = isCustom ? '' : String(entry.key || '').trim();
@@ -2950,8 +3711,8 @@ function normalizeRecordEntry(entry, index = 0) {
 
   const fallbackId = key || `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'record'}-${index}`;
   const resolvedValue = String(entry.value || '').trim();
-  const resolvedHolder = String(entry.holder || '').trim();
-  const resolvedCommander = String(entry.commander || '').trim();
+  const resolvedHolder = canonicalizeIdentityValue(entry.holder, playerMap);
+  const resolvedCommander = canonicalizeIdentityValue(entry.commander, commanderMap);
   const resolvedDate = String(entry.date || '').trim();
   const resolvedNotes = String(entry.notes || '').trim();
 
@@ -2966,8 +3727,8 @@ function normalizeRecordEntry(entry, index = 0) {
     date: resolvedDate,
     notes: resolvedNotes,
     manualValue: isCustom ? '' : String(typeof entry.manualValue !== 'undefined' ? entry.manualValue : resolvedValue).trim(),
-    manualHolder: isCustom ? '' : String(typeof entry.manualHolder !== 'undefined' ? entry.manualHolder : resolvedHolder).trim(),
-    manualCommander: isCustom ? '' : String(typeof entry.manualCommander !== 'undefined' ? entry.manualCommander : resolvedCommander).trim(),
+    manualHolder: isCustom ? '' : canonicalizeIdentityValue(typeof entry.manualHolder !== 'undefined' ? entry.manualHolder : resolvedHolder, playerMap),
+    manualCommander: isCustom ? '' : canonicalizeIdentityValue(typeof entry.manualCommander !== 'undefined' ? entry.manualCommander : resolvedCommander, commanderMap),
     manualDate: isCustom ? '' : String(typeof entry.manualDate !== 'undefined' ? entry.manualDate : resolvedDate).trim(),
     manualNotes: isCustom ? '' : String(typeof entry.manualNotes !== 'undefined' ? entry.manualNotes : resolvedNotes).trim(),
     isCustom,
@@ -3206,7 +3967,11 @@ function loadRecords() {
 }
 
 function saveRecords(records) {
-  appState.records = mergeRecordsWithDefaults(records, appState.games);
+  appState = normalizeAppStateData({
+    ...appState,
+    records: Array.isArray(records) ? records : [],
+  });
+  appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
   persistLocalState(appState);
   queueCloudSync();
 }
@@ -3728,8 +4493,10 @@ function normalizeDeckListEntry(entry) {
     return null;
   }
 
-  const commander = String(entry.commander || '').trim();
-  const owner = String(entry.owner || '').trim();
+  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
+  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders.concat(Object.keys(loadCommanderPowerLevels())));
+  const commander = canonicalizeIdentityValue(entry.commander, commanderMap);
+  const owner = canonicalizeIdentityValue(entry.owner, playerMap);
   const url = String(entry.url || '').trim();
   if (!commander || !url) {
     return null;
@@ -6122,6 +6889,7 @@ function renderSummary(games) {
 function refresh() {
   const games = loadGames();
   updateFormDatalists(games);
+  renderIdentityRenameOptions();
   renderSummary(games);
   renderRankingsPage(games);
   renderPlayerStats(games);
@@ -6546,6 +7314,40 @@ if (commanderSearch) {
   });
 }
 
+if (playerRenameForm) {
+  if (playerRenameStatus) {
+    playerRenameStatus.setAttribute('role', 'status');
+    playerRenameStatus.setAttribute('aria-live', 'polite');
+  }
+
+  playerRenameForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await handleIdentityRenameSubmit({
+      type: 'player',
+      currentInput: playerRenameCurrentInput,
+      nextInput: playerRenameNextInput,
+      statusElement: playerRenameStatus,
+    });
+  });
+}
+
+if (commanderRenameForm) {
+  if (commanderRenameStatus) {
+    commanderRenameStatus.setAttribute('role', 'status');
+    commanderRenameStatus.setAttribute('aria-live', 'polite');
+  }
+
+  commanderRenameForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await handleIdentityRenameSubmit({
+      type: 'commander',
+      currentInput: commanderRenameCurrentInput,
+      nextInput: commanderRenameNextInput,
+      statusElement: commanderRenameStatus,
+    });
+  });
+}
+
 if (commanderStatsTableBody) {
   commanderStatsTableBody.addEventListener('change', handleCommanderExpectedInput);
 }
@@ -6730,9 +7532,10 @@ window.visualViewport?.addEventListener('resize', () => {
   refreshLiveTrackerUi();
 });
 
-window.addEventListener('online', () => {
+window.addEventListener('online', async () => {
   refreshSyncStatus();
-  if (hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
+  await checkCloudStateFreshness({ autoPull: !syncPendingChanges, force: true });
+  if (!syncConflictInfo && hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
     queueCloudSync(250);
   }
 });
@@ -6740,6 +7543,16 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
   clearSyncRetryTimer();
   refreshSyncStatus();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
+  }
+});
+
+window.addEventListener('focus', () => {
+  checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
 });
 
 function setupSyncUi() {
@@ -6771,6 +7584,8 @@ function setupSyncUi() {
     syncPendingChanges = false;
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
+    updateSyncMetadata();
+    clearSyncConflict();
     syncConnectionState = 'connecting';
     localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
     localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
@@ -6813,6 +7628,8 @@ function setupSyncUi() {
       syncRetryCount = 0;
       syncLastSuccessAt = null;
       syncLastErrorMessage = '';
+      updateSyncMetadata();
+      clearSyncConflict();
       syncConnectionState = 'local';
       localStorage.removeItem(SYNC_USER_STORAGE_KEY);
       localStorage.removeItem(SYNC_TOKEN_STORAGE_KEY);
@@ -6825,6 +7642,11 @@ function setupSyncUi() {
 
   if (syncNowButton) {
     syncNowButton.addEventListener('click', async () => {
+      if (syncConflictInfo) {
+        await resolveSyncConflict(syncConflictInfo);
+        return;
+      }
+
       clearSyncRetryTimer();
       syncRetryCount = 0;
       syncPendingChanges = true;

@@ -429,6 +429,16 @@ label {
   gap: 8px;
 }
 
+.identity-rename-form {
+  display: grid;
+  gap: 8px;
+}
+
+.identity-rename-status {
+  margin: 0;
+  color: #5d6884;
+}
+
 .record-lookup-wrapper .lookup-input {
   padding-right: 42px;
 }
