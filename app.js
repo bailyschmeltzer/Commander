@@ -5188,14 +5188,14 @@ if (liveGamePlayerBody) {
 }
 
 if (form) {
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const games = loadGames();
     const existingGame = editingGameId ? games.find((game) => game.id === editingGameId) || null : null;
 
     const rows = getPlayerRows();
     if (!rows.length) {
-      alert('Please add at least one player row with a player name.');
+      await promptLiveAlert('Please add at least one player row with a player name.', 'Unable to save game');
       return;
     }
 
@@ -5210,7 +5210,7 @@ if (form) {
     });
 
     if (validationError) {
-      alert(validationError);
+      await promptLiveAlert(validationError, 'Unable to save game');
       return;
     }
 
@@ -5549,7 +5549,7 @@ if (deckListCancelButton) {
 }
 
 if (deckListForm && deckCommanderInput && deckUrlInput) {
-  deckListForm.addEventListener('submit', (event) => {
+  deckListForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const commander = deckCommanderInput.value.trim();
@@ -5557,12 +5557,12 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     const url = deckUrlInput.value.trim();
 
     if (!commander) {
-      alert('Please choose or enter a commander.');
+      await promptLiveAlert('Please choose or enter a commander.', 'Unable to save deck list');
       return;
     }
 
     if (!url) {
-      alert('Please enter a deck URL.');
+      await promptLiveAlert('Please enter a deck URL.', 'Unable to save deck list');
       return;
     }
 
@@ -5570,12 +5570,12 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
     try {
       parsedUrl = new URL(url);
     } catch (error) {
-      alert('Please enter a valid URL (include https://).');
+      await promptLiveAlert('Please enter a valid URL (include https://).', 'Unable to save deck list');
       return;
     }
 
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      alert('Deck URL must use http or https.');
+      await promptLiveAlert('Deck URL must use http or https.', 'Unable to save deck list');
       return;
     }
 
@@ -5640,12 +5640,12 @@ if (recordsForm) {
 }
 
 if (customRecordForm) {
-  customRecordForm.addEventListener('submit', (event) => {
+  customRecordForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const title = customRecordTitleInput?.value.trim() || '';
     if (!title) {
-      alert('Please enter a title for the custom record.');
+      await promptLiveAlert('Please enter a title for the custom record.', 'Unable to add custom record');
       return;
     }
 
