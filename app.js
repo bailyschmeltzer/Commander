@@ -3868,7 +3868,7 @@ function renderRecords() {
   populateRecordLookupMenus();
 }
 
-function handleDeckListTableAction(event) {
+async function handleDeckListTableAction(event) {
   const button = event.target.closest('button');
   if (!button || !deckListTableBody.contains(button)) {
     return;
@@ -3885,7 +3885,10 @@ function handleDeckListTableAction(event) {
   }
 
   if (button.classList.contains('deck-list-delete')) {
-    if (confirm('Delete this deck list?')) {
+    if (await promptLiveConfirm('Delete this deck list? This removes the saved deck link immediately.', {
+      title: 'Delete deck list?',
+      confirmLabel: 'Delete deck list',
+    })) {
       deleteDeckList(deckId);
     }
   }
@@ -4026,7 +4029,7 @@ function renderHistory(games) {
   historyList.innerHTML = filteredGames.map(renderHistoryGame).join('');
 }
 
-function handleHistoryAction(event) {
+async function handleHistoryAction(event) {
   const button = event.target.closest('button');
   if (!button || !historyList.contains(button)) {
     return;
@@ -4038,7 +4041,10 @@ function handleHistoryAction(event) {
   }
 
   if (button.classList.contains('history-delete-button')) {
-    if (confirm('Delete this game? This cannot be undone.')) {
+    if (await promptLiveConfirm('Delete this game? This removes it from history, rankings, and all derived stats.', {
+      title: 'Delete saved game?',
+      confirmLabel: 'Delete game',
+    })) {
       deleteGame(gameId);
     }
     return;
