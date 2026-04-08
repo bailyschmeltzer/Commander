@@ -119,7 +119,13 @@ let commanderSortDescending = true;
 let appState = { games: [], powerLevels: {}, deckLists: [], records: [] };
 let editingDeckListId = null;
 let syncQueueTimer = null;
+let syncRetryTimer = null;
 let syncInFlight = false;
+let syncRetryCount = 0;
+let syncPendingChanges = false;
+let syncLastSuccessAt = null;
+let syncConnectionState = 'local';
+let syncLastErrorMessage = '';
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let activeGameState = null;
@@ -238,6 +244,101 @@ function hasSyncCredentials() {
   return Boolean(credentials.user && credentials.token);
 }
 
+function formatSyncTimestamp(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function clearSyncRetryTimer() {
+  if (syncRetryTimer) {
+    clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+}
+
+function getSyncStatusSnapshot() {
+  const credentials = getSyncCredentials();
+  const lastSyncedText = syncLastSuccessAt ? formatSyncTimestamp(syncLastSuccessAt) : '';
+
+  if (!credentials.user || !credentials.token) {
+    return {
+      tone: 'muted',
+      message: 'Cloud sync not connected. Data stays local until you connect.',
+    };
+  }
+
+  if (!navigator.onLine) {
+    if (syncPendingChanges) {
+      return {
+        tone: 'error',
+        message: 'Offline. Local changes are saved on this device and will sync when you reconnect.',
+      };
+    }
+
+    return {
+      tone: 'muted',
+      message: lastSyncedText
+        ? `Offline. Last synced at ${lastSyncedText}.`
+        : 'Offline. Cloud sync will resume when you reconnect.',
+    };
+  }
+
+  if (syncInFlight) {
+    return {
+      tone: 'neutral',
+      message: syncConnectionState === 'connecting'
+        ? 'Connecting to cloud and loading latest state...'
+        : 'Syncing local changes to cloud...',
+    };
+  }
+
+  if (syncLastErrorMessage) {
+    return {
+      tone: 'error',
+      message: syncRetryTimer
+        ? `Sync failed: ${syncLastErrorMessage}. Local changes are still saved and will retry automatically.`
+        : `Sync failed: ${syncLastErrorMessage}. Local changes are still saved on this device.`,
+    };
+  }
+
+  if (syncPendingChanges) {
+    return {
+      tone: 'neutral',
+      message: 'Local changes are queued and will sync automatically.',
+    };
+  }
+
+  if (syncConnectionState === 'connected') {
+    return {
+      tone: 'success',
+      message: lastSyncedText
+        ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
+        : `Cloud sync connected as ${credentials.user}.`,
+    };
+  }
+
+  return {
+    tone: 'muted',
+    message: 'Cloud sync is configured. Pulling latest state when needed.',
+  };
+}
+
+function refreshSyncStatus() {
+  const snapshot = getSyncStatusSnapshot();
+  setSyncStatus(snapshot.message, snapshot.tone);
+}
+
 function setSyncStatus(message, tone = 'neutral') {
   if (!syncStatus) {
     return;
@@ -266,11 +367,15 @@ function updateSyncControls() {
   }
 
   const hasCredentials = hasSyncCredentials();
+  const isBusy = syncInFlight || syncConnectionState === 'connecting';
+  if (syncConnectButton) {
+    syncConnectButton.disabled = isBusy;
+  }
   if (syncDisconnectButton) {
-    syncDisconnectButton.disabled = !hasCredentials;
+    syncDisconnectButton.disabled = !hasCredentials || isBusy;
   }
   if (syncNowButton) {
-    syncNowButton.disabled = !hasCredentials;
+    syncNowButton.disabled = !hasCredentials || isBusy;
   }
 }
 
@@ -307,6 +412,11 @@ async function cloudRequest(path, options = {}) {
 }
 
 async function pullCloudState() {
+  syncConnectionState = 'connecting';
+  syncLastErrorMessage = '';
+  updateSyncControls();
+  refreshSyncStatus();
+
   const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
   const games = Array.isArray(payload.games) ? payload.games : [];
   const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
@@ -314,7 +424,28 @@ async function pullCloudState() {
   const records = Array.isArray(payload.records) ? payload.records : [];
   appState = { games, powerLevels, deckLists, records };
   persistLocalState(appState);
+  syncConnectionState = 'connected';
+  syncLastErrorMessage = '';
+  syncLastSuccessAt = new Date().toISOString();
   refresh();
+}
+
+function scheduleSyncRetry(errorMessage) {
+  clearSyncRetryTimer();
+
+  if (!hasSyncCredentials() || !navigator.onLine) {
+    return;
+  }
+
+  syncRetryCount += 1;
+  const retryDelay = Math.min(30000, 1000 * (2 ** Math.min(syncRetryCount - 1, 4)));
+  syncLastErrorMessage = errorMessage;
+  refreshSyncStatus();
+
+  syncRetryTimer = setTimeout(() => {
+    syncRetryTimer = null;
+    pushCloudState();
+  }, retryDelay);
 }
 
 async function pushCloudState() {
@@ -323,6 +454,11 @@ async function pushCloudState() {
   }
 
   syncInFlight = true;
+  syncConnectionState = 'connected';
+  syncLastErrorMessage = '';
+  updateSyncControls();
+  refreshSyncStatus();
+
   try {
     await cloudRequest(CLOUD_SYNC_ENDPOINT, {
       method: 'PUT',
@@ -333,11 +469,18 @@ async function pushCloudState() {
         records: appState.records,
       }),
     });
-    setSyncStatus('Synced to cloud.', 'success');
+    syncPendingChanges = false;
+    syncRetryCount = 0;
+    syncLastErrorMessage = '';
+    syncLastSuccessAt = new Date().toISOString();
+    clearSyncRetryTimer();
+    refreshSyncStatus();
   } catch (error) {
-    setSyncStatus(`Sync failed: ${error.message}`, 'error');
+    scheduleSyncRetry(error.message);
   } finally {
     syncInFlight = false;
+    updateSyncControls();
+    refreshSyncStatus();
   }
 }
 
@@ -346,9 +489,15 @@ function queueCloudSync(delay = 500) {
     return;
   }
 
+  syncPendingChanges = true;
+  syncLastErrorMessage = '';
+  refreshSyncStatus();
+
   if (syncQueueTimer) {
     clearTimeout(syncQueueTimer);
   }
+
+  clearSyncRetryTimer();
 
   syncQueueTimer = setTimeout(() => {
     syncQueueTimer = null;
@@ -5712,6 +5861,18 @@ window.visualViewport?.addEventListener('resize', () => {
   refreshLiveTrackerUi();
 });
 
+window.addEventListener('online', () => {
+  refreshSyncStatus();
+  if (hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
+    queueCloudSync(250);
+  }
+});
+
+window.addEventListener('offline', () => {
+  clearSyncRetryTimer();
+  refreshSyncStatus();
+});
+
 function setupSyncUi() {
   if (!syncUserInput || !syncTokenInput) {
     return;
@@ -5720,13 +5881,9 @@ function setupSyncUi() {
   const credentials = getSyncCredentials();
   syncUserInput.value = credentials.user;
   syncTokenInput.value = credentials.token;
+  syncConnectionState = credentials.user && credentials.token ? 'configured' : 'local';
   updateSyncControls();
-
-  if (!credentials.user || !credentials.token) {
-    setSyncStatus('Cloud sync not connected. Data remains local until you connect.', 'muted');
-  } else {
-    setSyncStatus('Cloud sync configured. Pulling latest state...', 'neutral');
-  }
+  refreshSyncStatus();
 
   const handleSyncConnect = async (event) => {
     event?.preventDefault?.();
@@ -5740,24 +5897,27 @@ function setupSyncUi() {
     }
 
     setSyncUiCollapsed(false);
+    clearSyncRetryTimer();
+    syncRetryCount = 0;
+    syncPendingChanges = false;
+    syncLastSuccessAt = null;
+    syncLastErrorMessage = '';
+    syncConnectionState = 'connecting';
     localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
     localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
     updateSyncControls();
-    setSyncStatus('Connecting to cloud...', 'neutral');
-
-    if (syncConnectButton) {
-      syncConnectButton.disabled = true;
-    }
+    refreshSyncStatus();
 
     try {
       await pullCloudState();
-      setSyncStatus(`Connected as ${user}.`, 'success');
+      refreshSyncStatus();
+      setSyncUiCollapsed(true);
     } catch (error) {
-      setSyncStatus(`Connection failed: ${error.message}`, 'error');
+      syncConnectionState = 'configured';
+      syncLastErrorMessage = error.message;
+      refreshSyncStatus();
     } finally {
-      if (syncConnectButton) {
-        syncConnectButton.disabled = false;
-      }
+      updateSyncControls();
     }
   };
 
@@ -5775,18 +5935,32 @@ function setupSyncUi() {
 
   if (syncDisconnectButton) {
     syncDisconnectButton.addEventListener('click', () => {
+      clearSyncRetryTimer();
+      if (syncQueueTimer) {
+        clearTimeout(syncQueueTimer);
+        syncQueueTimer = null;
+      }
+      syncPendingChanges = false;
+      syncRetryCount = 0;
+      syncLastSuccessAt = null;
+      syncLastErrorMessage = '';
+      syncConnectionState = 'local';
       localStorage.removeItem(SYNC_USER_STORAGE_KEY);
       localStorage.removeItem(SYNC_TOKEN_STORAGE_KEY);
       syncUserInput.value = '';
       syncTokenInput.value = '';
       updateSyncControls();
-      setSyncStatus('Cloud sync disconnected. Local mode active.', 'muted');
+      refreshSyncStatus();
     });
   }
 
   if (syncNowButton) {
     syncNowButton.addEventListener('click', async () => {
-      setSyncStatus('Syncing now...', 'neutral');
+      clearSyncRetryTimer();
+      syncRetryCount = 0;
+      syncPendingChanges = true;
+      syncLastErrorMessage = '';
+      refreshSyncStatus();
       await pushCloudState();
     });
   }
@@ -5825,11 +5999,13 @@ async function initializeApp() {
   if (hasSyncCredentials()) {
     try {
       await pullCloudState();
-      setSyncStatus('Cloud data loaded.', 'success');
-      setSyncUiCollapsed(true, getSyncCredentials().user);
+      setSyncUiCollapsed(true);
+      refreshSyncStatus();
     } catch (error) {
+      syncConnectionState = 'configured';
       setSyncUiCollapsed(false);
-      setSyncStatus(`Using local cache: ${error.message}`, 'error');
+      syncLastErrorMessage = `${error.message}. Using local cache.`;
+      refreshSyncStatus();
     }
   }
 }
