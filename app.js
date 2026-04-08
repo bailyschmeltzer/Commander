@@ -6,6 +6,7 @@ const ACTIVE_GAME_STORAGE_KEY = 'commanderTrackerActiveGame';
 const ACTIVE_GAME_UNDO_STORAGE_KEY = 'commanderTrackerActiveGameUndo';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
+const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const form = document.getElementById('game-form');
@@ -179,6 +180,7 @@ let syncCloudUpdatedBy = '';
 let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
+let storageErrorMessage = '';
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
@@ -192,6 +194,7 @@ let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
 let liveMeasurementTimerId = null;
+const derivedGamesCache = new WeakMap();
 
 const DEFAULT_RECORD_DEFINITIONS = [
   { key: 'earliest-turn-win', title: 'Earliest Turn Win', unit: 'turns' },
@@ -207,6 +210,7 @@ const DEFAULT_RECORD_DEFINITIONS = [
 const PLAYER_IDENTITY_KEYS = new Set(['player', 'holder', 'manualHolder', 'actorPlayer', 'targetPlayer', 'startingPlayer', 'owner']);
 const COMMANDER_IDENTITY_KEYS = new Set(['commander', 'manualCommander', 'actorCommander']);
 const PLAYER_IDENTITY_LIST_PARENTS = new Set(['players', 'finishOrder', 'killed']);
+const RECOGNIZED_DECK_HOSTS = new Set(['moxfield.com', 'www.moxfield.com', 'archidekt.com', 'www.archidekt.com', 'deckstats.net', 'www.deckstats.net', 'tappedout.net', 'www.tappedout.net', 'www.mtggoldfish.com', 'mtggoldfish.com', 'manabox.app', 'www.manabox.app', 'etherhub.io', 'www.etherhub.io']);
 
 function parseJsonSafe(value, fallback) {
   try {
@@ -214,6 +218,71 @@ function parseJsonSafe(value, fallback) {
   } catch (error) {
     return fallback;
   }
+}
+
+function getDerivedCacheBucket(games) {
+  if (!Array.isArray(games)) {
+    return {};
+  }
+
+  if (!derivedGamesCache.has(games)) {
+    derivedGamesCache.set(games, {});
+  }
+
+  return derivedGamesCache.get(games);
+}
+
+function readLocalStorageValue(key) {
+  try {
+    storageErrorMessage = '';
+    return localStorage.getItem(key);
+  } catch (error) {
+    storageErrorMessage = 'Browser storage is unavailable on this device right now.';
+    return null;
+  }
+}
+
+function writeLocalStorageValue(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    storageErrorMessage = '';
+    return true;
+  } catch (error) {
+    const isQuotaError = error?.name === 'QuotaExceededError' || error?.code === 22;
+    storageErrorMessage = isQuotaError
+      ? 'Browser storage is full. Local-only saves may not persist until storage is cleared.'
+      : 'Browser storage is unavailable on this device right now.';
+    return false;
+  }
+}
+
+function removeLocalStorageValue(key) {
+  try {
+    localStorage.removeItem(key);
+    storageErrorMessage = '';
+    return true;
+  } catch (error) {
+    storageErrorMessage = 'Browser storage is unavailable on this device right now.';
+    return false;
+  }
+}
+
+function getSyncCredentialAgeDays() {
+  const storedValue = readLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY) || '';
+  if (!storedValue) {
+    return null;
+  }
+
+  const timestamp = new Date(storedValue).getTime();
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+
+  return Math.floor((Date.now() - timestamp) / 86400000);
+}
+
+function getStorageWarningMessage() {
+  return storageErrorMessage || '';
 }
 
 function normalizeIdentityLabel(value) {
@@ -731,10 +800,10 @@ async function handleIdentityRenameSubmit({ type, currentInput, nextInput, statu
 }
 
 function loadLocalState() {
-  const games = parseJsonSafe(localStorage.getItem(STORAGE_KEY) || '[]', []);
-  const powerLevels = parseJsonSafe(localStorage.getItem(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
-  const deckLists = parseJsonSafe(localStorage.getItem(DECK_LIST_STORAGE_KEY) || '[]', []);
-  const records = parseJsonSafe(localStorage.getItem(RECORDS_STORAGE_KEY) || '[]', []);
+  const games = parseJsonSafe(readLocalStorageValue(STORAGE_KEY) || '[]', []);
+  const powerLevels = parseJsonSafe(readLocalStorageValue(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
+  const deckLists = parseJsonSafe(readLocalStorageValue(DECK_LIST_STORAGE_KEY) || '[]', []);
+  const records = parseJsonSafe(readLocalStorageValue(RECORDS_STORAGE_KEY) || '[]', []);
   const rawState = {
     games: Array.isArray(games) ? games : [],
     powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
@@ -751,14 +820,14 @@ function loadLocalState() {
 }
 
 function persistLocalState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.games || []));
-  localStorage.setItem(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
-  localStorage.setItem(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
-  localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
+  writeLocalStorageValue(STORAGE_KEY, JSON.stringify(state.games || []));
+  writeLocalStorageValue(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
+  writeLocalStorageValue(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
+  writeLocalStorageValue(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
 }
 
 function loadActiveGameState() {
-  const storedState = parseJsonSafe(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
+  const storedState = parseJsonSafe(readLocalStorageValue(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
   const normalizedState = normalizeActiveGameStateData(storedState);
 
   if (JSON.stringify(storedState) !== JSON.stringify(normalizedState)) {
@@ -769,7 +838,7 @@ function loadActiveGameState() {
 }
 
 function loadActiveGameUndoState() {
-  const storedState = parseJsonSafe(localStorage.getItem(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
+  const storedState = parseJsonSafe(readLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
   if (Array.isArray(storedState)) {
     return storedState.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean);
   }
@@ -785,11 +854,11 @@ function persistActiveGameUndoState(state) {
 
   activeGameUndoState = normalizedState;
   if (!normalizedState.length) {
-    localStorage.removeItem(ACTIVE_GAME_UNDO_STORAGE_KEY);
+    removeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY);
     return;
   }
 
-  localStorage.setItem(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(normalizedState));
+  writeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(normalizedState));
 }
 
 function cloneActiveGameState(state) {
@@ -812,17 +881,17 @@ function persistActiveGameState(state) {
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
   if (!normalizedState) {
-    localStorage.removeItem(ACTIVE_GAME_STORAGE_KEY);
+    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
     return;
   }
 
-  localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState));
+  writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState));
 }
 
 function getSyncCredentials() {
   return {
-    user: (localStorage.getItem(SYNC_USER_STORAGE_KEY) || '').trim(),
-    token: (localStorage.getItem(SYNC_TOKEN_STORAGE_KEY) || '').trim(),
+    user: (readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim(),
+    token: (readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim(),
   };
 }
 
@@ -882,6 +951,15 @@ function clearSyncRetryTimer() {
 function getSyncStatusSnapshot() {
   const credentials = getSyncCredentials();
   const lastSyncedText = syncLastSuccessAt ? formatSyncTimestamp(syncLastSuccessAt) : '';
+  const storageWarning = getStorageWarningMessage();
+  const credentialAgeDays = getSyncCredentialAgeDays();
+
+  if (storageWarning) {
+    return {
+      tone: 'error',
+      message: storageWarning,
+    };
+  }
 
   if (!credentials.user || !credentials.token) {
     return {
@@ -940,10 +1018,12 @@ function getSyncStatusSnapshot() {
 
   if (syncConnectionState === 'connected') {
     return {
-      tone: 'success',
-      message: lastSyncedText
-        ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
-        : `Cloud sync connected as ${credentials.user}.`,
+      tone: credentialAgeDays !== null && credentialAgeDays >= 7 ? 'neutral' : 'success',
+      message: credentialAgeDays !== null && credentialAgeDays >= 7
+        ? `Cloud sync is still connected as ${credentials.user}. Shared device? Disconnect when you're done.`
+        : (lastSyncedText
+          ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
+          : `Cloud sync connected as ${credentials.user}.`),
     };
   }
 
@@ -1268,10 +1348,22 @@ function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
 
-function buildHistoryFilterHref(filters = {}) {
-  const query = new URLSearchParams();
+function getCurrentHistoryQueryState() {
+  return {
+    ...getCurrentHistoryFilters(),
+    sort: historySortKey || 'date',
+    order: historySortDescending ? 'desc' : 'asc',
+  };
+}
 
-  Object.entries(filters).forEach(([key, value]) => {
+function buildHistoryFilterHref(filters = {}, options = {}) {
+  const query = new URLSearchParams();
+  const includeSortState = options.includeSortState !== false;
+  const combinedFilters = includeSortState
+    ? { ...getCurrentHistoryQueryState(), ...filters }
+    : filters;
+
+  Object.entries(combinedFilters).forEach(([key, value]) => {
     const normalizedValue = String(value || '').trim();
     if (normalizedValue) {
       query.set(key, normalizedValue);
@@ -3134,6 +3226,13 @@ async function completeActiveGame() {
     return;
   }
 
+  if (!activeGameState.events.length && !await promptLiveConfirm('This live game has no recorded events yet. Save it anyway?', {
+    title: 'Save empty live game?',
+    confirmLabel: 'Save anyway',
+  })) {
+    return;
+  }
+
   const alivePlayers = getActiveAlivePlayers(activeGameState);
   if (alivePlayers.length > 1 && !await promptLiveConfirm('More than one player is still alive. Finish and score remaining players by life total?', {
     title: 'Finish active game?',
@@ -3224,7 +3323,11 @@ async function abandonActiveGame() {
     return;
   }
 
-  if (!await promptLiveConfirm('Abandon the current live game? This removes the in-progress tracker without saving to history.', {
+  const eliminatedCount = activeGameState.players.filter((player) => player.eliminatedAt).length;
+  const aliveCount = getActiveAlivePlayers(activeGameState).length;
+  const summary = [`${activeGameState.events.length} logged event${activeGameState.events.length === 1 ? '' : 's'}`, `${eliminatedCount} eliminated`, `${aliveCount} still alive`].join(', ');
+
+  if (!await promptLiveConfirm(`Abandon the current live game? This removes the in-progress tracker without saving to history. Current state: ${summary}.`, {
     title: 'Abandon live game?',
     confirmLabel: 'Abandon game',
   })) {
@@ -3516,6 +3619,35 @@ function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winni
   }
 
   return '';
+}
+
+function getManualGameAdvisories(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
+  const advisories = [];
+  const rowsWithMissingCommander = rows.filter((row) => !normalizeIdentityLabel(row.commander));
+  const totalCreditedKills = rows.reduce((sum, row) => sum + (typeof row.kills === 'number' ? row.kills : 0), 0);
+  const winnerRow = rows.find((row) => row.place === 1) || null;
+
+  if (rowsWithMissingCommander.length) {
+    advisories.push(`Missing commander for ${rowsWithMissingCommander.map((row) => row.player).join(', ')}.`);
+  }
+
+  if (winnerRow && !winnerRow.commander) {
+    advisories.push(`Winner ${winnerRow.player} has no commander listed.`);
+  }
+
+  if (!firstBloodPlayer && !firstBloodTurn) {
+    advisories.push('No first blood was entered for this game.');
+  }
+
+  if (!winningTurn) {
+    advisories.push('No winning turn was entered for this game.');
+  }
+
+  if (rows.length >= 3 && totalCreditedKills === 0) {
+    advisories.push('No kill credit was recorded for any elimination.');
+  }
+
+  return advisories;
 }
 
 function buildManualGameRecordStats(rows, gameDate) {
@@ -4090,31 +4222,40 @@ function updateHistoryFilters(games) {
 }
 
 function applyHistoryQueryFilters() {
-  if (historyQueryFiltersApplied) {
-    return;
-  }
-
   const winner = getQueryParam('winner');
   const commander = getQueryParam('commander');
   const player = getQueryParam('player');
   const fromDate = getQueryParam('from');
   const toDate = getQueryParam('to');
+  const sortKey = getQueryParam('sort');
+  const order = getQueryParam('order');
 
-  if (historyFilterWinner && winner) {
-    historyFilterWinner.value = winner;
+  if (historyFilterWinner) {
+    historyFilterWinner.value = winner || 'all';
   }
-  if (historyFilterCommander && commander) {
-    historyFilterCommander.value = commander;
+  if (historyFilterCommander) {
+    historyFilterCommander.value = commander || 'all';
   }
-  if (historyFilterPlayer && player) {
-    historyFilterPlayer.value = player;
+  if (historyFilterPlayer) {
+    historyFilterPlayer.value = player || 'all';
   }
-  if (historyFilterDateFrom && fromDate) {
-    historyFilterDateFrom.value = fromDate;
+  if (historyFilterDateFrom) {
+    historyFilterDateFrom.value = fromDate || '';
   }
-  if (historyFilterDateTo && toDate) {
-    historyFilterDateTo.value = toDate;
+  if (historyFilterDateTo) {
+    historyFilterDateTo.value = toDate || '';
   }
+  if (historySortSelect && sortKey) {
+    historySortSelect.value = sortKey;
+  }
+
+  historySortKey = sortKey || historySortKey || 'date';
+  if (order === 'asc') {
+    historySortDescending = false;
+  } else if (order === 'desc') {
+    historySortDescending = true;
+  }
+  updateHistorySortOrderLabel();
 
   historyQueryFiltersApplied = true;
 }
@@ -4187,6 +4328,13 @@ function resetHistoryFilters() {
   if (historyFilterDateTo) {
     historyFilterDateTo.value = '';
   }
+
+  historySortKey = 'date';
+  historySortDescending = true;
+  if (historySortSelect) {
+    historySortSelect.value = historySortKey;
+  }
+  updateHistorySortOrderLabel();
 
   if (window.location.pathname.endsWith('/history.html') || window.location.pathname.endsWith('history.html')) {
     window.history.replaceState({}, '', 'history.html');
@@ -4508,6 +4656,85 @@ function normalizeDeckListEntry(entry) {
     owner,
     url,
   };
+}
+
+function getNormalizedDeckUrl(url) {
+  try {
+    const parsedUrl = new URL(String(url || '').trim());
+    if (parsedUrl.protocol !== 'https:') {
+      return { error: 'Deck URL must use https.' };
+    }
+
+    parsedUrl.hash = '';
+    return { value: parsedUrl.toString() };
+  } catch (error) {
+    return { error: 'Please enter a valid deck URL.' };
+  }
+}
+
+function getDeckListValidationSummary(deckLists, { commander, owner, url, editingDeckListId = '' }) {
+  const normalizedCommander = normalizeIdentityLabel(commander);
+  const normalizedOwner = normalizeIdentityLabel(owner);
+  const normalizedCommanderKey = getIdentityKey(normalizedCommander);
+  const normalizedOwnerKey = getIdentityKey(normalizedOwner);
+  const urlResult = getNormalizedDeckUrl(url);
+  if (urlResult.error) {
+    return { error: urlResult.error };
+  }
+
+  if (!normalizedCommander) {
+    return { error: 'Please choose or enter a commander.' };
+  }
+
+  if (!normalizedOwner) {
+    return { error: 'Please enter the deck owner.' };
+  }
+
+  const hostname = new URL(urlResult.value).hostname.toLowerCase();
+  const duplicateCommanderEntry = deckLists.find((entry) => {
+    if (editingDeckListId && entry.id === editingDeckListId) {
+      return false;
+    }
+    return getIdentityKey(entry.commander) === normalizedCommanderKey;
+  }) || null;
+  const duplicateUrlEntry = deckLists.find((entry) => {
+    if (editingDeckListId && entry.id === editingDeckListId) {
+      return false;
+    }
+    return entry.url === urlResult.value;
+  }) || null;
+  const ownerMismatch = duplicateUrlEntry && getIdentityKey(duplicateUrlEntry.owner) !== normalizedOwnerKey;
+  const commanderMismatch = duplicateUrlEntry && getIdentityKey(duplicateUrlEntry.commander) !== normalizedCommanderKey;
+
+  return {
+    commander: normalizedCommander,
+    owner: normalizedOwner,
+    url: urlResult.value,
+    duplicateCommanderEntry,
+    duplicateUrlEntry,
+    hostname,
+    needsHostConfirmation: !RECOGNIZED_DECK_HOSTS.has(hostname),
+    hasUrlConflict: Boolean(ownerMismatch || commanderMismatch),
+  };
+}
+
+function getChangedRecordTitlesAfterGameRemoval(gameId) {
+  const currentGames = loadGames();
+  const nextGames = currentGames.filter((game) => game.id !== gameId);
+  const currentRecords = mergeRecordsWithDefaults(appState.records, currentGames);
+  const nextRecords = mergeRecordsWithDefaults(appState.records, nextGames);
+  const nextRecordsById = new Map(nextRecords.map((record) => [record.id, record]));
+
+  return currentRecords
+    .filter((record) => {
+      const nextRecord = nextRecordsById.get(record.id);
+      return !nextRecord
+        || nextRecord.value !== record.value
+        || nextRecord.holder !== record.holder
+        || nextRecord.commander !== record.commander
+        || nextRecord.date !== record.date;
+    })
+    .map((record) => record.title);
 }
 
 function getSortedDeckLists() {
@@ -5192,7 +5419,11 @@ async function handleDeckListTableAction(event) {
   }
 
   if (button.classList.contains('deck-list-delete')) {
-    if (await promptLiveConfirm('Delete this deck list? This removes the saved deck link immediately.', {
+    const entry = loadDeckLists().find((deck) => deck.id === deckId) || null;
+    const description = entry
+      ? `Delete the saved deck link for ${entry.commander}${entry.owner ? ` owned by ${entry.owner}` : ''}?`
+      : 'Delete this deck list? This removes the saved deck link immediately.';
+    if (await promptLiveConfirm(description, {
       title: 'Delete deck list?',
       confirmLabel: 'Delete deck list',
     })) {
@@ -5375,7 +5606,11 @@ async function handleHistoryAction(event) {
   }
 
   if (button.classList.contains('history-delete-button')) {
-    if (await promptLiveConfirm('Delete this game? This removes it from history, rankings, and all derived stats.', {
+    const changedRecordTitles = getChangedRecordTitlesAfterGameRemoval(gameId);
+    const impactSuffix = changedRecordTitles.length
+      ? ` This will also recalculate records such as ${changedRecordTitles.slice(0, 3).join(', ')}${changedRecordTitles.length > 3 ? ', and others' : ''}.`
+      : '';
+    if (await promptLiveConfirm(`Delete this game? This removes it from history, rankings, and all derived stats.${impactSuffix}`, {
       title: 'Delete saved game?',
       confirmLabel: 'Delete game',
     })) {
@@ -5473,7 +5708,12 @@ function getGameFirstBloodLabel(game) {
 }
 
 function getGamesSortedByDateAscending(games) {
-  return [...games]
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheBucket.sortedByDateAscending) {
+    return cacheBucket.sortedByDateAscending;
+  }
+
+  const sortedGames = [...games]
     .map((game, index) => ({ game, index }))
     .sort((a, b) => {
       const dateResult = (a.game.date || '').localeCompare(b.game.date || '');
@@ -5483,6 +5723,9 @@ function getGamesSortedByDateAscending(games) {
       return a.index - b.index;
     })
     .map(({ game }) => game);
+
+  cacheBucket.sortedByDateAscending = sortedGames;
+  return sortedGames;
 }
 
 function getGameRowPlace(row, game) {
@@ -5553,6 +5796,25 @@ function formatRating(value) {
   return Number.isFinite(value) ? String(Math.round(value)) : '1500';
 }
 
+function getSampleSizeLabel(count, highConfidenceThreshold = 10, mediumConfidenceThreshold = 4) {
+  if (count >= highConfidenceThreshold) {
+    return 'Robust sample';
+  }
+  if (count >= mediumConfidenceThreshold) {
+    return 'Moderate sample';
+  }
+  return 'Small sample';
+}
+
+function getRecentWindowSummary(games, limit = 10) {
+  const recentGames = getGamesSortedByDateAscending(games).slice(-limit);
+  if (!recentGames.length) {
+    return 'Recent views are based on game dates once enough history exists.';
+  }
+
+  return `Recent views use the ${Math.min(limit, recentGames.length)} most recent game dates, from ${recentGames[0].date || 'unknown'} to ${recentGames[recentGames.length - 1].date || 'unknown'}. Backfilled older dates can move games in or out of this window.`;
+}
+
 function compareAggregateEntries(a, b) {
   if (b.points !== a.points) {
     return b.points - a.points;
@@ -5621,6 +5883,11 @@ function getPlayerGameWindowLookup(games, gameLimit = 10) {
 }
 
 function buildPlayerRankingEntries(games) {
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheBucket.playerRankingEntries) {
+    return cacheBucket.playerRankingEntries;
+  }
+
   const stats = {};
   const eloKFactor = 28;
   const eloKillBonus = 2;
@@ -5727,7 +5994,7 @@ function buildPlayerRankingEntries(games) {
     });
   });
 
-  return Object.values(stats)
+  const playerRankingEntries = Object.values(stats)
     .filter((entry) => entry.games > 0)
     .map((entry) => ({
       ...entry,
@@ -5738,9 +6005,17 @@ function buildPlayerRankingEntries(games) {
       favoriteCommander: getMaxCountKey(entry.commanders),
     }))
     .sort(compareRankingsEntries);
+
+  cacheBucket.playerRankingEntries = playerRankingEntries;
+  return playerRankingEntries;
 }
 
 function buildCommanderRankingEntries(games) {
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheBucket.commanderRankingEntries) {
+    return cacheBucket.commanderRankingEntries;
+  }
+
   const stats = {};
 
   games.forEach((game) => {
@@ -5785,7 +6060,7 @@ function buildCommanderRankingEntries(games) {
     });
   });
 
-  return Object.values(stats)
+  const commanderRankingEntries = Object.values(stats)
     .map((entry) => ({
       ...entry,
       avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
@@ -5793,9 +6068,17 @@ function buildCommanderRankingEntries(games) {
       winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
     }))
     .sort(compareAggregateEntries);
+
+  cacheBucket.commanderRankingEntries = commanderRankingEntries;
+  return commanderRankingEntries;
 }
 
-function buildStreakEntries(games, keySelector) {
+function buildStreakEntries(games, keySelector, cacheKey = '') {
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheKey && cacheBucket[cacheKey]) {
+    return cacheBucket[cacheKey];
+  }
+
   const appearances = {};
 
   getGamesSortedByDateAscending(games).forEach((game) => {
@@ -5816,7 +6099,7 @@ function buildStreakEntries(games, keySelector) {
     });
   });
 
-  return Object.entries(appearances)
+  const streakEntries = Object.entries(appearances)
     .map(([name, gamesPlayed]) => {
       let currentWinStreak = 0;
       for (let index = gamesPlayed.length - 1; index >= 0; index -= 1) {
@@ -5862,6 +6145,12 @@ function buildStreakEntries(games, keySelector) {
       }
       return a.name.localeCompare(b.name);
     });
+
+  if (cacheKey) {
+    cacheBucket[cacheKey] = streakEntries;
+  }
+
+  return streakEntries;
 }
 
 function renderStatCardGroup(container, cards) {
@@ -5884,7 +6173,7 @@ function renderPodRankings(games) {
   const entries = buildPlayerRankingEntries(games);
   const recentEntries = buildPlayerRankingEntries(getGamesSortedByDateAscending(games).slice(-10));
   const commanderEntries = buildCommanderRankingEntries(games);
-  const playerStreaks = buildStreakEntries(games, (row) => row.player);
+  const playerStreaks = buildStreakEntries(games, (row) => row.player, 'playerStreakEntries');
   const playerStreaksByName = new Map(playerStreaks.map((entry) => [entry.name, entry]));
 
   if (!entries.length) {
@@ -5927,6 +6216,10 @@ function renderPodRankings(games) {
     {
       title: 'Active Win Streak',
       body: activeStreakLeader ? `${activeStreakLeader.name} is on ${activeStreakLeader.currentWinStreak} straight wins.` : 'No active player win streak right now.',
+    },
+    {
+      title: 'Read With Caution',
+      body: `${getSampleSizeLabel(topPlayer.games)}. Pod standings still react quickly when only a few dated games are on file.`,
     },
   ]);
 
@@ -6071,6 +6364,10 @@ function renderRecentTrends(games) {
       title: 'First Blood Leader',
       body: firstBloodLeader ? `${firstBloodLeader.name} opened ${firstBloodLeader.firstBloods} games with first blood.` : 'No recent first blood leader yet.',
     },
+    {
+      title: 'Trend Window',
+      body: getRecentWindowSummary(games, 10),
+    },
   ]);
 
   const sortedPlayerEntries = playerEntries.slice().sort((a, b) => {
@@ -6180,8 +6477,8 @@ function renderStreaks(games) {
 
   const playerSortState = getTableSort('playerStreaks', 'currentWins', true);
   const commanderSortState = getTableSort('commanderStreaks', 'currentWins', true);
-  const playerEntries = buildStreakEntries(games, (row) => row.player);
-  const commanderEntries = buildStreakEntries(games, (row) => row.commander);
+  const playerEntries = buildStreakEntries(games, (row) => row.player, 'playerStreakEntries');
+  const commanderEntries = buildStreakEntries(games, (row) => row.commander, 'commanderStreakEntries');
 
   if (!playerEntries.length && !commanderEntries.length) {
     renderStatCardGroup(streaksSummary, [
@@ -6213,6 +6510,10 @@ function renderStreaks(games) {
     {
       title: 'Longest Drought',
       body: longestDrought ? `${longestDrought.name} has gone ${longestDrought.drought} appearances without a win.` : 'No drought data yet.',
+    },
+    {
+      title: 'Date Ordering',
+      body: getRecentWindowSummary(games, 10),
     },
   ]);
 
@@ -6313,6 +6614,11 @@ function renderRankingsPage(games) {
 }
 
 function getPlayerStatsData(games) {
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheBucket.playerStatsData) {
+    return cacheBucket.playerStatsData;
+  }
+
   const stats = {};
 
   games.forEach((game) => {
@@ -6367,6 +6673,7 @@ function getPlayerStatsData(games) {
     });
   });
 
+  cacheBucket.playerStatsData = stats;
   return stats;
 }
 
@@ -6498,6 +6805,11 @@ function renderPlayerStats(games) {
 }
 
 function getCommanderStatsData(games) {
+  const cacheBucket = getDerivedCacheBucket(games);
+  if (cacheBucket.commanderStatsData) {
+    return cacheBucket.commanderStatsData;
+  }
+
   const stats = {};
 
   games.forEach((game) => {
@@ -6538,6 +6850,7 @@ function getCommanderStatsData(games) {
     });
   });
 
+  cacheBucket.commanderStatsData = stats;
   return stats;
 }
 
@@ -6975,6 +7288,18 @@ if (form) {
       return;
     }
 
+    const advisories = getManualGameAdvisories(rows, {
+      firstBloodPlayer,
+      firstBloodTurn,
+      winningTurn,
+    });
+    if (advisories.length && !await promptLiveConfirm(`This game is valid, but a few details are unusual: ${advisories.join(' ')} Save it anyway?`, {
+      title: 'Save unusual game?',
+      confirmLabel: 'Save game',
+    })) {
+      return;
+    }
+
     const sanitizedRows = sanitizeManualGameRows(rows);
 
     const players = sanitizedRows.map(({ player }) => player);
@@ -7372,52 +7697,55 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
   deckListForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    const commander = deckCommanderInput.value.trim();
-    const owner = deckOwnerInput?.value.trim() || '';
-    const url = deckUrlInput.value.trim();
-
-    if (!commander) {
-      await promptLiveAlert('Please choose or enter a commander.', 'Unable to save deck list');
-      return;
-    }
-
-    if (!url) {
-      await promptLiveAlert('Please enter a deck URL.', 'Unable to save deck list');
-      return;
-    }
-
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-    } catch (error) {
-      await promptLiveAlert('Please enter a valid URL (include https://).', 'Unable to save deck list');
-      return;
-    }
-
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      await promptLiveAlert('Deck URL must use http or https.', 'Unable to save deck list');
-      return;
-    }
-
     const deckLists = loadDeckLists()
       .map(normalizeDeckListEntry)
       .filter(Boolean);
 
-    const normalizedUrl = parsedUrl.toString();
-    const normalizedCommander = commander.toLowerCase();
+    const validationSummary = getDeckListValidationSummary(deckLists, {
+      commander: deckCommanderInput.value,
+      owner: deckOwnerInput?.value || '',
+      url: deckUrlInput.value,
+      editingDeckListId,
+    });
+
+    if (validationSummary.error) {
+      await promptLiveAlert(validationSummary.error, 'Unable to save deck list');
+      return;
+    }
+
+    if (validationSummary.hasUrlConflict && !await promptLiveConfirm(
+      `This URL is already saved for ${validationSummary.duplicateUrlEntry.commander} owned by ${validationSummary.duplicateUrlEntry.owner}. Save it anyway?`,
+      {
+        title: 'Reuse saved URL?',
+        confirmLabel: 'Save anyway',
+      },
+    )) {
+      return;
+    }
+
+    if (validationSummary.needsHostConfirmation && !await promptLiveConfirm(
+      `${validationSummary.hostname} is not one of the common deck-list sites already used here. Save this link anyway?`,
+      {
+        title: 'Unknown deck host',
+        confirmLabel: 'Save link',
+      },
+    )) {
+      return;
+    }
+
     const duplicateCommanderIndex = deckLists.findIndex((entry) => {
       if (editingDeckListId && entry.id === editingDeckListId) {
         return false;
       }
-      return entry.commander.toLowerCase() === normalizedCommander;
+      return getIdentityKey(entry.commander) === getIdentityKey(validationSummary.commander);
     });
 
     if (editingDeckListId) {
       const index = deckLists.findIndex((entry) => entry.id === editingDeckListId);
       if (index >= 0) {
-        deckLists[index] = { id: editingDeckListId, commander, owner, url: normalizedUrl };
+        deckLists[index] = { id: editingDeckListId, commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url };
       } else {
-        deckLists.push({ id: generateId(), commander, owner, url: normalizedUrl });
+        deckLists.push({ id: generateId(), commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url });
       }
 
       if (duplicateCommanderIndex >= 0) {
@@ -7427,12 +7755,12 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
       if (duplicateCommanderIndex >= 0) {
         deckLists[duplicateCommanderIndex] = {
           ...deckLists[duplicateCommanderIndex],
-          commander,
-          owner,
-          url: normalizedUrl,
+          commander: validationSummary.commander,
+          owner: validationSummary.owner,
+          url: validationSummary.url,
         };
       } else {
-        deckLists.push({ id: generateId(), commander, owner, url: normalizedUrl });
+        deckLists.push({ id: generateId(), commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url });
       }
     }
 
@@ -7504,12 +7832,30 @@ window.addEventListener('storage', (event) => {
     || event.key === RECORDS_STORAGE_KEY
     || event.key === ACTIVE_GAME_STORAGE_KEY
     || event.key === ACTIVE_GAME_UNDO_STORAGE_KEY
+    || event.key === SYNC_USER_STORAGE_KEY
+    || event.key === SYNC_TOKEN_STORAGE_KEY
+    || event.key === SYNC_CREDENTIAL_SET_AT_STORAGE_KEY
   ) {
     appState = loadLocalState();
     activeGameState = loadActiveGameState();
     activeGameUndoState = loadActiveGameUndoState();
+    const credentials = getSyncCredentials();
+    if (syncUserInput) {
+      syncUserInput.value = credentials.user;
+    }
+    if (syncTokenInput) {
+      syncTokenInput.value = credentials.token;
+    }
+    historyQueryFiltersApplied = false;
+    applyHistoryQueryFilters();
     refresh();
   }
+});
+
+window.addEventListener('popstate', () => {
+  historyQueryFiltersApplied = false;
+  applyHistoryQueryFilters();
+  renderHistory(loadGames());
 });
 
 window.addEventListener('resize', () => {
@@ -7587,8 +7933,13 @@ function setupSyncUi() {
     updateSyncMetadata();
     clearSyncConflict();
     syncConnectionState = 'connecting';
-    localStorage.setItem(SYNC_USER_STORAGE_KEY, user);
-    localStorage.setItem(SYNC_TOKEN_STORAGE_KEY, token);
+    if (!writeLocalStorageValue(SYNC_USER_STORAGE_KEY, user) || !writeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY, token)) {
+      syncConnectionState = 'local';
+      updateSyncControls();
+      refreshSyncStatus();
+      return;
+    }
+    writeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY, new Date().toISOString());
     updateSyncControls();
     refreshSyncStatus();
 
@@ -7631,8 +7982,9 @@ function setupSyncUi() {
       updateSyncMetadata();
       clearSyncConflict();
       syncConnectionState = 'local';
-      localStorage.removeItem(SYNC_USER_STORAGE_KEY);
-      localStorage.removeItem(SYNC_TOKEN_STORAGE_KEY);
+      removeLocalStorageValue(SYNC_USER_STORAGE_KEY);
+      removeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY);
+      removeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY);
       syncUserInput.value = '';
       syncTokenInput.value = '';
       updateSyncControls();
