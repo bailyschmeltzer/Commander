@@ -2055,9 +2055,9 @@ function createPlayerRow(data = {}) {
         <div class="dropdown-menu commander-dropdown-menu"></div>
       </div>
     </td>
-    <td><input type="number" name="place" min="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
-    <td><input type="number" name="kills" min="0" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
-    <td><input type="number" name="turnKilled" min="1" value="${escapeHtml(data.turnKilled || '')}" placeholder="Turn" /></td>
+    <td><input type="number" name="place" min="1" step="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
+    <td><input type="number" name="kills" min="0" step="1" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
+    <td><input type="number" name="turnKilled" min="1" step="1" value="${escapeHtml(data.turnKilled || '')}" placeholder="Turn" /></td>
     <td><textarea name="killed" placeholder="Killed">${escapeHtml(killedValue)}</textarea></td>
   `;
 
@@ -2088,25 +2088,136 @@ function getPlayerRows() {
   return Array.from(playerTableBody.querySelectorAll('tr')).map((row) => {
     const player = row.querySelector('[name="player"]').value.trim();
     const commander = row.querySelector('[name="commander"]').value.trim();
-    const placeRaw = row.querySelector('input[name="place"]').value;
-    const killsRaw = row.querySelector('input[name="kills"]').value;
-    const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value;
+    const placeRaw = row.querySelector('input[name="place"]').value.trim();
+    const killsRaw = row.querySelector('input[name="kills"]').value.trim();
+    const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value.trim();
     const killed = normalizeList(row.querySelector('[name="killed"]').value);
 
     return {
       player,
       commander,
-      place: placeRaw ? parseInt(placeRaw, 10) : null,
-      kills: killsRaw ? parseInt(killsRaw, 10) : 0,
-      turnKilled: turnKilledRaw ? parseInt(turnKilledRaw, 10) : null,
+      placeRaw,
+      killsRaw,
+      turnKilledRaw,
+      place: parseOptionalPositiveInteger(placeRaw),
+      kills: killsRaw ? parseOptionalNonNegativeInteger(killsRaw) : 0,
+      turnKilled: parseOptionalPositiveInteger(turnKilledRaw),
       killed,
     };
   }).filter((row) => row.player);
 }
 
 function parseOptionalPositiveInteger(value) {
-  const parsedValue = parseInt(String(value || '').trim(), 10);
-  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null;
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function parseOptionalNonNegativeInteger(value) {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+  return Number.isInteger(parsedValue) && parsedValue >= 0 ? parsedValue : null;
+}
+
+function sanitizeManualGameRows(rows) {
+  return rows.map(({ placeRaw, killsRaw, turnKilledRaw, ...row }) => row);
+}
+
+function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
+  if (rows.length < 2) {
+    return 'Please add at least two players before saving a game.';
+  }
+
+  const playerNameLookup = new Map();
+
+  for (const row of rows) {
+    const normalizedPlayer = row.player.toLocaleLowerCase();
+    if (playerNameLookup.has(normalizedPlayer)) {
+      return `Player names must be unique within a game. Duplicate entry: ${row.player}.`;
+    }
+    playerNameLookup.set(normalizedPlayer, row.player);
+
+    if (row.placeRaw && row.place === null) {
+      return `Place for ${row.player} must be a whole number greater than 0.`;
+    }
+
+    if (row.killsRaw && row.kills === null) {
+      return `Kills for ${row.player} must be a whole number 0 or greater.`;
+    }
+
+    if (row.turnKilledRaw && row.turnKilled === null) {
+      return `Turn killed for ${row.player} must be a whole number greater than 0.`;
+    }
+  }
+
+  if (!rows.every((row) => row.place !== null)) {
+    return 'Enter a finish place for every player before saving the game.';
+  }
+
+  const sortedPlaces = rows.map((row) => row.place).slice().sort((a, b) => a - b);
+  for (let index = 0; index < sortedPlaces.length; index += 1) {
+    if (sortedPlaces[index] !== index + 1) {
+      return `Finish places must be unique and run from 1 through ${rows.length}.`;
+    }
+  }
+
+  if (firstBloodPlayer && !playerNameLookup.has(firstBloodPlayer.toLocaleLowerCase())) {
+    return 'First blood must match one of the players in this game.';
+  }
+
+  if (firstBloodTurn && !firstBloodPlayer) {
+    return 'Enter the player who got first blood before adding a first blood turn.';
+  }
+
+  if (firstBloodTurn && winningTurn && firstBloodTurn > winningTurn) {
+    return 'First blood turn cannot be later than the winning turn.';
+  }
+
+  for (const row of rows) {
+    const kills = typeof row.kills === 'number' ? row.kills : 0;
+    const killedPlayers = getCleanKilledList(row.killed);
+    const normalizedKilled = new Set();
+
+    if (kills > rows.length - 1) {
+      return `${row.player} cannot record more kills than there were opponents in the game.`;
+    }
+
+    if (row.place === 1 && row.turnKilled !== null) {
+      return `${row.player} is marked as the winner and cannot also have a turn killed value.`;
+    }
+
+    for (const killedPlayer of killedPlayers) {
+      const normalizedKilledPlayer = killedPlayer.toLocaleLowerCase();
+
+      if (normalizedKilledPlayer === row.player.toLocaleLowerCase()) {
+        return `${row.player} cannot list themselves in the killed field.`;
+      }
+
+      if (!playerNameLookup.has(normalizedKilledPlayer)) {
+        return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
+      }
+
+      if (normalizedKilled.has(normalizedKilledPlayer)) {
+        return `${row.player} lists ${killedPlayer} more than once in the killed field.`;
+      }
+
+      normalizedKilled.add(normalizedKilledPlayer);
+    }
+
+    if (killedPlayers.length > kills) {
+      return `${row.player} lists more killed players than their kill total.`;
+    }
+  }
+
+  return '';
 }
 
 function buildManualGameRecordStats(rows, gameDate) {
@@ -5092,25 +5203,28 @@ if (form) {
     const firstBloodTurn = parseOptionalPositiveInteger(firstBloodTurnInput?.value || '');
     const winningTurn = parseOptionalPositiveInteger(winningTurnInput?.value || '');
 
-    if (firstBloodTurn && !firstBloodPlayer) {
-      alert('Enter the player who got first blood before adding a first blood turn.');
+    const validationError = validateManualGameEntry(rows, {
+      firstBloodPlayer,
+      firstBloodTurn,
+      winningTurn,
+    });
+
+    if (validationError) {
+      alert(validationError);
       return;
     }
 
-    if (firstBloodPlayer && !rows.some((row) => row.player === firstBloodPlayer)) {
-      alert('First blood must match one of the players in this game.');
-      return;
-    }
+    const sanitizedRows = sanitizeManualGameRows(rows);
 
-    const players = rows.map(({ player }) => player);
-    const playerCommanders = rows.map(({ player, commander }) => ({ player, commander }));
-    const finishOrder = rows
+    const players = sanitizedRows.map(({ player }) => player);
+    const playerCommanders = sanitizedRows.map(({ player, commander }) => ({ player, commander }));
+    const finishOrder = sanitizedRows
       .slice()
       .filter((row) => row.place !== null)
       .sort((a, b) => (a.place || 999) - (b.place || 999))
       .map((row) => row.player);
     const manualLiveSummary = buildManualGameLiveSummary(
-      rows,
+      sanitizedRows,
       dateInput.value || new Date().toISOString().slice(0, 10),
       firstBloodPlayer,
       firstBloodTurn,
@@ -5120,8 +5234,8 @@ if (form) {
     const newGame = {
       id: editingGameId || generateId(),
       date: dateInput.value || new Date().toISOString().slice(0, 10),
-      playerRows: rows,
-      players: rows.map(({ player }) => player),
+      playerRows: sanitizedRows,
+      players,
       playerCommanders,
       finishOrder,
       liveSummary: mergeEditedGameLiveSummary(existingGame?.liveSummary, manualLiveSummary),
