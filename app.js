@@ -5651,12 +5651,25 @@ function renderDeckCardRow(card, options = {}) {
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
   ].filter(Boolean).join('');
+  const commanderImageMarkup = options.isCommander && (card.imageLargeUri || card.imageUri)
+    ? `
+      <div class="deck-card-row-media">
+        <img
+          class="deck-card-row-image"
+          src="${escapeHtml(card.imageLargeUri || card.imageUri)}"
+          alt="${escapeHtml(card.name)}"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>`
+    : '';
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
 
   return `
-    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}">
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}">
+      ${commanderImageMarkup}
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(card.name)}</p>
         <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>

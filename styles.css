@@ -1347,8 +1347,28 @@ button[type="submit"] {
   background: #fff5f3;
 }
 
+.deck-card-row.is-commander {
+  align-items: flex-start;
+}
+
+.deck-card-row-media {
+  flex: 0 0 96px;
+}
+
+.deck-card-row-image {
+  display: block;
+  width: 96px;
+  height: auto;
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #d8dfef;
+  box-shadow: 0 10px 22px rgba(24, 36, 68, 0.12);
+}
+
 .deck-card-row-copy {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .deck-card-row-actions {
@@ -2947,6 +2967,11 @@ button[type="submit"] {
   .page-decklists #deck-library-create,
   .page-deckbuilder .page-action-link {
     width: 100%;
+  }
+
+  .page-deckbuilder .deck-card-row-media,
+  .page-deckbuilder .deck-card-row-image {
+    width: min(100%, 220px);
   }
 
   .page-commander-builder .commander-builder-header {
