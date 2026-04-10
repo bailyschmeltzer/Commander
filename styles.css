@@ -1378,6 +1378,8 @@ button[type="submit"] {
   width: 100%;
   max-width: 280px;
   height: auto;
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
   border-radius: 18px;
   border: 1px solid #d8dfef;
   box-shadow: 0 16px 28px rgba(24, 36, 68, 0.14);

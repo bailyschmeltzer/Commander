@@ -45,6 +45,21 @@ function getCardImageUri(card) {
   return '';
 }
 
+function getCardImageVariant(card, size) {
+  if (card?.image_uris?.[size]) {
+    return getTextValue(card.image_uris[size]);
+  }
+
+  if (Array.isArray(card?.card_faces)) {
+    const faceWithImage = card.card_faces.find((face) => face?.image_uris?.[size]);
+    if (faceWithImage?.image_uris?.[size]) {
+      return getTextValue(faceWithImage.image_uris[size]);
+    }
+  }
+
+  return '';
+}
+
 function getTextValue(value) {
   return String(value || '').trim();
 }
@@ -60,6 +75,9 @@ function getCardFaces(card) {
       manaCost: getTextValue(face?.mana_cost),
       typeLine: getTextValue(face?.type_line),
       oracleText: getTextValue(face?.oracle_text),
+      imageUri: getTextValue(face?.image_uris?.normal),
+      imageLargeUri: getTextValue(face?.image_uris?.large),
+      imagePngUri: getTextValue(face?.image_uris?.png),
       power: getTextValue(face?.power),
       toughness: getTextValue(face?.toughness),
       loyalty: getTextValue(face?.loyalty),
@@ -107,6 +125,8 @@ async function fetchCommanderCandidates(identity) {
       cardFaces: getCardFaces(card),
       scryfallUri: getTextValue(card?.scryfall_uri),
       imageUri: getCardImageUri(card),
+      imageLargeUri: getCardImageVariant(card, 'large'),
+      imagePngUri: getCardImageVariant(card, 'png'),
     })).filter((card) => card.name && card.scryfallUri));
 
     nextPage = payload?.has_more && payload?.next_page ? new URL(payload.next_page) : null;

@@ -9,7 +9,7 @@ const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
-const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV2';
+const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV3';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
@@ -5533,6 +5533,55 @@ function getCommanderBuilderStatsLine(card) {
   return parts.join(' · ');
 }
 
+function getCommanderBuilderImageSources(card) {
+  if (!card || typeof card !== 'object') {
+    return [];
+  }
+
+  const faceCards = Array.isArray(card.cardFaces) ? card.cardFaces : [];
+  const sources = [
+    card.imageUri,
+    card.imageLargeUri,
+    card.imagePngUri,
+    ...faceCards.flatMap((face) => [face.imageUri, face.imageLargeUri, face.imagePngUri]),
+  ];
+
+  return [...new Set(sources.map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function attachCommanderBuilderImageFallback(card) {
+  if (!commanderBuilderResult || !card) {
+    return;
+  }
+
+  const image = commanderBuilderResult.querySelector('.commander-builder-image');
+  if (!(image instanceof HTMLImageElement)) {
+    return;
+  }
+
+  const sources = getCommanderBuilderImageSources(card);
+  if (!sources.length) {
+    image.closest('.commander-builder-media')?.remove();
+    return;
+  }
+
+  let sourceIndex = sources.findIndex((source) => source === image.src);
+  if (sourceIndex < 0) {
+    sourceIndex = 0;
+    image.src = sources[0];
+  }
+
+  image.addEventListener('error', () => {
+    sourceIndex += 1;
+    if (sourceIndex < sources.length) {
+      image.src = sources[sourceIndex];
+      return;
+    }
+
+    image.closest('.commander-builder-media')?.remove();
+  }, { once: false });
+}
+
 function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
   if (!commanderBuilderResult || !card) {
     return;
@@ -5543,7 +5592,8 @@ function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
   const safeManaCost = escapeHtml(card.manaCost || 'No mana cost');
   const safeIdentity = escapeHtml(getCommanderIdentityLabel(identity));
   const safePoolSize = escapeHtml(String(totalCards));
-  const safeImageUri = escapeHtml(card.imageUri || '');
+  const imageSources = getCommanderBuilderImageSources(card);
+  const safeImageUri = escapeHtml(imageSources[0] || '');
   const faceCards = Array.isArray(card.cardFaces) ? card.cardFaces : [];
   const useFaceSections = faceCards.length > 1;
   const fallbackFace = faceCards[0] || null;
@@ -5601,6 +5651,8 @@ function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
         </div>
       </div>
     </article>`;
+
+  attachCommanderBuilderImageFallback(card);
 }
 
 function syncCommanderBuilderExclusiveSelection(changedInput) {
