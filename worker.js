@@ -45,6 +45,13 @@ function getCardImageUri(card) {
   return '';
 }
 
+function getScryfallHeaders() {
+  return {
+    Accept: 'application/json;q=0.9,*/*;q=0.8',
+    'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+  };
+}
+
 async function fetchCommanderCandidates(identity) {
   const cards = [];
   let nextPage = new URL('https://api.scryfall.com/cards/search');
@@ -54,9 +61,7 @@ async function fetchCommanderCandidates(identity) {
 
   while (nextPage) {
     const response = await fetch(nextPage.toString(), {
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: getScryfallHeaders(),
     });
 
     if (!response.ok) {

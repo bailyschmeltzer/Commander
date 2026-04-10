@@ -65,51 +65,45 @@ header p {
 }
 
 .page-switch {
-  position: relative;
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 4300;
   display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
+  justify-content: flex-start;
+  margin-top: 0;
 }
 
 .page-switch-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   min-height: 48px;
   padding: 12px 18px;
   border-radius: 16px;
-  border: 1px solid #273863;
-  background: linear-gradient(145deg, #243661 0%, #18233f 100%);
+  border: 1px solid #23438e;
+  background: linear-gradient(145deg, #2f63d8 0%, #1d3f92 100%);
   color: #ffffff;
-  box-shadow: 0 14px 30px rgba(24, 35, 63, 0.24);
-}
-
-.page-switch-toggle::after {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #7fd4b8;
-  box-shadow: 10px 0 0 #ffd36d, 20px 0 0 #8ca0ff;
+  box-shadow: 0 16px 34px rgba(29, 63, 146, 0.28);
 }
 
 .page-switch-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
+  position: fixed;
+  top: calc(max(16px, env(safe-area-inset-top)) + 62px);
+  left: max(16px, env(safe-area-inset-left));
   z-index: 120;
   display: none;
-  width: min(560px, calc(100vw - 48px));
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
   gap: 18px;
   padding: 20px;
-  border: 1px solid rgba(207, 218, 242, 0.92);
+  border: 1px solid rgba(121, 162, 255, 0.42);
   border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(140, 160, 255, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 249, 255, 0.98) 100%);
-  box-shadow: 0 20px 48px rgba(25, 34, 64, 0.2);
+    radial-gradient(circle at top left, rgba(133, 183, 255, 0.26), transparent 30%),
+    linear-gradient(180deg, rgba(30, 58, 128, 0.97) 0%, rgba(22, 41, 95, 0.97) 100%);
+  box-shadow: 0 22px 54px rgba(14, 24, 58, 0.34);
   backdrop-filter: blur(18px);
 }
 
@@ -124,7 +118,7 @@ header p {
 
 .page-switch-kicker {
   margin: 0;
-  color: #5d6f97;
+  color: #adc5ff;
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -134,12 +128,12 @@ header p {
 .page-switch-panel-header h2 {
   margin: 0;
   font-size: 1.3rem;
-  color: #1f2742;
+  color: #ffffff;
 }
 
 .page-switch-panel-header p:last-child {
   margin: 0;
-  color: #55617d;
+  color: #d8e3ff;
 }
 
 .page-switch-grid {
@@ -153,28 +147,28 @@ header p {
   align-items: center;
   min-height: 64px;
   padding: 14px 16px;
-  border: 1px solid #d7deef;
+  border: 1px solid rgba(154, 186, 255, 0.24);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  color: #23314f;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4f7ff;
   text-decoration: none;
   font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
 .page-link:hover {
   transform: translateY(-1px);
-  background: #eef4ff;
-  border-color: #bfd0f4;
-  box-shadow: 0 12px 24px rgba(33, 48, 86, 0.12);
+  background: rgba(129, 168, 255, 0.2);
+  border-color: rgba(182, 207, 255, 0.48);
+  box-shadow: 0 12px 24px rgba(10, 21, 56, 0.22);
 }
 
 .page-link.is-current {
-  border-color: #1f2742;
-  background: linear-gradient(145deg, #243661 0%, #1a2643 100%);
+  border-color: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(145deg, #5b8cff 0%, #3f67cf 100%);
   color: #ffffff;
-  box-shadow: 0 16px 28px rgba(28, 39, 66, 0.24);
+  box-shadow: 0 16px 28px rgba(18, 34, 80, 0.28);
 }
 
 .page-link.is-current:hover {
@@ -2358,6 +2352,9 @@ button[type="submit"] {
   }
 
   .page-switch {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
     justify-content: stretch;
   }
 
@@ -2367,8 +2364,9 @@ button[type="submit"] {
   }
 
   .page-switch-panel {
-    left: 0;
-    right: 0;
+    top: calc(max(12px, env(safe-area-inset-top)) + 58px);
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
     width: auto;
     padding: 18px;
   }
@@ -2935,10 +2933,9 @@ button[type="submit"] {
   }
 
   .page-switch-panel {
-    position: fixed;
-    top: auto;
+    top: calc(max(10px, env(safe-area-inset-top)) + 56px);
     right: 10px;
-    bottom: 10px;
+    bottom: auto;
     left: 10px;
     width: auto;
     max-height: min(72vh, 560px);

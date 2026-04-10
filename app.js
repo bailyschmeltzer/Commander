@@ -5433,7 +5433,9 @@ async function fetchCommanderBuilderPool(identity) {
     let message = `Request failed (${response.status})`;
     try {
       const errorBody = await response.json();
-      if (errorBody?.error) {
+      if (errorBody?.detail) {
+        message = `${errorBody.error || 'Request failed'} ${errorBody.detail}`.trim();
+      } else if (errorBody?.error) {
         message = errorBody.error;
       }
     } catch (error) {
