@@ -60,11 +60,55 @@ function getCardImageVariant(card, size) {
   return '';
 }
 
+function buildCommanderSearchQuery(identity) {
+  return `game:paper is:commander id:${identity}`;
+}
+
+function mapCommanderCard(card, requestOrigin) {
+  const imageUri = getCardImageUri(card);
+  const imageLargeUri = getCardImageVariant(card, 'large');
+  const imagePngUri = getCardImageVariant(card, 'png');
+  const buildImageProxyUrl = (source) => {
+    const value = getTextValue(source);
+    if (!value || !requestOrigin) {
+      return '';
+    }
+
+    return `${requestOrigin}/api/commander-image?src=${encodeURIComponent(value)}`;
+  };
+
+  return {
+    name: getTextValue(card?.name),
+    manaCost: getTextValue(card?.mana_cost),
+    typeLine: getTextValue(card?.type_line),
+    colorIdentity: Array.isArray(card?.color_identity) ? card.color_identity : [],
+    oracleText: getTextValue(card?.oracle_text),
+    power: getTextValue(card?.power),
+    toughness: getTextValue(card?.toughness),
+    loyalty: getTextValue(card?.loyalty),
+    defense: getTextValue(card?.defense),
+    cardFaces: getCardFaces(card, requestOrigin),
+    scryfallUri: getTextValue(card?.scryfall_uri),
+    imageUri: buildImageProxyUrl(imageUri),
+    imageLargeUri: buildImageProxyUrl(imageLargeUri),
+    imagePngUri: buildImageProxyUrl(imagePngUri),
+  };
+}
+
 function getTextValue(value) {
   return String(value || '').trim();
 }
 
-function getCardFaces(card) {
+function buildCommanderImageProxyUrl(source, requestOrigin) {
+  const value = getTextValue(source);
+  if (!value || !requestOrigin) {
+    return '';
+  }
+
+  return `${requestOrigin}/api/commander-image?src=${encodeURIComponent(value)}`;
+}
+
+function getCardFaces(card, requestOrigin) {
   if (!Array.isArray(card?.card_faces)) {
     return [];
   }
@@ -75,9 +119,9 @@ function getCardFaces(card) {
       manaCost: getTextValue(face?.mana_cost),
       typeLine: getTextValue(face?.type_line),
       oracleText: getTextValue(face?.oracle_text),
-      imageUri: getTextValue(face?.image_uris?.normal),
-      imageLargeUri: getTextValue(face?.image_uris?.large),
-      imagePngUri: getTextValue(face?.image_uris?.png),
+      imageUri: buildCommanderImageProxyUrl(face?.image_uris?.normal, requestOrigin),
+      imageLargeUri: buildCommanderImageProxyUrl(face?.image_uris?.large, requestOrigin),
+      imagePngUri: buildCommanderImageProxyUrl(face?.image_uris?.png, requestOrigin),
       power: getTextValue(face?.power),
       toughness: getTextValue(face?.toughness),
       loyalty: getTextValue(face?.loyalty),
@@ -135,6 +179,56 @@ async function fetchCommanderCandidates(identity) {
   return cards;
 }
 
+async function fetchCommanderCount(identity) {
+  const searchUrl = new URL('https://api.scryfall.com/cards/search');
+  searchUrl.searchParams.set('q', buildCommanderSearchQuery(identity));
+  searchUrl.searchParams.set('order', 'edhrec');
+  searchUrl.searchParams.set('unique', 'cards');
+  searchUrl.searchParams.set('page', '1');
+
+  const response = await fetch(searchUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Scryfall count request failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  return Number.isFinite(Number(payload?.total_cards)) ? Number(payload.total_cards) : 0;
+}
+
+async function fetchRandomCommander(identity, requestOrigin) {
+  const randomUrl = new URL('https://api.scryfall.com/cards/random');
+  randomUrl.searchParams.set('q', buildCommanderSearchQuery(identity));
+
+  const response = await fetch(randomUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Scryfall random request failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  return mapCommanderCard(payload, requestOrigin);
+}
+
+function isAllowedCommanderImageSource(value) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'cards.scryfall.io';
+  } catch (error) {
+    return false;
+  }
+}
+
 function getRequestUser(request) {
   return (request.headers.get('X-User-Name') || '').trim();
 }
@@ -170,6 +264,7 @@ function hasValidAuth(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const requestOrigin = url.origin;
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -186,11 +281,15 @@ export default {
       }
 
       try {
-        const cards = await fetchCommanderCandidates(identity);
+        const [totalCards, card] = await Promise.all([
+          fetchCommanderCount(identity),
+          fetchRandomCommander(identity, requestOrigin),
+        ]);
+
         return jsonResponse({
           identity,
-          totalCards: cards.length,
-          cards,
+          totalCards,
+          card,
         }, 200, {
           'Cache-Control': 'public, max-age=86400',
         });
@@ -200,6 +299,37 @@ export default {
           detail: error instanceof Error ? error.message : String(error),
         }, 502);
       }
+    }
+
+    if (url.pathname === '/api/commander-image') {
+      if (request.method !== 'GET') {
+        return new Response('Method not allowed.', { status: 405, headers: CORS_HEADERS });
+      }
+
+      const src = getTextValue(url.searchParams.get('src'));
+      if (!isAllowedCommanderImageSource(src)) {
+        return new Response('Invalid image source.', { status: 400, headers: CORS_HEADERS });
+      }
+
+      const imageResponse = await fetch(src, {
+        headers: {
+          Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5',
+          'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+        },
+      });
+
+      if (!imageResponse.ok) {
+        return new Response('Unable to load image.', { status: 502, headers: CORS_HEADERS });
+      }
+
+      return new Response(imageResponse.body, {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          'Content-Type': imageResponse.headers.get('Content-Type') || 'image/jpeg',
+          'Cache-Control': 'public, max-age=604800',
+        },
+      });
     }
 
     if (url.pathname === '/api/state') {

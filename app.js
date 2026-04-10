@@ -9,7 +9,7 @@ const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
-const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV3';
+const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
@@ -201,7 +201,6 @@ let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let commanderBuilderIdentity = '';
-let commanderBuilderPool = [];
 let commanderBuilderLoading = false;
 let commanderBuilderRequestId = 0;
 let commanderBuilderLastCardName = '';
@@ -5380,7 +5379,7 @@ function saveCommanderBuilderCache(identity, cards) {
   const cache = loadCommanderBuilderCache();
   cache[identity] = {
     fetchedAt: Date.now(),
-    cards: Array.isArray(cards) ? cards : [],
+    totalCards: Number.isFinite(Number(cards?.totalCards)) ? Number(cards.totalCards) : 0,
   };
   writeLocalStorageValue(COMMANDER_BUILDER_CACHE_STORAGE_KEY, JSON.stringify(cache));
 }
@@ -5391,7 +5390,7 @@ function getCommanderBuilderCachedCards(identity, { allowExpired = false } = {})
   }
 
   const entry = loadCommanderBuilderCache()[identity];
-  if (!entry || !Array.isArray(entry.cards)) {
+  if (!entry || !Number.isFinite(Number(entry.totalCards))) {
     return null;
   }
 
@@ -5401,30 +5400,20 @@ function getCommanderBuilderCachedCards(identity, { allowExpired = false } = {})
     return null;
   }
 
-  return entry.cards;
+  return {
+    totalCards: Number(entry.totalCards),
+  };
 }
 
-async function fetchCommanderBuilderPool(identity) {
-  const cachedCards = getCommanderBuilderCachedCards(identity);
-  if (cachedCards) {
-    return {
-      cards: cachedCards,
-      totalCards: cachedCards.length,
-      source: 'cache',
-    };
-  }
-
-  const staleCards = getCommanderBuilderCachedCards(identity, { allowExpired: true });
+async function fetchCommanderBuilderSelection(identity) {
+  const cachedSummary = getCommanderBuilderCachedCards(identity);
+  const staleSummary = getCommanderBuilderCachedCards(identity, { allowExpired: true });
   let response;
   try {
     response = await fetch(`${COMMANDER_BUILDER_ENDPOINT}?identity=${encodeURIComponent(identity)}`);
   } catch (error) {
-    if (staleCards) {
-      return {
-        cards: staleCards,
-        totalCards: staleCards.length,
-        source: 'stale-cache',
-      };
+    if (staleSummary) {
+      throw new Error('Unable to refresh the commander pick right now. Try again in a moment.');
     }
     throw error;
   }
@@ -5442,23 +5431,20 @@ async function fetchCommanderBuilderPool(identity) {
       // Keep default message.
     }
 
-    if (staleCards) {
-      return {
-        cards: staleCards,
-        totalCards: staleCards.length,
-        source: 'stale-cache',
-      };
-    }
-
     throw new Error(message);
   }
 
   const payload = await response.json();
-  const cards = Array.isArray(payload?.cards) ? payload.cards.filter((card) => card?.name && card?.scryfallUri) : [];
-  saveCommanderBuilderCache(identity, cards);
+  const selectedCard = payload?.card && payload.card.name && payload.card.scryfallUri ? payload.card : null;
+  const totalCards = Number.isFinite(Number(payload?.totalCards))
+    ? Number(payload.totalCards)
+    : Number(cachedSummary?.totalCards || staleSummary?.totalCards || 0);
+
+  saveCommanderBuilderCache(identity, { totalCards });
+
   return {
-    cards,
-    totalCards: Number.isFinite(Number(payload?.totalCards)) ? Number(payload.totalCards) : cards.length,
+    card: selectedCard,
+    totalCards,
     source: 'network',
   };
 }
@@ -5472,7 +5458,7 @@ function updateCommanderBuilderControls() {
   }
 
   if (commanderBuilderRerollButton) {
-    commanderBuilderRerollButton.disabled = commanderBuilderLoading || !commanderBuilderPool.length || commanderBuilderIdentity !== selectedIdentity;
+    commanderBuilderRerollButton.disabled = commanderBuilderLoading || !selectedIdentity || commanderBuilderIdentity !== selectedIdentity;
   }
 }
 
@@ -5482,25 +5468,6 @@ function renderCommanderBuilderPlaceholder(message) {
   }
 
   commanderBuilderResult.innerHTML = `<p>${escapeHtml(message)}</p>`;
-}
-
-function chooseCommanderBuilderCard(cards) {
-  if (!Array.isArray(cards) || !cards.length) {
-    return null;
-  }
-
-  if (cards.length === 1) {
-    return cards[0];
-  }
-
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const candidate = chooseRandomItem(cards);
-    if (candidate && candidate.name !== commanderBuilderLastCardName) {
-      return candidate;
-    }
-  }
-
-  return chooseRandomItem(cards);
 }
 
 function formatCommanderBuilderRichText(text) {
@@ -5696,23 +5663,22 @@ async function runCommanderBuilderRoll() {
   setCommanderBuilderStatus(`Loading ${getCommanderIdentityLabel(identity)} commanders from Scryfall...`, 'neutral');
 
   try {
-    const payload = await fetchCommanderBuilderPool(identity);
+    const payload = await fetchCommanderBuilderSelection(identity);
     if (requestId !== commanderBuilderRequestId) {
       return;
     }
 
     commanderBuilderIdentity = identity;
-    commanderBuilderPool = payload.cards;
     setCommanderBuilderCount(`${payload.totalCards} eligible commanders`);
 
-    if (!payload.cards.length) {
+    if (!payload.card || !payload.totalCards) {
       commanderBuilderLastCardName = '';
       renderCommanderBuilderPlaceholder(`No commander-eligible cards were found for ${getCommanderIdentityLabel(identity)}.`);
       setCommanderBuilderStatus('No commanders found for that exact color identity.', 'error');
       return;
     }
 
-    const selectedCard = chooseCommanderBuilderCard(payload.cards);
+    const selectedCard = payload.card;
     commanderBuilderLastCardName = selectedCard?.name || '';
     renderCommanderBuilderResultCard(selectedCard, identity, payload.totalCards, payload.source);
     setCommanderBuilderStatus(`${commanderBuilderLastCardName} selected for ${getCommanderIdentityLabel(identity)}.`, 'success');
@@ -5721,7 +5687,6 @@ async function runCommanderBuilderRoll() {
       return;
     }
 
-    commanderBuilderPool = [];
     commanderBuilderIdentity = '';
     commanderBuilderLastCardName = '';
     renderCommanderBuilderPlaceholder('Unable to load commanders right now. Try again in a moment.');
@@ -5737,20 +5702,12 @@ async function runCommanderBuilderRoll() {
 
 function rerollCommanderBuilderCard() {
   const selectedIdentity = getSelectedCommanderBuilderIdentity();
-  if (!commanderBuilderPool.length || commanderBuilderIdentity !== selectedIdentity) {
+  if (!selectedIdentity || commanderBuilderIdentity !== selectedIdentity) {
     setCommanderBuilderStatus('Load a commander pool for the current color identity before rerolling.', 'error');
     return;
   }
 
-  const card = chooseCommanderBuilderCard(commanderBuilderPool);
-  if (!card) {
-    setCommanderBuilderStatus('No commanders are available to reroll.', 'error');
-    return;
-  }
-
-  commanderBuilderLastCardName = card.name;
-  renderCommanderBuilderResultCard(card, commanderBuilderIdentity, commanderBuilderPool.length, 'cache');
-  setCommanderBuilderStatus(`${card.name} selected for ${getCommanderIdentityLabel(commanderBuilderIdentity)}.`, 'success');
+  runCommanderBuilderRoll();
 }
 
 function renderCommanderBuilder() {
