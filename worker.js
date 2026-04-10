@@ -4,6 +4,11 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-User-Name, X-Pod-Token, X-State-Revision',
 };
 
+const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
+const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const scryfallAutocompleteCache = new Map();
+const scryfallCardCache = new Map();
+
 function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -157,7 +162,43 @@ function getScryfallHeaders() {
   };
 }
 
+function getCachedValue(cache, key, ttlMs) {
+  const entry = cache.get(key);
+  if (!entry) {
+    return null;
+  }
+
+  if (Date.now() - entry.storedAt > ttlMs) {
+    return null;
+  }
+
+  return entry.value;
+}
+
+function getStaleCachedValue(cache, key) {
+  const entry = cache.get(key);
+  return entry ? entry.value : null;
+}
+
+function setCachedValue(cache, key, value) {
+  cache.set(key, {
+    value,
+    storedAt: Date.now(),
+  });
+}
+
+function getRetryAfterSeconds(response) {
+  const retryAfter = Number.parseInt(String(response.headers.get('Retry-After') || '').trim(), 10);
+  return Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+}
+
 async function fetchDeckSearchResults(query) {
+  const cacheKey = getTextValue(query).toLowerCase();
+  const cachedResults = getCachedValue(scryfallAutocompleteCache, cacheKey, SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS);
+  if (cachedResults) {
+    return cachedResults;
+  }
+
   const autocompleteUrl = new URL('https://api.scryfall.com/cards/autocomplete');
   autocompleteUrl.searchParams.set('q', query);
 
@@ -166,17 +207,34 @@ async function fetchDeckSearchResults(query) {
   });
 
   if (!response.ok) {
+    if (response.status === 429) {
+      const fallbackResults = getStaleCachedValue(scryfallAutocompleteCache, cacheKey);
+      if (fallbackResults) {
+        return fallbackResults;
+      }
+      throw new Error(`Scryfall autocomplete is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+    }
+
     const detail = await response.text();
     throw new Error(`Scryfall autocomplete request failed (${response.status}): ${detail}`);
   }
 
   const payload = await response.json();
-  return Array.isArray(payload?.data)
+  const results = Array.isArray(payload?.data)
     ? payload.data.map((value) => getTextValue(value)).filter(Boolean)
     : [];
+
+  setCachedValue(scryfallAutocompleteCache, cacheKey, results);
+  return results;
 }
 
 async function fetchDeckCardByName(name, requestOrigin) {
+  const cacheKey = getTextValue(name).toLowerCase();
+  const cachedCard = getCachedValue(scryfallCardCache, cacheKey, SCRYFALL_CARD_CACHE_TTL_MS);
+  if (cachedCard) {
+    return mapDeckCard(cachedCard, requestOrigin);
+  }
+
   const namedUrl = new URL('https://api.scryfall.com/cards/named');
   namedUrl.searchParams.set('exact', name);
 
@@ -193,11 +251,20 @@ async function fetchDeckCardByName(name, requestOrigin) {
   }
 
   if (!response.ok) {
+    if (response.status === 429) {
+      const fallbackCard = getStaleCachedValue(scryfallCardCache, cacheKey);
+      if (fallbackCard) {
+        return mapDeckCard(fallbackCard, requestOrigin);
+      }
+      throw new Error(`Scryfall card lookup is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+    }
+
     const detail = await response.text();
     throw new Error(`Scryfall card lookup failed (${response.status}): ${detail}`);
   }
 
   const payload = await response.json();
+  setCachedValue(scryfallCardCache, cacheKey, payload);
   return mapDeckCard(payload, requestOrigin);
 }
 
@@ -411,7 +478,7 @@ export default {
       try {
         const results = await fetchDeckSearchResults(query);
         return jsonResponse({ results: results.slice(0, 12) }, 200, {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Cache-Control': 'public, max-age=300, s-maxage=300',
         });
       } catch (error) {
         return jsonResponse({
@@ -434,7 +501,7 @@ export default {
       try {
         const card = await fetchDeckCardByName(name, requestOrigin);
         return jsonResponse({ card }, 200, {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });
       } catch (error) {
         return jsonResponse({

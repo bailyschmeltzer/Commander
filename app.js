@@ -241,6 +241,8 @@ let deckBuilderSearchLoading = false;
 let deckBuilderSearchResultsState = [];
 let deckBuilderSelectedCard = null;
 let deckBuilderSaveTimer = null;
+const deckBuilderSearchCache = new Map();
+const deckBuilderCardCache = new Map();
 let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
@@ -5393,6 +5395,15 @@ function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
 }
 
 async function fetchDeckSearchResultsList(query) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  if (deckBuilderSearchCache.has(normalizedQuery)) {
+    return deckBuilderSearchCache.get(normalizedQuery);
+  }
+
   const response = await fetch(`${DECK_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`, {
     cache: 'no-store',
   });
@@ -5413,10 +5424,21 @@ async function fetchDeckSearchResultsList(query) {
   }
 
   const payload = await response.json();
-  return Array.isArray(payload?.results) ? payload.results.map((value) => String(value || '').trim()).filter(Boolean) : [];
+  const results = Array.isArray(payload?.results) ? payload.results.map((value) => String(value || '').trim()).filter(Boolean) : [];
+  deckBuilderSearchCache.set(normalizedQuery, results);
+  return results;
 }
 
 async function fetchDeckCardByName(name) {
+  const normalizedName = String(name || '').trim().toLowerCase();
+  if (!normalizedName) {
+    return null;
+  }
+
+  if (deckBuilderCardCache.has(normalizedName)) {
+    return deckBuilderCardCache.get(normalizedName);
+  }
+
   const response = await fetch(`${DECK_CARD_ENDPOINT}?name=${encodeURIComponent(name)}`, {
     cache: 'no-store',
   });
@@ -5437,7 +5459,11 @@ async function fetchDeckCardByName(name) {
   }
 
   const payload = await response.json();
-  return normalizeDeckCardEntry(payload?.card);
+  const card = normalizeDeckCardEntry(payload?.card);
+  if (card) {
+    deckBuilderCardCache.set(normalizedName, card);
+  }
+  return card;
 }
 
 function renderDeckBuilderSearchResults() {
@@ -5663,7 +5689,7 @@ function queueDeckBuilderSearch(query) {
   deckBuilderSearchTimer = setTimeout(() => {
     deckBuilderSearchTimer = null;
     runDeckBuilderSearch(query);
-  }, 180);
+  }, 320);
 }
 
 function queueDeckBuilderMetaSave() {
