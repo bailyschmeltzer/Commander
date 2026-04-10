@@ -5258,6 +5258,24 @@ function setDeckBuilderSearchStatus(message, tone = 'muted') {
   deckBuilderSearchStatus.classList.add(`status-${tone}`);
 }
 
+function getCurrentDeckBuilderSelectedCard() {
+  const normalizedSelectedCard = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  if (normalizedSelectedCard) {
+    return normalizedSelectedCard;
+  }
+
+  const serializedCard = deckBuilderSelection?.dataset.selectedCard || '';
+  if (!serializedCard) {
+    return null;
+  }
+
+  try {
+    return normalizeDeckCardEntry(JSON.parse(serializedCard));
+  } catch (error) {
+    return null;
+  }
+}
+
 function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
   if (!deckBuilderPage) {
     return null;
@@ -5329,7 +5347,7 @@ function getDeckBuilderCardNameSet(deck) {
 
 async function addSelectedCardToDeck() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
-  const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  const card = getCurrentDeckBuilderSelectedCard();
   if (!deck || !card) {
     setDeckBuilderSaveStatus('Select a card first, then try Add to Deck again.', 'error');
     return;
@@ -5348,7 +5366,7 @@ async function addSelectedCardToDeck() {
 
 async function setSelectedCardAsCommander() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
-  const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  const card = getCurrentDeckBuilderSelectedCard();
   if (!deck || !card) {
     setDeckBuilderSaveStatus('Select a card first, then try Set as Commander again.', 'error');
     return;
@@ -5492,9 +5510,12 @@ function renderDeckBuilderSelection() {
 
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!card) {
+    delete deckBuilderSelection.dataset.selectedCard;
     deckBuilderSelection.innerHTML = '<p>Select a card from search to preview it here.</p>';
     return;
   }
+
+  deckBuilderSelection.dataset.selectedCard = JSON.stringify(card);
 
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
