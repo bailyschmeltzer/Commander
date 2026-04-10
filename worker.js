@@ -4,14 +4,81 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-User-Name, X-Pod-Token, X-State-Revision',
 };
 
-function jsonResponse(body, status = 200) {
+function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json',
       ...CORS_HEADERS,
+      ...extraHeaders,
     },
   });
+}
+
+function normalizeCommanderIdentity(identity) {
+  const value = String(identity || '').trim().toLowerCase();
+  if (!value) {
+    return '';
+  }
+
+  if (value === 'c') {
+    return 'c';
+  }
+
+  const order = ['w', 'u', 'b', 'r', 'g'];
+  const normalized = order.filter((symbol) => value.includes(symbol));
+  return normalized.length === value.length ? normalized.join('') : '';
+}
+
+function getCardImageUri(card) {
+  if (card?.image_uris?.normal) {
+    return card.image_uris.normal;
+  }
+
+  if (Array.isArray(card?.card_faces)) {
+    const faceWithImage = card.card_faces.find((face) => face?.image_uris?.normal);
+    if (faceWithImage?.image_uris?.normal) {
+      return faceWithImage.image_uris.normal;
+    }
+  }
+
+  return '';
+}
+
+async function fetchCommanderCandidates(identity) {
+  const cards = [];
+  let nextPage = new URL('https://api.scryfall.com/cards/search');
+  nextPage.searchParams.set('q', `game:paper is:commander id:${identity}`);
+  nextPage.searchParams.set('order', 'edhrec');
+  nextPage.searchParams.set('unique', 'cards');
+
+  while (nextPage) {
+    const response = await fetch(nextPage.toString(), {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`Scryfall request failed (${response.status}): ${detail}`);
+    }
+
+    const payload = await response.json();
+    const pageCards = Array.isArray(payload?.data) ? payload.data : [];
+    cards.push(...pageCards.map((card) => ({
+      name: String(card?.name || '').trim(),
+      manaCost: String(card?.mana_cost || '').trim(),
+      typeLine: String(card?.type_line || '').trim(),
+      colorIdentity: Array.isArray(card?.color_identity) ? card.color_identity : [],
+      scryfallUri: String(card?.scryfall_uri || '').trim(),
+      imageUri: getCardImageUri(card),
+    })).filter((card) => card.name && card.scryfallUri));
+
+    nextPage = payload?.has_more && payload?.next_page ? new URL(payload.next_page) : null;
+  }
+
+  return cards;
 }
 
 function getRequestUser(request) {
@@ -52,6 +119,33 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    if (url.pathname === '/api/commanders') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const identity = normalizeCommanderIdentity(url.searchParams.get('identity'));
+      if (!identity) {
+        return jsonResponse({ error: 'A valid exact color identity is required.' }, 400);
+      }
+
+      try {
+        const cards = await fetchCommanderCandidates(identity);
+        return jsonResponse({
+          identity,
+          totalCards: cards.length,
+          cards,
+        }, 200, {
+          'Cache-Control': 'public, max-age=86400',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load commanders from Scryfall right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
     }
 
     if (url.pathname === '/api/state') {

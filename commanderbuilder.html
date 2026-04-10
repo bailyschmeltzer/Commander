@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Player Stats</title>
+    <title>Commander Builder</title>
     <meta name="theme-color" content="#f5f6fb" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Commander" />
@@ -14,11 +14,11 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="page-player-stats">
+  <body class="page-commander-builder">
     <div class="app-shell">
       <header>
-        <h1>Player Stats</h1>
-        <p>Player performance aggregated from your stored commander games.</p>
+        <h1>Commander Builder</h1>
+        <p>Choose an exact color identity and roll a random commander from Scryfall to build next.</p>
         <div class="sync-panel">
           <div class="sync-row">
             <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
@@ -54,62 +54,54 @@
       </header>
 
       <main>
-        <section class="card">
-          <h2>Rename Player</h2>
-          <p class="records-helper-text">Use this when a player should truly move to a different name. It rewrites saved games, deck ownership, records, and any live game saved on this device.</p>
-          <form id="player-rename-form" class="identity-rename-form" autocomplete="off">
-            <div class="field-grid">
-              <div class="field">
-                <label for="player-rename-current">Current name</label>
-                <input id="player-rename-current" type="text" list="player-rename-list" placeholder="Current player name" required />
-              </div>
-              <div class="field">
-                <label for="player-rename-next">New name</label>
-                <input id="player-rename-next" type="text" placeholder="New player name" required />
-              </div>
+        <section class="card commander-builder-card">
+          <div class="commander-builder-header">
+            <div>
+              <h2>Pick a Color Identity</h2>
+              <p class="commander-builder-copy">The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.</p>
             </div>
-            <p id="player-rename-status" class="identity-rename-status status-muted">Choose a player to migrate, then enter the new name you want to use everywhere.</p>
-            <div class="actions">
-              <button type="submit">Rename player</button>
+            <p id="commander-builder-count" class="commander-builder-count">Choose colors to load the pool.</p>
+          </div>
+
+          <form id="commander-builder-form" class="commander-builder-form">
+            <div class="commander-builder-grid">
+              <label class="commander-builder-option commander-color-white">
+                <input type="checkbox" name="commander-color" value="W" />
+                <span>White</span>
+              </label>
+              <label class="commander-builder-option commander-color-blue">
+                <input type="checkbox" name="commander-color" value="U" />
+                <span>Blue</span>
+              </label>
+              <label class="commander-builder-option commander-color-black">
+                <input type="checkbox" name="commander-color" value="B" />
+                <span>Black</span>
+              </label>
+              <label class="commander-builder-option commander-color-red">
+                <input type="checkbox" name="commander-color" value="R" />
+                <span>Red</span>
+              </label>
+              <label class="commander-builder-option commander-color-green">
+                <input type="checkbox" name="commander-color" value="G" />
+                <span>Green</span>
+              </label>
+              <label class="commander-builder-option commander-color-colorless">
+                <input type="checkbox" name="commander-color" value="C" />
+                <span>Colorless</span>
+              </label>
             </div>
-            <datalist id="player-rename-list"></datalist>
+            <p id="commander-builder-status" class="commander-builder-status status-muted">Choose at least one color, or select Colorless, then roll for a commander.</p>
+            <div class="actions commander-builder-actions">
+              <button type="submit">Find random commander</button>
+              <button type="button" id="commander-builder-reroll" class="secondary-button" disabled>Reroll</button>
+            </div>
           </form>
         </section>
 
         <section class="card">
-          <h2>Player leaderboard</h2>
-          <div class="player-table-wrapper">
-            <table class="player-table player-stats-table" data-sort-table="playerStats">
-              <colgroup>
-                <col style="width: 16%;" />
-                <col style="width: 6%;" />
-                <col style="width: 8%;" />
-                <col style="width: 8%;" />
-                <col style="width: 7%;" />
-                <col style="width: 10%;" />
-                <col style="width: 10%;" />
-                <col style="width: 10%;" />
-                <col style="width: 8%;" />
-                <col style="width: 8%;" />
-                <col style="width: 13%;" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th class="sortable-header" data-column="player" tabindex="0" aria-sort="none">Player <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="games" tabindex="0" aria-sort="none">Games <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="wins" tabindex="0" aria-sort="none">Wins <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="winRate" tabindex="0" aria-sort="none">Win Rate <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="firstBlood" tabindex="0" aria-sort="none">First Blood <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="favoriteCommander" tabindex="0" aria-sort="none">Favorite Commander <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="nemesis" tabindex="0" aria-sort="none">Nemesis <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="victim" tabindex="0" aria-sort="none">Victim <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="kills" tabindex="0" aria-sort="none">Total Kills <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="kd" tabindex="0" aria-sort="none">K/D <span class="sort-indicator"></span></th>
-                  <th class="sortable-header" data-column="bestDeck" tabindex="0" aria-sort="none">Best Deck <span class="sort-indicator"></span></th>
-                </tr>
-              </thead>
-              <tbody id="player-stats-body"></tbody>
-            </table>
+          <h2>Suggested Commander</h2>
+          <div id="commander-builder-result" class="commander-builder-result">
+            <p>Choose a color identity to get started.</p>
           </div>
         </section>
 

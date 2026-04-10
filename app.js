@@ -9,6 +9,9 @@ const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
+const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCache';
+const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
+const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -72,6 +75,11 @@ const deckSelectorWheelDisc = document.getElementById('deck-selector-wheel-disc'
 const deckSelectorWheelStatus = document.getElementById('deck-selector-wheel-status');
 const deckSelectorResults = document.getElementById('deck-selector-results');
 const deckSelectorSubmitButton = document.querySelector('#deck-selector-form button[type="submit"]');
+const commanderBuilderForm = document.getElementById('commander-builder-form');
+const commanderBuilderResult = document.getElementById('commander-builder-result');
+const commanderBuilderStatus = document.getElementById('commander-builder-status');
+const commanderBuilderCount = document.getElementById('commander-builder-count');
+const commanderBuilderRerollButton = document.getElementById('commander-builder-reroll');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -125,6 +133,9 @@ const syncDisconnectButton = document.getElementById('sync-disconnect');
 const syncNowButton = document.getElementById('sync-now');
 const syncStatus = document.getElementById('sync-status');
 const syncPanel = document.querySelector('.sync-panel');
+const pageSwitch = document.querySelector('.page-switch');
+const pageSwitchToggleButton = document.querySelector('.page-switch-toggle');
+const pageSwitchPanel = document.querySelector('.page-switch-panel');
 
 if (syncStatus) {
   syncStatus.setAttribute('role', 'status');
@@ -145,6 +156,11 @@ if (liveEventLog) {
 if (deckLookupResult) {
   deckLookupResult.setAttribute('role', 'status');
   deckLookupResult.setAttribute('aria-live', 'polite');
+}
+
+if (commanderBuilderStatus) {
+  commanderBuilderStatus.setAttribute('role', 'status');
+  commanderBuilderStatus.setAttribute('aria-live', 'polite');
 }
 
 let historySortKey = 'date';
@@ -184,6 +200,11 @@ let storageErrorMessage = '';
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
+let commanderBuilderIdentity = '';
+let commanderBuilderPool = [];
+let commanderBuilderLoading = false;
+let commanderBuilderRequestId = 0;
+let commanderBuilderLastCardName = '';
 let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
@@ -211,6 +232,13 @@ const PLAYER_IDENTITY_KEYS = new Set(['player', 'holder', 'manualHolder', 'actor
 const COMMANDER_IDENTITY_KEYS = new Set(['commander', 'manualCommander', 'actorCommander']);
 const PLAYER_IDENTITY_LIST_PARENTS = new Set(['players', 'finishOrder', 'killed']);
 const RECOGNIZED_DECK_HOSTS = new Set(['moxfield.com', 'www.moxfield.com', 'archidekt.com', 'www.archidekt.com', 'deckstats.net', 'www.deckstats.net', 'tappedout.net', 'www.tappedout.net', 'www.mtggoldfish.com', 'mtggoldfish.com', 'manabox.app', 'www.manabox.app', 'etherhub.io', 'www.etherhub.io']);
+const COMMANDER_BUILDER_COLOR_OPTIONS = [
+  { code: 'W', label: 'White' },
+  { code: 'U', label: 'Blue' },
+  { code: 'B', label: 'Black' },
+  { code: 'R', label: 'Red' },
+  { code: 'G', label: 'Green' },
+];
 
 function parseJsonSafe(value, fallback) {
   try {
@@ -2770,6 +2798,65 @@ function toggleLiveActionsMenu() {
   }
 }
 
+function getCurrentPageName() {
+  const pathName = String(window.location.pathname || '').trim();
+  const segments = pathName.split('/').filter(Boolean);
+  return (segments[segments.length - 1] || 'index.html').toLowerCase();
+}
+
+function closePrimaryMenu() {
+  if (!pageSwitch) {
+    return;
+  }
+
+  pageSwitch.classList.remove('is-open');
+  if (pageSwitchToggleButton) {
+    pageSwitchToggleButton.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function togglePrimaryMenu(forceOpen) {
+  if (!pageSwitch) {
+    return;
+  }
+
+  const nextOpen = typeof forceOpen === 'boolean'
+    ? forceOpen
+    : !pageSwitch.classList.contains('is-open');
+  pageSwitch.classList.toggle('is-open', nextOpen);
+  if (pageSwitchToggleButton) {
+    pageSwitchToggleButton.setAttribute('aria-expanded', String(nextOpen));
+  }
+}
+
+function initializePrimaryMenu() {
+  if (!pageSwitch || !pageSwitchToggleButton || !pageSwitchPanel) {
+    return;
+  }
+
+  const currentPageName = getCurrentPageName();
+  Array.from(pageSwitchPanel.querySelectorAll('.page-link')).forEach((link) => {
+    const href = String(link.getAttribute('href') || '').trim().toLowerCase();
+    const isCurrent = href === currentPageName;
+    link.classList.toggle('is-current', isCurrent);
+    if (isCurrent) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+
+  pageSwitchToggleButton.addEventListener('click', () => {
+    togglePrimaryMenu();
+  });
+
+  pageSwitchPanel.addEventListener('click', (event) => {
+    if (event.target.closest('.page-link')) {
+      closePrimaryMenu();
+    }
+  });
+}
+
 async function startLiveGame() {
   const players = getLiveSetupRows();
   if (players.length < 2) {
@@ -4851,13 +4938,25 @@ function getSelectedDeckSelectorOwners() {
     .filter(Boolean);
 }
 
-function chooseRandomDeck(deckOptions) {
-  if (!Array.isArray(deckOptions) || !deckOptions.length) {
+function getCommanderBuilderInputs() {
+  if (!commanderBuilderForm) {
+    return [];
+  }
+
+  return Array.from(commanderBuilderForm.querySelectorAll('input[name="commander-color"]'));
+}
+
+function chooseRandomItem(options) {
+  if (!Array.isArray(options) || !options.length) {
     return null;
   }
 
-  const index = Math.floor(Math.random() * deckOptions.length);
-  return deckOptions[index] || null;
+  const index = Math.floor(Math.random() * options.length);
+  return options[index] || null;
+}
+
+function chooseRandomDeck(deckOptions) {
+  return chooseRandomItem(deckOptions);
 }
 
 function shuffleList(items) {
@@ -5217,6 +5316,340 @@ function renderDeckSelector() {
   if (deckSelectorWheel && deckSelectorWheel.classList.contains('is-empty')) {
     renderDeckSelectorWheel([], 'Ready to Spin');
   }
+}
+
+function getSelectedCommanderBuilderIdentity() {
+  const selectedValues = new Set(
+    getCommanderBuilderInputs()
+      .filter((input) => input.checked)
+      .map((input) => String(input.value || '').toUpperCase()),
+  );
+
+  if (selectedValues.has('C')) {
+    return 'c';
+  }
+
+  return COMMANDER_BUILDER_COLOR_OPTIONS
+    .map(({ code }) => code)
+    .filter((code) => selectedValues.has(code))
+    .map((code) => code.toLowerCase())
+    .join('');
+}
+
+function getCommanderIdentityLabel(identity) {
+  if (identity === 'c') {
+    return 'Colorless';
+  }
+
+  const codes = new Set(String(identity || '').toUpperCase().split(''));
+  return COMMANDER_BUILDER_COLOR_OPTIONS
+    .filter(({ code }) => codes.has(code))
+    .map(({ label }) => label)
+    .join(' / ');
+}
+
+function setCommanderBuilderStatus(message, tone = 'muted') {
+  if (!commanderBuilderStatus) {
+    return;
+  }
+
+  commanderBuilderStatus.textContent = message;
+  commanderBuilderStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
+  commanderBuilderStatus.classList.add(`status-${tone}`);
+}
+
+function setCommanderBuilderCount(message) {
+  if (!commanderBuilderCount) {
+    return;
+  }
+
+  commanderBuilderCount.textContent = message;
+}
+
+function loadCommanderBuilderCache() {
+  const raw = readLocalStorageValue(COMMANDER_BUILDER_CACHE_STORAGE_KEY);
+  const cache = parseJsonSafe(raw || '{}', {});
+  return cache && typeof cache === 'object' ? cache : {};
+}
+
+function saveCommanderBuilderCache(identity, cards) {
+  if (!identity) {
+    return;
+  }
+
+  const cache = loadCommanderBuilderCache();
+  cache[identity] = {
+    fetchedAt: Date.now(),
+    cards: Array.isArray(cards) ? cards : [],
+  };
+  writeLocalStorageValue(COMMANDER_BUILDER_CACHE_STORAGE_KEY, JSON.stringify(cache));
+}
+
+function getCommanderBuilderCachedCards(identity, { allowExpired = false } = {}) {
+  if (!identity) {
+    return null;
+  }
+
+  const entry = loadCommanderBuilderCache()[identity];
+  if (!entry || !Array.isArray(entry.cards)) {
+    return null;
+  }
+
+  const fetchedAt = Number(entry.fetchedAt || 0);
+  const isFresh = Number.isFinite(fetchedAt) && (Date.now() - fetchedAt) < COMMANDER_BUILDER_CACHE_TTL_MS;
+  if (!allowExpired && !isFresh) {
+    return null;
+  }
+
+  return entry.cards;
+}
+
+async function fetchCommanderBuilderPool(identity) {
+  const cachedCards = getCommanderBuilderCachedCards(identity);
+  if (cachedCards) {
+    return {
+      cards: cachedCards,
+      totalCards: cachedCards.length,
+      source: 'cache',
+    };
+  }
+
+  const staleCards = getCommanderBuilderCachedCards(identity, { allowExpired: true });
+  let response;
+  try {
+    response = await fetch(`${COMMANDER_BUILDER_ENDPOINT}?identity=${encodeURIComponent(identity)}`);
+  } catch (error) {
+    if (staleCards) {
+      return {
+        cards: staleCards,
+        totalCards: staleCards.length,
+        source: 'stale-cache',
+      };
+    }
+    throw error;
+  }
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.error) {
+        message = errorBody.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+
+    if (staleCards) {
+      return {
+        cards: staleCards,
+        totalCards: staleCards.length,
+        source: 'stale-cache',
+      };
+    }
+
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  const cards = Array.isArray(payload?.cards) ? payload.cards.filter((card) => card?.name && card?.scryfallUri) : [];
+  saveCommanderBuilderCache(identity, cards);
+  return {
+    cards,
+    totalCards: Number.isFinite(Number(payload?.totalCards)) ? Number(payload.totalCards) : cards.length,
+    source: 'network',
+  };
+}
+
+function updateCommanderBuilderControls() {
+  const selectedIdentity = getSelectedCommanderBuilderIdentity();
+  const submitButton = commanderBuilderForm?.querySelector('button[type="submit"]');
+
+  if (submitButton) {
+    submitButton.disabled = commanderBuilderLoading || !selectedIdentity;
+  }
+
+  if (commanderBuilderRerollButton) {
+    commanderBuilderRerollButton.disabled = commanderBuilderLoading || !commanderBuilderPool.length || commanderBuilderIdentity !== selectedIdentity;
+  }
+}
+
+function renderCommanderBuilderPlaceholder(message) {
+  if (!commanderBuilderResult) {
+    return;
+  }
+
+  commanderBuilderResult.innerHTML = `<p>${escapeHtml(message)}</p>`;
+}
+
+function chooseCommanderBuilderCard(cards) {
+  if (!Array.isArray(cards) || !cards.length) {
+    return null;
+  }
+
+  if (cards.length === 1) {
+    return cards[0];
+  }
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const candidate = chooseRandomItem(cards);
+    if (candidate && candidate.name !== commanderBuilderLastCardName) {
+      return candidate;
+    }
+  }
+
+  return chooseRandomItem(cards);
+}
+
+function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
+  if (!commanderBuilderResult || !card) {
+    return;
+  }
+
+  const safeName = escapeHtml(card.name);
+  const safeTypeLine = escapeHtml(card.typeLine || 'Commander-eligible card');
+  const safeManaCost = escapeHtml(card.manaCost || 'No mana cost');
+  const safeIdentity = escapeHtml(getCommanderIdentityLabel(identity));
+  const safePoolSize = escapeHtml(String(totalCards));
+  const sourceLabel = source === 'network'
+    ? 'Live Scryfall pool'
+    : source === 'cache'
+      ? 'Cached pool from this device'
+      : 'Cached pool from this device due to a fetch issue';
+
+  commanderBuilderResult.innerHTML = `
+    <article class="commander-builder-result-card">
+      <p class="commander-builder-tag">${safeIdentity}</p>
+      <h3>${safeName}</h3>
+      <p class="commander-builder-meta">${safeTypeLine}</p>
+      <p class="commander-builder-meta">Mana cost: ${safeManaCost}</p>
+      <p class="commander-builder-pool">Pulled from ${safePoolSize} eligible commanders.</p>
+      <p class="commander-builder-source">${escapeHtml(sourceLabel)}</p>
+      <div class="actions">
+        <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">View on Scryfall</a>
+      </div>
+    </article>`;
+}
+
+function syncCommanderBuilderExclusiveSelection(changedInput) {
+  const allInputs = getCommanderBuilderInputs();
+  if (!changedInput || !allInputs.length) {
+    return;
+  }
+
+  if (changedInput.value === 'C' && changedInput.checked) {
+    allInputs.forEach((input) => {
+      if (input !== changedInput) {
+        input.checked = false;
+      }
+    });
+    return;
+  }
+
+  if (changedInput.checked) {
+    const colorlessInput = allInputs.find((input) => input.value === 'C');
+    if (colorlessInput) {
+      colorlessInput.checked = false;
+    }
+  }
+}
+
+async function runCommanderBuilderRoll() {
+  const identity = getSelectedCommanderBuilderIdentity();
+  if (!identity) {
+    renderCommanderBuilderPlaceholder('Choose a color identity to get started.');
+    setCommanderBuilderCount('Choose colors to load the pool.');
+    setCommanderBuilderStatus('Choose at least one color, or select Colorless, then roll for a commander.', 'error');
+    updateCommanderBuilderControls();
+    return;
+  }
+
+  const requestId = commanderBuilderRequestId + 1;
+  commanderBuilderRequestId = requestId;
+  commanderBuilderLoading = true;
+  updateCommanderBuilderControls();
+  renderCommanderBuilderPlaceholder('Loading commanders...');
+  setCommanderBuilderStatus(`Loading ${getCommanderIdentityLabel(identity)} commanders from Scryfall...`, 'neutral');
+
+  try {
+    const payload = await fetchCommanderBuilderPool(identity);
+    if (requestId !== commanderBuilderRequestId) {
+      return;
+    }
+
+    commanderBuilderIdentity = identity;
+    commanderBuilderPool = payload.cards;
+    setCommanderBuilderCount(`${payload.totalCards} eligible commanders`);
+
+    if (!payload.cards.length) {
+      commanderBuilderLastCardName = '';
+      renderCommanderBuilderPlaceholder(`No commander-eligible cards were found for ${getCommanderIdentityLabel(identity)}.`);
+      setCommanderBuilderStatus('No commanders found for that exact color identity.', 'error');
+      return;
+    }
+
+    const selectedCard = chooseCommanderBuilderCard(payload.cards);
+    commanderBuilderLastCardName = selectedCard?.name || '';
+    renderCommanderBuilderResultCard(selectedCard, identity, payload.totalCards, payload.source);
+    setCommanderBuilderStatus(`${commanderBuilderLastCardName} selected for ${getCommanderIdentityLabel(identity)}.`, 'success');
+  } catch (error) {
+    if (requestId !== commanderBuilderRequestId) {
+      return;
+    }
+
+    commanderBuilderPool = [];
+    commanderBuilderIdentity = '';
+    commanderBuilderLastCardName = '';
+    renderCommanderBuilderPlaceholder('Unable to load commanders right now. Try again in a moment.');
+    setCommanderBuilderCount('Commander pool unavailable right now.');
+    setCommanderBuilderStatus(error instanceof Error ? error.message : 'Unable to load commanders right now.', 'error');
+  } finally {
+    if (requestId === commanderBuilderRequestId) {
+      commanderBuilderLoading = false;
+      updateCommanderBuilderControls();
+    }
+  }
+}
+
+function rerollCommanderBuilderCard() {
+  const selectedIdentity = getSelectedCommanderBuilderIdentity();
+  if (!commanderBuilderPool.length || commanderBuilderIdentity !== selectedIdentity) {
+    setCommanderBuilderStatus('Load a commander pool for the current color identity before rerolling.', 'error');
+    return;
+  }
+
+  const card = chooseCommanderBuilderCard(commanderBuilderPool);
+  if (!card) {
+    setCommanderBuilderStatus('No commanders are available to reroll.', 'error');
+    return;
+  }
+
+  commanderBuilderLastCardName = card.name;
+  renderCommanderBuilderResultCard(card, commanderBuilderIdentity, commanderBuilderPool.length, 'cache');
+  setCommanderBuilderStatus(`${card.name} selected for ${getCommanderIdentityLabel(commanderBuilderIdentity)}.`, 'success');
+}
+
+function renderCommanderBuilder() {
+  if (!commanderBuilderForm || !commanderBuilderResult) {
+    return;
+  }
+
+  if (!commanderBuilderResult.dataset.initialized) {
+    renderCommanderBuilderPlaceholder('Choose a color identity to get started.');
+    commanderBuilderResult.dataset.initialized = 'true';
+  }
+
+  if (!commanderBuilderStatus?.dataset.initialized) {
+    setCommanderBuilderStatus('Choose at least one color, or select Colorless, then roll for a commander.', 'muted');
+    commanderBuilderStatus.dataset.initialized = 'true';
+  }
+
+  if (!commanderBuilderCount?.dataset.initialized) {
+    setCommanderBuilderCount('Choose colors to load the pool.');
+    commanderBuilderCount.dataset.initialized = 'true';
+  }
+
+  updateCommanderBuilderControls();
 }
 
 function resetDeckListForm() {
@@ -7213,6 +7646,7 @@ function refresh() {
   renderDeckLookup();
   renderDeckLists();
   renderDeckSelector();
+  renderCommanderBuilder();
   renderRecords();
   refreshLiveTrackerUi();
   initializeMobileSortControls();
@@ -7552,6 +7986,10 @@ if (liveAbandonGameButton) {
 }
 
 document.addEventListener('click', (event) => {
+  if (pageSwitch && pageSwitch.classList.contains('is-open') && !event.target.closest('.page-switch')) {
+    closePrimaryMenu();
+  }
+
   if (!liveActiveActions || !liveActiveActions.classList.contains('is-open')) {
     return;
   }
@@ -7563,6 +8001,11 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') {
+    return;
+  }
+
+  if (pageSwitch && pageSwitch.classList.contains('is-open')) {
+    closePrimaryMenu();
     return;
   }
 
@@ -7777,6 +8220,39 @@ if (deckSelectorForm) {
   });
 }
 
+if (commanderBuilderForm) {
+  commanderBuilderForm.addEventListener('change', (event) => {
+    const input = event.target.closest('input[name="commander-color"]');
+    if (!input) {
+      return;
+    }
+
+    syncCommanderBuilderExclusiveSelection(input);
+    const selectedIdentity = getSelectedCommanderBuilderIdentity();
+    if (!selectedIdentity) {
+      renderCommanderBuilderPlaceholder('Choose a color identity to get started.');
+      setCommanderBuilderCount('Choose colors to load the pool.');
+      setCommanderBuilderStatus('Choose at least one color, or select Colorless, then roll for a commander.', 'muted');
+    } else if (selectedIdentity !== commanderBuilderIdentity) {
+      renderCommanderBuilderPlaceholder(`Roll to load a random ${getCommanderIdentityLabel(selectedIdentity)} commander.`);
+      setCommanderBuilderCount(`Ready to load ${getCommanderIdentityLabel(selectedIdentity)} commanders.`);
+      setCommanderBuilderStatus(`Roll to load the ${getCommanderIdentityLabel(selectedIdentity)} pool.`, 'neutral');
+    }
+    updateCommanderBuilderControls();
+  });
+
+  commanderBuilderForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await runCommanderBuilderRoll();
+  });
+}
+
+if (commanderBuilderRerollButton) {
+  commanderBuilderRerollButton.addEventListener('click', () => {
+    rerollCommanderBuilderCard();
+  });
+}
+
 if (recordsForm) {
   recordsForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -7859,11 +8335,13 @@ window.addEventListener('popstate', () => {
 });
 
 window.addEventListener('resize', () => {
+  closePrimaryMenu();
   closeLiveActionsMenu();
   refreshLiveTrackerUi();
 });
 
 window.addEventListener('orientationchange', () => {
+  closePrimaryMenu();
   closeLiveActionsMenu();
   window.setTimeout(() => {
     refreshLiveTrackerUi();
@@ -8014,6 +8492,7 @@ async function initializeApp() {
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
   hideLiveSourcePrompt();
+  initializePrimaryMenu();
   setupSyncUi();
 
   if (form) {
