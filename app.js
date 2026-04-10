@@ -5311,7 +5311,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
   setDeckBuilderSaveStatus(statusMessage, tone);
-  renderDeckBuilderPage();
+  refresh();
 }
 
 function getDeckBuilderCardNameSet(deck) {
@@ -9100,15 +9100,28 @@ if (deckBuilderSearchResults) {
 if (deckBuilderSelection) {
   deckBuilderSelection.addEventListener('click', async (event) => {
     if (event.target.closest('#deck-builder-add-card')) {
+      event.stopPropagation();
       await addSelectedCardToDeck();
       return;
     }
 
     if (event.target.closest('#deck-builder-set-commander')) {
+      event.stopPropagation();
       await setSelectedCardAsCommander();
     }
   });
 }
+
+document.addEventListener('click', async (event) => {
+  if (event.target.closest('#deck-builder-add-card')) {
+    await addSelectedCardToDeck();
+    return;
+  }
+
+  if (event.target.closest('#deck-builder-set-commander')) {
+    await setSelectedCardAsCommander();
+  }
+});
 
 if (deckBuilderCards) {
   deckBuilderCards.addEventListener('click', (event) => {
