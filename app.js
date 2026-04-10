@@ -9,7 +9,7 @@ const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
-const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCache';
+const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV2';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
@@ -5503,6 +5503,36 @@ function chooseCommanderBuilderCard(cards) {
   return chooseRandomItem(cards);
 }
 
+function formatCommanderBuilderRichText(text) {
+  return escapeHtml(String(text || '').trim()).replace(/\n/g, '<br />');
+}
+
+function getCommanderBuilderStatsLine(card) {
+  if (!card || typeof card !== 'object') {
+    return '';
+  }
+
+  const parts = [];
+  const power = String(card.power || '').trim();
+  const toughness = String(card.toughness || '').trim();
+  const loyalty = String(card.loyalty || '').trim();
+  const defense = String(card.defense || '').trim();
+
+  if (power || toughness) {
+    parts.push(`${escapeHtml(power || '?')}/${escapeHtml(toughness || '?')}`);
+  }
+
+  if (loyalty) {
+    parts.push(`Loyalty ${escapeHtml(loyalty)}`);
+  }
+
+  if (defense) {
+    parts.push(`Defense ${escapeHtml(defense)}`);
+  }
+
+  return parts.join(' · ');
+}
+
 function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
   if (!commanderBuilderResult || !card) {
     return;
@@ -5513,22 +5543,62 @@ function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
   const safeManaCost = escapeHtml(card.manaCost || 'No mana cost');
   const safeIdentity = escapeHtml(getCommanderIdentityLabel(identity));
   const safePoolSize = escapeHtml(String(totalCards));
+  const safeImageUri = escapeHtml(card.imageUri || '');
+  const faceCards = Array.isArray(card.cardFaces) ? card.cardFaces : [];
+  const useFaceSections = faceCards.length > 1;
+  const fallbackFace = faceCards[0] || null;
+  const rulesText = String(card.oracleText || fallbackFace?.oracleText || '').trim();
+  const statsLine = getCommanderBuilderStatsLine(card) || getCommanderBuilderStatsLine(fallbackFace);
   const sourceLabel = source === 'network'
     ? 'Live Scryfall pool'
     : source === 'cache'
       ? 'Cached pool from this device'
       : 'Cached pool from this device due to a fetch issue';
+  const imageMarkup = safeImageUri
+    ? `<div class="commander-builder-media"><img class="commander-builder-image" src="${safeImageUri}" alt="${safeName}" loading="lazy" /></div>`
+    : '';
+  const rulesMarkup = useFaceSections
+    ? faceCards.map((face) => {
+      const faceName = escapeHtml(face.name || card.name);
+      const faceTypeLine = escapeHtml(face.typeLine || '');
+      const faceManaCost = escapeHtml(face.manaCost || 'No mana cost');
+      const faceStats = getCommanderBuilderStatsLine(face);
+      const faceRulesText = String(face.oracleText || '').trim();
+
+      return `
+        <section class="commander-builder-rules-block commander-builder-face-block">
+          <div class="commander-builder-rules-header">
+            <h4>${faceName}</h4>
+            <p class="commander-builder-meta">${faceTypeLine || 'Commander face'}</p>
+          </div>
+          <p class="commander-builder-meta">Mana cost: ${faceManaCost}</p>
+          ${faceStats ? `<p class="commander-builder-stats">Stats: ${faceStats}</p>` : ''}
+          <div class="commander-builder-rules-text">${formatCommanderBuilderRichText(faceRulesText || 'No rules text available.')}</div>
+        </section>`;
+    }).join('')
+    : `
+      <section class="commander-builder-rules-block">
+        <div class="commander-builder-rules-header">
+          <h4>Card text</h4>
+        </div>
+        ${statsLine ? `<p class="commander-builder-stats">Stats: ${statsLine}</p>` : ''}
+        <div class="commander-builder-rules-text">${formatCommanderBuilderRichText(rulesText || 'No rules text available.')}</div>
+      </section>`;
 
   commanderBuilderResult.innerHTML = `
     <article class="commander-builder-result-card">
-      <p class="commander-builder-tag">${safeIdentity}</p>
-      <h3>${safeName}</h3>
-      <p class="commander-builder-meta">${safeTypeLine}</p>
-      <p class="commander-builder-meta">Mana cost: ${safeManaCost}</p>
-      <p class="commander-builder-pool">Pulled from ${safePoolSize} eligible commanders.</p>
-      <p class="commander-builder-source">${escapeHtml(sourceLabel)}</p>
-      <div class="actions">
-        <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">View on Scryfall</a>
+      ${imageMarkup}
+      <div class="commander-builder-details">
+        <p class="commander-builder-tag">${safeIdentity}</p>
+        <h3>${safeName}</h3>
+        <p class="commander-builder-meta">${safeTypeLine}</p>
+        <p class="commander-builder-meta">Mana cost: ${safeManaCost}</p>
+        <p class="commander-builder-pool">Pulled from ${safePoolSize} eligible commanders.</p>
+        ${rulesMarkup}
+        <p class="commander-builder-source">${escapeHtml(sourceLabel)}</p>
+        <div class="actions">
+          <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">View on Scryfall</a>
+        </div>
       </div>
     </article>`;
 }

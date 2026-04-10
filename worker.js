@@ -45,6 +45,29 @@ function getCardImageUri(card) {
   return '';
 }
 
+function getTextValue(value) {
+  return String(value || '').trim();
+}
+
+function getCardFaces(card) {
+  if (!Array.isArray(card?.card_faces)) {
+    return [];
+  }
+
+  return card.card_faces
+    .map((face) => ({
+      name: getTextValue(face?.name),
+      manaCost: getTextValue(face?.mana_cost),
+      typeLine: getTextValue(face?.type_line),
+      oracleText: getTextValue(face?.oracle_text),
+      power: getTextValue(face?.power),
+      toughness: getTextValue(face?.toughness),
+      loyalty: getTextValue(face?.loyalty),
+      defense: getTextValue(face?.defense),
+    }))
+    .filter((face) => face.name || face.oracleText || face.typeLine || face.manaCost || face.power || face.toughness || face.loyalty || face.defense);
+}
+
 function getScryfallHeaders() {
   return {
     Accept: 'application/json;q=0.9,*/*;q=0.8',
@@ -72,11 +95,17 @@ async function fetchCommanderCandidates(identity) {
     const payload = await response.json();
     const pageCards = Array.isArray(payload?.data) ? payload.data : [];
     cards.push(...pageCards.map((card) => ({
-      name: String(card?.name || '').trim(),
-      manaCost: String(card?.mana_cost || '').trim(),
-      typeLine: String(card?.type_line || '').trim(),
+      name: getTextValue(card?.name),
+      manaCost: getTextValue(card?.mana_cost),
+      typeLine: getTextValue(card?.type_line),
       colorIdentity: Array.isArray(card?.color_identity) ? card.color_identity : [],
-      scryfallUri: String(card?.scryfall_uri || '').trim(),
+      oracleText: getTextValue(card?.oracle_text),
+      power: getTextValue(card?.power),
+      toughness: getTextValue(card?.toughness),
+      loyalty: getTextValue(card?.loyalty),
+      defense: getTextValue(card?.defense),
+      cardFaces: getCardFaces(card),
+      scryfallUri: getTextValue(card?.scryfall_uri),
       imageUri: getCardImageUri(card),
     })).filter((card) => card.name && card.scryfallUri));
 
