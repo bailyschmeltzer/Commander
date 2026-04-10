@@ -5331,6 +5331,7 @@ async function addSelectedCardToDeck() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!deck || !card) {
+    setDeckBuilderSaveStatus('Select a card first, then try Add to Deck again.', 'error');
     return;
   }
 
@@ -5349,6 +5350,7 @@ async function setSelectedCardAsCommander() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!deck || !card) {
+    setDeckBuilderSaveStatus('Select a card first, then try Set as Commander again.', 'error');
     return;
   }
 
@@ -5509,8 +5511,8 @@ function renderDeckBuilderSelection() {
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="actions deck-card-preview-actions">
-        <button type="button" id="deck-builder-add-card">Add to Deck</button>
-        <button type="button" id="deck-builder-set-commander" class="secondary-button">Set as Commander</button>
+        <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
+        <button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>
       </div>
     </article>`;
 
@@ -5531,6 +5533,20 @@ function renderDeckBuilderSelection() {
       await setSelectedCardAsCommander();
     });
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.__deckBuilderAddSelectedCard = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    await addSelectedCardToDeck();
+  };
+
+  window.__deckBuilderSetCommander = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    await setSelectedCardAsCommander();
+  };
 }
 
 function renderDeckBuilderValidation(deck) {
