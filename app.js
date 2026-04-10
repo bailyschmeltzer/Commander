@@ -5513,6 +5513,24 @@ function renderDeckBuilderSelection() {
         <button type="button" id="deck-builder-set-commander" class="secondary-button">Set as Commander</button>
       </div>
     </article>`;
+
+  const addCardButton = deckBuilderSelection.querySelector('#deck-builder-add-card');
+  if (addCardButton) {
+    addCardButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await addSelectedCardToDeck();
+    });
+  }
+
+  const setCommanderButton = deckBuilderSelection.querySelector('#deck-builder-set-commander');
+  if (setCommanderButton) {
+    setCommanderButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await setSelectedCardAsCommander();
+    });
+  }
 }
 
 function renderDeckBuilderValidation(deck) {
