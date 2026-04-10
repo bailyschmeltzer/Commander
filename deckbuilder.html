@@ -44,7 +44,11 @@
             </div>
             <div class="field">
               <label for="deck-builder-owner">Owner</label>
-              <input id="deck-builder-owner" type="text" list="player-list" placeholder="Who owns this deck?" />
+              <div class="combined-input-wrapper">
+                <input id="deck-builder-owner" class="lookup-input" type="text" list="player-list" placeholder="Who owns this deck?" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+                <button type="button" class="dropdown-button" title="Show players">▼</button>
+                <div id="deck-builder-owner-menu" class="dropdown-menu"></div>
+              </div>
               <datalist id="player-list"></datalist>
             </div>
           </div>

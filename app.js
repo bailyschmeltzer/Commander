@@ -85,10 +85,11 @@ const commanderBuilderResult = document.getElementById('commander-builder-result
 const commanderBuilderStatus = document.getElementById('commander-builder-status');
 const commanderBuilderCount = document.getElementById('commander-builder-count');
 const commanderBuilderRerollButton = document.getElementById('commander-builder-reroll');
-const deckBuilderPage = document.querySelector('.page-deck-builder');
+const deckBuilderPage = document.querySelector('.page-deckbuilder, .page-deck-builder');
 const deckBuilderTitle = document.getElementById('deck-builder-title');
 const deckBuilderNameInput = document.getElementById('deck-builder-name');
 const deckBuilderOwnerInput = document.getElementById('deck-builder-owner');
+const deckBuilderOwnerMenu = document.getElementById('deck-builder-owner-menu');
 const deckBuilderCardCount = document.getElementById('deck-builder-card-count');
 const deckBuilderSaveStatus = document.getElementById('deck-builder-save-status');
 const deckBuilderValidation = document.getElementById('deck-builder-validation');
@@ -4844,6 +4845,7 @@ function updateFormDatalists(games) {
   refreshRowSelectors();
   attachLookupWrapperHandlers(form || document);
   populateDeckCommanderSelector();
+  populateDeckBuilderLookupMenus();
   populateRecordLookupMenus();
 }
 
@@ -4969,6 +4971,14 @@ function populateDeckCommanderSelector() {
     buildDropdownMenu(deckOwnerMenu, knownPlayers);
   }
   attachLookupWrapperHandlers(deckListForm || document);
+}
+
+function populateDeckBuilderLookupMenus() {
+  if (deckBuilderOwnerMenu) {
+    buildDropdownMenu(deckBuilderOwnerMenu, knownPlayers);
+  }
+
+  attachLookupWrapperHandlers(deckBuilderPage || document);
 }
 
 function populateRecordLookupMenus() {
@@ -5246,7 +5256,7 @@ function setDeckBuilderSearchStatus(message, tone = 'muted') {
   deckBuilderSearchStatus.classList.add(`status-${tone}`);
 }
 
-function ensureActiveDeckBuilderRecord() {
+function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
   if (!deckBuilderPage) {
     return null;
   }
@@ -5267,6 +5277,16 @@ function ensureActiveDeckBuilderRecord() {
     activeDeckBuilderId = newDeck.id;
     activeDeckBuilderRecord = newDeck;
     window.history.replaceState({}, '', getDeckBuilderHref(newDeck.id));
+    return newDeck;
+  }
+
+  if (createIfMissing) {
+    const newDeck = createEmptyDeckRecord();
+    saveDecks([...loadDecks(), newDeck]);
+    activeDeckBuilderId = newDeck.id;
+    activeDeckBuilderRecord = newDeck;
+    window.history.replaceState({}, '', getDeckBuilderHref(newDeck.id));
+    setDeckBuilderSaveStatus('Started a new deck.', 'neutral');
     return newDeck;
   }
 
@@ -5306,7 +5326,7 @@ function getDeckBuilderCardNameSet(deck) {
 }
 
 async function addSelectedCardToDeck() {
-  const deck = ensureActiveDeckBuilderRecord();
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!deck || !card) {
     return;
@@ -5324,7 +5344,7 @@ async function addSelectedCardToDeck() {
 }
 
 async function setSelectedCardAsCommander() {
-  const deck = ensureActiveDeckBuilderRecord();
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!deck || !card) {
     return;
