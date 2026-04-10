@@ -61,7 +61,7 @@ function getCardImageVariant(card, size) {
 }
 
 function buildCommanderSearchQuery(identity) {
-  return `game:paper is:commander id:${identity}`;
+  return `game:paper is:commander id=${identity}`;
 }
 
 function mapCommanderCard(card, requestOrigin) {
@@ -140,7 +140,7 @@ function getScryfallHeaders() {
 async function fetchCommanderCandidates(identity) {
   const cards = [];
   let nextPage = new URL('https://api.scryfall.com/cards/search');
-  nextPage.searchParams.set('q', `game:paper is:commander id:${identity}`);
+  nextPage.searchParams.set('q', buildCommanderSearchQuery(identity));
   nextPage.searchParams.set('order', 'edhrec');
   nextPage.searchParams.set('unique', 'cards');
 
@@ -291,7 +291,7 @@ export default {
           totalCards,
           card,
         }, 200, {
-          'Cache-Control': 'public, max-age=86400',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         });
       } catch (error) {
         return jsonResponse({

@@ -5410,7 +5410,12 @@ async function fetchCommanderBuilderSelection(identity) {
   const staleSummary = getCommanderBuilderCachedCards(identity, { allowExpired: true });
   let response;
   try {
-    response = await fetch(`${COMMANDER_BUILDER_ENDPOINT}?identity=${encodeURIComponent(identity)}`);
+    const requestUrl = new URL(COMMANDER_BUILDER_ENDPOINT, window.location.origin);
+    requestUrl.searchParams.set('identity', identity);
+    requestUrl.searchParams.set('_', String(Date.now()));
+    response = await fetch(requestUrl.toString(), {
+      cache: 'no-store',
+    });
   } catch (error) {
     if (staleSummary) {
       throw new Error('Unable to refresh the commander pick right now. Try again in a moment.');
