@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deck Builder</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page-deckbuilder">
+    <div class="app-shell">
+      <header>
+        <h1 id="deck-builder-title">Deck Builder</h1>
+        <p>Search cards, set your commander, and build toward a legal 100-card Commander list.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <div class="deck-builder-hero-actions">
+          <a href="decklists.html" class="secondary-button page-action-link">Back to Decks</a>
+        </div>
+      </header>
+
+      <main id="deck-builder-page" class="deck-builder-layout">
+        <section class="card deck-builder-meta-card">
+          <h2>Deck Details</h2>
+          <div class="deck-builder-meta-grid">
+            <div class="field">
+              <label for="deck-builder-name">Deck Name</label>
+              <input id="deck-builder-name" type="text" placeholder="Atraxa Proliferate" maxlength="120" />
+            </div>
+            <div class="field">
+              <label for="deck-builder-owner">Owner</label>
+              <input id="deck-builder-owner" type="text" list="player-list" placeholder="Who owns this deck?" />
+              <datalist id="player-list"></datalist>
+            </div>
+          </div>
+          <div class="deck-builder-summary-row">
+            <div class="deck-builder-count-chip">
+              <span class="deck-builder-count-label">Cards</span>
+              <strong id="deck-builder-card-count">0 / 100</strong>
+            </div>
+            <p id="deck-builder-save-status" class="deck-builder-save-status status-muted">Changes saved locally.</p>
+          </div>
+          <div id="deck-builder-validation" class="deck-builder-validation"></div>
+        </section>
+
+        <section class="card deck-builder-search-card">
+          <h2>Quick Search</h2>
+          <div class="field">
+            <label for="deck-builder-search">Card Name</label>
+            <input id="deck-builder-search" type="search" placeholder="Start typing a card name" autocomplete="off" spellcheck="false" />
+          </div>
+          <p id="deck-builder-search-status" class="deck-builder-search-status status-muted">Search for a card to preview it before adding it to the deck.</p>
+          <div id="deck-builder-search-results" class="deck-builder-search-results"></div>
+          <div id="deck-builder-selection" class="deck-builder-selection"></div>
+        </section>
+
+        <section class="card deck-builder-cards-card">
+          <h2>Deck Contents</h2>
+          <div id="deck-builder-cards" class="deck-builder-cards"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

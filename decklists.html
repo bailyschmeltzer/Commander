@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Deck Lists</title>
+    <title>Decks</title>
     <meta name="theme-color" content="#f5f6fb" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Commander" />
@@ -17,8 +17,8 @@
   <body class="page-decklists">
     <div class="app-shell">
       <header>
-        <h1>Deck Lists</h1>
-        <p>Track commander deck links and keep them easy to update.</p>
+        <h1>Decks</h1>
+        <p>Open an existing deck, start a new one, and keep any reference deck links in one place.</p>
         <div class="sync-panel">
           <div class="sync-row">
             <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
@@ -55,7 +55,33 @@
 
       <main>
         <section class="card">
-          <h2>Add or Edit Deck List</h2>
+          <div class="deck-library-header">
+            <div>
+              <h2>Built Decks</h2>
+              <p class="records-helper-text">Use this page as the entry point for the deck builder. Open an existing deck or start a new one.</p>
+            </div>
+            <button type="button" id="deck-library-create">Add New Deck</button>
+          </div>
+          <div class="player-table-wrapper">
+            <table class="player-table deck-library-table" data-sort-table="decks">
+              <thead>
+                <tr>
+                  <th scope="col" class="sortable-header" data-column="name" tabindex="0" aria-sort="none">Deck <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="cards" tabindex="0" aria-sort="none">Cards <span class="sort-indicator"></span></th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="deck-library-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Add or Edit Reference Deck URL</h2>
+          <p class="records-helper-text">These links still feed the deck selector page and can coexist with built decks.</p>
           <form id="deck-list-form" autocomplete="off">
             <div class="field">
               <label for="deck-commander">Commander</label>
@@ -90,7 +116,7 @@
         </section>
 
         <section class="card">
-          <h2>Find Deck URL</h2>
+          <h2>Find Reference Deck URL</h2>
           <div class="field">
             <label for="deck-lookup-commander">Commander</label>
             <select id="deck-lookup-commander">
@@ -103,15 +129,15 @@
         </section>
 
         <section class="card">
-          <h2>Saved Deck Lists</h2>
+          <h2>Saved Reference Deck URLs</h2>
           <div class="player-table-wrapper">
             <table class="player-table deck-list-table" data-sort-table="deckLists">
               <thead>
                 <tr>
-                      <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
-                      <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
-                      <th scope="col" class="sortable-header" data-column="url" tabindex="0" aria-sort="none">URL <span class="sort-indicator"></span></th>
-                      <th scope="col">Actions</th>
+                  <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="url" tabindex="0" aria-sort="none">URL <span class="sort-indicator"></span></th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody id="deck-list-body"></tbody>

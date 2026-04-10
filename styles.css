@@ -1049,6 +1049,327 @@ button[type="submit"] {
   white-space: nowrap;
 }
 
+.page-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.deck-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.deck-library-header h2 {
+  margin-bottom: 6px;
+}
+
+.deck-library-table th:nth-child(1),
+.deck-library-table td:nth-child(1) {
+  width: 20%;
+}
+
+.deck-library-table th:nth-child(2),
+.deck-library-table td:nth-child(2) {
+  width: 16%;
+}
+
+.deck-library-table th:nth-child(3),
+.deck-library-table td:nth-child(3) {
+  width: 18%;
+}
+
+.deck-library-table th:nth-child(4),
+.deck-library-table td:nth-child(4) {
+  width: 10%;
+}
+
+.deck-library-table th:nth-child(5),
+.deck-library-table td:nth-child(5) {
+  width: 20%;
+}
+
+.deck-library-table th:nth-child(6),
+.deck-library-table td:nth-child(6) {
+  width: 16%;
+}
+
+.deck-library-warning-text {
+  margin-top: 6px;
+  color: #7a3245;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.deck-builder-hero-actions {
+  margin-top: 14px;
+}
+
+.deck-builder-layout {
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.deck-builder-meta-card,
+.deck-builder-search-card,
+.deck-builder-cards-card {
+  min-width: 0;
+}
+
+.deck-builder-cards-card {
+  grid-column: 2;
+}
+
+.deck-builder-search-card {
+  grid-column: 1;
+}
+
+.deck-builder-meta-card {
+  grid-column: 1;
+}
+
+.deck-builder-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.deck-builder-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.deck-builder-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #d9e1f3;
+  border-radius: 999px;
+  background: #f7f9ff;
+}
+
+.deck-builder-count-label {
+  color: #586584;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.deck-builder-save-status,
+.deck-builder-search-status {
+  margin: 0;
+}
+
+.deck-builder-validation {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.deck-validation-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #dde3f2;
+  background: #f8faff;
+  color: #33446a;
+  font-weight: 600;
+}
+
+.deck-validation-success {
+  border-color: #c9e7d3;
+  background: #eefaf3;
+  color: #1d7a43;
+}
+
+.deck-validation-error {
+  border-color: #f0c8c0;
+  background: #fff3f1;
+  color: #a44033;
+}
+
+.deck-validation-neutral {
+  border-color: #dbe2f1;
+  background: #f4f7ff;
+  color: #35508d;
+}
+
+.deck-builder-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.deck-search-result {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid #dde3f2;
+  border-radius: 14px;
+  background: #fbfcff;
+  color: #22304f;
+  font-weight: 700;
+}
+
+.deck-search-result:hover {
+  background: #f2f6ff;
+}
+
+.deck-builder-selection {
+  margin-top: 16px;
+}
+
+.deck-builder-selection > p,
+.deck-builder-empty-copy {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed #d2d9ec;
+  border-radius: 14px;
+  background: #fbfcff;
+  color: #54607d;
+}
+
+.deck-card-preview {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #dde3f2;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
+}
+
+.deck-card-preview-copy h3 {
+  margin: 4px 0 8px;
+}
+
+.deck-card-preview-kicker,
+.deck-card-preview-meta {
+  margin: 0;
+}
+
+.deck-card-preview-kicker {
+  color: #5a6888;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deck-card-preview-meta {
+  color: #485673;
+}
+
+.deck-card-preview-actions {
+  margin-top: 2px;
+}
+
+.deck-card-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.deck-card-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.deck-card-badge-banned {
+  background: #ffe8e4;
+  color: #a44033;
+}
+
+.deck-card-badge-gamechanger {
+  background: #e8f0ff;
+  color: #3455aa;
+}
+
+.deck-builder-cards {
+  display: grid;
+  gap: 14px;
+}
+
+.deck-builder-group {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dde3f2;
+  border-radius: 16px;
+  background: #fbfcff;
+}
+
+.deck-builder-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deck-builder-group-header h3,
+.deck-builder-group-header p {
+  margin: 0;
+}
+
+.deck-builder-group-header p {
+  color: #5d6884;
+  font-weight: 700;
+}
+
+.deck-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e0e5f2;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.deck-card-row.is-banned {
+  border-color: #efc2ba;
+  background: #fff5f3;
+}
+
+.deck-card-row-copy {
+  min-width: 0;
+}
+
+.deck-card-row-actions {
+  flex: 0 0 auto;
+}
+
+.deck-card-name,
+.deck-card-meta {
+  margin: 0;
+}
+
+.deck-card-name {
+  font-weight: 800;
+  color: #1f2742;
+}
+
+.deck-card-meta {
+  margin-top: 4px;
+  color: #5a6783;
+}
+
 .deck-list-table {
   width: 100%;
   table-layout: auto;
@@ -2599,6 +2920,35 @@ button[type="submit"] {
     width: min(100%, 360px);
   }
 
+  .page-deckbuilder .deck-builder-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-deckbuilder .deck-builder-cards-card,
+  .page-deckbuilder .deck-builder-search-card,
+  .page-deckbuilder .deck-builder-meta-card {
+    grid-column: auto;
+  }
+
+  .page-deckbuilder .deck-builder-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-deckbuilder .deck-builder-summary-row,
+  .page-decklists .deck-library-header,
+  .page-deckbuilder .deck-builder-group-header,
+  .page-deckbuilder .deck-card-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-deckbuilder .deck-card-row-actions,
+  .page-deckbuilder .deck-card-row-actions button,
+  .page-decklists #deck-library-create,
+  .page-deckbuilder .page-action-link {
+    width: 100%;
+  }
+
   .page-commander-builder .commander-builder-header {
     flex-direction: column;
     align-items: stretch;
@@ -2692,6 +3042,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table tbody,
   .page-records .records-table tbody,
+  .page-decklists .deck-library-table tbody,
   .page-decklists .deck-list-table tbody,
   .page-history .history-game-table tbody {
     display: grid;
@@ -2700,6 +3051,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table tr,
   .page-records .records-table tr,
+  .page-decklists .deck-library-table tr,
   .page-decklists .deck-list-table tr,
   .page-history .history-game-table tr {
     width: 100%;
@@ -2711,6 +3063,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table td,
   .page-records .records-table td,
+  .page-decklists .deck-library-table td,
   .page-decklists .deck-list-table td,
   .page-history .history-game-table td {
     width: 100% !important;
@@ -2727,6 +3080,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table td::before,
   .page-records .records-table td::before,
+  .page-decklists .deck-library-table td::before,
   .page-decklists .deck-list-table td::before,
   .page-history .history-game-table td::before {
     font-weight: 700;
@@ -2735,6 +3089,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table td[colspan],
   .page-records .records-table td[colspan],
+  .page-decklists .deck-library-table td[colspan],
   .page-decklists .deck-list-table td[colspan],
   .page-history .history-game-table td[colspan] {
     display: block;
@@ -2743,6 +3098,7 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table td[colspan]::before,
   .page-records .records-table td[colspan]::before,
+  .page-decklists .deck-library-table td[colspan]::before,
   .page-decklists .deck-list-table td[colspan]::before,
   .page-history .history-game-table td[colspan]::before {
     content: none;
@@ -2750,18 +3106,38 @@ button[type="submit"] {
 
   .page-player-stats .player-stats-table .combined-input-wrapper,
   .page-records .records-table .combined-input-wrapper,
+  .page-decklists .deck-library-table .combined-input-wrapper,
   .page-decklists .deck-list-table .combined-input-wrapper,
   .page-history .history-game-table .combined-input-wrapper,
   .page-player-stats .player-stats-table input,
   .page-records .records-table input,
+  .page-decklists .deck-library-table input,
   .page-decklists .deck-list-table input,
   .page-history .history-game-table input,
   .page-player-stats .player-stats-table textarea,
   .page-records .records-table textarea,
+  .page-decklists .deck-library-table textarea,
   .page-decklists .deck-list-table textarea,
   .page-history .history-game-table textarea {
     width: 100%;
     min-width: 0;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6)::before {
+    grid-column: 1 / -1;
+    margin-bottom: 2px;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) button {
+    width: 100%;
+    margin-top: 0;
   }
 
   .page-records .records-table textarea,

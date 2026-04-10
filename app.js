@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
 const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
+const DECKS_STORAGE_KEY = 'commanderDeckRecords';
 const RECORDS_STORAGE_KEY = 'commanderTrackerRecords';
 const ACTIVE_GAME_STORAGE_KEY = 'commanderTrackerActiveGame';
 const ACTIVE_GAME_UNDO_STORAGE_KEY = 'commanderTrackerActiveGameUndo';
@@ -11,6 +12,8 @@ const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
+const DECK_SEARCH_ENDPOINT = '/api/deck-search';
+const DECK_CARD_ENDPOINT = '/api/deck-card';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
@@ -68,6 +71,8 @@ const deckListCancelButton = document.getElementById('deck-list-cancel');
 const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
 const deckLookupSelect = document.getElementById('deck-lookup-commander');
 const deckLookupResult = document.getElementById('deck-lookup-result');
+const deckLibraryCreateButton = document.getElementById('deck-library-create');
+const deckLibraryTableBody = document.getElementById('deck-library-body');
 const deckSelectorForm = document.getElementById('deck-selector-form');
 const deckSelectorOwnerList = document.getElementById('deck-selector-owner-list');
 const deckSelectorWheel = document.getElementById('deck-selector-wheel');
@@ -80,6 +85,18 @@ const commanderBuilderResult = document.getElementById('commander-builder-result
 const commanderBuilderStatus = document.getElementById('commander-builder-status');
 const commanderBuilderCount = document.getElementById('commander-builder-count');
 const commanderBuilderRerollButton = document.getElementById('commander-builder-reroll');
+const deckBuilderPage = document.querySelector('.page-deck-builder');
+const deckBuilderTitle = document.getElementById('deck-builder-title');
+const deckBuilderNameInput = document.getElementById('deck-builder-name');
+const deckBuilderOwnerInput = document.getElementById('deck-builder-owner');
+const deckBuilderCardCount = document.getElementById('deck-builder-card-count');
+const deckBuilderSaveStatus = document.getElementById('deck-builder-save-status');
+const deckBuilderValidation = document.getElementById('deck-builder-validation');
+const deckBuilderSearchInput = document.getElementById('deck-builder-search');
+const deckBuilderSearchResults = document.getElementById('deck-builder-search-results');
+const deckBuilderSearchStatus = document.getElementById('deck-builder-search-status');
+const deckBuilderSelection = document.getElementById('deck-builder-selection');
+const deckBuilderCards = document.getElementById('deck-builder-cards');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -163,6 +180,16 @@ if (commanderBuilderStatus) {
   commanderBuilderStatus.setAttribute('aria-live', 'polite');
 }
 
+if (deckBuilderSaveStatus) {
+  deckBuilderSaveStatus.setAttribute('role', 'status');
+  deckBuilderSaveStatus.setAttribute('aria-live', 'polite');
+}
+
+if (deckBuilderSearchStatus) {
+  deckBuilderSearchStatus.setAttribute('role', 'status');
+  deckBuilderSearchStatus.setAttribute('aria-live', 'polite');
+}
+
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -179,8 +206,9 @@ const tableSortState = {
   playerStreaks: { column: 'currentWins', descending: true },
   commanderStreaks: { column: 'currentWins', descending: true },
   deckLists: { column: 'commander', descending: false },
+  decks: { column: 'updatedAt', descending: true },
 };
-let appState = { games: [], powerLevels: {}, deckLists: [], records: [] };
+let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [] };
 let editingDeckListId = null;
 let syncQueueTimer = null;
 let syncRetryTimer = null;
@@ -204,6 +232,14 @@ let commanderBuilderIdentity = '';
 let commanderBuilderLoading = false;
 let commanderBuilderRequestId = 0;
 let commanderBuilderLastCardName = '';
+let activeDeckBuilderId = '';
+let activeDeckBuilderRecord = null;
+let deckBuilderSearchRequestId = 0;
+let deckBuilderSearchTimer = null;
+let deckBuilderSearchLoading = false;
+let deckBuilderSearchResultsState = [];
+let deckBuilderSelectedCard = null;
+let deckBuilderSaveTimer = null;
 let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
@@ -496,11 +532,71 @@ function buildAppStateIdentityMaps(state) {
   };
 }
 
+function getDeckCardPrimaryType(typeLine) {
+  const normalizedTypeLine = String(typeLine || '').toLowerCase();
+  const typePriority = ['creature', 'artifact', 'enchantment', 'planeswalker', 'battle', 'instant', 'sorcery', 'land'];
+  const matchedType = typePriority.find((type) => normalizedTypeLine.includes(type));
+  return matchedType ? matchedType.charAt(0).toUpperCase() + matchedType.slice(1) : 'Other';
+}
+
+function normalizeDeckCardEntry(card) {
+  if (!card || typeof card !== 'object') {
+    return null;
+  }
+
+  const name = String(card.name || '').trim();
+  if (!name) {
+    return null;
+  }
+
+  const typeLine = String(card.typeLine || '').trim();
+
+  return {
+    id: String(card.id || generateId()).trim(),
+    oracleId: String(card.oracleId || '').trim(),
+    name,
+    manaCost: String(card.manaCost || '').trim(),
+    typeLine,
+    cardType: String(card.cardType || getDeckCardPrimaryType(typeLine)).trim() || 'Other',
+    scryfallUri: String(card.scryfallUri || '').trim(),
+    imageUri: String(card.imageUri || '').trim(),
+    imageLargeUri: String(card.imageLargeUri || '').trim(),
+    colorIdentity: Array.isArray(card.colorIdentity) ? card.colorIdentity.map((value) => String(value || '').trim()).filter(Boolean) : [],
+    isBanned: Boolean(card.isBanned),
+    isGameChanger: Boolean(card.isGameChanger),
+    isCommanderLegal: Boolean(card.isCommanderLegal),
+  };
+}
+
+function normalizeDeckRecord(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const name = String(entry.name || '').trim() || 'Untitled Deck';
+  const owner = normalizeIdentityLabel(entry.owner || '');
+  const commander = normalizeDeckCardEntry(entry.commander);
+  const cards = Array.isArray(entry.cards)
+    ? entry.cards.map(normalizeDeckCardEntry).filter(Boolean)
+    : [];
+
+  return {
+    id: String(entry.id || generateId()).trim(),
+    name,
+    owner,
+    commander,
+    cards,
+    createdAt: String(entry.createdAt || new Date().toISOString()).trim(),
+    updatedAt: String(entry.updatedAt || entry.createdAt || new Date().toISOString()).trim(),
+  };
+}
+
 function normalizeAppStateData(state) {
   const baseState = {
     games: Array.isArray(state?.games) ? state.games : [],
     powerLevels: state?.powerLevels && typeof state.powerLevels === 'object' ? state.powerLevels : {},
     deckLists: Array.isArray(state?.deckLists) ? state.deckLists : [],
+    decks: Array.isArray(state?.decks) ? state.decks : [],
     records: Array.isArray(state?.records) ? state.records : [],
   };
 
@@ -519,6 +615,7 @@ function normalizeAppStateData(state) {
     games: normalizeIdentityValues(baseState.games, identityMaps, 'games'),
     powerLevels: normalizedPowerLevels,
     deckLists: normalizeIdentityValues(baseState.deckLists, identityMaps, 'deckLists'),
+    decks: baseState.decks.map(normalizeDeckRecord).filter(Boolean),
     records: normalizeIdentityValues(baseState.records, identityMaps, 'records'),
   };
 }
@@ -830,11 +927,13 @@ function loadLocalState() {
   const games = parseJsonSafe(readLocalStorageValue(STORAGE_KEY) || '[]', []);
   const powerLevels = parseJsonSafe(readLocalStorageValue(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
   const deckLists = parseJsonSafe(readLocalStorageValue(DECK_LIST_STORAGE_KEY) || '[]', []);
+  const decks = parseJsonSafe(readLocalStorageValue(DECKS_STORAGE_KEY) || '[]', []);
   const records = parseJsonSafe(readLocalStorageValue(RECORDS_STORAGE_KEY) || '[]', []);
   const rawState = {
     games: Array.isArray(games) ? games : [],
     powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
     deckLists: Array.isArray(deckLists) ? deckLists : [],
+    decks: Array.isArray(decks) ? decks : [],
     records: Array.isArray(records) ? records : [],
   };
   const normalizedState = normalizeAppStateData(rawState);
@@ -850,6 +949,7 @@ function persistLocalState(state) {
   writeLocalStorageValue(STORAGE_KEY, JSON.stringify(state.games || []));
   writeLocalStorageValue(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
   writeLocalStorageValue(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
+  writeLocalStorageValue(DECKS_STORAGE_KEY, JSON.stringify(state.decks || []));
   writeLocalStorageValue(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
 }
 
@@ -1193,6 +1293,7 @@ async function pullCloudState() {
   const games = Array.isArray(payload.games) ? payload.games : [];
   const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
   const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
+  const decks = Array.isArray(payload.decks) ? payload.decks : [];
   const records = Array.isArray(payload.records) ? payload.records : [];
   updateSyncMetadata({
     revision: payload.revision,
@@ -1200,7 +1301,7 @@ async function pullCloudState() {
     updatedBy: payload.updatedBy,
   });
   clearSyncConflict();
-  appState = normalizeAppStateData({ games, powerLevels, deckLists, records });
+  appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
   persistLocalState(appState);
   syncConnectionState = 'connected';
   syncLastErrorMessage = '';
@@ -1309,6 +1410,7 @@ async function pushCloudState() {
         games: appState.games,
         powerLevels: appState.powerLevels,
         deckLists: appState.deckLists,
+        decks: appState.decks,
         records: appState.records,
       }),
     });
@@ -1663,10 +1765,23 @@ function loadDeckLists() {
   return Array.isArray(appState.deckLists) ? appState.deckLists : [];
 }
 
+function loadDecks() {
+  return Array.isArray(appState.decks) ? appState.decks.map(normalizeDeckRecord).filter(Boolean) : [];
+}
+
 function saveDeckLists(deckLists) {
   appState = normalizeAppStateData({
     ...appState,
     deckLists: Array.isArray(deckLists) ? deckLists : [],
+  });
+  persistLocalState(appState);
+  queueCloudSync();
+}
+
+function saveDecks(decks) {
+  appState = normalizeAppStateData({
+    ...appState,
+    decks: Array.isArray(decks) ? decks : [],
   });
   persistLocalState(appState);
   queueCloudSync();
@@ -4680,6 +4795,7 @@ function updateFormDatalists(games) {
   const players = [];
   const commanders = [];
   const deckLists = loadDeckLists();
+  const decks = loadDecks();
 
   games.forEach((game) => {
     getGameRows(game).forEach((row) => {
@@ -4700,6 +4816,15 @@ function updateFormDatalists(games) {
     }
     if (commander) {
       commanders.push(commander);
+    }
+  });
+
+  decks.forEach((deck) => {
+    if (deck?.owner) {
+      players.push(deck.owner);
+    }
+    if (deck?.commander?.name) {
+      commanders.push(deck.commander.name);
     }
   });
 
@@ -4909,6 +5034,652 @@ function renderDeckLookup() {
     <p>Owner: ${safeOwner}</p>
     <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${safeUrl}</a>
   `;
+}
+
+function getDeckBuilderHref(deckId) {
+  const query = new URLSearchParams();
+  if (deckId) {
+    query.set('deckId', deckId);
+  }
+
+  const queryString = query.toString();
+  return `deckbuilder.html${queryString ? `?${queryString}` : ''}`;
+}
+
+function createEmptyDeckRecord() {
+  const timestamp = new Date().toISOString();
+  return normalizeDeckRecord({
+    id: generateId(),
+    name: 'Untitled Deck',
+    owner: '',
+    commander: null,
+    cards: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+}
+
+function getDeckValidationSummary(deck) {
+  const normalizedDeck = normalizeDeckRecord(deck);
+  const cardNames = [];
+  if (normalizedDeck?.commander?.name) {
+    cardNames.push(normalizedDeck.commander.name);
+  }
+  normalizedDeck.cards.forEach((card) => {
+    if (card?.name) {
+      cardNames.push(card.name);
+    }
+  });
+
+  const duplicates = [];
+  const seenNames = new Set();
+  cardNames.forEach((name) => {
+    const key = getIdentityKey(name);
+    if (!key) {
+      return;
+    }
+
+    if (seenNames.has(key)) {
+      duplicates.push(name);
+      return;
+    }
+
+    seenNames.add(key);
+  });
+
+  const bannedCards = [];
+  const gameChangerCards = [];
+  const commander = normalizedDeck?.commander || null;
+  if (commander?.isBanned) {
+    bannedCards.push(commander.name);
+  }
+  if (commander?.isGameChanger) {
+    gameChangerCards.push(commander.name);
+  }
+
+  normalizedDeck.cards.forEach((card) => {
+    if (card.isBanned) {
+      bannedCards.push(card.name);
+    }
+    if (card.isGameChanger) {
+      gameChangerCards.push(card.name);
+    }
+  });
+
+  const commanderCount = commander ? 1 : 0;
+  const totalCards = normalizedDeck.cards.length + commanderCount;
+
+  return {
+    commanderCount,
+    totalCards,
+    duplicates,
+    bannedCards,
+    gameChangerCards,
+    isValid: commanderCount === 1 && totalCards === 100 && !duplicates.length,
+  };
+}
+
+function getDeckSummaryLabel(deck) {
+  const summary = getDeckValidationSummary(deck);
+  if (!summary.commanderCount) {
+    return 'Commander missing';
+  }
+  if (summary.totalCards !== 100) {
+    return `${summary.totalCards}/100 cards`;
+  }
+  if (summary.duplicates.length) {
+    return 'Duplicate cards found';
+  }
+  return 'Ready';
+}
+
+function formatDeckUpdatedAt(value) {
+  const timestamp = Date.parse(String(value || '').trim());
+  if (!Number.isFinite(timestamp)) {
+    return '—';
+  }
+
+  return new Date(timestamp).toLocaleString();
+}
+
+function renderDeckLibrary() {
+  if (!deckLibraryTableBody) {
+    return;
+  }
+
+  const sortState = getTableSort('decks', 'updatedAt', true);
+  const decks = loadDecks()
+    .slice()
+    .sort((first, second) => {
+      let result = 0;
+      switch (sortState.column) {
+        case 'name':
+          result = compareTextValues(first.name, second.name);
+          break;
+        case 'owner':
+          result = compareTextValues(first.owner, second.owner);
+          break;
+        case 'commander':
+          result = compareTextValues(first.commander?.name, second.commander?.name);
+          break;
+        case 'cards':
+          result = compareNumberValues(getDeckValidationSummary(first).totalCards, getDeckValidationSummary(second).totalCards);
+          break;
+        case 'updatedAt':
+        default:
+          result = compareDateValues(first.updatedAt, second.updatedAt);
+          break;
+      }
+
+      if (result === 0) {
+        result = compareTextValues(first.name, second.name);
+      }
+
+      return finalizeSortResult(result, sortState.descending);
+    });
+
+  if (!decks.length) {
+    deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
+    return;
+  }
+
+  deckLibraryTableBody.innerHTML = decks.map((deck) => {
+    const summary = getDeckValidationSummary(deck);
+    const warnings = [
+      summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
+      summary.gameChangerCards.length ? `${summary.gameChangerCards.length} game changer${summary.gameChangerCards.length === 1 ? '' : 's'}` : '',
+    ].filter(Boolean).join(', ') || '—';
+
+    return `
+      <tr>
+        <td data-label="Deck">${escapeHtml(deck.name)}</td>
+        <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
+        <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
+        <td data-label="Cards">${escapeHtml(String(summary.totalCards))}</td>
+        <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
+        <td data-label="Actions">
+          <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
+          <button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}">Delete</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  updateSortableTableIndicators('decks');
+}
+
+async function deleteDeckRecord(deckId) {
+  const deck = loadDecks().find((entry) => entry.id === deckId);
+  if (!deck) {
+    return;
+  }
+
+  const confirmed = await promptLiveConfirm(`Delete ${deck.name}? This removes the saved deck from this app.`, {
+    title: 'Delete deck',
+    confirmLabel: 'Delete deck',
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  saveDecks(loadDecks().filter((entry) => entry.id !== deckId));
+  renderDeckLibrary();
+}
+
+function setDeckBuilderSaveStatus(message, tone = 'muted') {
+  if (!deckBuilderSaveStatus) {
+    return;
+  }
+
+  deckBuilderSaveStatus.textContent = message;
+  deckBuilderSaveStatus.classList.remove('status-muted', 'status-success', 'status-error', 'status-neutral');
+  deckBuilderSaveStatus.classList.add(`status-${tone}`);
+}
+
+function setDeckBuilderSearchStatus(message, tone = 'muted') {
+  if (!deckBuilderSearchStatus) {
+    return;
+  }
+
+  deckBuilderSearchStatus.textContent = message;
+  deckBuilderSearchStatus.classList.remove('status-muted', 'status-success', 'status-error', 'status-neutral');
+  deckBuilderSearchStatus.classList.add(`status-${tone}`);
+}
+
+function ensureActiveDeckBuilderRecord() {
+  if (!deckBuilderPage) {
+    return null;
+  }
+
+  const requestedDeckId = getQueryParam('deckId');
+  const shouldCreateNew = getQueryParam('new') === '1';
+
+  if (requestedDeckId) {
+    const requestedDeck = loadDecks().find((deck) => deck.id === requestedDeckId) || null;
+    activeDeckBuilderId = requestedDeck?.id || '';
+    activeDeckBuilderRecord = requestedDeck;
+    return requestedDeck;
+  }
+
+  if (shouldCreateNew) {
+    const newDeck = createEmptyDeckRecord();
+    saveDecks([...loadDecks(), newDeck]);
+    activeDeckBuilderId = newDeck.id;
+    activeDeckBuilderRecord = newDeck;
+    window.history.replaceState({}, '', getDeckBuilderHref(newDeck.id));
+    return newDeck;
+  }
+
+  activeDeckBuilderId = '';
+  activeDeckBuilderRecord = null;
+  return null;
+}
+
+function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success') {
+  const normalizedDeck = normalizeDeckRecord({
+    ...nextDeck,
+    updatedAt: new Date().toISOString(),
+  });
+  const existingDecks = loadDecks();
+  const nextDecks = existingDecks.some((deck) => deck.id === normalizedDeck.id)
+    ? existingDecks.map((deck) => (deck.id === normalizedDeck.id ? normalizedDeck : deck))
+    : [...existingDecks, normalizedDeck];
+
+  saveDecks(nextDecks);
+  activeDeckBuilderId = normalizedDeck.id;
+  activeDeckBuilderRecord = normalizedDeck;
+  setDeckBuilderSaveStatus(statusMessage, tone);
+  renderDeckBuilderPage();
+}
+
+function getDeckBuilderCardNameSet(deck) {
+  const nameSet = new Set();
+  if (deck?.commander?.name) {
+    nameSet.add(getIdentityKey(deck.commander.name));
+  }
+  (deck?.cards || []).forEach((card) => {
+    if (card?.name) {
+      nameSet.add(getIdentityKey(card.name));
+    }
+  });
+  return nameSet;
+}
+
+async function addSelectedCardToDeck() {
+  const deck = ensureActiveDeckBuilderRecord();
+  const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  if (!deck || !card) {
+    return;
+  }
+
+  if (getDeckBuilderCardNameSet(deck).has(getIdentityKey(card.name))) {
+    await promptLiveAlert(`${card.name} is already in this deck.`, 'Duplicate card');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    cards: [...deck.cards, card],
+  }, `${card.name} added to ${deck.name}.`);
+}
+
+async function setSelectedCardAsCommander() {
+  const deck = ensureActiveDeckBuilderRecord();
+  const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  if (!deck || !card) {
+    return;
+  }
+
+  const duplicateInDeck = deck.cards.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+  if (duplicateInDeck) {
+    await promptLiveAlert(`${card.name} is already in the main deck. Remove it there before setting it as commander.`, 'Duplicate card');
+    return;
+  }
+
+  if (deck.commander && getIdentityKey(deck.commander.name) !== getIdentityKey(card.name)) {
+    const confirmed = await promptLiveConfirm(`Replace ${deck.commander.name} as the commander for ${deck.name}?`, {
+      title: 'Replace commander',
+      confirmLabel: 'Set commander',
+    });
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    commander: card,
+  }, `${card.name} set as commander.`);
+}
+
+function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    return;
+  }
+
+  if (isCommander) {
+    persistDeckBuilderRecord({
+      ...deck,
+      commander: null,
+    }, 'Commander removed.', 'neutral');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    cards: deck.cards.filter((card) => card.id !== cardId),
+  }, 'Card removed.', 'neutral');
+}
+
+async function fetchDeckSearchResultsList(query) {
+  const response = await fetch(`${DECK_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        message = `${payload.error || message} ${payload.detail}`.trim();
+      } else if (payload?.error) {
+        message = payload.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload?.results) ? payload.results.map((value) => String(value || '').trim()).filter(Boolean) : [];
+}
+
+async function fetchDeckCardByName(name) {
+  const response = await fetch(`${DECK_CARD_ENDPOINT}?name=${encodeURIComponent(name)}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        message = `${payload.error || message} ${payload.detail}`.trim();
+      } else if (payload?.error) {
+        message = payload.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  return normalizeDeckCardEntry(payload?.card);
+}
+
+function renderDeckBuilderSearchResults() {
+  if (!deckBuilderSearchResults) {
+    return;
+  }
+
+  if (!deckBuilderSearchResultsState.length) {
+    deckBuilderSearchResults.innerHTML = '';
+    deckBuilderSearchResults.hidden = true;
+    return;
+  }
+
+  deckBuilderSearchResults.innerHTML = deckBuilderSearchResultsState
+    .map((name) => `<button type="button" class="deck-search-result" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`)
+    .join('');
+  deckBuilderSearchResults.hidden = false;
+}
+
+function renderDeckBuilderSelection() {
+  if (!deckBuilderSelection) {
+    return;
+  }
+
+  const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  if (!card) {
+    deckBuilderSelection.innerHTML = '<p>Select a card from search to preview it here.</p>';
+    return;
+  }
+
+  const badges = [
+    card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
+    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+  ].filter(Boolean).join('');
+
+  deckBuilderSelection.innerHTML = `
+    <article class="deck-card-preview">
+      <div class="deck-card-preview-copy">
+        <p class="deck-card-preview-kicker">Selected Card</p>
+        <h3>${escapeHtml(card.name)}</h3>
+        <p class="deck-card-preview-meta">${escapeHtml(card.typeLine || 'No type line available')}</p>
+        <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(card.manaCost || '—')}</p>
+        ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
+      </div>
+      <div class="actions deck-card-preview-actions">
+        <button type="button" id="deck-builder-add-card">Add to Deck</button>
+        <button type="button" id="deck-builder-set-commander" class="secondary-button">Set as Commander</button>
+      </div>
+    </article>`;
+}
+
+function renderDeckBuilderValidation(deck) {
+  if (!deckBuilderValidation || !deckBuilderCardCount) {
+    return;
+  }
+
+  const summary = getDeckValidationSummary(deck);
+  deckBuilderCardCount.textContent = `${summary.totalCards} / 100 cards`;
+
+  const lines = [
+    { label: summary.commanderCount === 1 ? 'Exactly one commander selected.' : 'Deck needs exactly one commander.', tone: summary.commanderCount === 1 ? 'success' : 'error' },
+    { label: summary.totalCards === 100 ? 'Deck has exactly 100 cards.' : `Deck currently has ${summary.totalCards} cards.`, tone: summary.totalCards === 100 ? 'success' : 'error' },
+    { label: summary.duplicates.length ? `Duplicate card names found: ${summary.duplicates.join(', ')}.` : 'No duplicate card names.', tone: summary.duplicates.length ? 'error' : 'success' },
+    { label: summary.bannedCards.length ? `Banned cards: ${summary.bannedCards.join(', ')}.` : 'No banned cards added.', tone: summary.bannedCards.length ? 'error' : 'success' },
+    { label: summary.gameChangerCards.length ? `Game Changers: ${summary.gameChangerCards.join(', ')}.` : 'No Game Changers added.', tone: summary.gameChangerCards.length ? 'neutral' : 'success' },
+  ];
+
+  deckBuilderValidation.innerHTML = lines.map((line) => `
+    <li class="deck-validation-item deck-validation-${line.tone}">${escapeHtml(line.label)}</li>`).join('');
+}
+
+function getDeckBuilderGroupedCards(deck) {
+  const typeOrder = ['Creature', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Instant', 'Sorcery', 'Land', 'Other'];
+  const groups = new Map(typeOrder.map((type) => [type, []]));
+
+  (deck?.cards || []).forEach((card) => {
+    const type = typeOrder.includes(card.cardType) ? card.cardType : 'Other';
+    groups.get(type).push(card);
+  });
+
+  typeOrder.forEach((type) => {
+    groups.get(type).sort((first, second) => compareTextValues(first.name, second.name));
+  });
+
+  return typeOrder
+    .map((type) => ({ type, cards: groups.get(type) }))
+    .filter((group) => group.cards.length);
+}
+
+function renderDeckCardRow(card, options = {}) {
+  const badges = [
+    card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
+    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+  ].filter(Boolean).join('');
+  const removeAction = options.isCommander
+    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
+    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
+
+  return `
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}">
+      <div class="deck-card-row-copy">
+        <p class="deck-card-name">${escapeHtml(card.name)}</p>
+        <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
+        ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
+      </div>
+      <div class="deck-card-row-actions">
+        ${removeAction}
+      </div>
+    </div>`;
+}
+
+function renderDeckBuilderCards(deck) {
+  if (!deckBuilderCards) {
+    return;
+  }
+
+  const groups = getDeckBuilderGroupedCards(deck);
+  const commanderMarkup = deck?.commander
+    ? `
+      <section class="deck-builder-group">
+        <div class="deck-builder-group-header">
+          <h3>Commander</h3>
+          <p>1 card</p>
+        </div>
+        ${renderDeckCardRow(deck.commander, { isCommander: true })}
+      </section>`
+    : `
+      <section class="deck-builder-group">
+        <div class="deck-builder-group-header">
+          <h3>Commander</h3>
+          <p>Not set</p>
+        </div>
+        <p class="deck-builder-empty-copy">Choose a card from search and use Set as Commander.</p>
+      </section>`;
+
+  const groupMarkup = groups.map((group) => `
+    <section class="deck-builder-group">
+      <div class="deck-builder-group-header">
+        <h3>${escapeHtml(group.type)}</h3>
+        <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
+      </div>
+      ${group.cards.map((card) => renderDeckCardRow(card)).join('')}
+    </section>`).join('');
+
+  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}`;
+}
+
+function renderDeckBuilderPage() {
+  if (!deckBuilderPage) {
+    return;
+  }
+
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    if (deckBuilderCards) {
+      deckBuilderCards.innerHTML = '<p>No deck selected. Go back to the deck list page and create or open a deck.</p>';
+    }
+    if (deckBuilderValidation) {
+      deckBuilderValidation.innerHTML = '';
+    }
+    return;
+  }
+
+  if (deckBuilderTitle) {
+    deckBuilderTitle.textContent = deck.name;
+  }
+  if (deckBuilderNameInput && deckBuilderNameInput.value !== deck.name) {
+    deckBuilderNameInput.value = deck.name;
+  }
+  if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '')) {
+    deckBuilderOwnerInput.value = deck.owner || '';
+  }
+
+  renderDeckBuilderValidation(deck);
+  renderDeckBuilderSelection();
+  renderDeckBuilderCards(deck);
+  renderDeckBuilderSearchResults();
+}
+
+async function runDeckBuilderSearch(query) {
+  const normalizedQuery = String(query || '').trim();
+  const requestId = deckBuilderSearchRequestId + 1;
+  deckBuilderSearchRequestId = requestId;
+
+  if (normalizedQuery.length < 2) {
+    deckBuilderSearchLoading = false;
+    deckBuilderSearchResultsState = [];
+    renderDeckBuilderSearchResults();
+    setDeckBuilderSearchStatus('Type at least 2 characters to search for a card.', 'muted');
+    return;
+  }
+
+  deckBuilderSearchLoading = true;
+  setDeckBuilderSearchStatus(`Searching for ${normalizedQuery}...`, 'neutral');
+
+  try {
+    const results = await fetchDeckSearchResultsList(normalizedQuery);
+    if (requestId !== deckBuilderSearchRequestId) {
+      return;
+    }
+
+    deckBuilderSearchLoading = false;
+    deckBuilderSearchResultsState = results;
+    renderDeckBuilderSearchResults();
+    setDeckBuilderSearchStatus(results.length ? `Found ${results.length} matching cards.` : 'No cards matched that search.', results.length ? 'success' : 'muted');
+  } catch (error) {
+    if (requestId !== deckBuilderSearchRequestId) {
+      return;
+    }
+
+    deckBuilderSearchLoading = false;
+    deckBuilderSearchResultsState = [];
+    renderDeckBuilderSearchResults();
+    setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to search cards right now.', 'error');
+  }
+}
+
+function queueDeckBuilderSearch(query) {
+  if (deckBuilderSearchTimer) {
+    clearTimeout(deckBuilderSearchTimer);
+  }
+
+  deckBuilderSearchTimer = setTimeout(() => {
+    deckBuilderSearchTimer = null;
+    runDeckBuilderSearch(query);
+  }, 180);
+}
+
+function queueDeckBuilderMetaSave() {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    return;
+  }
+
+  if (deckBuilderSaveTimer) {
+    clearTimeout(deckBuilderSaveTimer);
+  }
+
+  deckBuilderSaveTimer = setTimeout(() => {
+    deckBuilderSaveTimer = null;
+    persistDeckBuilderRecord({
+      ...deck,
+      name: String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck',
+      owner: normalizeIdentityLabel(deckBuilderOwnerInput?.value || ''),
+    }, 'Deck details saved.');
+  }, 220);
+}
+
+async function selectDeckBuilderSearchResult(name) {
+  const normalizedName = String(name || '').trim();
+  if (!normalizedName) {
+    return;
+  }
+
+  setDeckBuilderSearchStatus(`Loading ${normalizedName}...`, 'neutral');
+  try {
+    deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    renderDeckBuilderSelection();
+    setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Set as Commander.`, 'success');
+  } catch (error) {
+    setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
+  }
 }
 
 function getDeckOwnerGroups() {
@@ -7729,10 +8500,12 @@ function refresh() {
   applyHistoryQueryFilters();
   renderHistory(games);
   renderCommanderStats(games);
+  renderDeckLibrary();
   renderDeckLookup();
   renderDeckLists();
   renderDeckSelector();
   renderCommanderBuilder();
+  renderDeckBuilderPage();
   renderRecords();
   refreshLiveTrackerUi();
   initializeMobileSortControls();
@@ -8216,9 +8989,93 @@ if (deckLookupSelect) {
   });
 }
 
+if (deckLibraryCreateButton) {
+  deckLibraryCreateButton.addEventListener('click', () => {
+    window.location.href = 'deckbuilder.html?new=1';
+  });
+}
+
+if (deckLibraryTableBody) {
+  deckLibraryTableBody.addEventListener('click', async (event) => {
+    const openButton = event.target.closest('.deck-library-open');
+    if (openButton) {
+      const deckId = openButton.dataset.id || '';
+      if (deckId) {
+        window.location.href = getDeckBuilderHref(deckId);
+      }
+      return;
+    }
+
+    const deleteButton = event.target.closest('.deck-library-delete');
+    if (deleteButton) {
+      const deckId = deleteButton.dataset.id || '';
+      if (deckId) {
+        await deleteDeckRecord(deckId);
+      }
+    }
+  });
+}
+
 if (deckListCancelButton) {
   deckListCancelButton.addEventListener('click', () => {
     resetDeckListForm();
+  });
+}
+
+if (deckBuilderNameInput) {
+  deckBuilderNameInput.addEventListener('input', () => {
+    queueDeckBuilderMetaSave();
+  });
+}
+
+if (deckBuilderOwnerInput) {
+  deckBuilderOwnerInput.addEventListener('input', () => {
+    queueDeckBuilderMetaSave();
+  });
+}
+
+if (deckBuilderSearchInput) {
+  deckBuilderSearchInput.addEventListener('input', () => {
+    queueDeckBuilderSearch(deckBuilderSearchInput.value);
+  });
+}
+
+if (deckBuilderSearchResults) {
+  deckBuilderSearchResults.addEventListener('click', async (event) => {
+    const option = event.target.closest('.deck-search-result');
+    if (!option) {
+      return;
+    }
+
+    await selectDeckBuilderSearchResult(option.dataset.name || '');
+  });
+}
+
+if (deckBuilderSelection) {
+  deckBuilderSelection.addEventListener('click', async (event) => {
+    if (event.target.closest('#deck-builder-add-card')) {
+      await addSelectedCardToDeck();
+      return;
+    }
+
+    if (event.target.closest('#deck-builder-set-commander')) {
+      await setSelectedCardAsCommander();
+    }
+  });
+}
+
+if (deckBuilderCards) {
+  deckBuilderCards.addEventListener('click', (event) => {
+    const removeCommanderButton = event.target.closest('[data-remove-commander="true"]');
+    if (removeCommanderButton) {
+      removeDeckBuilderCard('', { isCommander: true });
+      return;
+    }
+
+    const removeCardButton = event.target.closest('.deck-builder-remove-card[data-card-id]');
+    if (removeCardButton) {
+      removeDeckBuilderCard(removeCardButton.dataset.cardId || '');
+    }
   });
 }
 

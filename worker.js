@@ -64,6 +64,26 @@ function buildCommanderSearchQuery(identity) {
   return `game:paper is:commander id=${identity}`;
 }
 
+function mapDeckCard(card, requestOrigin) {
+  const imageUri = getCardImageUri(card);
+  const imageLargeUri = getCardImageVariant(card, 'large');
+
+  return {
+    id: getTextValue(card?.id),
+    oracleId: getTextValue(card?.oracle_id),
+    name: getTextValue(card?.name),
+    manaCost: getTextValue(card?.mana_cost),
+    typeLine: getTextValue(card?.type_line),
+    scryfallUri: getTextValue(card?.scryfall_uri),
+    imageUri: buildCommanderImageProxyUrl(imageUri, requestOrigin),
+    imageLargeUri: buildCommanderImageProxyUrl(imageLargeUri, requestOrigin),
+    colorIdentity: Array.isArray(card?.color_identity) ? card.color_identity : [],
+    isBanned: getTextValue(card?.legalities?.commander) === 'banned',
+    isGameChanger: Boolean(card?.game_changer),
+    isCommanderLegal: getTextValue(card?.legalities?.commander) === 'legal',
+  };
+}
+
 function mapCommanderCard(card, requestOrigin) {
   const imageUri = getCardImageUri(card);
   const imageLargeUri = getCardImageVariant(card, 'large');
@@ -135,6 +155,50 @@ function getScryfallHeaders() {
     Accept: 'application/json;q=0.9,*/*;q=0.8',
     'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
   };
+}
+
+async function fetchDeckSearchResults(query) {
+  const autocompleteUrl = new URL('https://api.scryfall.com/cards/autocomplete');
+  autocompleteUrl.searchParams.set('q', query);
+
+  const response = await fetch(autocompleteUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Scryfall autocomplete request failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload?.data)
+    ? payload.data.map((value) => getTextValue(value)).filter(Boolean)
+    : [];
+}
+
+async function fetchDeckCardByName(name, requestOrigin) {
+  const namedUrl = new URL('https://api.scryfall.com/cards/named');
+  namedUrl.searchParams.set('exact', name);
+
+  let response = await fetch(namedUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (response.status === 404) {
+    namedUrl.searchParams.delete('exact');
+    namedUrl.searchParams.set('fuzzy', name);
+    response = await fetch(namedUrl.toString(), {
+      headers: getScryfallHeaders(),
+    });
+  }
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Scryfall card lookup failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  return mapDeckCard(payload, requestOrigin);
 }
 
 async function fetchCommanderCandidates(identity) {
@@ -332,6 +396,54 @@ export default {
       });
     }
 
+    if (url.pathname === '/api/deck-search') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const query = getTextValue(url.searchParams.get('q'));
+      if (query.length < 2) {
+        return jsonResponse({ results: [] }, 200, {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        });
+      }
+
+      try {
+        const results = await fetchDeckSearchResults(query);
+        return jsonResponse({ results: results.slice(0, 12) }, 200, {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to search cards right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
+    if (url.pathname === '/api/deck-card') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const name = getTextValue(url.searchParams.get('name'));
+      if (!name) {
+        return jsonResponse({ error: 'A card name is required.' }, 400);
+      }
+
+      try {
+        const card = await fetchDeckCardByName(name, requestOrigin);
+        return jsonResponse({ card }, 200, {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load that card right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
     if (url.pathname === '/api/state') {
       const auth = hasValidAuth(request, env);
       if (!auth.ok) {
@@ -342,8 +454,9 @@ export default {
 
       if (request.method === 'GET') {
         const raw = await env.POD_STATE.get(stateKey, 'json');
-        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], records: [] };
+        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
+        state.decks = Array.isArray(state.decks) ? state.decks : [];
         state.records = Array.isArray(state.records) ? state.records : [];
         state.revision = Number.isFinite(Number(state.revision)) ? Number(state.revision) : 0;
         state.updatedAt = String(state.updatedAt || '').trim();
@@ -371,6 +484,7 @@ export default {
         const games = Array.isArray(body.games) ? body.games : [];
         const powerLevels = body.powerLevels && typeof body.powerLevels === 'object' ? body.powerLevels : {};
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : [];
+        const decks = Array.isArray(body.decks) ? body.decks : [];
         const records = Array.isArray(body.records) ? body.records : [];
         const expectedRevisionHeader = request.headers.get('X-State-Revision');
         const expectedRevision = Number.parseInt(String(expectedRevisionHeader || '').trim(), 10);
@@ -403,6 +517,7 @@ export default {
           games,
           powerLevels,
           deckLists,
+          decks,
           records,
           revision: nextRevision,
           updatedAt,
