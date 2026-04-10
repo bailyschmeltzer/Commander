@@ -5310,9 +5310,11 @@ function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
 
   if (requestedDeckId) {
     const requestedDeck = loadDecks().find((deck) => deck.id === requestedDeckId) || null;
-    activeDeckBuilderId = requestedDeck?.id || '';
-    activeDeckBuilderRecord = requestedDeck;
-    return requestedDeck;
+    if (requestedDeck) {
+      activeDeckBuilderId = requestedDeck.id;
+      activeDeckBuilderRecord = requestedDeck;
+      return requestedDeck;
+    }
   }
 
   if (shouldCreateNew) {
