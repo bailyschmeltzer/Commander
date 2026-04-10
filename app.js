@@ -11,6 +11,7 @@ const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt'
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
+const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const DECK_CARD_ENDPOINT = '/api/deck-card';
@@ -5258,6 +5259,29 @@ function setDeckBuilderSearchStatus(message, tone = 'muted') {
   deckBuilderSearchStatus.classList.add(`status-${tone}`);
 }
 
+function persistDeckBuilderSelectedCard(card) {
+  const normalizedCard = normalizeDeckCardEntry(card);
+  if (!normalizedCard) {
+    removeLocalStorageValue(DECK_BUILDER_SELECTED_CARD_STORAGE_KEY);
+    return;
+  }
+
+  writeLocalStorageValue(DECK_BUILDER_SELECTED_CARD_STORAGE_KEY, JSON.stringify(normalizedCard));
+}
+
+function loadDeckBuilderSelectedCardFromStorage() {
+  const rawValue = readLocalStorageValue(DECK_BUILDER_SELECTED_CARD_STORAGE_KEY) || '';
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return normalizeDeckCardEntry(JSON.parse(rawValue));
+  } catch (error) {
+    return null;
+  }
+}
+
 function getCurrentDeckBuilderSelectedCard() {
   const normalizedSelectedCard = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (normalizedSelectedCard) {
@@ -5272,7 +5296,7 @@ function getCurrentDeckBuilderSelectedCard() {
   try {
     return normalizeDeckCardEntry(JSON.parse(serializedCard));
   } catch (error) {
-    return null;
+    return loadDeckBuilderSelectedCardFromStorage();
   }
 }
 
@@ -5348,7 +5372,12 @@ function getDeckBuilderCardNameSet(deck) {
 async function addSelectedCardToDeck() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = getCurrentDeckBuilderSelectedCard();
-  if (!deck || !card) {
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open or create a deck right now.', 'error');
+    return;
+  }
+
+  if (!card) {
     setDeckBuilderSaveStatus('Select a card first, then try Add to Deck again.', 'error');
     return;
   }
@@ -5367,7 +5396,12 @@ async function addSelectedCardToDeck() {
 async function setSelectedCardAsCommander() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = getCurrentDeckBuilderSelectedCard();
-  if (!deck || !card) {
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open or create a deck right now.', 'error');
+    return;
+  }
+
+  if (!card) {
     setDeckBuilderSaveStatus('Select a card first, then try Set as Commander again.', 'error');
     return;
   }
@@ -5510,11 +5544,13 @@ function renderDeckBuilderSelection() {
 
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
   if (!card) {
+    persistDeckBuilderSelectedCard(null);
     delete deckBuilderSelection.dataset.selectedCard;
     deckBuilderSelection.innerHTML = '<p>Select a card from search to preview it here.</p>';
     return;
   }
 
+  persistDeckBuilderSelectedCard(card);
   deckBuilderSelection.dataset.selectedCard = JSON.stringify(card);
 
   const badges = [
@@ -5776,6 +5812,7 @@ async function selectDeckBuilderSearchResult(name) {
   setDeckBuilderSearchStatus(`Loading ${normalizedName}...`, 'neutral');
   try {
     deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Set as Commander.`, 'success');
   } catch (error) {
