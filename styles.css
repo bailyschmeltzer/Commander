@@ -1269,6 +1269,13 @@ button[type="submit"] {
   color: #485673;
 }
 
+.deck-card-preview-rules-text,
+.deck-card-rules-text {
+  margin-top: 10px;
+  color: #34415f;
+  line-height: 1.55;
+}
+
 .deck-card-preview-actions {
   margin-top: 2px;
 }

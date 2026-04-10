@@ -561,10 +561,22 @@ function normalizeDeckCardEntry(card) {
     name,
     manaCost: String(card.manaCost || '').trim(),
     typeLine,
+    oracleText: String(card.oracleText || '').trim(),
     cardType: String(card.cardType || getDeckCardPrimaryType(typeLine)).trim() || 'Other',
     scryfallUri: String(card.scryfallUri || '').trim(),
     imageUri: String(card.imageUri || '').trim(),
     imageLargeUri: String(card.imageLargeUri || '').trim(),
+    cardFaces: Array.isArray(card.cardFaces)
+      ? card.cardFaces.map((face) => ({
+        name: String(face?.name || '').trim(),
+        manaCost: String(face?.manaCost || '').trim(),
+        typeLine: String(face?.typeLine || '').trim(),
+        oracleText: String(face?.oracleText || '').trim(),
+        imageUri: String(face?.imageUri || '').trim(),
+        imageLargeUri: String(face?.imageLargeUri || '').trim(),
+        imagePngUri: String(face?.imagePngUri || '').trim(),
+      })).filter((face) => face.name || face.oracleText || face.typeLine || face.manaCost)
+      : [],
     colorIdentity: Array.isArray(card.colorIdentity) ? card.colorIdentity.map((value) => String(value || '').trim()).filter(Boolean) : [],
     isBanned: Boolean(card.isBanned),
     isGameChanger: Boolean(card.isGameChanger),
@@ -5559,6 +5571,7 @@ function renderDeckBuilderSelection() {
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
   ].filter(Boolean).join('');
+  const rulesText = getDeckCardRulesText(card);
 
   deckBuilderSelection.innerHTML = `
     <article class="deck-card-preview">
@@ -5567,6 +5580,7 @@ function renderDeckBuilderSelection() {
         <h3>${escapeHtml(card.name)}</h3>
         <p class="deck-card-preview-meta">${escapeHtml(card.typeLine || 'No type line available')}</p>
         <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(card.manaCost || '—')}</p>
+        ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="actions deck-card-preview-actions">
@@ -5646,11 +5660,26 @@ function getDeckBuilderGroupedCards(deck) {
     .filter((group) => group.cards.length);
 }
 
+function getDeckCardRulesText(card) {
+  if (!card || typeof card !== 'object') {
+    return '';
+  }
+
+  const directRulesText = String(card.oracleText || '').trim();
+  if (directRulesText) {
+    return directRulesText;
+  }
+
+  const firstFace = Array.isArray(card.cardFaces) ? card.cardFaces[0] : null;
+  return String(firstFace?.oracleText || '').trim();
+}
+
 function renderDeckCardRow(card, options = {}) {
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
   ].filter(Boolean).join('');
+  const rulesText = getDeckCardRulesText(card);
   const commanderImageMarkup = options.isCommander && (card.imageLargeUri || card.imageUri)
     ? `
       <div class="deck-card-row-media">
@@ -5673,6 +5702,7 @@ function renderDeckCardRow(card, options = {}) {
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(card.name)}</p>
         <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
+        ${options.isCommander && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="deck-card-row-actions">
