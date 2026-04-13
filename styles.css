@@ -1225,10 +1225,6 @@ button[type="submit"] {
   background: #f2f6ff;
 }
 
-.deck-builder-selection {
-  margin-top: 16px;
-}
-
 .deck-builder-selection > p,
 .deck-builder-empty-copy {
   margin: 0;

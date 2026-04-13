@@ -5628,7 +5628,7 @@ function renderDeckBuilderSelection() {
         });
       }
     } else {
-      deckBuilderSelection.innerHTML = '<p>No commander selected. Select a card from search or from your deck to set it as commander.</p>';
+      deckBuilderSelection.innerHTML = '<p class="status-muted">Search for a card or click a card in your deck to see its details here.</p>';
     }
     return;
   }
