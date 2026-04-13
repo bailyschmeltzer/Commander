@@ -7381,11 +7381,15 @@ function getDeckImportLineEntry(value) {
   let count = 1;
   let name = '';
 
+  const csvLeadingCount = working.match(/^(\d+)\s*,\s*(.+)$/);
   const leadingCount = working.match(/^(\d+)\s*x?\s+(.+)$/i);
   const compactLeadingCount = working.match(/^(\d+)x\s*(.+)$/i);
   const trailingCount = working.match(/^(.+?)\s+x\s*(\d+)$/i);
 
-  if (leadingCount) {
+  if (csvLeadingCount) {
+    count = Math.max(1, parseInt(csvLeadingCount[1], 10));
+    name = csvLeadingCount[2].trim();
+  } else if (leadingCount) {
     count = Math.max(1, parseInt(leadingCount[1], 10));
     name = leadingCount[2].trim();
   } else if (compactLeadingCount) {
