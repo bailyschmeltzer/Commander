@@ -6170,6 +6170,63 @@ function parseDeckTextList(text) {
   return { entries, commanderName };
 }
 
+function getDeckImportNameVariants(name) {
+  const raw = String(name || '').trim();
+  if (!raw) {
+    return [];
+  }
+
+  const variants = [];
+  const pushVariant = (value) => {
+    const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return;
+    }
+    const key = normalized.toLowerCase();
+    if (!variants.some((entry) => entry.toLowerCase() === key)) {
+      variants.push(normalized);
+    }
+  };
+
+  pushVariant(raw);
+  pushVariant(raw.replace(/[’‘`´]/g, "'"));
+  // DFC/split exports often include both face names joined by " // ".
+  pushVariant(raw.split(/\s*\/\/\s*/)[0]);
+  // Some exports include set tags or collector numbers after the card name.
+  pushVariant(raw.replace(/\s+\([A-Za-z0-9]+\)\s+\d+[A-Za-z]*$/i, ''));
+  pushVariant(raw.replace(/\s+\d+[A-Za-z]*$/i, ''));
+
+  return variants;
+}
+
+async function fetchDeckCardForImport(name) {
+  const candidates = getDeckImportNameVariants(name);
+  for (let i = 0; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    try {
+      const card = await fetchDeckCardByName(candidate);
+      if (card) {
+        return card;
+      }
+    } catch (error) {
+      const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+      const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
+      if (mayBeTransient) {
+        try {
+          const retryCard = await fetchDeckCardByName(candidate);
+          if (retryCard) {
+            return retryCard;
+          }
+        } catch (retryError) {
+          // Continue to next candidate.
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 async function importDeckFromText(text) {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   if (!deck) { setDeckBuilderImportStatus('No active deck.', 'error'); return; }
@@ -6190,7 +6247,7 @@ async function importDeckFromText(text) {
     const { count, name } = entries[i];
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
-      const card = await fetchDeckCardByName(name);
+      const card = await fetchDeckCardForImport(name);
       if (!card) { failed.push(name); continue; }
       const isCommander = commanderName && getIdentityKey(name) === getIdentityKey(commanderName);
       if (isCommander) {
