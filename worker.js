@@ -69,6 +69,13 @@ function buildCommanderSearchQuery(identity) {
   return `game:paper is:commander id=${identity}`;
 }
 
+function getDeckLookupKey(value) {
+  return getTextValue(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
 function mapDeckCard(card, requestOrigin) {
   const imageUri = getCardImageUri(card);
   const imageLargeUri = getCardImageVariant(card, 'large');
@@ -286,7 +293,7 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
   const uniqueNames = [];
   const seenKeys = new Set();
   requestedNames.forEach((name) => {
-    const key = name.toLowerCase();
+    const key = getDeckLookupKey(name);
     if (!seenKeys.has(key)) {
       seenKeys.add(key);
       uniqueNames.push(name);
@@ -297,7 +304,7 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
   const unresolvedNames = [];
 
   uniqueNames.forEach((name) => {
-    const key = name.toLowerCase();
+    const key = getDeckLookupKey(name);
     const cachedCard = getCachedValue(scryfallCardCache, key, SCRYFALL_CARD_CACHE_TTL_MS);
     if (cachedCard) {
       foundByNameKey.set(key, mapDeckCard(cachedCard, requestOrigin));
@@ -333,7 +340,7 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
     const cards = Array.isArray(payload?.data) ? payload.data : [];
     cards.forEach((card) => {
       const mapped = mapDeckCard(card, requestOrigin);
-      const nameKey = getTextValue(card?.name).toLowerCase();
+      const nameKey = getDeckLookupKey(card?.name);
       if (!nameKey) {
         return;
       }
@@ -345,7 +352,7 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
 
   return requestedNames.map((name) => ({
     name,
-    card: foundByNameKey.get(name.toLowerCase()) || null,
+    card: foundByNameKey.get(getDeckLookupKey(name)) || null,
   }));
 }
 

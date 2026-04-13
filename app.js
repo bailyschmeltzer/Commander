@@ -5646,6 +5646,12 @@ async function fetchDeckCardsByNamesBulk(names) {
       deckBuilderCardCache.set(normalizedCard.name.toLowerCase(), normalizedCard);
     }
     resultMap.set(getIdentityKey(queryName), normalizedCard || null);
+    if (normalizedCard) {
+      const cardNameKey = getIdentityKey(normalizedCard.name);
+      if (cardNameKey && !resultMap.has(cardNameKey)) {
+        resultMap.set(cardNameKey, normalizedCard);
+      }
+    }
   });
 
   return resultMap;
@@ -6273,6 +6279,23 @@ function getPrimaryDeckImportLookupName(name) {
   return variants.find((value) => !value.includes('//')) || variants[0] || String(name || '').trim();
 }
 
+function getBulkResolvedImportCard(entryName, bulkCardsByQuery) {
+  const variants = getDeckImportNameVariants(entryName);
+  for (let i = 0; i < variants.length; i += 1) {
+    const key = getIdentityKey(variants[i]);
+    if (!key) {
+      continue;
+    }
+
+    const card = bulkCardsByQuery.get(key);
+    if (card) {
+      return card;
+    }
+  }
+
+  return null;
+}
+
 async function fetchDeckCardForImport(name) {
   const candidates = getDeckImportNameVariants(name);
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -6333,17 +6356,24 @@ async function importDeckFromText(text) {
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
 
-  const primaryLookupByEntryKey = new Map();
+  const bulkLookupNames = [];
+  const seenBulkNameKeys = new Set();
   entries.forEach((entry) => {
-    primaryLookupByEntryKey.set(getIdentityKey(entry.name), getPrimaryDeckImportLookupName(entry.name));
+    const variants = getDeckImportNameVariants(getPrimaryDeckImportLookupName(entry.name));
+    variants.forEach((variant) => {
+      const key = getIdentityKey(variant);
+      if (!key || seenBulkNameKeys.has(key)) {
+        return;
+      }
+      seenBulkNameKeys.add(key);
+      bulkLookupNames.push(variant);
+    });
   });
 
   let bulkCardsByQuery = new Map();
   try {
     setDeckBuilderImportStatus(`Bulk loading ${totalUnique} cards...`, 'neutral');
-    bulkCardsByQuery = await fetchDeckCardsByNamesBulk(
-      entries.map((entry) => primaryLookupByEntryKey.get(getIdentityKey(entry.name)) || entry.name),
-    );
+    bulkCardsByQuery = await fetchDeckCardsByNamesBulk(bulkLookupNames);
   } catch (error) {
     // Fall back to per-card lookup if the bulk endpoint is temporarily unavailable.
     bulkCardsByQuery = new Map();
@@ -6357,9 +6387,7 @@ async function importDeckFromText(text) {
     const { count, name } = entries[i];
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
-      const entryKey = getIdentityKey(name);
-      const primaryLookupName = primaryLookupByEntryKey.get(entryKey) || name;
-      const bulkCard = bulkCardsByQuery.get(getIdentityKey(primaryLookupName)) || null;
+      const bulkCard = getBulkResolvedImportCard(name, bulkCardsByQuery);
       const card = bulkCard || await fetchDeckCardForImport(name);
       if (!card) { failed.push(name); continue; }
       const isCommander = commanderName && getIdentityKey(card.name) === getIdentityKey(commanderName);
