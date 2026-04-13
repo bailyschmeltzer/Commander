@@ -1567,11 +1567,11 @@ button[type="submit"] {
 
 .deck-list-table th:nth-child(4),
 .deck-list-table td:nth-child(4) {
-  width: 220px;
-  min-width: 220px;
+  width: 280px;
+  min-width: 260px;
   display: flex;
   gap: 8px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   word-break: normal;
 }
@@ -1579,6 +1579,7 @@ button[type="submit"] {
 .deck-list-table td:nth-child(4) button {
   white-space: nowrap;
   min-width: 84px;
+  flex: 0 0 auto;
 }
 
 .deck-list-delete {
