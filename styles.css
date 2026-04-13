@@ -1515,17 +1515,17 @@ button[type="submit"] {
 
 .deck-card-art-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 12px);
-  gap: 2px;
+  grid-template-columns: repeat(auto-fill, 36px);
+  gap: 6px;
   margin-top: 8px;
 }
 
 .deck-card-art-option {
   border: 1px solid #d8dff0;
-  border-radius: 3px;
+  border-radius: 6px;
   background: #fbfcff;
-  width: 12px;
-  height: 17px;
+  width: 36px;
+  height: 50px;
   padding: 0;
   display: block;
   text-align: center;
@@ -1537,7 +1537,7 @@ button[type="submit"] {
   height: 100%;
   aspect-ratio: 63 / 88;
   object-fit: cover;
-  border-radius: 2px;
+  border-radius: 5px;
 }
 
 .deck-card-art-option span {

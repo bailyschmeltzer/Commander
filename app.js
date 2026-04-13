@@ -947,11 +947,16 @@ function buildDeckListLinkOrText(label) {
   }
 
   const deckListEntry = getSavedDeckListEntryForCommander(normalizedLabel);
-  if (!deckListEntry?.url) {
+  if (!deckListEntry) {
     return escapeHtml(normalizedLabel);
   }
 
-  return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
+  const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
+  if (!linkedDeckId) {
+    return escapeHtml(normalizedLabel);
+  }
+
+  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
