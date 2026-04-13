@@ -91,6 +91,7 @@ const deckBuilderPage = document.querySelector('.page-deckbuilder, .page-deck-bu
 const deckBuilderTitle = document.getElementById('deck-builder-title');
 const deckBuilderNameInput = document.getElementById('deck-builder-name');
 const deckBuilderOwnerInput = document.getElementById('deck-builder-owner');
+const deckBuilderPowerInput = document.getElementById('deck-builder-power-level');
 const deckBuilderOwnerMenu = document.getElementById('deck-builder-owner-menu');
 const deckBuilderCardCount = document.getElementById('deck-builder-card-count');
 const deckBuilderSaveStatus = document.getElementById('deck-builder-save-status');
@@ -600,6 +601,19 @@ function normalizeDeckCardEntry(card) {
   };
 }
 
+function normalizeDeckPowerLevel(value) {
+  if (value === '' || value === null || typeof value === 'undefined') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.min(10, Math.max(0, Math.round(parsed * 10) / 10));
+}
+
 function normalizeDeckRecord(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
@@ -622,6 +636,7 @@ function normalizeDeckRecord(entry) {
     commander,
     cards,
     maybeboard,
+    powerLevel: normalizeDeckPowerLevel(entry.powerLevel),
     createdAt: String(entry.createdAt || new Date().toISOString()).trim(),
     updatedAt: String(entry.updatedAt || entry.createdAt || new Date().toISOString()).trim(),
   };
@@ -4903,7 +4918,64 @@ function normalizeDeckListEntry(entry) {
     commander,
     owner,
     url,
+    deckId: String(entry.deckId || '').trim(),
   };
+}
+
+function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
+  if (!entry) {
+    return '';
+  }
+
+  const normalizedDeckId = String(entry.deckId || '').trim();
+  if (normalizedDeckId && decks.some((deck) => deck.id === normalizedDeckId)) {
+    return normalizedDeckId;
+  }
+
+  const commanderKey = getIdentityKey(entry.commander);
+  if (!commanderKey) {
+    return '';
+  }
+
+  const ownerKey = getIdentityKey(entry.owner || '');
+  const ownerMatchedDeck = decks.find((deck) => {
+    if (getIdentityKey(deck.commander?.name || '') !== commanderKey) {
+      return false;
+    }
+    if (!ownerKey) {
+      return true;
+    }
+    return getIdentityKey(deck.owner || '') === ownerKey;
+  });
+
+  return ownerMatchedDeck?.id || '';
+}
+
+function linkDeckListToDeck(deck) {
+  const commanderKey = getIdentityKey(deck?.commander?.name || '');
+  if (!commanderKey) {
+    return;
+  }
+
+  const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
+  let changed = false;
+  const linkedDeckLists = deckLists.map((entry) => {
+    if (getIdentityKey(entry.commander) !== commanderKey) {
+      return entry;
+    }
+    if (entry.deckId === deck.id) {
+      return entry;
+    }
+    changed = true;
+    return {
+      ...entry,
+      deckId: deck.id,
+    };
+  });
+
+  if (changed) {
+    saveDeckLists(linkedDeckLists);
+  }
 }
 
 function getNormalizedDeckUrl(url) {
@@ -5100,6 +5172,7 @@ function createEmptyDeckRecord() {
     commander: null,
     cards: [],
     maybeboard: [],
+    powerLevel: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -5422,6 +5495,12 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   saveDecks(nextDecks);
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
+
+  if (typeof normalizedDeck.powerLevel === 'number' && normalizedDeck.commander?.name) {
+    setCommanderExpectedPower(normalizedDeck.commander.name, normalizedDeck.powerLevel);
+  }
+
+  linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
   refresh();
 }
@@ -5502,16 +5581,43 @@ async function addSelectedCardToMaybeboard() {
   }, `${card.name} added to maybeboard.`);
 }
 
+async function resolveCommanderLegalCard(card) {
+  if (!card || !card.name) {
+    return null;
+  }
+
+  if (card.isCommanderLegal) {
+    return card;
+  }
+
+  try {
+    const refreshed = await fetchDeckCardByName(card.name);
+    if (refreshed?.isCommanderLegal) {
+      return refreshed;
+    }
+  } catch (error) {
+    // Keep original unavailable state.
+  }
+
+  return null;
+}
+
 async function setSelectedCardAsCommander() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
-  const card = getCurrentDeckBuilderSelectedCard();
+  const selectedCard = getCurrentDeckBuilderSelectedCard();
   if (!deck) {
     setDeckBuilderSaveStatus('Unable to open or create a deck right now.', 'error');
     return;
   }
 
-  if (!card) {
+  if (!selectedCard) {
     setDeckBuilderSaveStatus('Select a card first, then try Set as Commander again.', 'error');
+    return;
+  }
+
+  const card = await resolveCommanderLegalCard(selectedCard);
+  if (!card) {
+    await promptLiveAlert(`${selectedCard.name} is not legal as a commander.`, 'Commander legality');
     return;
   }
 
@@ -5544,9 +5650,15 @@ async function setDeckBuilderCardAsCommander(cardId) {
     return;
   }
 
-  const nextCommander = deck.cards.find((entry) => entry.id === cardId) || null;
-  if (!nextCommander) {
+  const selectedCard = deck.cards.find((entry) => entry.id === cardId) || null;
+  if (!selectedCard) {
     setDeckBuilderSaveStatus('Could not find that card in your deck.', 'error');
+    return;
+  }
+
+  const nextCommander = await resolveCommanderLegalCard(selectedCard);
+  if (!nextCommander) {
+    await promptLiveAlert(`${selectedCard.name} is not legal as a commander.`, 'Commander legality');
     return;
   }
 
@@ -5860,7 +5972,7 @@ function renderDeckBuilderSelection() {
       <div class="actions deck-card-preview-actions">
         <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
         <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)">Add to Maybeboard</button>
-        <button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>
+        ${card.isCommanderLegal ? '<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>' : ''}
       </div>
     </article>`;
 
@@ -6180,6 +6292,14 @@ function renderDeckBuilderPage() {
   if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '')) {
     deckBuilderOwnerInput.value = deck.owner || '';
   }
+  if (deckBuilderPowerInput) {
+    const fallbackExpectedPower = deck.commander?.name ? getCommanderExpectedPower(deck.commander.name) : '';
+    const displayPower = typeof deck.powerLevel === 'number' ? deck.powerLevel : fallbackExpectedPower;
+    const nextValue = typeof displayPower === 'number' ? String(displayPower) : '';
+    if (deckBuilderPowerInput.value !== nextValue) {
+      deckBuilderPowerInput.value = nextValue;
+    }
+  }
 
   renderDeckBuilderValidation(deck);
   renderDeckBuilderSelection();
@@ -6253,6 +6373,7 @@ function queueDeckBuilderMetaSave() {
       ...deck,
       name: String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck',
       owner: normalizeIdentityLabel(deckBuilderOwnerInput?.value || ''),
+      powerLevel: normalizeDeckPowerLevel(deckBuilderPowerInput?.value),
     }, 'Deck details saved.');
   }, 220);
 }
@@ -6268,7 +6389,7 @@ async function selectDeckBuilderSearchResult(name) {
     deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
-    setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Set as Commander.`, 'success');
+    setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Add to Maybeboard.`, 'success');
   } catch (error) {
     setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
   }
@@ -7065,7 +7186,7 @@ function renderDeckCardRow(card, options = {}) {
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
-  const commanderAction = !options.isCommander && !options.fromMaybeboard
+  const commanderAction = !options.isCommander && !options.fromMaybeboard && card.isCommanderLegal
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
     : '';
   const addToDeckAction = options.fromMaybeboard
@@ -7583,17 +7704,21 @@ function renderDeckLists() {
     return;
   }
 
+  const decks = loadDecks();
+
   deckListTableBody.innerHTML = deckLists
     .map((entry) => {
       const safeCommander = escapeHtml(entry.commander);
       const safeOwner = escapeHtml(entry.owner || '—');
       const safeUrl = escapeHtml(entry.url);
+      const linkedDeckId = resolveLinkedDeckIdForDeckList(entry, decks);
       return `
         <tr>
           <td>${safeCommander}</td>
           <td>${safeOwner}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
+            ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
             <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
             <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
           </td>
@@ -7686,6 +7811,11 @@ async function handleDeckListTableAction(event) {
 
   const deckId = button.dataset.id;
   if (!deckId) {
+    return;
+  }
+
+  if (button.classList.contains('deck-list-open')) {
+    window.location.href = getDeckBuilderHref(deckId);
     return;
   }
 
@@ -10016,6 +10146,12 @@ if (deckBuilderNameInput) {
 
 if (deckBuilderOwnerInput) {
   deckBuilderOwnerInput.addEventListener('input', () => {
+    queueDeckBuilderMetaSave();
+  });
+}
+
+if (deckBuilderPowerInput) {
+  deckBuilderPowerInput.addEventListener('input', () => {
     queueDeckBuilderMetaSave();
   });
 }
