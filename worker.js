@@ -651,11 +651,14 @@ async function hasValidAuth(request, env) {
   const configuredMembers = getConfiguredMembers(env);
   const stateKey = 'pod:default:state';
 
-  if (configuredMembers.length) {
-    if (!env.POD_STATE) {
-      return { ok: false, reason: 'Server missing POD_STATE KV binding.' };
-    }
+  if (!env.POD_STATE) {
+    return { ok: false, reason: 'Server missing POD_STATE KV binding.' };
+  }
 
+  const rawState = await env.POD_STATE.get(stateKey, 'json');
+  const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
+
+  if (configuredMembers.length) {
     const normalizedUser = normalizeMemberKey(user);
     const member = configuredMembers.find((entry) => entry.token === token && entry.matchKeys.has(normalizedUser));
     if (member) {
@@ -671,8 +674,6 @@ async function hasValidAuth(request, env) {
 
     const autoProvisioned = buildAutoProvisionedAuth(user);
     if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
-      const rawState = await env.POD_STATE.get(stateKey, 'json');
-      const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
       if (registeredPlayerKeys.has(autoProvisioned.userId)) {
         return autoProvisioned;
       }
@@ -693,10 +694,6 @@ async function hasValidAuth(request, env) {
     return { ok: false, reason: 'Server missing POD_ACCESS_TOKEN.' };
   }
 
-  if (!env.POD_STATE) {
-    return { ok: false, reason: 'Server missing POD_STATE KV binding.' };
-  }
-
   if (!user || !token) {
     return { ok: false, reason: 'Missing credentials.' };
   }
@@ -705,10 +702,15 @@ async function hasValidAuth(request, env) {
     return { ok: false, reason: 'Invalid pod access code.' };
   }
 
+  const normalizedUser = normalizeMemberKey(user);
+  if (!registeredPlayerKeys.has(normalizedUser)) {
+    return { ok: false, reason: 'Player is not registered in game history.' };
+  }
+
   return {
     ok: true,
     user,
-    userId: normalizeMemberKey(user),
+    userId: normalizedUser,
     displayName: user,
     role: 'member',
     authMode: 'legacy',
