@@ -1114,6 +1114,13 @@ button[type="submit"] {
   align-items: start;
 }
 
+.deck-builder-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .deck-builder-meta-card,
 .deck-builder-search-card,
 .deck-builder-cards-card {
@@ -1122,7 +1129,6 @@ button[type="submit"] {
 
 .deck-builder-cards-card {
   grid-column: 2;
-  grid-row: 1 / -1;
   align-self: stretch;
 }
 
@@ -1325,7 +1331,7 @@ button[type="submit"] {
 
 .deck-builder-group-cards {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -3050,6 +3056,7 @@ button[type="submit"] {
     grid-template-columns: 1fr;
   }
 
+  .page-deckbuilder .deck-builder-left-col,
   .page-deckbuilder .deck-builder-cards-card,
   .page-deckbuilder .deck-builder-search-card,
   .page-deckbuilder .deck-builder-meta-card {
