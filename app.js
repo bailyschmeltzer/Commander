@@ -15,6 +15,7 @@ const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const DECK_CARD_ENDPOINT = '/api/deck-card';
+const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
@@ -5597,6 +5598,59 @@ async function fetchDeckCardByName(name) {
   return card;
 }
 
+async function fetchDeckCardsByNamesBulk(names) {
+  const normalizedNames = Array.isArray(names)
+    ? names.map((value) => String(value || '').trim()).filter(Boolean)
+    : [];
+
+  if (!normalizedNames.length) {
+    return new Map();
+  }
+
+  const response = await fetch(DECK_CARDS_BULK_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ names: normalizedNames }),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        message = `${payload.error || message} ${payload.detail}`.trim();
+      } else if (payload?.error) {
+        message = payload.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  const resultMap = new Map();
+  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+  cards.forEach((entry) => {
+    const queryName = String(entry?.name || '').trim();
+    if (!queryName) {
+      return;
+    }
+
+    const normalizedCard = normalizeDeckCardEntry(entry?.card);
+    if (normalizedCard) {
+      deckBuilderCardCache.set(queryName.toLowerCase(), normalizedCard);
+      deckBuilderCardCache.set(normalizedCard.name.toLowerCase(), normalizedCard);
+    }
+    resultMap.set(getIdentityKey(queryName), normalizedCard || null);
+  });
+
+  return resultMap;
+}
+
 async function selectDeckCardByName(cardName) {
   try {
     const card = await fetchDeckCardByName(cardName);
@@ -6147,7 +6201,8 @@ function exportDeckAsText(deck) {
 function parseDeckTextList(text) {
   let commanderName = null;
   let inCommanderSection = false;
-  const entries = [];
+  const entryCounts = new Map();
+  const entryNames = new Map();
 
   String(text || '').split('\n').forEach((line) => {
     const trimmed = line.trim();
@@ -6158,14 +6213,28 @@ function parseDeckTextList(text) {
     }
     const match = trimmed.match(/^(\d+)\s+(.+)$/);
     if (!match) return;
-    const count = Math.max(1, Math.min(100, parseInt(match[1], 10)));
+    const count = Math.max(1, parseInt(match[1], 10));
     const name = match[2].trim();
     if (inCommanderSection && !commanderName) {
       commanderName = name;
       inCommanderSection = false;
     }
-    entries.push({ count, name });
+
+    const key = getIdentityKey(name);
+    if (!key) {
+      return;
+    }
+
+    entryCounts.set(key, (entryCounts.get(key) || 0) + count);
+    if (!entryNames.has(key)) {
+      entryNames.set(key, name);
+    }
   });
+
+  const entries = [...entryCounts.entries()].map(([key, count]) => ({
+    name: entryNames.get(key) || key,
+    count,
+  }));
 
   return { entries, commanderName };
 }
@@ -6199,26 +6268,51 @@ function getDeckImportNameVariants(name) {
   return variants;
 }
 
+function getPrimaryDeckImportLookupName(name) {
+  const variants = getDeckImportNameVariants(name);
+  return variants.find((value) => !value.includes('//')) || variants[0] || String(name || '').trim();
+}
+
 async function fetchDeckCardForImport(name) {
   const candidates = getDeckImportNameVariants(name);
+  const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
   for (let i = 0; i < candidates.length; i += 1) {
     const candidate = candidates[i];
-    try {
-      const card = await fetchDeckCardByName(candidate);
-      if (card) {
-        return card;
-      }
-    } catch (error) {
-      const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
-      const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
-      if (mayBeTransient) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const card = await fetchDeckCardByName(candidate);
+        if (card) {
+          return card;
+        }
+        break;
+      } catch (error) {
+        const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+        const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
+        if (!mayBeTransient) {
+          break;
+        }
+
+        // Respect retry hints like "Try again in about 60 seconds" when available.
+        const retrySecondsMatch = message.match(/about\s+(\d+)\s+seconds?/);
+        const retryDelayMs = retrySecondsMatch
+          ? Math.min(15000, Math.max(500, Number(retrySecondsMatch[1]) * 1000))
+          : (400 * (attempt + 1));
+
+        await wait(retryDelayMs);
+
+        if (attempt === 3) {
+          break;
+        }
+
         try {
           const retryCard = await fetchDeckCardByName(candidate);
           if (retryCard) {
             return retryCard;
           }
+          break;
         } catch (retryError) {
-          // Continue to next candidate.
+          // Continue attempting transient retries for this candidate.
         }
       }
     }
@@ -6239,6 +6333,22 @@ async function importDeckFromText(text) {
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
 
+  const primaryLookupByEntryKey = new Map();
+  entries.forEach((entry) => {
+    primaryLookupByEntryKey.set(getIdentityKey(entry.name), getPrimaryDeckImportLookupName(entry.name));
+  });
+
+  let bulkCardsByQuery = new Map();
+  try {
+    setDeckBuilderImportStatus(`Bulk loading ${totalUnique} cards...`, 'neutral');
+    bulkCardsByQuery = await fetchDeckCardsByNamesBulk(
+      entries.map((entry) => primaryLookupByEntryKey.get(getIdentityKey(entry.name)) || entry.name),
+    );
+  } catch (error) {
+    // Fall back to per-card lookup if the bulk endpoint is temporarily unavailable.
+    bulkCardsByQuery = new Map();
+  }
+
   const newCards = [];
   let newCommander = null;
   const failed = [];
@@ -6247,9 +6357,12 @@ async function importDeckFromText(text) {
     const { count, name } = entries[i];
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
-      const card = await fetchDeckCardForImport(name);
+      const entryKey = getIdentityKey(name);
+      const primaryLookupName = primaryLookupByEntryKey.get(entryKey) || name;
+      const bulkCard = bulkCardsByQuery.get(getIdentityKey(primaryLookupName)) || null;
+      const card = bulkCard || await fetchDeckCardForImport(name);
       if (!card) { failed.push(name); continue; }
-      const isCommander = commanderName && getIdentityKey(name) === getIdentityKey(commanderName);
+      const isCommander = commanderName && getIdentityKey(card.name) === getIdentityKey(commanderName);
       if (isCommander) {
         newCommander = card;
       } else {
@@ -6259,6 +6372,11 @@ async function importDeckFromText(text) {
       }
     } catch (e) {
       failed.push(name);
+    }
+
+    // Small pacing delay helps avoid Scryfall burst throttling on large imports.
+    if (i < entries.length - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
     }
   }
 

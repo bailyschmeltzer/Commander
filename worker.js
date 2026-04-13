@@ -274,6 +274,81 @@ async function fetchDeckCardByName(name, requestOrigin) {
   return mapDeckCard(payload, requestOrigin);
 }
 
+async function fetchDeckCardsByNames(names, requestOrigin) {
+  const requestedNames = Array.isArray(names)
+    ? names.map((value) => getTextValue(value)).filter(Boolean)
+    : [];
+
+  if (!requestedNames.length) {
+    return [];
+  }
+
+  const uniqueNames = [];
+  const seenKeys = new Set();
+  requestedNames.forEach((name) => {
+    const key = name.toLowerCase();
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueNames.push(name);
+    }
+  });
+
+  const foundByNameKey = new Map();
+  const unresolvedNames = [];
+
+  uniqueNames.forEach((name) => {
+    const key = name.toLowerCase();
+    const cachedCard = getCachedValue(scryfallCardCache, key, SCRYFALL_CARD_CACHE_TTL_MS);
+    if (cachedCard) {
+      foundByNameKey.set(key, mapDeckCard(cachedCard, requestOrigin));
+      return;
+    }
+    unresolvedNames.push(name);
+  });
+
+  const CHUNK_SIZE = 75;
+  for (let offset = 0; offset < unresolvedNames.length; offset += CHUNK_SIZE) {
+    const batch = unresolvedNames.slice(offset, offset + CHUNK_SIZE);
+    const response = await fetch('https://api.scryfall.com/cards/collection', {
+      method: 'POST',
+      headers: {
+        ...getScryfallHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        identifiers: batch.map((name) => ({ name })),
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error(`Scryfall card bulk lookup is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+      }
+
+      const detail = await response.text();
+      throw new Error(`Scryfall card bulk lookup failed (${response.status}): ${detail}`);
+    }
+
+    const payload = await response.json();
+    const cards = Array.isArray(payload?.data) ? payload.data : [];
+    cards.forEach((card) => {
+      const mapped = mapDeckCard(card, requestOrigin);
+      const nameKey = getTextValue(card?.name).toLowerCase();
+      if (!nameKey) {
+        return;
+      }
+
+      foundByNameKey.set(nameKey, mapped);
+      setCachedValue(scryfallCardCache, nameKey, card);
+    });
+  }
+
+  return requestedNames.map((name) => ({
+    name,
+    card: foundByNameKey.get(name.toLowerCase()) || null,
+  }));
+}
+
 async function fetchCommanderCandidates(identity) {
   const cards = [];
   let nextPage = new URL('https://api.scryfall.com/cards/search');
@@ -512,6 +587,38 @@ export default {
       } catch (error) {
         return jsonResponse({
           error: 'Unable to load that card right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
+    if (url.pathname === '/api/deck-cards-bulk') {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      let body;
+      try {
+        body = await request.json();
+      } catch (error) {
+        return jsonResponse({ error: 'Invalid JSON payload.' }, 400);
+      }
+
+      const names = Array.isArray(body?.names) ? body.names : [];
+      if (!names.length) {
+        return jsonResponse({ cards: [] }, 200, {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        });
+      }
+
+      try {
+        const cards = await fetchDeckCardsByNames(names, requestOrigin);
+        return jsonResponse({ cards }, 200, {
+          'Cache-Control': 'public, max-age=600, s-maxage=600',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load card batch right now.',
           detail: error instanceof Error ? error.message : String(error),
         }, 502);
       }
