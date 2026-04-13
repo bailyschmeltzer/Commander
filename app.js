@@ -14,7 +14,9 @@ const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
 const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
+const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
 const DECK_CARD_ENDPOINT = '/api/deck-card';
+const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const form = document.getElementById('game-form');
@@ -103,6 +105,9 @@ const deckBuilderValidation = document.getElementById('deck-builder-validation')
 const deckBuilderSearchInput = document.getElementById('deck-builder-search');
 const deckBuilderSearchResults = document.getElementById('deck-builder-search-results');
 const deckBuilderSearchStatus = document.getElementById('deck-builder-search-status');
+const deckBuilderTokenSearchInput = document.getElementById('deck-builder-token-search');
+const deckBuilderTokenSearchResults = document.getElementById('deck-builder-token-search-results');
+const deckBuilderTokenSearchStatus = document.getElementById('deck-builder-token-search-status');
 const deckBuilderSelection = document.getElementById('deck-builder-selection');
 const deckBuilderCards = document.getElementById('deck-builder-cards');
 const deckBuilderTextList = document.getElementById('deck-builder-text-list');
@@ -110,6 +115,7 @@ const deckBuilderExportButton = document.getElementById('deck-builder-export');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
+const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -203,6 +209,11 @@ if (deckBuilderSearchStatus) {
   deckBuilderSearchStatus.setAttribute('aria-live', 'polite');
 }
 
+if (deckBuilderTokenSearchStatus) {
+  deckBuilderTokenSearchStatus.setAttribute('role', 'status');
+  deckBuilderTokenSearchStatus.setAttribute('aria-live', 'polite');
+}
+
 let historySortKey = 'date';
 let historySortDescending = true;
 let editingGameId = null;
@@ -251,11 +262,20 @@ let deckBuilderSearchRequestId = 0;
 let deckBuilderSearchTimer = null;
 let deckBuilderSearchLoading = false;
 let deckBuilderSearchResultsState = [];
+let deckBuilderTokenSearchRequestId = 0;
+let deckBuilderTokenSearchTimer = null;
+let deckBuilderTokenSearchLoading = false;
+let deckBuilderTokenSearchResultsState = [];
 let deckBuilderSelectedCard = null;
 let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
+let deckBuilderArtPickerCardId = '';
+let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+let deckListOracleBackfillRan = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
+const deckBuilderArtOptionsCache = new Map();
+const deckBuilderUndoStacks = {};
 const hydratedDeckIds = new Set();
 let activeGameState = null;
 let activeGameUndoState = [];
@@ -602,6 +622,7 @@ function normalizeDeckCardEntry(card) {
     isBanned: Boolean(card.isBanned),
     isGameChanger: Boolean(card.isGameChanger),
     isCommanderLegal: Boolean(card.isCommanderLegal),
+    isToken: Boolean(card.isToken),
   };
 }
 
@@ -632,6 +653,9 @@ function normalizeDeckRecord(entry) {
   const maybeboard = Array.isArray(entry.maybeboard)
     ? entry.maybeboard.map(normalizeDeckCardEntry).filter(Boolean)
     : [];
+  const tokens = Array.isArray(entry.tokens)
+    ? entry.tokens.map(normalizeDeckCardEntry).filter(Boolean)
+    : [];
 
   return {
     id: String(entry.id || generateId()).trim(),
@@ -640,6 +664,7 @@ function normalizeDeckRecord(entry) {
     commander,
     cards,
     maybeboard,
+    tokens,
     powerLevel: normalizeDeckPowerLevel(entry.powerLevel),
     createdAt: String(entry.createdAt || new Date().toISOString()).trim(),
     updatedAt: String(entry.updatedAt || entry.createdAt || new Date().toISOString()).trim(),
@@ -5106,6 +5131,52 @@ function getSortedDeckLists() {
     .sort((a, b) => a.commander.localeCompare(b.commander));
 }
 
+async function backfillDeckListCommanderOracleIds() {
+  if (deckListOracleBackfillRan) {
+    return;
+  }
+
+  deckListOracleBackfillRan = true;
+  const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
+  const entriesMissingOracleId = deckLists.filter((entry) => !entry.commanderOracleId && entry.commander);
+  if (!entriesMissingOracleId.length) {
+    return;
+  }
+
+  const commanderNames = getUniqueValues(entriesMissingOracleId.map((entry) => entry.commander));
+  try {
+    const cardsByQuery = await fetchDeckCardsByNamesBulk(commanderNames);
+    let changed = false;
+
+    const nextDeckLists = deckLists.map((entry) => {
+      if (entry.commanderOracleId || !entry.commander) {
+        return entry;
+      }
+
+      const card = cardsByQuery.get(getIdentityKey(entry.commander));
+      const oracleId = String(card?.oracleId || '').trim();
+      if (!oracleId) {
+        return entry;
+      }
+
+      changed = true;
+      return {
+        ...entry,
+        commanderOracleId: oracleId,
+      };
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    saveDeckLists(nextDeckLists);
+    refresh();
+  } catch (error) {
+    console.warn('Unable to backfill deck list oracle IDs:', error);
+  }
+}
+
 function populateDeckCommanderSelector() {
   if (!deckCommanderMenu) {
     if (deckOwnerMenu) {
@@ -5214,6 +5285,7 @@ function createEmptyDeckRecord() {
     commander: null,
     cards: [],
     maybeboard: [],
+    tokens: [],
     powerLevel: null,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -5462,6 +5534,16 @@ function setDeckBuilderSearchStatus(message, tone = 'muted') {
   deckBuilderSearchStatus.classList.add(`status-${tone}`);
 }
 
+function setDeckBuilderTokenSearchStatus(message, tone = 'muted') {
+  if (!deckBuilderTokenSearchStatus) {
+    return;
+  }
+
+  deckBuilderTokenSearchStatus.textContent = message;
+  deckBuilderTokenSearchStatus.classList.remove('status-muted', 'status-success', 'status-error', 'status-neutral');
+  deckBuilderTokenSearchStatus.classList.add(`status-${tone}`);
+}
+
 function persistDeckBuilderSelectedCard(card) {
   const normalizedCard = normalizeDeckCardEntry(card);
   if (!normalizedCard) {
@@ -5544,7 +5626,33 @@ function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
   return null;
 }
 
-function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success') {
+function updateDeckBuilderUndoButton() {
+  if (!deckBuilderUndoButton) return;
+  const stackLen = activeDeckBuilderRecord
+    ? (deckBuilderUndoStacks[activeDeckBuilderRecord.id] || []).length
+    : 0;
+  deckBuilderUndoButton.disabled = stackLen === 0;
+}
+
+async function undoDeckBuilderChange() {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) return;
+  const stack = deckBuilderUndoStacks[deck.id] || [];
+  if (stack.length === 0) {
+    setDeckBuilderSaveStatus('Nothing to undo.', 'muted');
+    return;
+  }
+  const previousState = stack.pop();
+  persistDeckBuilderRecord(previousState, 'Change undone.', 'muted', { skipUndo: true });
+}
+
+function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success', { skipUndo = false } = {}) {
+  if (!skipUndo && activeDeckBuilderRecord) {
+    if (!deckBuilderUndoStacks[activeDeckBuilderRecord.id]) {
+      deckBuilderUndoStacks[activeDeckBuilderRecord.id] = [];
+    }
+    deckBuilderUndoStacks[activeDeckBuilderRecord.id].push(JSON.parse(JSON.stringify(activeDeckBuilderRecord)));
+  }
   const normalizedDeck = normalizeDeckRecord({
     ...nextDeck,
     updatedAt: new Date().toISOString(),
@@ -5564,6 +5672,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
 
   linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
+  updateDeckBuilderUndoButton();
   refresh();
 }
 
@@ -5603,8 +5712,28 @@ function cardHasPartnerAbility(card) {
   return /\bpartner\b/.test(allText);
 }
 
+function isCommanderEligibleCard(card) {
+  if (!card || card.isBanned || !card.isCommanderLegal) {
+    return false;
+  }
+
+  const typeText = [
+    String(card.typeLine || ''),
+    ...(Array.isArray(card.cardFaces) ? card.cardFaces.map((face) => String(face?.typeLine || '')) : []),
+  ].join(' ').toLowerCase();
+  const rulesText = [
+    String(card.oracleText || ''),
+    ...(Array.isArray(card.cardFaces) ? card.cardFaces.map((face) => String(face?.oracleText || '')) : []),
+  ].join(' ').toLowerCase();
+
+  const isLegendaryCreature = /\blegendary\b/.test(typeText) && /\bcreature\b/.test(typeText);
+  const hasCommanderTextOverride = /can be your commander/.test(rulesText);
+
+  return isLegendaryCreature || hasCommanderTextOverride;
+}
+
 function canSetCardAsCommanderForDeck(deck, card) {
-  if (!card?.isCommanderLegal) {
+  if (!isCommanderEligibleCard(card)) {
     return false;
   }
 
@@ -5641,13 +5770,24 @@ async function addSelectedCardToDeck() {
     return;
   }
 
+  if (card.isToken) {
+    await promptLiveAlert('Token cards can only be added to the Tokens section.', 'Token card');
+    return;
+  }
+
   const isBasic = isBasicLand(card);
   const cardNameKey = getIdentityKey(card.name);
   const deckCardNameSet = getDeckBuilderCardNameSet(deck);
-  
+
   // Non-basic lands cannot have duplicates
   if (!isBasic && deckCardNameSet.has(cardNameKey)) {
     await promptLiveAlert(`${card.name} is already in this deck. Only basic lands can have multiple copies.`, 'Duplicate card');
+    return;
+  }
+
+  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === cardNameKey);
+  if (!isBasic && existsInMaybeboard) {
+    await promptLiveAlert(`${card.name} is already in the maybeboard. Remove it there before adding it to the deck.`, 'Duplicate card');
     return;
   }
 
@@ -5670,9 +5810,23 @@ async function addSelectedCardToMaybeboard() {
     return;
   }
 
-  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+  if (card.isToken) {
+    await promptLiveAlert('Token cards can only be added to the Tokens section.', 'Token card');
+    return;
+  }
+
+  const cardNameKey = getIdentityKey(card.name);
+  const isBasic = isBasicLand(card);
+
+  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === cardNameKey);
   if (existsInMaybeboard) {
     await promptLiveAlert(`${card.name} is already in the maybeboard.`, 'Duplicate card');
+    return;
+  }
+
+  const deckCardNameSet = getDeckBuilderCardNameSet(deck);
+  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
+    await promptLiveAlert(`${card.name} is already in the deck. Remove it there before adding it to the maybeboard.`, 'Duplicate card');
     return;
   }
 
@@ -5682,18 +5836,48 @@ async function addSelectedCardToMaybeboard() {
   }, `${card.name} added to maybeboard.`);
 }
 
+async function addSelectedCardToTokens() {
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+  const card = getCurrentDeckBuilderSelectedCard();
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open or create a deck right now.', 'error');
+    return;
+  }
+
+  if (!card) {
+    setDeckBuilderSaveStatus('Select a card first, then try Add to Tokens again.', 'error');
+    return;
+  }
+
+  if (!card.isToken) {
+    await promptLiveAlert('Only token cards can be added to the Tokens section.', 'Token card');
+    return;
+  }
+
+  const existsInTokens = (deck.tokens || []).some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+  if (existsInTokens) {
+    await promptLiveAlert(`${card.name} is already in tokens.`, 'Duplicate token');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    tokens: [...(deck.tokens || []), card],
+  }, `${card.name} added to tokens.`);
+}
+
 async function resolveCommanderLegalCard(card) {
   if (!card || !card.name) {
     return null;
   }
 
-  if (card.isCommanderLegal) {
+  if (isCommanderEligibleCard(card)) {
     return card;
   }
 
   try {
     const refreshed = await fetchDeckCardByName(card.name);
-    if (refreshed?.isCommanderLegal) {
+    if (isCommanderEligibleCard(refreshed)) {
       return refreshed;
     }
   } catch (error) {
@@ -5807,6 +5991,11 @@ async function addMaybeboardCardToDeck(cardId) {
     return;
   }
 
+  if (card.isToken) {
+    await promptLiveAlert('Token cards cannot be added to the main deck.', 'Token card');
+    return;
+  }
+
   const isBasic = isBasicLand(card);
   const cardNameKey = getIdentityKey(card.name);
   const deckCardNameSet = getDeckBuilderCardNameSet(deck);
@@ -5820,6 +6009,32 @@ async function addMaybeboardCardToDeck(cardId) {
     cards: [...deck.cards, { ...card, id: generateId() }],
     maybeboard: (deck.maybeboard || []).filter((entry) => entry.id !== cardId),
   }, `${card.name} moved from maybeboard to deck.`);
+}
+
+async function moveDeckCardToMaybeboard(cardId) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open the deck right now.', 'error');
+    return;
+  }
+
+  const card = (deck.cards || []).find((entry) => entry.id === cardId) || null;
+  if (!card) {
+    setDeckBuilderSaveStatus('Could not find that card in your deck.', 'error');
+    return;
+  }
+
+  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+  if (existsInMaybeboard) {
+    await promptLiveAlert(`${card.name} is already in the maybeboard.`, 'Duplicate card');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    cards: (deck.cards || []).filter((entry) => entry.id !== cardId),
+    maybeboard: [...(deck.maybeboard || []), { ...card, id: generateId() }],
+  }, `${card.name} moved to maybeboard.`);
 }
 
 function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
@@ -5840,6 +6055,7 @@ function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
     ...deck,
     cards: deck.cards.filter((card) => card.id !== cardId),
     maybeboard: (deck.maybeboard || []).filter((card) => card.id !== cardId),
+    tokens: (deck.tokens || []).filter((card) => card.id !== cardId),
   }, 'Card removed.', 'neutral');
 }
 
@@ -5974,6 +6190,175 @@ async function fetchDeckCardsByNamesBulk(names) {
   return resultMap;
 }
 
+async function fetchDeckCardArtOptions(card) {
+  const oracleId = String(card?.oracleId || '').trim();
+  const name = String(card?.name || '').trim();
+  if (!oracleId && !name) {
+    return [];
+  }
+
+  const query = new URLSearchParams();
+  if (oracleId) {
+    query.set('oracleId', oracleId);
+  }
+  if (name) {
+    query.set('name', name);
+  }
+
+  const response = await fetch(`${DECK_CARD_ARTS_ENDPOINT}?${query.toString()}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        message = `${payload.error || message} ${payload.detail}`.trim();
+      } else if (payload?.error) {
+        message = payload.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload?.prints) ? payload.prints : [];
+}
+
+function getDeckBuilderArtCacheKey(card) {
+  const oracleId = String(card?.oracleId || '').trim().toLowerCase();
+  if (oracleId) {
+    return `oracle:${oracleId}`;
+  }
+
+  const nameKey = getIdentityKey(card?.name || '');
+  return nameKey ? `name:${nameKey}` : '';
+}
+
+function findDeckBuilderCardById(deck, cardId) {
+  if (!deck || !cardId) {
+    return null;
+  }
+
+  if (deck.commander?.id === cardId) {
+    return { zone: 'commander', card: deck.commander };
+  }
+
+  const mainCard = (deck.cards || []).find((card) => card.id === cardId);
+  if (mainCard) {
+    return { zone: 'cards', card: mainCard };
+  }
+
+  const tokenCard = (deck.tokens || []).find((card) => card.id === cardId);
+  if (tokenCard) {
+    return { zone: 'tokens', card: tokenCard };
+  }
+
+  const maybeCard = (deck.maybeboard || []).find((card) => card.id === cardId);
+  if (maybeCard) {
+    return { zone: 'maybeboard', card: maybeCard };
+  }
+
+  return null;
+}
+
+async function openDeckBuilderArtPicker(cardId) {
+  const deck = ensureActiveDeckBuilderRecord();
+  const located = findDeckBuilderCardById(deck, cardId);
+  if (!deck || !located?.card) {
+    return;
+  }
+
+  const card = located.card;
+  const cacheKey = getDeckBuilderArtCacheKey(card);
+  deckBuilderArtPickerCardId = cardId;
+
+  if (cacheKey && deckBuilderArtOptionsCache.has(cacheKey)) {
+    deckBuilderArtPickerState = {
+      status: 'ready',
+      cardId,
+      options: deckBuilderArtOptionsCache.get(cacheKey),
+      message: '',
+    };
+    renderDeckBuilderCards(deck);
+    return;
+  }
+
+  deckBuilderArtPickerState = {
+    status: 'loading',
+    cardId,
+    options: [],
+    message: 'Loading art options...',
+  };
+  renderDeckBuilderCards(deck);
+
+  try {
+    const options = await fetchDeckCardArtOptions(card);
+    if (cacheKey) {
+      deckBuilderArtOptionsCache.set(cacheKey, options);
+    }
+    deckBuilderArtPickerState = {
+      status: 'ready',
+      cardId,
+      options,
+      message: options.length ? '' : 'No alternate arts found for this card.',
+    };
+  } catch (error) {
+    deckBuilderArtPickerState = {
+      status: 'error',
+      cardId,
+      options: [],
+      message: error instanceof Error ? error.message : 'Unable to load art options right now.',
+    };
+  }
+
+  renderDeckBuilderCards(deck);
+}
+
+function applyDeckBuilderCardArt(cardId, print) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck || !print || !cardId) {
+    return;
+  }
+
+  const applyPrint = (card) => ({
+    ...card,
+    imageUri: String(print.imageUri || card.imageUri || '').trim(),
+    imageLargeUri: String(print.imageLargeUri || card.imageLargeUri || '').trim(),
+    cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (card.cardFaces || []),
+    scryfallUri: String(print.scryfallUri || card.scryfallUri || '').trim(),
+  });
+
+  let changed = false;
+  const nextCommander = deck.commander?.id === cardId ? applyPrint(deck.commander) : deck.commander;
+  changed = changed || Boolean(deck.commander?.id === cardId);
+
+  const updateList = (list) => (list || []).map((card) => {
+    if (card.id !== cardId) {
+      return card;
+    }
+    changed = true;
+    return applyPrint(card);
+  });
+
+  const nextDeck = {
+    ...deck,
+    commander: nextCommander,
+    cards: updateList(deck.cards),
+    tokens: updateList(deck.tokens),
+    maybeboard: updateList(deck.maybeboard),
+  };
+
+  if (!changed) {
+    return;
+  }
+
+  persistDeckBuilderRecord(nextDeck, 'Card art updated.');
+}
+
 async function selectDeckCardByName(cardName) {
   try {
     const card = await fetchDeckCardByName(cardName);
@@ -6085,6 +6470,7 @@ function renderDeckBuilderSelection() {
       </div>
       <div class="actions deck-card-preview-actions">
         <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
+        ${card.isToken ? '<button type="button" id="deck-builder-add-token" class="secondary-button" onclick="window.__deckBuilderAddSelectedToken && window.__deckBuilderAddSelectedToken(event)">Add to Tokens</button>' : ''}
         <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)">Add to Maybeboard</button>
         ${canSetCommander ? '<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>' : ''}
       </div>
@@ -6116,6 +6502,15 @@ function renderDeckBuilderSelection() {
       await addSelectedCardToMaybeboard();
     });
   }
+
+  const addTokenButton = deckBuilderSelection.querySelector('#deck-builder-add-token');
+  if (addTokenButton) {
+    addTokenButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await addSelectedCardToTokens();
+    });
+  }
 }
 
 if (typeof window !== 'undefined') {
@@ -6129,6 +6524,12 @@ if (typeof window !== 'undefined') {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     await addSelectedCardToMaybeboard();
+  };
+
+  window.__deckBuilderAddSelectedToken = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    await addSelectedCardToTokens();
   };
 
   window.__deckBuilderSetCommander = async (event) => {
@@ -6236,7 +6637,7 @@ function renderDeckBuilderCards(deck) {
           <h3>Commander</h3>
           <p>1 card</p>
         </div>
-        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true })}</div>
+        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId })}</div>
       </section>`
     : `
       <section class="deck-builder-group">
@@ -6270,6 +6671,7 @@ function renderDeckBuilderCards(deck) {
         isSelected: card.id === deckBuilderSelectedDeckCardId,
         isIllegal: isIllegalCard(card),
         canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+        showArtPicker: card.id === deckBuilderArtPickerCardId,
       })).join('');
       const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
         `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
@@ -6297,6 +6699,7 @@ function renderDeckBuilderCards(deck) {
           isSelected: card.id === deckBuilderSelectedDeckCardId,
           isIllegal: isIllegalCard(card),
           canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+          showArtPicker: card.id === deckBuilderArtPickerCardId,
         })).join('')}</div>
       </section>`;
   }).join('');
@@ -6318,6 +6721,23 @@ function renderDeckBuilderCards(deck) {
       </div>
     </section>`;
 
+  const tokenCards = (deck?.tokens || []).slice().sort((a, b) => compareTextValues(a.name, b.name));
+  const tokensMarkup = `
+    <section class="deck-builder-group">
+      <div class="deck-builder-group-header">
+        <h3>Tokens</h3>
+        <p>${escapeHtml(String(tokenCards.length))} token${tokenCards.length === 1 ? '' : 's'}</p>
+      </div>
+      ${tokenCards.length
+        ? `<div class="deck-builder-group-cards">${tokenCards.map((card) => renderDeckCardRow(card, {
+          isSelected: card.id === deckBuilderSelectedDeckCardId,
+          fromTokens: true,
+          canSetCommander: false,
+          showArtPicker: card.id === deckBuilderArtPickerCardId,
+        })).join('')}</div>`
+        : '<p class="deck-builder-empty-copy">Track token cards here. Tokens do not count toward deck legality.</p>'}
+    </section>`;
+
   const maybeboardCards = (deck?.maybeboard || []).slice().sort((a, b) => compareTextValues(a.name, b.name));
   const maybeboardMarkup = `
     <section class="deck-builder-group">
@@ -6330,11 +6750,12 @@ function renderDeckBuilderCards(deck) {
           isSelected: card.id === deckBuilderSelectedDeckCardId,
           fromMaybeboard: true,
           canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+          showArtPicker: card.id === deckBuilderArtPickerCardId,
         })).join('')}</div>`
         : '<p class="deck-builder-empty-copy">Add cards here as possible includes. Maybeboard cards do not affect deck legality.</p>'}
     </section>`;
 
-  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}${maybeboardMarkup}`;
+  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}${tokensMarkup}${maybeboardMarkup}`;
 }
 
 async function hydrateDeckCardStats(deck) {
@@ -6431,6 +6852,7 @@ function renderDeckBuilderPage() {
   renderDeckBuilderSelection();
   renderDeckBuilderCards(deck);
   renderDeckBuilderSearchResults();
+  renderDeckBuilderTokenSearchResults();
   hydrateDeckCardStats(deck);
 }
 
@@ -6513,6 +6935,10 @@ async function selectDeckBuilderSearchResult(name) {
   setDeckBuilderSearchStatus(`Loading ${normalizedName}...`, 'neutral');
   try {
     deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    if (deckBuilderSelectedCard?.isToken) {
+      setDeckBuilderSearchStatus('That is a token card. Use Token Search to add it to the token pool.', 'error');
+      return;
+    }
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Add to Maybeboard.`, 'success');
@@ -6530,6 +6956,10 @@ async function selectAndAddDeckSearchResult(name) {
   setDeckBuilderSearchStatus(`Adding ${normalizedName}...`, 'neutral');
   try {
     deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    if (deckBuilderSelectedCard?.isToken) {
+      setDeckBuilderSearchStatus('That is a token card. Use Token Search to add it to the token pool.', 'error');
+      return;
+    }
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     await addSelectedCardToDeck();
@@ -6540,6 +6970,127 @@ async function selectAndAddDeckSearchResult(name) {
     renderDeckBuilderSearchResults();
   } catch (error) {
     setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
+  }
+}
+
+function renderDeckBuilderTokenSearchResults() {
+  if (!deckBuilderTokenSearchResults) {
+    return;
+  }
+
+  if (!deckBuilderTokenSearchResultsState.length) {
+    deckBuilderTokenSearchResults.innerHTML = '';
+    deckBuilderTokenSearchResults.hidden = true;
+    return;
+  }
+
+  deckBuilderTokenSearchResults.innerHTML = deckBuilderTokenSearchResultsState
+    .map((name) => `<button type="button" class="deck-search-result" data-token-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`)
+    .join('');
+  deckBuilderTokenSearchResults.hidden = false;
+}
+
+async function fetchTokenSearchResultsList(query) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const response = await fetch(`${TOKEN_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        message = `${payload.error || message} ${payload.detail}`.trim();
+      } else if (payload?.error) {
+        message = payload.error;
+      }
+    } catch (error) {
+      // Keep default message.
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload?.results) ? payload.results.map((value) => String(value || '').trim()).filter(Boolean) : [];
+}
+
+async function runDeckBuilderTokenSearch(query) {
+  const normalizedQuery = String(query || '').trim();
+  const requestId = deckBuilderTokenSearchRequestId + 1;
+  deckBuilderTokenSearchRequestId = requestId;
+
+  if (normalizedQuery.length < 2) {
+    deckBuilderTokenSearchLoading = false;
+    deckBuilderTokenSearchResultsState = [];
+    renderDeckBuilderTokenSearchResults();
+    setDeckBuilderTokenSearchStatus('Type at least 2 characters to search tokens.', 'muted');
+    return;
+  }
+
+  deckBuilderTokenSearchLoading = true;
+  setDeckBuilderTokenSearchStatus(`Searching token cards for ${normalizedQuery}...`, 'neutral');
+
+  try {
+    const results = await fetchTokenSearchResultsList(normalizedQuery);
+    if (requestId !== deckBuilderTokenSearchRequestId) {
+      return;
+    }
+
+    deckBuilderTokenSearchLoading = false;
+    deckBuilderTokenSearchResultsState = results;
+    renderDeckBuilderTokenSearchResults();
+    setDeckBuilderTokenSearchStatus(results.length ? `Found ${results.length} matching token cards.` : 'No token cards matched that search.', results.length ? 'success' : 'muted');
+  } catch (error) {
+    if (requestId !== deckBuilderTokenSearchRequestId) {
+      return;
+    }
+
+    deckBuilderTokenSearchLoading = false;
+    deckBuilderTokenSearchResultsState = [];
+    renderDeckBuilderTokenSearchResults();
+    setDeckBuilderTokenSearchStatus(error instanceof Error ? error.message : 'Unable to search token cards right now.', 'error');
+  }
+}
+
+function queueDeckBuilderTokenSearch(query) {
+  if (deckBuilderTokenSearchTimer) {
+    clearTimeout(deckBuilderTokenSearchTimer);
+  }
+
+  deckBuilderTokenSearchTimer = setTimeout(() => {
+    deckBuilderTokenSearchTimer = null;
+    runDeckBuilderTokenSearch(query);
+  }, 320);
+}
+
+async function selectAndAddDeckTokenSearchResult(name) {
+  const normalizedName = String(name || '').trim();
+  if (!normalizedName) {
+    return;
+  }
+
+  setDeckBuilderTokenSearchStatus(`Adding ${normalizedName} to tokens...`, 'neutral');
+  try {
+    deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    if (!deckBuilderSelectedCard?.isToken) {
+      setDeckBuilderTokenSearchStatus(`${normalizedName} is not a token card.`, 'error');
+      return;
+    }
+
+    persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
+    await addSelectedCardToTokens();
+    if (deckBuilderTokenSearchInput) {
+      deckBuilderTokenSearchInput.value = '';
+    }
+    deckBuilderTokenSearchResultsState = [];
+    renderDeckBuilderTokenSearchResults();
+  } catch (error) {
+    setDeckBuilderTokenSearchStatus(error instanceof Error ? error.message : 'Unable to load that token right now.', 'error');
   }
 }
 
@@ -6605,45 +7156,189 @@ function encodeEdhPowerLevelDeck(deckText) {
   return `${encodeURIComponent(cleaned.join('~')).replace(/%20/g, '+')}~Z~`;
 }
 
+function getDeckImportSectionType(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.includes('command zone') || normalized.includes('commander')) {
+    return 'commander';
+  }
+
+  if (normalized.includes('maybeboard') || normalized.includes('sideboard') || normalized.includes('considering') || normalized.includes('wishlist')) {
+    return 'maybeboard';
+  }
+
+  if (normalized.includes('token')) {
+    return 'tokens';
+  }
+
+  if (normalized.includes('mainboard') || normalized.includes('main board') || normalized.includes('deck')) {
+    return 'deck';
+  }
+
+  return '';
+}
+
+function getDeckImportLineEntry(value) {
+  const line = String(value || '').trim().replace(/^[-*]\s+/, '');
+  if (!line) {
+    return null;
+  }
+
+  let section = '';
+  let working = line;
+
+  const sideboardPrefix = working.match(/^(sb|sideboard)\s*:\s*(.+)$/i);
+  if (sideboardPrefix) {
+    section = 'maybeboard';
+    working = sideboardPrefix[2].trim();
+  }
+
+  const commanderPrefix = working.match(/^(cmdr|commander|command\s*zone)\s*:\s*(.+)$/i);
+  if (commanderPrefix) {
+    section = 'commander';
+    working = commanderPrefix[2].trim();
+  }
+
+  let count = 1;
+  let name = '';
+
+  const leadingCount = working.match(/^(\d+)\s*x?\s+(.+)$/i);
+  const compactLeadingCount = working.match(/^(\d+)x\s*(.+)$/i);
+  const trailingCount = working.match(/^(.+?)\s+x\s*(\d+)$/i);
+
+  if (leadingCount) {
+    count = Math.max(1, parseInt(leadingCount[1], 10));
+    name = leadingCount[2].trim();
+  } else if (compactLeadingCount) {
+    count = Math.max(1, parseInt(compactLeadingCount[1], 10));
+    name = compactLeadingCount[2].trim();
+  } else if (trailingCount) {
+    count = Math.max(1, parseInt(trailingCount[2], 10));
+    name = trailingCount[1].trim();
+  } else {
+    name = working.trim();
+  }
+
+  if (!name) {
+    return null;
+  }
+
+  // Common export clutter: set/collector tags, star tags, and inline comments.
+  name = name
+    .replace(/\s*\[[^\]]*\]\s*/g, ' ')
+    .replace(/\s*\*[^*]+\*\s*/g, ' ')
+    .replace(/\s*\([A-Za-z0-9]{2,}\)\s*\d+[A-Za-z]*$/i, '')
+    .replace(/\s+\d+[A-Za-z]*$/i, '')
+    .replace(/\s+#.*$/, '')
+    .replace(/^"|"$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!name) {
+    return null;
+  }
+
+  return { name, count, section };
+}
+
 function parseDeckTextList(text) {
   let commanderName = null;
-  let inCommanderSection = false;
-  const entryCounts = new Map();
-  const entryNames = new Map();
+  let currentSection = 'deck';
+  let hasMaybeboardSection = false;
+  let hasTokenSection = false;
+  const deckCounts = new Map();
+  const deckNames = new Map();
+  const maybeboardCounts = new Map();
+  const maybeboardNames = new Map();
+  const tokenCounts = new Map();
+  const tokenNames = new Map();
 
-  String(text || '').split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) { inCommanderSection = false; return; }
-    if (trimmed.startsWith('//') || trimmed.startsWith('#')) {
-      inCommanderSection = /commander/i.test(trimmed);
-      return;
-    }
-    const match = trimmed.match(/^(\d+)\s+(.+)$/);
-    if (!match) return;
-    const count = Math.max(1, parseInt(match[1], 10));
-    const name = match[2].trim();
-    if (inCommanderSection && !commanderName) {
-      commanderName = name;
-      inCommanderSection = false;
-    }
-
+  const addEntry = (countsMap, namesMap, name, count) => {
     const key = getIdentityKey(name);
     if (!key) {
       return;
     }
-
-    entryCounts.set(key, (entryCounts.get(key) || 0) + count);
-    if (!entryNames.has(key)) {
-      entryNames.set(key, name);
+    countsMap.set(key, (countsMap.get(key) || 0) + Math.max(1, count));
+    if (!namesMap.has(key)) {
+      namesMap.set(key, name);
     }
+  };
+
+  String(text || '').split(/\r?\n/).forEach((line) => {
+    const trimmed = String(line || '').trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const headerLine = trimmed.replace(/^\/\/\s*|^#\s*/, '').trim();
+    const explicitHeader = getDeckImportSectionType(headerLine.replace(/:$/, ''));
+    if (explicitHeader && /^([a-z\s]+:?|\[[^\]]+\])$/i.test(headerLine)) {
+      currentSection = explicitHeader;
+      if (explicitHeader === 'maybeboard') {
+        hasMaybeboardSection = true;
+      }
+      if (explicitHeader === 'tokens') {
+        hasTokenSection = true;
+      }
+      return;
+    }
+
+    if (trimmed.startsWith('//') || trimmed.startsWith('#')) {
+      const sectionFromComment = getDeckImportSectionType(headerLine);
+      if (sectionFromComment) {
+        currentSection = sectionFromComment;
+        if (sectionFromComment === 'maybeboard') {
+          hasMaybeboardSection = true;
+        }
+        if (sectionFromComment === 'tokens') {
+          hasTokenSection = true;
+        }
+      }
+      return;
+    }
+
+    const parsed = getDeckImportLineEntry(trimmed);
+    if (!parsed) {
+      return;
+    }
+
+    const entrySection = parsed.section || currentSection;
+    if (entrySection === 'commander' && !commanderName) {
+      commanderName = parsed.name;
+      return;
+    }
+
+    if (entrySection === 'maybeboard') {
+      hasMaybeboardSection = true;
+      addEntry(maybeboardCounts, maybeboardNames, parsed.name, parsed.count);
+      return;
+    }
+
+    if (entrySection === 'tokens') {
+      hasTokenSection = true;
+      addEntry(tokenCounts, tokenNames, parsed.name, parsed.count);
+      return;
+    }
+
+    addEntry(deckCounts, deckNames, parsed.name, parsed.count);
   });
 
-  const entries = [...entryCounts.entries()].map(([key, count]) => ({
-    name: entryNames.get(key) || key,
+  const toEntries = (countsMap, namesMap) => [...countsMap.entries()].map(([key, count]) => ({
+    name: namesMap.get(key) || key,
     count,
   }));
 
-  return { entries, commanderName };
+  return {
+    commanderName,
+    entries: toEntries(deckCounts, deckNames),
+    maybeboardEntries: toEntries(maybeboardCounts, maybeboardNames),
+    tokenEntries: toEntries(tokenCounts, tokenNames),
+    hasMaybeboardSection,
+    hasTokenSection,
+  };
 }
 
 function getDeckImportNameVariants(name) {
@@ -6749,17 +7444,33 @@ async function importDeckFromText(text) {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   if (!deck) { setDeckBuilderImportStatus('No active deck.', 'error'); return; }
 
-  const { entries, commanderName } = parseDeckTextList(text);
-  if (!entries.length) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
+  const {
+    entries,
+    maybeboardEntries,
+    tokenEntries,
+    commanderName,
+    hasMaybeboardSection,
+    hasTokenSection,
+  } = parseDeckTextList(text);
+  const allEntries = [
+    ...entries.map((entry) => ({ ...entry, target: 'deck' })),
+    ...maybeboardEntries.map((entry) => ({ ...entry, target: 'maybeboard' })),
+    ...tokenEntries.map((entry) => ({ ...entry, target: 'tokens' })),
+  ];
+  if (!allEntries.length && !commanderName) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
 
-  const totalUnique = entries.length;
+  const totalUnique = allEntries.length + (commanderName ? 1 : 0);
   setDeckBuilderImportStatus(`Importing 0 / ${totalUnique}...`, 'neutral');
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
 
   const bulkLookupNames = [];
   const seenBulkNameKeys = new Set();
-  entries.forEach((entry) => {
+  const lookupEntries = commanderName
+    ? [{ name: commanderName, count: 1 }, ...allEntries]
+    : allEntries;
+
+  lookupEntries.forEach((entry) => {
     const variants = getDeckImportNameVariants(getPrimaryDeckImportLookupName(entry.name));
     variants.forEach((variant) => {
       const key = getIdentityKey(variant);
@@ -6781,19 +7492,40 @@ async function importDeckFromText(text) {
   }
 
   const newCards = [];
+  const importedMaybeboard = [];
+  const importedTokens = [];
   let newCommander = null;
   const failed = [];
 
-  for (let i = 0; i < entries.length; i++) {
-    const { count, name } = entries[i];
+  if (commanderName) {
+    try {
+      const bulkCard = getBulkResolvedImportCard(commanderName, bulkCardsByQuery);
+      const commanderCard = bulkCard || await fetchDeckCardForImport(commanderName);
+      if (commanderCard) {
+        newCommander = commanderCard;
+      } else {
+        failed.push(commanderName);
+      }
+    } catch (error) {
+      failed.push(commanderName);
+    }
+  }
+
+  for (let i = 0; i < allEntries.length; i++) {
+    const { count, name, target } = allEntries[i];
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
       const bulkCard = getBulkResolvedImportCard(name, bulkCardsByQuery);
       const card = bulkCard || await fetchDeckCardForImport(name);
       if (!card) { failed.push(name); continue; }
-      const isCommander = commanderName && getIdentityKey(card.name) === getIdentityKey(commanderName);
-      if (isCommander) {
-        newCommander = card;
+
+      // Token cards always route to token pool, regardless of source section.
+      if (card.isToken || target === 'tokens') {
+        for (let c = 0; c < count; c++) {
+          importedTokens.push({ ...card, id: generateId() });
+        }
+      } else if (target === 'maybeboard') {
+        importedMaybeboard.push({ ...card, id: generateId() });
       } else {
         for (let c = 0; c < count; c++) {
           newCards.push({ ...card, id: generateId() });
@@ -6804,7 +7536,7 @@ async function importDeckFromText(text) {
     }
 
     // Small pacing delay helps avoid Scryfall burst throttling on large imports.
-    if (i < entries.length - 1) {
+    if (i < allEntries.length - 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 80));
     }
   }
@@ -6813,14 +7545,29 @@ async function importDeckFromText(text) {
 
   const statusMsg = failed.length
     ? `Imported. ${failed.length} card(s) not found: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.`
-    : `Imported ${newCards.length + (newCommander ? 1 : 0)} card(s).`;
+    : `Imported ${newCards.length + importedMaybeboard.length + importedTokens.length + (newCommander ? 1 : 0)} card(s).`;
   const tone = failed.length ? 'error' : 'success';
 
   const nextDeck = applyDeckBuilderDraftMeta(deck);
+  const existingMaybeboard = Array.isArray(nextDeck.maybeboard) ? nextDeck.maybeboard : [];
+  const mergedMaybeboard = hasMaybeboardSection
+    ? importedMaybeboard
+    : [
+      ...existingMaybeboard,
+      ...importedMaybeboard.filter((card) => !existingMaybeboard.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name))),
+    ];
+
+  const existingTokens = Array.isArray(nextDeck.tokens) ? nextDeck.tokens : [];
+  const mergedTokens = hasTokenSection
+    ? importedTokens
+    : [...existingTokens, ...importedTokens];
+
   persistDeckBuilderRecord({
     ...nextDeck,
     commander: newCommander ?? nextDeck.commander,
     cards: newCards,
+    maybeboard: mergedMaybeboard,
+    tokens: mergedTokens,
   }, statusMsg, tone);
   setDeckBuilderImportStatus(statusMsg, tone);
 }
@@ -7317,11 +8064,42 @@ function renderDeckCardRow(card, options = {}) {
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
-  const commanderAction = !options.isCommander && !options.fromMaybeboard && Boolean(options.canSetCommander)
+  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
     : '';
   const addToDeckAction = options.fromMaybeboard
     ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}">Add to Deck</button>`
+    : '';
+  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
+    ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}">To Maybeboard</button>`
+    : '';
+  const artAction = !options.isBasicLand
+    ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}">Change Art</button>`
+    : '';
+  const isArtPickerOpen = Boolean(options.showArtPicker);
+  const artState = isArtPickerOpen ? deckBuilderArtPickerState : null;
+  const artBody = isArtPickerOpen
+    ? `
+      <div class="deck-card-art-picker">
+        ${artState?.status === 'loading' ? `<p class="deck-card-art-status">${escapeHtml(artState.message || 'Loading art options...')}</p>` : ''}
+        ${artState?.status === 'error' ? `<p class="deck-card-art-status status-error">${escapeHtml(artState.message || 'Unable to load art options.')}</p>` : ''}
+        ${artState?.status === 'ready' && !(artState.options || []).length ? `<p class="deck-card-art-status status-muted">${escapeHtml(artState.message || 'No alternate arts found for this card.')}</p>` : ''}
+        ${artState?.status === 'ready' && (artState.options || []).length ? `
+          <div class="deck-card-art-grid">
+            ${(artState.options || []).map((print) => `
+              <button
+                type="button"
+                class="deck-card-art-option"
+                data-apply-art-card-id="${escapeHtml(card.id)}"
+                data-apply-art-print-id="${escapeHtml(print.id || '')}"
+                title="${escapeHtml(`${print.setName || print.set || 'Print'} ${print.collectorNumber || ''}`.trim())}"
+              >
+                ${print.imageUri ? `<img src="${escapeHtml(print.imageUri)}" alt="${escapeHtml(print.name || card.name)}" loading="lazy" decoding="async" />` : ''}
+                <span>${escapeHtml(`${(print.set || '').toUpperCase()} ${print.collectorNumber || ''}`.trim() || (print.lang || 'Print'))}</span>
+              </button>
+            `).join('')}
+          </div>` : ''}
+      </div>`
     : '';
 
   const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
@@ -7339,9 +8117,12 @@ function renderDeckCardRow(card, options = {}) {
       </div>
       <div class="deck-card-row-actions">
         ${addToDeckAction}
+        ${moveToMaybeboardAction}
         ${commanderAction}
+        ${artAction}
         ${removeAction}
       </div>
+      ${artBody}
     </div>`;
 }
 function getCommanderIdentityLabel(identity) {
@@ -9776,6 +10557,7 @@ function refresh() {
   refreshLiveTrackerUi();
   initializeMobileSortControls();
   applyResponsiveTableLabels();
+  void backfillDeckListCommanderOracleIds();
 }
 
 function resetForm() {
@@ -10356,6 +11138,22 @@ if (deckBuilderSearchInput) {
   });
 }
 
+if (deckBuilderTokenSearchInput) {
+  deckBuilderTokenSearchInput.addEventListener('input', () => {
+    queueDeckBuilderTokenSearch(deckBuilderTokenSearchInput.value);
+  });
+
+  deckBuilderTokenSearchInput.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    if (deckBuilderTokenSearchResultsState.length === 1) {
+      event.preventDefault();
+      await selectAndAddDeckTokenSearchResult(deckBuilderTokenSearchResultsState[0]);
+    }
+  });
+}
+
 if (deckBuilderSearchResults) {
   deckBuilderSearchResults.addEventListener('click', async (event) => {
     const option = event.target.closest('.deck-search-result');
@@ -10376,11 +11174,37 @@ if (deckBuilderSearchResults) {
   });
 }
 
+if (deckBuilderTokenSearchResults) {
+  deckBuilderTokenSearchResults.addEventListener('click', async (event) => {
+    const option = event.target.closest('[data-token-name]');
+    if (!option) {
+      return;
+    }
+
+    await selectAndAddDeckTokenSearchResult(option.dataset.tokenName || '');
+  });
+
+  deckBuilderTokenSearchResults.addEventListener('dblclick', async (event) => {
+    const option = event.target.closest('[data-token-name]');
+    if (!option) {
+      return;
+    }
+
+    await selectAndAddDeckTokenSearchResult(option.dataset.tokenName || '');
+  });
+}
+
 if (deckBuilderSelection) {
   deckBuilderSelection.addEventListener('click', async (event) => {
     if (event.target.closest('#deck-builder-add-card')) {
       event.stopPropagation();
       await addSelectedCardToDeck();
+      return;
+    }
+
+    if (event.target.closest('#deck-builder-add-token')) {
+      event.stopPropagation();
+      await addSelectedCardToTokens();
       return;
     }
 
@@ -10403,6 +11227,11 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('#deck-builder-add-token')) {
+    await addSelectedCardToTokens();
+    return;
+  }
+
   if (event.target.closest('#deck-builder-add-maybeboard')) {
     await addSelectedCardToMaybeboard();
     return;
@@ -10415,6 +11244,38 @@ document.addEventListener('click', async (event) => {
 
 if (deckBuilderCards) {
   deckBuilderCards.addEventListener('click', async (event) => {
+    const changeArtButton = event.target.closest('[data-change-art-id]');
+    if (changeArtButton) {
+      const cardId = changeArtButton.dataset.changeArtId || '';
+      if (!cardId) {
+        return;
+      }
+
+      if (deckBuilderArtPickerCardId === cardId) {
+        deckBuilderArtPickerCardId = '';
+        deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+        const deck = ensureActiveDeckBuilderRecord();
+        if (deck) {
+          renderDeckBuilderCards(deck);
+        }
+        return;
+      }
+
+      await openDeckBuilderArtPicker(cardId);
+      return;
+    }
+
+    const applyArtButton = event.target.closest('[data-apply-art-print-id][data-apply-art-card-id]');
+    if (applyArtButton) {
+      const cardId = applyArtButton.dataset.applyArtCardId || '';
+      const printId = applyArtButton.dataset.applyArtPrintId || '';
+      const selectedPrint = (deckBuilderArtPickerState.options || []).find((option) => String(option.id || '') === String(printId || ''));
+      if (cardId && selectedPrint) {
+        applyDeckBuilderCardArt(cardId, selectedPrint);
+      }
+      return;
+    }
+
     const removeCommanderButton = event.target.closest('[data-remove-commander="true"]');
     if (removeCommanderButton) {
       removeDeckBuilderCard('', { isCommander: true });
@@ -10430,6 +11291,12 @@ if (deckBuilderCards) {
     const addFromMaybeboardButton = event.target.closest('[data-add-from-maybeboard-id]');
     if (addFromMaybeboardButton) {
       await addMaybeboardCardToDeck(addFromMaybeboardButton.dataset.addFromMaybeboardId || '');
+      return;
+    }
+
+    const moveToMaybeboardButton = event.target.closest('[data-move-to-maybeboard-id]');
+    if (moveToMaybeboardButton) {
+      await moveDeckCardToMaybeboard(moveToMaybeboardButton.dataset.moveToMaybeboardId || '');
       return;
     }
 
@@ -10499,6 +11366,12 @@ if (deckBuilderEdhplButton) {
     const url = `https://edhpowerlevel.com?d=${encodedDeck}`;
     window.open(url, '_blank', 'noopener,noreferrer');
     setDeckBuilderImportStatus('Opened EDHPowerLevel analysis in a new tab.', 'success');
+  });
+}
+
+if (deckBuilderUndoButton) {
+  deckBuilderUndoButton.addEventListener('click', async () => {
+    await undoDeckBuilderChange();
   });
 }
 

@@ -79,6 +79,9 @@ function getDeckLookupKey(value) {
 function mapDeckCard(card, requestOrigin) {
   const imageUri = getCardImageUri(card);
   const imageLargeUri = getCardImageVariant(card, 'large');
+  const layout = getTextValue(card?.layout).toLowerCase();
+  const typeLine = getTextValue(card?.type_line);
+  const isToken = layout.includes('token') || /\btoken\b/i.test(typeLine);
 
   return {
     id: getTextValue(card?.id),
@@ -96,9 +99,11 @@ function mapDeckCard(card, requestOrigin) {
     toughness: getTextValue(card?.toughness),
     loyalty: getTextValue(card?.loyalty),
     defense: getTextValue(card?.defense),
+    layout: getTextValue(card?.layout),
     isBanned: getTextValue(card?.legalities?.commander) === 'banned',
     isGameChanger: Boolean(card?.game_changer),
     isCommanderLegal: getTextValue(card?.legalities?.commander) === 'legal',
+    isToken,
   };
 }
 
@@ -239,6 +244,99 @@ async function fetchDeckSearchResults(query) {
 
   setCachedValue(scryfallAutocompleteCache, cacheKey, results);
   return results;
+}
+
+async function fetchTokenSearchResults(query) {
+  const normalizedQuery = getTextValue(query);
+  const tokenSearchUrl = new URL('https://api.scryfall.com/cards/search');
+  tokenSearchUrl.searchParams.set('q', `game:paper t:token ${normalizedQuery}`);
+  tokenSearchUrl.searchParams.set('order', 'name');
+  tokenSearchUrl.searchParams.set('unique', 'cards');
+
+  const response = await fetch(tokenSearchUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return [];
+    }
+    if (response.status === 429) {
+      throw new Error(`Scryfall token search is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+    }
+
+    const detail = await response.text();
+    throw new Error(`Scryfall token search failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  const cards = Array.isArray(payload?.data) ? payload.data : [];
+  return cards
+    .map((card) => getTextValue(card?.name))
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+async function fetchDeckCardPrints({ oracleId = '', name = '' }, requestOrigin) {
+  const normalizedOracleId = getTextValue(oracleId);
+  const normalizedName = getTextValue(name);
+  if (!normalizedOracleId && !normalizedName) {
+    return [];
+  }
+
+  const searchUrl = new URL('https://api.scryfall.com/cards/search');
+  if (normalizedOracleId) {
+    searchUrl.searchParams.set('q', `oracleid:${normalizedOracleId}`);
+  } else {
+    const escapedName = normalizedName.replace(/"/g, '\\"');
+    searchUrl.searchParams.set('q', `!"${escapedName}"`);
+  }
+  searchUrl.searchParams.set('unique', 'prints');
+  searchUrl.searchParams.set('order', 'released');
+  searchUrl.searchParams.set('dir', 'desc');
+
+  const prints = [];
+  let nextPageUrl = searchUrl;
+  while (nextPageUrl) {
+    const response = await fetch(nextPageUrl.toString(), {
+      headers: getScryfallHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      if (response.status === 429) {
+        throw new Error(`Scryfall print search is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+      }
+
+      const detail = await response.text();
+      throw new Error(`Scryfall print search failed (${response.status}): ${detail}`);
+    }
+
+    const payload = await response.json();
+    const pageCards = Array.isArray(payload?.data) ? payload.data : [];
+    prints.push(...pageCards.map((card) => ({
+      id: getTextValue(card?.id),
+      oracleId: getTextValue(card?.oracle_id),
+      name: getTextValue(card?.name),
+      set: getTextValue(card?.set),
+      setName: getTextValue(card?.set_name),
+      collectorNumber: getTextValue(card?.collector_number),
+      lang: getTextValue(card?.lang),
+      artist: getTextValue(card?.artist),
+      releasedAt: getTextValue(card?.released_at),
+      scryfallUri: getTextValue(card?.scryfall_uri),
+      imageUri: buildCommanderImageProxyUrl(getCardImageUri(card), requestOrigin),
+      imageLargeUri: buildCommanderImageProxyUrl(getCardImageVariant(card, 'large'), requestOrigin),
+      imagePngUri: buildCommanderImageProxyUrl(getCardImageVariant(card, 'png'), requestOrigin),
+      cardFaces: getCardFaces(card, requestOrigin),
+    })).filter((entry) => entry.id && (entry.imageUri || entry.imageLargeUri || entry.cardFaces.length)));
+
+    nextPageUrl = payload?.has_more && payload?.next_page ? new URL(payload.next_page) : null;
+  }
+
+  return prints;
 }
 
 async function fetchDeckCardByName(name, requestOrigin) {
@@ -571,6 +669,55 @@ export default {
       } catch (error) {
         return jsonResponse({
           error: 'Unable to search cards right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
+    if (url.pathname === '/api/token-search') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const query = getTextValue(url.searchParams.get('q'));
+      if (query.length < 2) {
+        return jsonResponse({ results: [] }, 200, {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        });
+      }
+
+      try {
+        const results = await fetchTokenSearchResults(query);
+        return jsonResponse({ results }, 200, {
+          'Cache-Control': 'public, max-age=120, s-maxage=120',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to search token cards right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
+    if (url.pathname === '/api/deck-card-arts') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const oracleId = getTextValue(url.searchParams.get('oracleId'));
+      const name = getTextValue(url.searchParams.get('name'));
+      if (!oracleId && !name) {
+        return jsonResponse({ error: 'oracleId or name is required.' }, 400);
+      }
+
+      try {
+        const prints = await fetchDeckCardPrints({ oracleId, name }, requestOrigin);
+        return jsonResponse({ prints }, 200, {
+          'Cache-Control': 'public, max-age=600, s-maxage=600',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load card arts right now.',
           detail: error instanceof Error ? error.message : String(error),
         }, 502);
       }

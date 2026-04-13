@@ -63,6 +63,7 @@
               <strong id="deck-builder-card-count">0 / 100</strong>
             </div>
             <p id="deck-builder-save-status" class="deck-builder-save-status status-muted">Changes saved locally.</p>
+            <button type="button" id="deck-builder-undo" class="secondary-button" disabled>↩ Undo</button>
           </div>
           <div id="deck-builder-validation" class="deck-builder-validation"></div>
         </section>
@@ -75,6 +76,12 @@
           </div>
           <p id="deck-builder-search-status" class="deck-builder-search-status status-muted">Search for a card to preview it before adding it to the deck.</p>
           <div id="deck-builder-search-results" class="deck-builder-search-results"></div>
+          <div class="field">
+            <label for="deck-builder-token-search">Token Search</label>
+            <input id="deck-builder-token-search" type="search" placeholder="Search token cards only" autocomplete="off" spellcheck="false" />
+          </div>
+          <p id="deck-builder-token-search-status" class="deck-builder-search-status status-muted">Search tokens and add them directly to the token pool.</p>
+          <div id="deck-builder-token-search-results" class="deck-builder-search-results"></div>
           <div id="deck-builder-selection" class="deck-builder-selection"></div>
         </section>
 
