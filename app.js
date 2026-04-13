@@ -610,6 +610,9 @@ function normalizeDeckRecord(entry) {
   const cards = Array.isArray(entry.cards)
     ? entry.cards.map(normalizeDeckCardEntry).filter(Boolean)
     : [];
+  const maybeboard = Array.isArray(entry.maybeboard)
+    ? entry.maybeboard.map(normalizeDeckCardEntry).filter(Boolean)
+    : [];
 
   return {
     id: String(entry.id || generateId()).trim(),
@@ -617,6 +620,7 @@ function normalizeDeckRecord(entry) {
     owner,
     commander,
     cards,
+    maybeboard,
     createdAt: String(entry.createdAt || new Date().toISOString()).trim(),
     updatedAt: String(entry.updatedAt || entry.createdAt || new Date().toISOString()).trim(),
   };
@@ -5094,6 +5098,7 @@ function createEmptyDeckRecord() {
     owner: '',
     commander: null,
     cards: [],
+    maybeboard: [],
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -5471,6 +5476,31 @@ async function addSelectedCardToDeck() {
   }, `${card.name} added to ${deck.name}.`);
 }
 
+async function addSelectedCardToMaybeboard() {
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+  const card = getCurrentDeckBuilderSelectedCard();
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open or create a deck right now.', 'error');
+    return;
+  }
+
+  if (!card) {
+    setDeckBuilderSaveStatus('Select a card first, then try Add to Maybeboard again.', 'error');
+    return;
+  }
+
+  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+  if (existsInMaybeboard) {
+    await promptLiveAlert(`${card.name} is already in the maybeboard.`, 'Duplicate card');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    maybeboard: [...(deck.maybeboard || []), card],
+  }, `${card.name} added to maybeboard.`);
+}
+
 async function setSelectedCardAsCommander() {
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
   const card = getCurrentDeckBuilderSelectedCard();
@@ -5538,6 +5568,34 @@ async function setDeckBuilderCardAsCommander(cardId) {
   }, `${nextCommander.name} set as commander.`);
 }
 
+async function addMaybeboardCardToDeck(cardId) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open the deck right now.', 'error');
+    return;
+  }
+
+  const card = (deck.maybeboard || []).find((entry) => entry.id === cardId) || null;
+  if (!card) {
+    setDeckBuilderSaveStatus('Could not find that maybeboard card.', 'error');
+    return;
+  }
+
+  const isBasic = isBasicLand(card);
+  const cardNameKey = getIdentityKey(card.name);
+  const deckCardNameSet = getDeckBuilderCardNameSet(deck);
+  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
+    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands can have multiple copies.`, 'Duplicate card');
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    cards: [...deck.cards, { ...card, id: generateId() }],
+    maybeboard: (deck.maybeboard || []).filter((entry) => entry.id !== cardId),
+  }, `${card.name} moved from maybeboard to deck.`);
+}
+
 function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
   const deck = ensureActiveDeckBuilderRecord();
   if (!deck) {
@@ -5555,6 +5613,7 @@ function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
   persistDeckBuilderRecord({
     ...deck,
     cards: deck.cards.filter((card) => card.id !== cardId),
+    maybeboard: (deck.maybeboard || []).filter((card) => card.id !== cardId),
   }, 'Card removed.', 'neutral');
 }
 
@@ -5799,6 +5858,7 @@ function renderDeckBuilderSelection() {
       </div>
       <div class="actions deck-card-preview-actions">
         <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
+        <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)">Add to Maybeboard</button>
         <button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>
       </div>
     </article>`;
@@ -5820,6 +5880,15 @@ function renderDeckBuilderSelection() {
       await setSelectedCardAsCommander();
     });
   }
+
+  const addMaybeboardButton = deckBuilderSelection.querySelector('#deck-builder-add-maybeboard');
+  if (addMaybeboardButton) {
+    addMaybeboardButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await addSelectedCardToMaybeboard();
+    });
+  }
 }
 
 if (typeof window !== 'undefined') {
@@ -5827,6 +5896,12 @@ if (typeof window !== 'undefined') {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     await addSelectedCardToDeck();
+  };
+
+  window.__deckBuilderAddSelectedMaybeboard = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    await addSelectedCardToMaybeboard();
   };
 
   window.__deckBuilderSetCommander = async (event) => {
@@ -6008,7 +6083,19 @@ function renderDeckBuilderCards(deck) {
       </div>
     </section>`;
 
-  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}`;
+  const maybeboardCards = (deck?.maybeboard || []).slice().sort((a, b) => compareTextValues(a.name, b.name));
+  const maybeboardMarkup = `
+    <section class="deck-builder-group">
+      <div class="deck-builder-group-header">
+        <h3>Maybeboard</h3>
+        <p>${escapeHtml(String(maybeboardCards.length))} card${maybeboardCards.length === 1 ? '' : 's'}</p>
+      </div>
+      ${maybeboardCards.length
+        ? `<div class="deck-builder-group-cards">${maybeboardCards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, fromMaybeboard: true })).join('')}</div>`
+        : '<p class="deck-builder-empty-copy">Add cards here as possible includes. Maybeboard cards do not affect deck legality.</p>'}
+    </section>`;
+
+  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}${maybeboardMarkup}`;
 }
 
 async function hydrateDeckCardStats(deck) {
@@ -6943,8 +7030,11 @@ function renderDeckCardRow(card, options = {}) {
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
-  const commanderAction = !options.isCommander
+  const commanderAction = !options.isCommander && !options.fromMaybeboard
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
+    : '';
+  const addToDeckAction = options.fromMaybeboard
+    ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}">Add to Deck</button>`
     : '';
 
   const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
@@ -6961,6 +7051,7 @@ function renderDeckCardRow(card, options = {}) {
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="deck-card-row-actions">
+        ${addToDeckAction}
         ${commanderAction}
         ${removeAction}
       </div>
@@ -9938,6 +10029,12 @@ if (deckBuilderSelection) {
       return;
     }
 
+    if (event.target.closest('#deck-builder-add-maybeboard')) {
+      event.stopPropagation();
+      await addSelectedCardToMaybeboard();
+      return;
+    }
+
     if (event.target.closest('#deck-builder-set-commander')) {
       event.stopPropagation();
       await setSelectedCardAsCommander();
@@ -9948,6 +10045,11 @@ if (deckBuilderSelection) {
 document.addEventListener('click', async (event) => {
   if (event.target.closest('#deck-builder-add-card')) {
     await addSelectedCardToDeck();
+    return;
+  }
+
+  if (event.target.closest('#deck-builder-add-maybeboard')) {
+    await addSelectedCardToMaybeboard();
     return;
   }
 
@@ -9967,6 +10069,12 @@ if (deckBuilderCards) {
     const setCommanderButton = event.target.closest('[data-set-commander-id]');
     if (setCommanderButton) {
       await setDeckBuilderCardAsCommander(setCommanderButton.dataset.setCommanderId || '');
+      return;
+    }
+
+    const addFromMaybeboardButton = event.target.closest('[data-add-from-maybeboard-id]');
+    if (addFromMaybeboardButton) {
+      await addMaybeboardCardToDeck(addFromMaybeboardButton.dataset.addFromMaybeboardId || '');
       return;
     }
 
