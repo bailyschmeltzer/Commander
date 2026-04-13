@@ -5101,20 +5101,17 @@ function getDeckValidationSummary(deck) {
     }
   });
 
+  // Basic lands are allowed to appear multiple times — exclude them from duplicate detection
+  const BASIC_LAND_KEYS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes',
+    'snow-covered plains', 'snow-covered island', 'snow-covered swamp', 'snow-covered mountain', 'snow-covered forest']);
   const duplicates = [];
-  const seenNames = new Set();
+  const seenCount = new Map();
   cardNames.forEach((name) => {
     const key = getIdentityKey(name);
-    if (!key) {
-      return;
-    }
-
-    if (seenNames.has(key)) {
-      duplicates.push(name);
-      return;
-    }
-
-    seenNames.add(key);
+    if (!key || BASIC_LAND_KEYS.has(key)) return;
+    const count = (seenCount.get(key) || 0) + 1;
+    seenCount.set(key, count);
+    if (count === 2) duplicates.push(name);
   });
 
   const bannedCards = [];
@@ -5755,60 +5752,22 @@ function getDeckCardRulesText(card) {
 }
 
 function getDeckCardStatLine(card) {
-  if (card.power && card.toughness) {
-    return `${card.power} / ${card.toughness}`;
+  const firstFace = Array.isArray(card.cardFaces) ? card.cardFaces[0] : null;
+  const power = String(card.power || firstFace?.power || '').trim();
+  const toughness = String(card.toughness || firstFace?.toughness || '').trim();
+  const loyalty = String(card.loyalty || firstFace?.loyalty || '').trim();
+  const defense = String(card.defense || firstFace?.defense || '').trim();
+
+  if (power && toughness) {
+    return `${power} / ${toughness}`;
   }
-  if (card.loyalty) {
-    return `Loyalty: ${card.loyalty}`;
+  if (loyalty) {
+    return `Loyalty: ${loyalty}`;
   }
-  if (card.defense) {
-    return `Defense: ${card.defense}`;
+  if (defense) {
+    return `Defense: ${defense}`;
   }
   return '';
-}
-
-function renderDeckCardRow(card, options = {}) {
-  const badges = [
-    card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
-    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
-  ].filter(Boolean).join('');
-  const rulesText = getDeckCardRulesText(card);
-  const statLine = getDeckCardStatLine(card);
-  const isExpanded = options.isCommander || options.isSelected;
-
-  const imageMarkup = isExpanded && (card.imageLargeUri || card.imageUri)
-    ? `
-      <div class="deck-card-row-media">
-        <img
-          class="deck-card-row-image"
-          src="${escapeHtml(card.imageLargeUri || card.imageUri)}"
-          alt="${escapeHtml(card.name)}"
-          loading="lazy"
-          decoding="async"
-        />
-      </div>`
-    : '';
-  const removeAction = options.isCommander
-    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
-    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
-
-  const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
-
-  return `
-    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}"${cardDataAttr}>
-      ${imageMarkup}
-      <div class="deck-card-row-copy">
-        <p class="deck-card-name">${escapeHtml(card.name)}</p>
-        <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
-        ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
-        ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
-        ${isExpanded && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
-        ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
-      </div>
-      <div class="deck-card-row-actions">
-        ${removeAction}
-      </div>
-    </div>`;
 }
 
 function renderDeckBuilderCards(deck) {
@@ -5835,16 +5794,70 @@ function renderDeckBuilderCards(deck) {
         <p class="deck-builder-empty-copy">Choose a card from search and use Set as Commander.</p>
       </section>`;
 
-  const groupMarkup = groups.map((group) => `
+  // Build a set of basic land name keys for quick lookup
+  const basicLandKeySet = new Set(BASIC_LAND_NAMES.map((n) => getIdentityKey(n)));
+
+  const groupMarkup = groups.map((group) => {
+    // For the Land group, split into basic (stacked) and non-basic (normal rows)
+    if (group.type === 'Land') {
+      const basicGroups = new Map(); // name -> [card, ...]
+      const nonBasics = [];
+      group.cards.forEach((card) => {
+        if (basicLandKeySet.has(getIdentityKey(card.name))) {
+          const key = getIdentityKey(card.name);
+          if (!basicGroups.has(key)) basicGroups.set(key, { name: card.name, cards: [] });
+          basicGroups.get(key).cards.push(card);
+        } else {
+          nonBasics.push(card);
+        }
+      });
+      const totalCards = group.cards.length;
+      const basicRows = [...basicGroups.values()].map(({ name, cards }) => renderBasicLandRow(name, cards)).join('');
+      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('');
+      const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
+        `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+      ).join('');
+      return `
+        <section class="deck-builder-group">
+          <div class="deck-builder-group-header">
+            <h3>Land</h3>
+            <p>${escapeHtml(String(totalCards))} card${totalCards === 1 ? '' : 's'}</p>
+          </div>
+          ${basicRows}${nonBasicRows}
+          <div class="deck-land-quick-add-row">
+            <p class="deck-land-quick-add-label">Add basic land:</p>
+            ${quickAddButtons}
+          </div>
+        </section>`;
+    }
+    return `
+      <section class="deck-builder-group">
+        <div class="deck-builder-group-header">
+          <h3>${escapeHtml(group.type)}</h3>
+          <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
+        </div>
+        ${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}
+      </section>`;
+  }).join('');
+
+  // Always show the Land section with quick-add buttons even if no lands yet
+  const landGroupExists = groups.some((g) => g.type === 'Land');
+  const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
+    `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+  ).join('');
+  const landQuickAddSection = landGroupExists ? '' : `
     <section class="deck-builder-group">
       <div class="deck-builder-group-header">
-        <h3>${escapeHtml(group.type)}</h3>
-        <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
+        <h3>Land</h3>
+        <p>0 cards</p>
       </div>
-      ${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}
-    </section>`).join('');
+      <div class="deck-land-quick-add-row">
+        <p class="deck-land-quick-add-label">Add basic land:</p>
+        ${quickAddButtons}
+      </div>
+    </section>`;
 
-  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}`;
+  deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}`;
 }
 
 function renderDeckBuilderPage() {
@@ -6329,66 +6342,84 @@ function renderDeckSelectorAssignments(selectedOwners) {
 
 }
 
-function renderDeckSelector() {
-  if (!deckSelectorOwnerList || !deckSelectorResults) {
-    return;
-  }
+const BASIC_LAND_NAMES = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 
-  const selectedOwners = new Set(getSelectedDeckSelectorOwners());
-  const ownerGroups = getDeckOwnerGroups();
-  const owners = Object.keys(ownerGroups).sort((a, b) => a.localeCompare(b));
+function renderBasicLandRow(name, cards) {
+  const count = cards.length;
+  const sampleId = cards[0]?.id || '';
+  return `
+    <div class="deck-card-row deck-card-row-basic-land" data-basic-land-name="${escapeHtml(name)}">
+      <div class="deck-card-row-copy">
+        <p class="deck-card-name">${escapeHtml(name)}</p>
+        <p class="deck-card-meta">Basic Land</p>
+      </div>
+      <div class="deck-card-row-actions deck-card-row-actions-land">
+        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}">−</button>
+        <span class="deck-land-count">×${escapeHtml(String(count))}</span>
+        <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}">+</button>
+      </div>
+    </div>`;
+}
 
-  if (!owners.length) {
-    deckSelectorOwnerList.innerHTML = '<p>No owned decks available yet. Add deck owners in Deck Lists first.</p>';
-    deckSelectorResults.innerHTML = '<p>Add deck owners in Deck Lists to start randomizing decks.</p>';
-    if (deckSelectorWheelStatus) {
-      deckSelectorWheelStatus.textContent = 'Add deck owners in Deck Lists to enable the wheel.';
+async function addBasicLandToDeck(landName) {
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+  if (!deck) return;
+  let card = deckBuilderCardCache.get(landName.toLowerCase());
+  if (!card) {
+    try {
+      card = await fetchDeckCardByName(landName);
+    } catch (e) {
+      setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error');
+      return;
     }
-    renderDeckSelectorWheel([], 'No Decks');
-    return;
   }
-
-  deckSelectorOwnerList.innerHTML = owners
-    .map((owner) => `
-      <label class="deck-selector-option">
-        <input type="checkbox" name="deck-selector-owner" value="${escapeHtml(owner)}"${selectedOwners.has(owner) ? ' checked' : ''} />
-        <span>${escapeHtml(owner)}</span>
-      </label>`)
-    .join('');
-
-  if (!deckSelectorResults.dataset.initialized) {
-    deckSelectorResults.innerHTML = '<p>Select players and click Randomize decks.</p>';
-    deckSelectorResults.dataset.initialized = 'true';
-  }
-
-  if (deckSelectorWheelStatus && !deckSelectorWheelStatus.dataset.initialized) {
-    deckSelectorWheelStatus.textContent = 'Select players and click Randomize decks.';
-    deckSelectorWheelStatus.dataset.initialized = 'true';
-  }
-
-  if (deckSelectorWheel && deckSelectorWheel.classList.contains('is-empty')) {
-    renderDeckSelectorWheel([], 'Ready to Spin');
-  }
+  if (!card) { setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error'); return; }
+  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${landName} added.`);
 }
 
-function getSelectedCommanderBuilderIdentity() {
-  const selectedValues = new Set(
-    getCommanderBuilderInputs()
-      .filter((input) => input.checked)
-      .map((input) => String(input.value || '').toUpperCase()),
-  );
+function renderDeckCardRow(card, options = {}) {
+  const badges = [
+    card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
+    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+  ].filter(Boolean).join('');
+  const rulesText = getDeckCardRulesText(card);
+  const statLine = getDeckCardStatLine(card);
+  const isExpanded = options.isCommander || options.isSelected;
 
-  if (selectedValues.has('C')) {
-    return 'c';
-  }
+  const imageMarkup = isExpanded && (card.imageLargeUri || card.imageUri)
+    ? `
+      <div class="deck-card-row-media">
+        <img
+          class="deck-card-row-image"
+          src="${escapeHtml(card.imageLargeUri || card.imageUri)}"
+          alt="${escapeHtml(card.name)}"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>`
+    : '';
+  const removeAction = options.isCommander
+    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
+    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
 
-  return COMMANDER_BUILDER_COLOR_OPTIONS
-    .map(({ code }) => code)
-    .filter((code) => selectedValues.has(code))
-    .map((code) => code.toLowerCase())
-    .join('');
+  const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
+
+  return `
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}"${cardDataAttr}>
+      ${imageMarkup}
+      <div class="deck-card-row-copy">
+        <p class="deck-card-name">${escapeHtml(card.name)}</p>
+        <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
+        ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
+        ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
+        ${isExpanded && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
+        ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
+      </div>
+      <div class="deck-card-row-actions">
+        ${removeAction}
+      </div>
+    </div>`;
 }
-
 function getCommanderIdentityLabel(identity) {
   if (identity === 'c') {
     return 'Colorless';
@@ -9361,7 +9392,7 @@ document.addEventListener('click', async (event) => {
 });
 
 if (deckBuilderCards) {
-  deckBuilderCards.addEventListener('click', (event) => {
+  deckBuilderCards.addEventListener('click', async (event) => {
     const removeCommanderButton = event.target.closest('[data-remove-commander="true"]');
     if (removeCommanderButton) {
       removeDeckBuilderCard('', { isCommander: true });
@@ -9371,6 +9402,13 @@ if (deckBuilderCards) {
     const removeCardButton = event.target.closest('.deck-builder-remove-card[data-card-id]');
     if (removeCardButton) {
       removeDeckBuilderCard(removeCardButton.dataset.cardId || '');
+      return;
+    }
+
+    // Quick-add basic land buttons (both inline +/- on stacked row and the quick-add panel)
+    const addBasicButton = event.target.closest('[data-add-basic]');
+    if (addBasicButton) {
+      await addBasicLandToDeck(addBasicButton.dataset.addBasic || '');
       return;
     }
 

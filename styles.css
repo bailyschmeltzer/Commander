@@ -1397,6 +1397,66 @@ button[type="submit"] {
 
 .deck-card-row-actions {
   flex: 0 0 auto;
+
+.deck-card-row-actions-land {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-land-minus,
+.deck-land-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d0d8f0;
+  border-radius: 8px;
+  background: #f5f7fc;
+  color: #2a3560;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.deck-land-minus:hover,
+.deck-land-plus:hover {
+  background: #e8eeff;
+  border-color: #a8bde8;
+}
+
+.deck-land-count {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #1f2742;
+  min-width: 28px;
+  text-align: center;
+}
+
+.deck-land-quick-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #e8ecf8;
+}
+
+.deck-land-quick-add-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #5a6783;
+  font-weight: 600;
+}
+
+.deck-land-quick-add {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
 }
 
 .deck-card-name,
