@@ -60,7 +60,11 @@
             <div class="field-grid">
               <div class="field">
                 <label for="commander-rename-current">Current name</label>
-                <input id="commander-rename-current" type="text" list="commander-rename-list" placeholder="Current commander name" required />
+                <div class="combined-input-wrapper">
+                  <input id="commander-rename-current" class="lookup-input" type="text" list="commander-rename-list" placeholder="Current commander name" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+                  <button type="button" class="dropdown-button" title="Show commanders">▼</button>
+                  <div id="commander-rename-menu" class="dropdown-menu"></div>
+                </div>
               </div>
               <div class="field">
                 <label for="commander-rename-next">New name</label>

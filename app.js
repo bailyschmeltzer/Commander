@@ -63,6 +63,7 @@ const commanderRenameCurrentInput = document.getElementById('commander-rename-cu
 const commanderRenameNextInput = document.getElementById('commander-rename-next');
 const commanderRenameStatus = document.getElementById('commander-rename-status');
 const commanderRenameDatalist = document.getElementById('commander-rename-list');
+const commanderRenameMenu = document.getElementById('commander-rename-menu');
 const removePlayerRowButton = document.getElementById('remove-player-row');
 const deckListForm = document.getElementById('deck-list-form');
 const deckCommanderInput = document.getElementById('deck-commander');
@@ -931,6 +932,10 @@ function renderIdentityRenameOptions() {
   if (playerRenameMenu) {
     buildDropdownMenu(playerRenameMenu, getKnownPlayerOptions());
     attachLookupWrapperHandlers(playerRenameForm || document);
+  }
+  if (commanderRenameMenu) {
+    buildDropdownMenu(commanderRenameMenu, getKnownCommanderOptions());
+    attachLookupWrapperHandlers(commanderRenameForm || document);
   }
 }
 
