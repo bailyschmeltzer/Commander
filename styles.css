@@ -1122,6 +1122,8 @@ button[type="submit"] {
 
 .deck-builder-cards-card {
   grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: stretch;
 }
 
 .deck-builder-search-card {
@@ -1309,16 +1311,26 @@ button[type="submit"] {
 
 .deck-builder-cards {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .deck-builder-group {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid #dde3f2;
   border-radius: 16px;
   background: #fbfcff;
+}
+
+.deck-builder-group-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.deck-builder-group-cards--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .deck-builder-group-header {
@@ -1331,6 +1343,7 @@ button[type="submit"] {
 .deck-builder-group-header h3,
 .deck-builder-group-header p {
   margin: 0;
+  font-size: 0.85rem;
 }
 
 .deck-builder-group-header p {
@@ -1342,10 +1355,10 @@ button[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid #e0e5f2;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #ffffff;
 }
 
@@ -1369,6 +1382,7 @@ button[type="submit"] {
   align-items: flex-start;
   background-color: #f0f4ff;
   border-color: #a8bde8;
+  grid-column: 1 / -1;
 }
 
 .deck-card-row.is-commander {
@@ -1465,13 +1479,21 @@ button[type="submit"] {
 }
 
 .deck-card-name {
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #1f2742;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .deck-card-meta {
-  margin-top: 4px;
+  margin-top: 2px;
+  font-size: 0.76rem;
   color: #5a6783;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .deck-list-table {
@@ -3032,6 +3054,10 @@ button[type="submit"] {
   .page-deckbuilder .deck-builder-search-card,
   .page-deckbuilder .deck-builder-meta-card {
     grid-column: auto;
+  }
+
+  .page-deckbuilder .deck-builder-group-cards {
+    grid-template-columns: 1fr;
   }
 
   .page-deckbuilder .deck-builder-meta-grid {

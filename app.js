@@ -245,6 +245,7 @@ let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
+const hydratedDeckIds = new Set();
 let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
@@ -5781,7 +5782,7 @@ function renderDeckBuilderCards(deck) {
           <h3>Commander</h3>
           <p>1 card</p>
         </div>
-        ${renderDeckCardRow(deck.commander, { isCommander: true })}
+        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true })}</div>
       </section>`
     : `
       <section class="deck-builder-group">
@@ -5821,7 +5822,7 @@ function renderDeckBuilderCards(deck) {
             <h3>Land</h3>
             <p>${escapeHtml(String(totalCards))} card${totalCards === 1 ? '' : 's'}</p>
           </div>
-          ${basicRows}${nonBasicRows}
+          <div class="deck-builder-group-cards">${basicRows}${nonBasicRows}</div>
           <div class="deck-land-quick-add-row">
             <p class="deck-land-quick-add-label">Add basic land:</p>
             ${quickAddButtons}
@@ -5834,7 +5835,7 @@ function renderDeckBuilderCards(deck) {
           <h3>${escapeHtml(group.type)}</h3>
           <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
         </div>
-        ${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}
+        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}</div>
       </section>`;
   }).join('');
 
@@ -5856,6 +5857,62 @@ function renderDeckBuilderCards(deck) {
     </section>`;
 
   deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}${landQuickAddSection}`;
+}
+
+async function hydrateDeckCardStats(deck) {
+  if (!deck?.id || hydratedDeckIds.has(deck.id)) {
+    return;
+  }
+  hydratedDeckIds.add(deck.id);
+
+  const mightHaveStats = (card) => /creature|planeswalker|battle/i.test(card?.typeLine || '');
+  const isMissingStats = (card) => !card?.power && !card?.toughness && !card?.loyalty && !card?.defense;
+
+  const toRefresh = [];
+  if (deck.commander && mightHaveStats(deck.commander) && isMissingStats(deck.commander)) {
+    toRefresh.push({ type: 'commander', card: deck.commander, index: -1 });
+  }
+  deck.cards.forEach((card, index) => {
+    if (mightHaveStats(card) && isMissingStats(card)) {
+      toRefresh.push({ type: 'card', card, index });
+    }
+  });
+
+  if (!toRefresh.length) {
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    toRefresh.map(({ card }) => fetchDeckCardByName(card.name))
+  );
+
+  let updated = false;
+  const nextCommander = deck.commander ? { ...deck.commander } : null;
+  const nextCards = deck.cards.map((c) => ({ ...c }));
+
+  results.forEach((result, i) => {
+    if (result.status !== 'fulfilled' || !result.value) return;
+    const fresh = result.value;
+    if (!fresh.power && !fresh.toughness && !fresh.loyalty && !fresh.defense) return;
+    const { type, index } = toRefresh[i];
+    const patch = {
+      power: fresh.power,
+      toughness: fresh.toughness,
+      loyalty: fresh.loyalty,
+      defense: fresh.defense,
+      cardFaces: fresh.cardFaces,
+    };
+    if (type === 'commander' && nextCommander) {
+      Object.assign(nextCommander, patch);
+    } else if (type === 'card') {
+      Object.assign(nextCards[index], patch);
+    }
+    updated = true;
+  });
+
+  if (!updated) return;
+
+  persistDeckBuilderRecord({ ...deck, commander: nextCommander, cards: nextCards }, '', 'muted');
 }
 
 function renderDeckBuilderPage() {
@@ -5888,6 +5945,7 @@ function renderDeckBuilderPage() {
   renderDeckBuilderSelection();
   renderDeckBuilderCards(deck);
   renderDeckBuilderSearchResults();
+  hydrateDeckCardStats(deck);
 }
 
 async function runDeckBuilderSearch(query) {
