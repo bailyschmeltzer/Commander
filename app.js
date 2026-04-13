@@ -7574,7 +7574,7 @@ async function fetchDeckCardForImport(name) {
 
   for (let i = 0; i < candidates.length; i += 1) {
     const candidate = candidates[i];
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const card = await fetchDeckCardByName(candidate);
         if (card) {
@@ -7584,31 +7584,12 @@ async function fetchDeckCardForImport(name) {
       } catch (error) {
         const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
         const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
-        if (!mayBeTransient) {
+        if (!mayBeTransient || attempt === 1) {
           break;
         }
 
-        // Respect retry hints like "Try again in about 60 seconds" when available.
-        const retrySecondsMatch = message.match(/about\s+(\d+)\s+seconds?/);
-        const retryDelayMs = retrySecondsMatch
-          ? Math.min(15000, Math.max(500, Number(retrySecondsMatch[1]) * 1000))
-          : (400 * (attempt + 1));
-
-        await wait(retryDelayMs);
-
-        if (attempt === 3) {
-          break;
-        }
-
-        try {
-          const retryCard = await fetchDeckCardByName(candidate);
-          if (retryCard) {
-            return retryCard;
-          }
-          break;
-        } catch (retryError) {
-          // Continue attempting transient retries for this candidate.
-        }
+        // Keep retries short during import so the UI does not appear stuck.
+        await wait(350);
       }
     }
   }
@@ -7659,12 +7640,14 @@ async function importDeckFromText(text) {
   });
 
   let bulkCardsByQuery = new Map();
+  let bulkLookupFailed = false;
   try {
     setDeckBuilderImportStatus(`Bulk loading ${totalUnique} cards...`, 'neutral');
     bulkCardsByQuery = await fetchDeckCardsByNamesBulk(bulkLookupNames);
   } catch (error) {
     // Fall back to per-card lookup if the bulk endpoint is temporarily unavailable.
     bulkCardsByQuery = new Map();
+    bulkLookupFailed = true;
   }
 
   const newCards = [];
@@ -7712,8 +7695,8 @@ async function importDeckFromText(text) {
     }
 
     // Small pacing delay helps avoid Scryfall burst throttling on large imports.
-    if (i < allEntries.length - 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 80));
+    if (i < allEntries.length - 1 && bulkLookupFailed) {
+      await new Promise((resolve) => window.setTimeout(resolve, 30));
     }
   }
 
