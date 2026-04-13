@@ -5094,6 +5094,38 @@ function createEmptyDeckRecord() {
   });
 }
 
+// --- Color identity helpers ---
+
+const COLOR_LETTER_NAMES = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+
+function extractColorsFromManaSymbols(text) {
+  const colors = new Set();
+  const symbols = String(text || '').match(/\{[^}]+\}/g) || [];
+  symbols.forEach((sym) => {
+    const letters = sym.match(/[WUBRG]/gi) || [];
+    letters.forEach((l) => colors.add(l.toUpperCase()));
+  });
+  return colors;
+}
+
+function getCardEffectiveColorIdentity(card) {
+  const colors = new Set(
+    (Array.isArray(card?.colorIdentity) ? card.colorIdentity : [])
+      .map((c) => String(c).toUpperCase())
+      .filter((c) => 'WUBRG'.includes(c))
+  );
+  // Also scan mana cost and oracle text on the card and all faces so phyrexian
+  // mana symbols and similar edge cases can't be missed.
+  const textsToScan = [card?.manaCost, card?.oracleText];
+  if (Array.isArray(card?.cardFaces)) {
+    card.cardFaces.forEach((face) => {
+      textsToScan.push(face?.manaCost, face?.oracleText);
+    });
+  }
+  textsToScan.forEach((t) => extractColorsFromManaSymbols(t).forEach((c) => colors.add(c)));
+  return colors;
+}
+
 function getDeckValidationSummary(deck) {
   const normalizedDeck = normalizeDeckRecord(deck);
   const cardNames = [];
@@ -5134,12 +5166,27 @@ function getDeckValidationSummary(deck) {
   const commanderCount = commander ? 1 : 0;
   const totalCards = normalizedDeck.cards.length + commanderCount;
 
+  // Color identity validation — only possible when a commander exists
+  const colorViolations = [];
+  if (commander) {
+    const commanderIdentity = getCardEffectiveColorIdentity(commander);
+    normalizedDeck.cards.forEach((card) => {
+      const cardIdentity = getCardEffectiveColorIdentity(card);
+      const illegal = [...cardIdentity].filter((c) => !commanderIdentity.has(c));
+      if (illegal.length) {
+        const illegalNames = illegal.map((c) => COLOR_LETTER_NAMES[c] || c).join('/');
+        colorViolations.push(`${card.name} (${illegalNames})`);
+      }
+    });
+  }
+
   return {
     commanderCount,
     totalCards,
     duplicates,
     bannedCards,
-    isValid: commanderCount === 1 && totalCards === 100 && !duplicates.length,
+    colorViolations,
+    isValid: commanderCount === 1 && totalCards === 100 && !duplicates.length && !colorViolations.length,
   };
 }
 
@@ -5712,6 +5759,7 @@ function renderDeckBuilderValidation(deck) {
     summary.totalCards === 100 ? null : { label: `Deck currently has ${summary.totalCards} cards.`, tone: 'error' },
     summary.duplicates.length ? { label: `Duplicate card names found: ${summary.duplicates.join(', ')}.`, tone: 'error' } : null,
     summary.bannedCards.length ? { label: `Banned cards: ${summary.bannedCards.join(', ')}.`, tone: 'error' } : null,
+    summary.colorViolations.length ? { label: `Color identity violations: ${summary.colorViolations.join(', ')}.`, tone: 'error' } : null,
   ].filter(Boolean);
 
   deckBuilderValidation.innerHTML = lines.map((line) => `
@@ -5775,6 +5823,14 @@ function renderDeckBuilderCards(deck) {
   }
 
   const groups = getDeckBuilderGroupedCards(deck);
+
+  // Build a set of illegal card ids for color identity violations
+  const summary = getDeckValidationSummary(deck);
+  const illegalCardNames = new Set(
+    summary.colorViolations.map((v) => getIdentityKey(v.replace(/\s*\([^)]*\)$/, '').trim()))
+  );
+  const isIllegalCard = (card) => illegalCardNames.has(getIdentityKey(card.name));
+
   const commanderMarkup = deck?.commander
     ? `
       <section class="deck-builder-group">
@@ -5812,7 +5868,7 @@ function renderDeckBuilderCards(deck) {
       });
       const totalCards = group.cards.length;
       const basicRows = [...basicGroups.values()].map(({ name, cards }) => renderBasicLandRow(name, cards)).join('');
-      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('');
+      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, isIllegal: isIllegalCard(card) })).join('');
       const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
         `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
       ).join('');
@@ -5835,7 +5891,7 @@ function renderDeckBuilderCards(deck) {
           <h3>${escapeHtml(group.type)}</h3>
           <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
         </div>
-        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}</div>
+        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, isIllegal: isIllegalCard(card) })).join('')}</div>
       </section>`;
   }).join('');
 
@@ -6029,6 +6085,28 @@ async function selectDeckBuilderSearchResult(name) {
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Set as Commander.`, 'success');
+  } catch (error) {
+    setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
+  }
+}
+
+async function selectAndAddDeckSearchResult(name) {
+  const normalizedName = String(name || '').trim();
+  if (!normalizedName) {
+    return;
+  }
+
+  setDeckBuilderSearchStatus(`Adding ${normalizedName}...`, 'neutral');
+  try {
+    deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
+    persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
+    renderDeckBuilderSelection();
+    await addSelectedCardToDeck();
+    if (deckBuilderSearchInput) {
+      deckBuilderSearchInput.value = '';
+    }
+    deckBuilderSearchResultsState = [];
+    renderDeckBuilderSearchResults();
   } catch (error) {
     setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
   }
@@ -6510,7 +6588,7 @@ function renderDeckCardRow(card, options = {}) {
   const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
 
   return `
-    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}"${cardDataAttr}>
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}${options.isIllegal ? ' is-illegal' : ''}"${cardDataAttr}>
       ${imageMarkup}
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(card.name)}</p>
@@ -9457,6 +9535,16 @@ if (deckBuilderSearchInput) {
   deckBuilderSearchInput.addEventListener('input', () => {
     queueDeckBuilderSearch(deckBuilderSearchInput.value);
   });
+
+  deckBuilderSearchInput.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    if (deckBuilderSearchResultsState.length === 1) {
+      event.preventDefault();
+      await selectAndAddDeckSearchResult(deckBuilderSearchResultsState[0]);
+    }
+  });
 }
 
 if (deckBuilderSearchResults) {
@@ -9467,6 +9555,15 @@ if (deckBuilderSearchResults) {
     }
 
     await selectDeckBuilderSearchResult(option.dataset.name || '');
+  });
+
+  deckBuilderSearchResults.addEventListener('dblclick', async (event) => {
+    const option = event.target.closest('.deck-search-result');
+    if (!option) {
+      return;
+    }
+
+    await selectAndAddDeckSearchResult(option.dataset.name || '');
   });
 }
 

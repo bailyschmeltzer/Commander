@@ -1384,6 +1384,15 @@ button[type="submit"] {
   background: #fff5f3;
 }
 
+.deck-card-row.is-illegal {
+  border-color: #e8c040;
+  background: #fffbee;
+}
+
+.deck-card-row.is-illegal .deck-card-name {
+  color: #7a5c00;
+}
+
 .deck-card-row.is-selected {
   align-items: flex-start;
   background-color: #f0f4ff;
