@@ -613,10 +613,43 @@ function buildAutoProvisionedAuth(user) {
   };
 }
 
-function hasValidAuth(request, env) {
+function getRegisteredPlayerKeysFromState(state) {
+  const registeredKeys = new Set();
+  const games = Array.isArray(state?.games) ? state.games : [];
+
+  const addPlayerValue = (value) => {
+    const normalized = normalizeMemberKey(value);
+    if (normalized) {
+      registeredKeys.add(normalized);
+    }
+  };
+
+  games.forEach((game) => {
+    (Array.isArray(game?.players) ? game.players : []).forEach((player) => {
+      addPlayerValue(player);
+    });
+
+    (Array.isArray(game?.finishOrder) ? game.finishOrder : []).forEach((player) => {
+      addPlayerValue(player);
+    });
+
+    (Array.isArray(game?.playerRows) ? game.playerRows : []).forEach((row) => {
+      addPlayerValue(row?.player);
+    });
+
+    (Array.isArray(game?.playerCommanders) ? game.playerCommanders : []).forEach((entry) => {
+      addPlayerValue(entry?.player);
+    });
+  });
+
+  return registeredKeys;
+}
+
+async function hasValidAuth(request, env) {
   const user = getRequestUser(request);
   const token = getRequestToken(request);
   const configuredMembers = getConfiguredMembers(env);
+  const stateKey = 'pod:default:state';
 
   if (configuredMembers.length) {
     if (!env.POD_STATE) {
@@ -638,7 +671,17 @@ function hasValidAuth(request, env) {
 
     const autoProvisioned = buildAutoProvisionedAuth(user);
     if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
-      return autoProvisioned;
+      const rawState = await env.POD_STATE.get(stateKey, 'json');
+      const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
+      if (registeredPlayerKeys.has(autoProvisioned.userId)) {
+        return autoProvisioned;
+      }
+
+      return { ok: false, reason: 'Player is not registered in game history.' };
+    }
+
+    if (!user || !token) {
+      return { ok: false, reason: 'Missing credentials.' };
     }
 
     return { ok: false, reason: 'Invalid member credentials.' };
@@ -939,7 +982,7 @@ export default {
     }
 
     if (url.pathname === '/api/state') {
-      const auth = hasValidAuth(request, env);
+      const auth = await hasValidAuth(request, env);
       if (!auth.ok) {
         return jsonResponse({ error: auth.reason }, 401);
       }
