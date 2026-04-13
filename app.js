@@ -71,9 +71,13 @@ const deckUrlInput = document.getElementById('deck-url');
 const deckListTableBody = document.getElementById('deck-list-body');
 const deckListCancelButton = document.getElementById('deck-list-cancel');
 const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
+const deckListPlayerFilterSelect = document.getElementById('deck-list-player-filter');
+const deckListPlayerFilterClearButton = document.getElementById('deck-list-player-filter-clear');
 const deckLookupSelect = document.getElementById('deck-lookup-commander');
 const deckLookupResult = document.getElementById('deck-lookup-result');
 const deckLibraryCreateButton = document.getElementById('deck-library-create');
+const deckLibraryPlayerFilterSelect = document.getElementById('deck-library-player-filter');
+const deckLibraryPlayerFilterClearButton = document.getElementById('deck-library-player-filter-clear');
 const deckLibraryTableBody = document.getElementById('deck-library-body');
 const deckSelectorForm = document.getElementById('deck-selector-form');
 const deckSelectorOwnerList = document.getElementById('deck-selector-owner-list');
@@ -4907,6 +4911,7 @@ function normalizeDeckListEntry(entry) {
   const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
   const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders.concat(Object.keys(loadCommanderPowerLevels())));
   const commander = canonicalizeIdentityValue(entry.commander, commanderMap);
+  const commanderOracleId = String(entry.commanderOracleId || '').trim();
   const owner = canonicalizeIdentityValue(entry.owner, playerMap);
   const url = String(entry.url || '').trim();
   if (!commander || !url) {
@@ -4916,10 +4921,21 @@ function normalizeDeckListEntry(entry) {
   return {
     id: entry.id || generateId(),
     commander,
+    commanderOracleId,
     owner,
     url,
     deckId: String(entry.deckId || '').trim(),
   };
+}
+
+function getCommanderEquivalenceKey({ name = '', oracleId = '' } = {}) {
+  const normalizedOracleId = String(oracleId || '').trim().toLowerCase();
+  if (normalizedOracleId) {
+    return `oracle:${normalizedOracleId}`;
+  }
+
+  const normalizedNameKey = getIdentityKey(name);
+  return normalizedNameKey ? `name:${normalizedNameKey}` : '';
 }
 
 function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
@@ -4932,14 +4948,21 @@ function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
     return normalizedDeckId;
   }
 
-  const commanderKey = getIdentityKey(entry.commander);
+  const commanderKey = getCommanderEquivalenceKey({
+    name: entry.commander,
+    oracleId: entry.commanderOracleId,
+  });
   if (!commanderKey) {
     return '';
   }
 
   const ownerKey = getIdentityKey(entry.owner || '');
   const ownerMatchedDeck = decks.find((deck) => {
-    if (getIdentityKey(deck.commander?.name || '') !== commanderKey) {
+    const deckCommanderKey = getCommanderEquivalenceKey({
+      name: deck.commander?.name || '',
+      oracleId: deck.commander?.oracleId || '',
+    });
+    if (deckCommanderKey !== commanderKey) {
       return false;
     }
     if (!ownerKey) {
@@ -4952,7 +4975,10 @@ function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
 }
 
 function linkDeckListToDeck(deck) {
-  const commanderKey = getIdentityKey(deck?.commander?.name || '');
+  const commanderKey = getCommanderEquivalenceKey({
+    name: deck?.commander?.name || '',
+    oracleId: deck?.commander?.oracleId || '',
+  });
   if (!commanderKey) {
     return;
   }
@@ -4960,7 +4986,11 @@ function linkDeckListToDeck(deck) {
   const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
   let changed = false;
   const linkedDeckLists = deckLists.map((entry) => {
-    if (getIdentityKey(entry.commander) !== commanderKey) {
+    const entryCommanderKey = getCommanderEquivalenceKey({
+      name: entry.commander,
+      oracleId: entry.commanderOracleId,
+    });
+    if (entryCommanderKey !== commanderKey) {
       return entry;
     }
     if (entry.deckId === deck.id) {
@@ -4992,10 +5022,14 @@ function getNormalizedDeckUrl(url) {
   }
 }
 
-function getDeckListValidationSummary(deckLists, { commander, owner, url, editingDeckListId = '' }) {
+function getDeckListValidationSummary(deckLists, { commander, commanderOracleId = '', owner, url, editingDeckListId = '' }) {
   const normalizedCommander = normalizeIdentityLabel(commander);
+  const normalizedCommanderOracleId = String(commanderOracleId || '').trim();
   const normalizedOwner = normalizeIdentityLabel(owner);
-  const normalizedCommanderKey = getIdentityKey(normalizedCommander);
+  const normalizedCommanderKey = getCommanderEquivalenceKey({
+    name: normalizedCommander,
+    oracleId: normalizedCommanderOracleId,
+  });
   const normalizedOwnerKey = getIdentityKey(normalizedOwner);
   const urlResult = getNormalizedDeckUrl(url);
   if (urlResult.error) {
@@ -5015,7 +5049,11 @@ function getDeckListValidationSummary(deckLists, { commander, owner, url, editin
     if (editingDeckListId && entry.id === editingDeckListId) {
       return false;
     }
-    return getIdentityKey(entry.commander) === normalizedCommanderKey;
+    const entryCommanderKey = getCommanderEquivalenceKey({
+      name: entry.commander,
+      oracleId: entry.commanderOracleId,
+    });
+    return entryCommanderKey === normalizedCommanderKey;
   }) || null;
   const duplicateUrlEntry = deckLists.find((entry) => {
     if (editingDeckListId && entry.id === editingDeckListId) {
@@ -5024,10 +5062,14 @@ function getDeckListValidationSummary(deckLists, { commander, owner, url, editin
     return entry.url === urlResult.value;
   }) || null;
   const ownerMismatch = duplicateUrlEntry && getIdentityKey(duplicateUrlEntry.owner) !== normalizedOwnerKey;
-  const commanderMismatch = duplicateUrlEntry && getIdentityKey(duplicateUrlEntry.commander) !== normalizedCommanderKey;
+  const commanderMismatch = duplicateUrlEntry && getCommanderEquivalenceKey({
+    name: duplicateUrlEntry.commander,
+    oracleId: duplicateUrlEntry.commanderOracleId,
+  }) !== normalizedCommanderKey;
 
   return {
     commander: normalizedCommander,
+    commanderOracleId: normalizedCommanderOracleId,
     owner: normalizedOwner,
     url: urlResult.value,
     duplicateCommanderEntry,
@@ -5303,7 +5345,7 @@ function renderDeckLibrary() {
   }
 
   const sortState = getTableSort('decks', 'updatedAt', true);
-  const decks = loadDecks()
+  const sortedDecks = loadDecks()
     .slice()
     .sort((first, second) => {
       let result = 0;
@@ -5317,8 +5359,8 @@ function renderDeckLibrary() {
         case 'commander':
           result = compareTextValues(first.commander?.name, second.commander?.name);
           break;
-        case 'cards':
-          result = compareNumberValues(getDeckValidationSummary(first).totalCards, getDeckValidationSummary(second).totalCards);
+        case 'powerLevel':
+          result = compareNumberValues(first.powerLevel, second.powerLevel);
           break;
         case 'updatedAt':
         default:
@@ -5333,13 +5375,33 @@ function renderDeckLibrary() {
       return finalizeSortResult(result, sortState.descending);
     });
 
-  if (!decks.length) {
+  const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
+  const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
+  const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
+
+  if (deckLibraryPlayerFilterSelect) {
+    buildSelectOptions(deckLibraryPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
+  }
+
+  const decks = activeOwnerFilter
+    ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
+    : sortedDecks;
+
+  if (!sortedDecks.length) {
     deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
+    updateSortableTableIndicators('decks');
+    return;
+  }
+
+  if (!decks.length) {
+    deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks found for that player.</td></tr>';
+    updateSortableTableIndicators('decks');
     return;
   }
 
   deckLibraryTableBody.innerHTML = decks.map((deck) => {
     const summary = getDeckValidationSummary(deck);
+    const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const warnings = [
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
     ].filter(Boolean).join(', ') || '—';
@@ -5349,7 +5411,7 @@ function renderDeckLibrary() {
         <td data-label="Deck">${escapeHtml(deck.name)}</td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
-        <td data-label="Cards">${escapeHtml(String(summary.totalCards))}</td>
+        <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
@@ -5514,6 +5576,45 @@ function isBasicLand(card) {
   return cardType.includes('basic land');
 }
 
+function applyDeckBuilderDraftMeta(deck) {
+  if (!deck || !deckBuilderPage) {
+    return deck;
+  }
+
+  const nextName = String(deckBuilderNameInput?.value || deck.name || '').trim() || 'Untitled Deck';
+  const nextOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || deck.owner || '');
+  const powerInputValue = String(deckBuilderPowerInput?.value || '').trim();
+  const nextPowerLevel = powerInputValue ? normalizeDeckPowerLevel(powerInputValue) : normalizeDeckPowerLevel(deck.powerLevel);
+
+  return {
+    ...deck,
+    name: nextName,
+    owner: nextOwner,
+    powerLevel: nextPowerLevel,
+  };
+}
+
+function cardHasPartnerAbility(card) {
+  const allText = [
+    String(card?.oracleText || ''),
+    ...(Array.isArray(card?.cardFaces) ? card.cardFaces.map((face) => String(face?.oracleText || '')) : []),
+  ].join(' ').toLowerCase();
+
+  return /\bpartner\b/.test(allText);
+}
+
+function canSetCardAsCommanderForDeck(deck, card) {
+  if (!card?.isCommanderLegal) {
+    return false;
+  }
+
+  if (!deck?.commander) {
+    return true;
+  }
+
+  return cardHasPartnerAbility(deck.commander) && cardHasPartnerAbility(card);
+}
+
 function getDeckBuilderCardNameSet(deck) {
   const nameSet = new Set();
   if (deck?.commander?.name) {
@@ -5621,6 +5722,11 @@ async function setSelectedCardAsCommander() {
     return;
   }
 
+  if (!canSetCardAsCommanderForDeck(deck, card)) {
+    await promptLiveAlert('You can only replace an existing commander if both commanders have Partner.', 'Commander pairing');
+    return;
+  }
+
   const duplicateInDeck = deck.cards.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
   if (duplicateInDeck) {
     await promptLiveAlert(`${card.name} is already in the main deck. Remove it there before setting it as commander.`, 'Duplicate card');
@@ -5637,8 +5743,9 @@ async function setSelectedCardAsCommander() {
     }
   }
 
+  const nextDeck = applyDeckBuilderDraftMeta(deck);
   persistDeckBuilderRecord({
-    ...deck,
+    ...nextDeck,
     commander: card,
   }, `${card.name} set as commander.`);
 }
@@ -5662,6 +5769,11 @@ async function setDeckBuilderCardAsCommander(cardId) {
     return;
   }
 
+  if (!canSetCardAsCommanderForDeck(deck, nextCommander)) {
+    await promptLiveAlert('You can only replace an existing commander if both commanders have Partner.', 'Commander pairing');
+    return;
+  }
+
   if (deck.commander && getIdentityKey(deck.commander.name) !== getIdentityKey(nextCommander.name)) {
     const confirmed = await promptLiveConfirm(`Replace ${deck.commander.name} as the commander for ${deck.name}?`, {
       title: 'Replace commander',
@@ -5674,8 +5786,9 @@ async function setDeckBuilderCardAsCommander(cardId) {
 
   const nextCards = deck.cards.filter((entry) => entry.id !== cardId);
   deckBuilderSelectedDeckCardId = null;
+  const nextDeck = applyDeckBuilderDraftMeta(deck);
   persistDeckBuilderRecord({
-    ...deck,
+    ...nextDeck,
     commander: nextCommander,
     cards: nextCards,
   }, `${nextCommander.name} set as commander.`);
@@ -5957,6 +6070,7 @@ function renderDeckBuilderSelection() {
   ].filter(Boolean).join('');
   const rulesText = getDeckCardRulesText(card);
   const statLine = getDeckCardStatLine(card);
+  const canSetCommander = canSetCardAsCommanderForDeck(deck, card);
 
   deckBuilderSelection.innerHTML = `
     <article class="deck-card-preview">
@@ -5972,7 +6086,7 @@ function renderDeckBuilderSelection() {
       <div class="actions deck-card-preview-actions">
         <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
         <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)">Add to Maybeboard</button>
-        ${card.isCommanderLegal ? '<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>' : ''}
+        ${canSetCommander ? '<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>' : ''}
       </div>
     </article>`;
 
@@ -6152,7 +6266,11 @@ function renderDeckBuilderCards(deck) {
       });
       const totalCards = group.cards.length;
       const basicRows = [...basicGroups.values()].map(({ name, cards }) => renderBasicLandRow(name, cards)).join('');
-      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, isIllegal: isIllegalCard(card) })).join('');
+      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, {
+        isSelected: card.id === deckBuilderSelectedDeckCardId,
+        isIllegal: isIllegalCard(card),
+        canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+      })).join('');
       const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
         `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
       ).join('');
@@ -6175,7 +6293,11 @@ function renderDeckBuilderCards(deck) {
           <h3>${escapeHtml(group.type)}</h3>
           <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
         </div>
-        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, isIllegal: isIllegalCard(card) })).join('')}</div>
+        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, {
+          isSelected: card.id === deckBuilderSelectedDeckCardId,
+          isIllegal: isIllegalCard(card),
+          canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+        })).join('')}</div>
       </section>`;
   }).join('');
 
@@ -6204,7 +6326,11 @@ function renderDeckBuilderCards(deck) {
         <p>${escapeHtml(String(maybeboardCards.length))} card${maybeboardCards.length === 1 ? '' : 's'}</p>
       </div>
       ${maybeboardCards.length
-        ? `<div class="deck-builder-group-cards">${maybeboardCards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId, fromMaybeboard: true })).join('')}</div>`
+        ? `<div class="deck-builder-group-cards">${maybeboardCards.map((card) => renderDeckCardRow(card, {
+          isSelected: card.id === deckBuilderSelectedDeckCardId,
+          fromMaybeboard: true,
+          canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+        })).join('')}</div>`
         : '<p class="deck-builder-empty-copy">Add cards here as possible includes. Maybeboard cards do not affect deck legality.</p>'}
     </section>`;
 
@@ -6690,7 +6816,12 @@ async function importDeckFromText(text) {
     : `Imported ${newCards.length + (newCommander ? 1 : 0)} card(s).`;
   const tone = failed.length ? 'error' : 'success';
 
-  persistDeckBuilderRecord({ ...deck, commander: newCommander ?? deck.commander, cards: newCards }, statusMsg, tone);
+  const nextDeck = applyDeckBuilderDraftMeta(deck);
+  persistDeckBuilderRecord({
+    ...nextDeck,
+    commander: newCommander ?? nextDeck.commander,
+    cards: newCards,
+  }, statusMsg, tone);
   setDeckBuilderImportStatus(statusMsg, tone);
 }
 
@@ -7186,7 +7317,7 @@ function renderDeckCardRow(card, options = {}) {
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
-  const commanderAction = !options.isCommander && !options.fromMaybeboard && card.isCommanderLegal
+  const commanderAction = !options.isCommander && !options.fromMaybeboard && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
     : '';
   const addToDeckAction = options.fromMaybeboard
@@ -7673,7 +7804,7 @@ function renderDeckLists() {
   }
 
   const sortState = getTableSort('deckLists', 'commander', false);
-  const deckLists = getSortedDeckLists()
+  const sortedDeckLists = getSortedDeckLists()
     .slice()
     .sort((a, b) => {
       let result = 0;
@@ -7699,8 +7830,27 @@ function renderDeckLists() {
       return finalizeSortResult(result, sortState.descending);
     });
 
-  if (!deckLists.length) {
+  const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
+  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
+  const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
+
+  if (deckListPlayerFilterSelect) {
+    buildSelectOptions(deckListPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
+  }
+
+  const deckLists = activeOwnerFilter
+    ? sortedDeckLists.filter((entry) => normalizeIdentityLabel(entry.owner || '') === activeOwnerFilter)
+    : sortedDeckLists;
+
+  if (!sortedDeckLists.length) {
     deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists saved yet.</td></tr>';
+    updateSortableTableIndicators('deckLists');
+    return;
+  }
+
+  if (!deckLists.length) {
+    deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists found for that player.</td></tr>';
+    updateSortableTableIndicators('deckLists');
     return;
   }
 
@@ -10105,9 +10255,43 @@ if (deckLookupSelect) {
   });
 }
 
+if (deckListPlayerFilterSelect) {
+  deckListPlayerFilterSelect.addEventListener('change', () => {
+    renderDeckLists();
+    applyResponsiveTableLabels();
+  });
+}
+
+if (deckListPlayerFilterClearButton) {
+  deckListPlayerFilterClearButton.addEventListener('click', () => {
+    if (deckListPlayerFilterSelect) {
+      deckListPlayerFilterSelect.value = '';
+    }
+    renderDeckLists();
+    applyResponsiveTableLabels();
+  });
+}
+
 if (deckLibraryCreateButton) {
   deckLibraryCreateButton.addEventListener('click', () => {
     window.location.href = 'deckbuilder.html?new=1';
+  });
+}
+
+if (deckLibraryPlayerFilterSelect) {
+  deckLibraryPlayerFilterSelect.addEventListener('change', () => {
+    renderDeckLibrary();
+    applyResponsiveTableLabels();
+  });
+}
+
+if (deckLibraryPlayerFilterClearButton) {
+  deckLibraryPlayerFilterClearButton.addEventListener('click', () => {
+    if (deckLibraryPlayerFilterSelect) {
+      deckLibraryPlayerFilterSelect.value = '';
+    }
+    renderDeckLibrary();
+    applyResponsiveTableLabels();
   });
 }
 
@@ -10326,8 +10510,17 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
       .map(normalizeDeckListEntry)
       .filter(Boolean);
 
+    let resolvedCommanderOracleId = '';
+    try {
+      const resolvedCommanderCard = await fetchDeckCardByName(deckCommanderInput.value);
+      resolvedCommanderOracleId = String(resolvedCommanderCard?.oracleId || '').trim();
+    } catch (error) {
+      // Commander text can still be saved even if lookup fails.
+    }
+
     const validationSummary = getDeckListValidationSummary(deckLists, {
       commander: deckCommanderInput.value,
+      commanderOracleId: resolvedCommanderOracleId,
       owner: deckOwnerInput?.value || '',
       url: deckUrlInput.value,
       editingDeckListId,
@@ -10362,15 +10555,35 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
       if (editingDeckListId && entry.id === editingDeckListId) {
         return false;
       }
-      return getIdentityKey(entry.commander) === getIdentityKey(validationSummary.commander);
+      return getCommanderEquivalenceKey({
+        name: entry.commander,
+        oracleId: entry.commanderOracleId,
+      }) === getCommanderEquivalenceKey({
+        name: validationSummary.commander,
+        oracleId: validationSummary.commanderOracleId,
+      });
     });
 
     if (editingDeckListId) {
       const index = deckLists.findIndex((entry) => entry.id === editingDeckListId);
       if (index >= 0) {
-        deckLists[index] = { id: editingDeckListId, commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url };
+        deckLists[index] = {
+          ...deckLists[index],
+          id: editingDeckListId,
+          commander: validationSummary.commander,
+          commanderOracleId: validationSummary.commanderOracleId,
+          owner: validationSummary.owner,
+          url: validationSummary.url,
+        };
       } else {
-        deckLists.push({ id: generateId(), commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url });
+        deckLists.push({
+          id: generateId(),
+          commander: validationSummary.commander,
+          commanderOracleId: validationSummary.commanderOracleId,
+          owner: validationSummary.owner,
+          url: validationSummary.url,
+          deckId: '',
+        });
       }
 
       if (duplicateCommanderIndex >= 0) {
@@ -10381,11 +10594,19 @@ if (deckListForm && deckCommanderInput && deckUrlInput) {
         deckLists[duplicateCommanderIndex] = {
           ...deckLists[duplicateCommanderIndex],
           commander: validationSummary.commander,
+          commanderOracleId: validationSummary.commanderOracleId,
           owner: validationSummary.owner,
           url: validationSummary.url,
         };
       } else {
-        deckLists.push({ id: generateId(), commander: validationSummary.commander, owner: validationSummary.owner, url: validationSummary.url });
+        deckLists.push({
+          id: generateId(),
+          commander: validationSummary.commander,
+          commanderOracleId: validationSummary.commanderOracleId,
+          owner: validationSummary.owner,
+          url: validationSummary.url,
+          deckId: '',
+        });
       }
     }
 

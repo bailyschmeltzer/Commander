@@ -62,6 +62,15 @@
             </div>
             <button type="button" id="deck-library-create">Add New Deck</button>
           </div>
+          <div class="deck-filter-controls">
+            <div class="field">
+              <label for="deck-library-player-filter">Filter by player</label>
+              <select id="deck-library-player-filter">
+                <option value="">All players</option>
+              </select>
+            </div>
+            <button type="button" id="deck-library-player-filter-clear" class="secondary-button">Clear</button>
+          </div>
           <div class="player-table-wrapper">
             <table class="player-table deck-library-table" data-sort-table="decks">
               <thead>
@@ -69,7 +78,7 @@
                   <th scope="col" class="sortable-header" data-column="name" tabindex="0" aria-sort="none">Deck <span class="sort-indicator"></span></th>
                   <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
                   <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
-                  <th scope="col" class="sortable-header" data-column="cards" tabindex="0" aria-sort="none">Cards <span class="sort-indicator"></span></th>
+                  <th scope="col" class="sortable-header" data-column="powerLevel" tabindex="0" aria-sort="none">Power Level <span class="sort-indicator"></span></th>
                   <th scope="col">Status</th>
                   <th scope="col">Actions</th>
                 </tr>
@@ -130,6 +139,15 @@
 
         <section class="card">
           <h2>Saved Reference Deck URLs</h2>
+          <div class="deck-filter-controls">
+            <div class="field">
+              <label for="deck-list-player-filter">Filter by player</label>
+              <select id="deck-list-player-filter">
+                <option value="">All players</option>
+              </select>
+            </div>
+            <button type="button" id="deck-list-player-filter-clear" class="secondary-button">Clear</button>
+          </div>
           <div class="player-table-wrapper">
             <table class="player-table deck-list-table" data-sort-table="deckLists">
               <thead>

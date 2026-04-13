@@ -1068,6 +1068,24 @@ button[type="submit"] {
   margin-bottom: 6px;
 }
 
+.deck-filter-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.deck-filter-controls .field {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+.deck-filter-controls .secondary-button {
+  flex: 0 0 auto;
+  min-height: 48px;
+  white-space: nowrap;
+}
+
 .deck-library-table th:nth-child(1),
 .deck-library-table td:nth-child(1) {
   width: 20%;
@@ -1585,6 +1603,17 @@ button[type="submit"] {
 .deck-list-delete {
   background: #ff4d4f;
   color: #fff;
+}
+
+@media (max-width: 720px) {
+  .deck-filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .deck-filter-controls .secondary-button {
+    width: 100%;
+  }
 }
 
 .deck-selector-form {
