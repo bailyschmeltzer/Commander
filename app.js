@@ -37,6 +37,7 @@ const playerRenameCurrentInput = document.getElementById('player-rename-current'
 const playerRenameNextInput = document.getElementById('player-rename-next');
 const playerRenameStatus = document.getElementById('player-rename-status');
 const playerRenameDatalist = document.getElementById('player-rename-list');
+const playerRenameMenu = document.getElementById('player-rename-menu');
 const rankingsSummary = document.getElementById('rankings-summary');
 const rankingsTableBody = document.getElementById('rankings-table-body');
 const recentTrendsSummary = document.getElementById('recent-trends-summary');
@@ -921,6 +922,36 @@ function getKnownCommanderOptions() {
 function renderIdentityRenameOptions() {
   buildDatalistOptions(playerRenameDatalist, getKnownPlayerOptions());
   buildDatalistOptions(commanderRenameDatalist, getKnownCommanderOptions());
+  if (playerRenameMenu) {
+    buildDropdownMenu(playerRenameMenu, getKnownPlayerOptions());
+    attachLookupWrapperHandlers(playerRenameForm || document);
+  }
+}
+
+function getSavedDeckListEntryForCommander(commanderName) {
+  const commanderKey = getIdentityKey(commanderName);
+  if (!commanderKey) {
+    return null;
+  }
+
+  return loadDeckLists()
+    .map(normalizeDeckListEntry)
+    .filter(Boolean)
+    .find((entry) => getIdentityKey(entry.commander) === commanderKey) || null;
+}
+
+function buildDeckListLinkOrText(label) {
+  const normalizedLabel = normalizeIdentityLabel(label);
+  if (!normalizedLabel) {
+    return '—';
+  }
+
+  const deckListEntry = getSavedDeckListEntryForCommander(normalizedLabel);
+  if (!deckListEntry?.url) {
+    return escapeHtml(normalizedLabel);
+  }
+
+  return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
@@ -8107,20 +8138,22 @@ function renderDeckCardRow(card, options = {}) {
   return `
     <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}${options.isIllegal ? ' is-illegal' : ''}"${cardDataAttr}>
       ${imageMarkup}
-      <div class="deck-card-row-copy">
-        <p class="deck-card-name">${escapeHtml(card.name)}</p>
-        <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
-        ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
-        ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
-        ${isExpanded && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
-        ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
-      </div>
-      <div class="deck-card-row-actions">
-        ${addToDeckAction}
-        ${moveToMaybeboardAction}
-        ${commanderAction}
-        ${artAction}
-        ${removeAction}
+      <div class="deck-card-row-main">
+        <div class="deck-card-row-copy">
+          <p class="deck-card-name">${escapeHtml(card.name)}</p>
+          <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
+          ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
+          ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
+          ${isExpanded && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
+          ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
+        </div>
+        <div class="deck-card-row-actions">
+          ${addToDeckAction}
+          ${moveToMaybeboardAction}
+          ${commanderAction}
+          ${artAction}
+          ${removeAction}
+        </div>
       </div>
       ${artBody}
     </div>`;
@@ -9793,7 +9826,7 @@ function renderRecentTrends(games) {
   recentCommanderTrendsBody.innerHTML = (sortedCommanderEntries.length ? sortedCommanderEntries : [])
     .map((entry) => `
       <tr>
-        <td>${buildHistoryFilterLink(entry.name, { commander: entry.name })}</td>
+        <td>${buildDeckListLinkOrText(entry.name)}</td>
         <td>${entry.games}</td>
         <td>${entry.points}</td>
         <td>${formatPercent(entry.winRate)}</td>
@@ -9931,7 +9964,7 @@ function renderStreaks(games) {
   commanderStreaksBody.innerHTML = sortedCommanderEntries.length
     ? sortedCommanderEntries.map((entry) => `
         <tr>
-          <td>${buildHistoryFilterLink(entry.name, { commander: entry.name })}</td>
+          <td>${buildDeckListLinkOrText(entry.name)}</td>
           <td>${entry.games}</td>
           <td>${entry.currentWinStreak}</td>
           <td>${entry.bestWinStreak}</td>
@@ -10127,9 +10160,9 @@ function renderPlayerStats(games) {
           <td>${row.wins}</td>
           <td>${formatPercent(row.winRate)}</td>
           <td>${row.firstBloods}</td>
-          <td>${row.favoriteCommander ? buildHistoryFilterLink(row.favoriteCommander, { commander: row.favoriteCommander }) : '—'}</td>
-          <td>${row.nemesis ? buildHistoryFilterLink(row.nemesis, { player: row.nemesis }) : '—'}</td>
-          <td>${row.victim ? buildHistoryFilterLink(row.victim, { player: row.victim }) : '—'}</td>
+          <td>${buildDeckListLinkOrText(row.favoriteCommander)}</td>
+          <td>${row.nemesis ? escapeHtml(row.nemesis) : '—'}</td>
+          <td>${row.victim ? escapeHtml(row.victim) : '—'}</td>
           <td>${row.kills}</td>
           <td>${row.kd.toFixed(1)}</td>
           <td>${row.bestDeck}</td>
@@ -10384,7 +10417,7 @@ function renderCommanderStats(games) {
 
       return `
         <tr>
-          <td>${buildHistoryFilterLink(commander, { commander })}</td>
+          <td>${buildDeckListLinkOrText(commander)}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
           <td>${formatPercent(winRateValue)}</td>

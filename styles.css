@@ -1475,13 +1475,24 @@ button[type="submit"] {
   box-shadow: 0 10px 22px rgba(24, 36, 68, 0.12);
 }
 
+.deck-card-row-main {
+  min-width: 0;
+  flex: 1 1 240px;
+  display: grid;
+  gap: 8px;
+}
+
 .deck-card-row-copy {
   min-width: 0;
-  flex: 1 1 auto;
 }
 
 .deck-card-row-actions {
-  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+}
 
 .deck-card-row-actions-land {
   display: flex;
@@ -1504,36 +1515,33 @@ button[type="submit"] {
 
 .deck-card-art-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, 12px);
+  gap: 2px;
   margin-top: 8px;
 }
 
 .deck-card-art-option {
   border: 1px solid #d8dff0;
-  border-radius: 10px;
+  border-radius: 3px;
   background: #fbfcff;
-  padding: 6px;
-  display: grid;
-  gap: 4px;
+  width: 12px;
+  height: 17px;
+  padding: 0;
+  display: block;
   text-align: center;
+  overflow: hidden;
 }
 
 .deck-card-art-option img {
   width: 100%;
-  height: auto;
+  height: 100%;
   aspect-ratio: 63 / 88;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .deck-card-art-option span {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #33446a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
 }
 
 .deck-land-minus,
@@ -1588,7 +1596,6 @@ button[type="submit"] {
 .deck-land-quick-add {
   padding: 6px 14px;
   font-size: 0.85rem;
-}
 }
 
 .deck-card-name,
