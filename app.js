@@ -5371,18 +5371,12 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
 }
 
 function isBasicLand(card) {
-  if (!card?.name) {
+  if (!card?.typeLine && !card?.cardType) {
     return false;
   }
-  const basicLandNames = new Set([
-    'plains',
-    'island',
-    'swamp',
-    'mountain',
-    'forest',
-    'wastes',
-  ]);
-  return basicLandNames.has(getIdentityKey(card.name));
+  // Check if card type includes "Basic Land"
+  const cardType = String(card.typeLine || card.cardType || '').toLowerCase();
+  return cardType.includes('basic land');
 }
 
 function getDeckBuilderCardNameSet(deck) {
@@ -5560,6 +5554,11 @@ async function selectDeckCardByName(cardName) {
     if (card) {
       deckBuilderSelectedCard = card;
       persistDeckBuilderSelectedCard(card);
+      // Hide search results and show selection panel
+      if (deckBuilderSearchResults) {
+        deckBuilderSearchResults.innerHTML = '';
+        deckBuilderSearchResults.hidden = true;
+      }
       renderDeckBuilderSelection();
     }
   } catch (error) {
@@ -5589,11 +5588,48 @@ function renderDeckBuilderSelection() {
     return;
   }
 
+  const deck = ensureActiveDeckBuilderRecord();
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  
+  // If no card is selected, show the commander if one exists
   if (!card) {
     persistDeckBuilderSelectedCard(null);
     delete deckBuilderSelection.dataset.selectedCard;
-    deckBuilderSelection.innerHTML = '<p>Select a card from search to preview it here.</p>';
+    
+    if (deck?.commander) {
+      const commander = deck.commander;
+      const badges = [
+        commander.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
+        commander.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+      ].filter(Boolean).join('');
+      const rulesText = getDeckCardRulesText(commander);
+
+      deckBuilderSelection.innerHTML = `
+        <article class="deck-card-preview">
+          <div class="deck-card-preview-copy">
+            <p class="deck-card-preview-kicker">Current Commander</p>
+            <h3>${escapeHtml(commander.name)}</h3>
+            <p class="deck-card-preview-meta">${escapeHtml(commander.typeLine || 'No type line available')}</p>
+            <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(commander.manaCost || '—')}</p>
+            ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
+            ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
+          </div>
+          <div class="actions deck-card-preview-actions">
+            <button type="button" class="secondary-button" onclick="window.__deckBuilderRemoveCommander && window.__deckBuilderRemoveCommander(event)">Remove Commander</button>
+          </div>
+        </article>`;
+
+      const removeButton = deckBuilderSelection.querySelector('[onclick*="RemoveCommander"]');
+      if (removeButton) {
+        removeButton.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          removeDeckBuilderCard('', { isCommander: true });
+        });
+      }
+    } else {
+      deckBuilderSelection.innerHTML = '<p>No commander selected. Select a card from search or from your deck to set it as commander.</p>';
+    }
     return;
   }
 
@@ -5652,6 +5688,12 @@ if (typeof window !== 'undefined') {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     await setSelectedCardAsCommander();
+  };
+
+  window.__deckBuilderRemoveCommander = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    removeDeckBuilderCard('', { isCommander: true });
   };
 }
 
