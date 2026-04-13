@@ -5370,6 +5370,21 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   refresh();
 }
 
+function isBasicLand(card) {
+  if (!card?.name) {
+    return false;
+  }
+  const basicLandNames = new Set([
+    'plains',
+    'island',
+    'swamp',
+    'mountain',
+    'forest',
+    'wastes',
+  ]);
+  return basicLandNames.has(getIdentityKey(card.name));
+}
+
 function getDeckBuilderCardNameSet(deck) {
   const nameSet = new Set();
   if (deck?.commander?.name) {
@@ -5396,8 +5411,13 @@ async function addSelectedCardToDeck() {
     return;
   }
 
-  if (getDeckBuilderCardNameSet(deck).has(getIdentityKey(card.name))) {
-    await promptLiveAlert(`${card.name} is already in this deck.`, 'Duplicate card');
+  const isBasic = isBasicLand(card);
+  const cardNameKey = getIdentityKey(card.name);
+  const deckCardNameSet = getDeckBuilderCardNameSet(deck);
+  
+  // Non-basic lands cannot have duplicates
+  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
+    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands can have multiple copies.`, 'Duplicate card');
     return;
   }
 
@@ -5532,6 +5552,19 @@ async function fetchDeckCardByName(name) {
     deckBuilderCardCache.set(normalizedName, card);
   }
   return card;
+}
+
+async function selectDeckCardByName(cardName) {
+  try {
+    const card = await fetchDeckCardByName(cardName);
+    if (card) {
+      deckBuilderSelectedCard = card;
+      persistDeckBuilderSelectedCard(card);
+      renderDeckBuilderSelection();
+    }
+  } catch (error) {
+    console.warn('Failed to select deck card:', error);
+  }
 }
 
 function renderDeckBuilderSearchResults() {
@@ -5696,8 +5729,10 @@ function renderDeckCardRow(card, options = {}) {
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
 
+  const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
+
   return `
-    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}">
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}"${cardDataAttr}>
       ${commanderImageMarkup}
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(card.name)}</p>
@@ -9271,6 +9306,16 @@ if (deckBuilderCards) {
     const removeCardButton = event.target.closest('.deck-builder-remove-card[data-card-id]');
     if (removeCardButton) {
       removeDeckBuilderCard(removeCardButton.dataset.cardId || '');
+      return;
+    }
+
+    // Handle selecting a deck card by clicking on it
+    const deckCardRow = event.target.closest('.deck-card-row[data-card-name]');
+    if (deckCardRow && !event.target.closest('.deck-builder-remove-card')) {
+      const cardName = deckCardRow.dataset.cardName || '';
+      if (cardName) {
+        selectDeckCardByName(cardName);
+      }
     }
   });
 }
