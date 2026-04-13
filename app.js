@@ -103,6 +103,7 @@ const deckBuilderCards = document.getElementById('deck-builder-cards');
 const deckBuilderTextList = document.getElementById('deck-builder-text-list');
 const deckBuilderExportButton = document.getElementById('deck-builder-export');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
+const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
@@ -6323,6 +6324,40 @@ function exportDeckAsText(deck) {
   return lines.join('\n');
 }
 
+function buildEdhPowerLevelDeckText(deck) {
+  const lines = [];
+  if (deck?.commander?.name) {
+    lines.push(`1 ${deck.commander.name}`);
+  }
+
+  const counts = new Map();
+  (deck?.cards || []).forEach((card) => {
+    if (!card?.name) {
+      return;
+    }
+    counts.set(card.name, (counts.get(card.name) || 0) + 1);
+  });
+
+  [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([name, count]) => lines.push(`${count} ${name}`));
+
+  return lines.join('\n');
+}
+
+function encodeEdhPowerLevelDeck(deckText) {
+  const rows = String(deckText || '').split(/[\r\n~]/);
+  const cleaned = rows
+    .map((row) => row
+      .split('(')[0]
+      .replace(/ *\[[^\]]*\] */g, ' ')
+      .replace(/ *<[^>]*> */g, ' ')
+      .trim())
+    .filter(Boolean);
+
+  return `${encodeURIComponent(cleaned.join('~')).replace(/%20/g, '+')}~Z~`;
+}
+
 function parseDeckTextList(text) {
   let commanderName = null;
   let inCommanderSection = false;
@@ -10123,6 +10158,27 @@ if (deckBuilderImportButton) {
       return;
     }
     await importDeckFromText(deckBuilderTextList.value);
+  });
+}
+
+if (deckBuilderEdhplButton) {
+  deckBuilderEdhplButton.addEventListener('click', () => {
+    const deck = ensureActiveDeckBuilderRecord();
+    if (!deck) {
+      setDeckBuilderImportStatus('No active deck to analyze.', 'error');
+      return;
+    }
+
+    const deckText = buildEdhPowerLevelDeckText(deck);
+    if (!deckText.trim()) {
+      setDeckBuilderImportStatus('Add cards before analyzing deck strength.', 'error');
+      return;
+    }
+
+    const encodedDeck = encodeEdhPowerLevelDeck(deckText);
+    const url = `https://edhpowerlevel.com?d=${encodedDeck}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setDeckBuilderImportStatus('Opened EDHPowerLevel analysis in a new tab.', 'success');
   });
 }
 
