@@ -241,6 +241,7 @@ let deckBuilderSearchTimer = null;
 let deckBuilderSearchLoading = false;
 let deckBuilderSearchResultsState = [];
 let deckBuilderSelectedCard = null;
+let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -578,6 +579,10 @@ function normalizeDeckCardEntry(card) {
       })).filter((face) => face.name || face.oracleText || face.typeLine || face.manaCost)
       : [],
     colorIdentity: Array.isArray(card.colorIdentity) ? card.colorIdentity.map((value) => String(value || '').trim()).filter(Boolean) : [],
+    power: String(card.power || '').trim(),
+    toughness: String(card.toughness || '').trim(),
+    loyalty: String(card.loyalty || '').trim(),
+    defense: String(card.defense || '').trim(),
     isBanned: Boolean(card.isBanned),
     isGameChanger: Boolean(card.isGameChanger),
     isCommanderLegal: Boolean(card.isCommanderLegal),
@@ -5749,13 +5754,29 @@ function getDeckCardRulesText(card) {
   return String(firstFace?.oracleText || '').trim();
 }
 
+function getDeckCardStatLine(card) {
+  if (card.power && card.toughness) {
+    return `${card.power} / ${card.toughness}`;
+  }
+  if (card.loyalty) {
+    return `Loyalty: ${card.loyalty}`;
+  }
+  if (card.defense) {
+    return `Defense: ${card.defense}`;
+  }
+  return '';
+}
+
 function renderDeckCardRow(card, options = {}) {
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
   ].filter(Boolean).join('');
   const rulesText = getDeckCardRulesText(card);
-  const commanderImageMarkup = options.isCommander && (card.imageLargeUri || card.imageUri)
+  const statLine = getDeckCardStatLine(card);
+  const isExpanded = options.isCommander || options.isSelected;
+
+  const imageMarkup = isExpanded && (card.imageLargeUri || card.imageUri)
     ? `
       <div class="deck-card-row-media">
         <img
@@ -5774,12 +5795,14 @@ function renderDeckCardRow(card, options = {}) {
   const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
 
   return `
-    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}"${cardDataAttr}>
-      ${commanderImageMarkup}
+    <div class="deck-card-row${card.isBanned ? ' is-banned' : ''}${options.isCommander ? ' is-commander' : ''}${options.isSelected ? ' is-selected' : ''}"${cardDataAttr}>
+      ${imageMarkup}
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(card.name)}</p>
         <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
-        ${options.isCommander && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
+        ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
+        ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
+        ${isExpanded && rulesText ? `<div class="deck-card-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="deck-card-row-actions">
@@ -5818,7 +5841,7 @@ function renderDeckBuilderCards(deck) {
         <h3>${escapeHtml(group.type)}</h3>
         <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
       </div>
-      ${group.cards.map((card) => renderDeckCardRow(card)).join('')}
+      ${group.cards.map((card) => renderDeckCardRow(card, { isSelected: card.id === deckBuilderSelectedDeckCardId })).join('')}
     </section>`).join('');
 
   deckBuilderCards.innerHTML = `${commanderMarkup}${groupMarkup || ''}`;
@@ -9354,9 +9377,12 @@ if (deckBuilderCards) {
     // Handle selecting a deck card by clicking on it
     const deckCardRow = event.target.closest('.deck-card-row[data-card-name]');
     if (deckCardRow && !event.target.closest('.deck-builder-remove-card')) {
-      const cardName = deckCardRow.dataset.cardName || '';
-      if (cardName) {
-        selectDeckCardByName(cardName);
+      const cardId = deckCardRow.dataset.cardId || '';
+      // Toggle: clicking the already-selected card collapses it
+      deckBuilderSelectedDeckCardId = (deckBuilderSelectedDeckCardId === cardId) ? null : cardId;
+      const deck = ensureActiveDeckBuilderRecord();
+      if (deck) {
+        renderDeckBuilderCards(deck);
       }
     }
   });

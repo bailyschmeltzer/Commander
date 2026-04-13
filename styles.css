@@ -1225,6 +1225,10 @@ button[type="submit"] {
   background: #f2f6ff;
 }
 
+.deck-builder-selection {
+  margin-top: 16px;
+}
+
 .deck-builder-selection > p,
 .deck-builder-empty-copy {
   margin: 0;
@@ -1359,6 +1363,12 @@ button[type="submit"] {
 .deck-card-row.is-banned {
   border-color: #efc2ba;
   background: #fff5f3;
+}
+
+.deck-card-row.is-selected {
+  align-items: flex-start;
+  background-color: #f0f4ff;
+  border-color: #a8bde8;
 }
 
 .deck-card-row.is-commander {
