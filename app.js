@@ -6307,6 +6307,26 @@ function getCommanderBuilderInputs() {
   return Array.from(commanderBuilderForm.querySelectorAll('input[name="commander-color"]'));
 }
 
+function getSelectedCommanderBuilderIdentity() {
+  const selectedValues = getCommanderBuilderInputs()
+    .filter((input) => input.checked)
+    .map((input) => String(input.value || '').trim().toUpperCase())
+    .filter(Boolean);
+
+  if (!selectedValues.length) {
+    return '';
+  }
+
+  // Colorless is exclusive. If mixed with colors, treat as invalid selection.
+  if (selectedValues.includes('C')) {
+    return selectedValues.length === 1 ? 'c' : '';
+  }
+
+  const order = ['W', 'U', 'B', 'R', 'G'];
+  const normalized = order.filter((code) => selectedValues.includes(code)).join('');
+  return normalized.toLowerCase();
+}
+
 function chooseRandomItem(options) {
   if (!Array.isArray(options) || !options.length) {
     return null;
