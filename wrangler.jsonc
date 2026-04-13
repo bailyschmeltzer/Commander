@@ -10,7 +10,8 @@
     "directory": "."
   },
   "vars": {
-    "POD_ACCESS_TOKEN": "commander"
+    "POD_ACCESS_TOKEN": "commander",
+    "POD_MEMBERS_JSON": "[{\"userId\":\"baily\",\"displayName\":\"Baily\",\"token\":\"commander-baily\",\"role\":\"admin\"},{\"userId\":\"sevin\",\"displayName\":\"Sevin\",\"token\":\"commander-sevin\",\"role\":\"member\"},{\"userId\":\"greg\",\"displayName\":\"Greg\",\"token\":\"commander-greg\",\"role\":\"member\"},{\"userId\":\"tyler\",\"displayName\":\"Tyler\",\"token\":\"commander-tyler\",\"role\":\"member\"},{\"userId\":\"andrew\",\"displayName\":\"Andrew\",\"token\":\"commander-andrew\",\"role\":\"member\"},{\"userId\":\"steven\",\"displayName\":\"Steven\",\"token\":\"commander-steven\",\"role\":\"member\"},{\"userId\":\"brandon\",\"displayName\":\"Brandon\",\"token\":\"commander-brandon\",\"role\":\"member\"},{\"userId\":\"lawrence\",\"displayName\":\"Lawrence\",\"token\":\"commander-lawrence\",\"role\":\"member\"}]"
   },
   "kv_namespaces": [
     {

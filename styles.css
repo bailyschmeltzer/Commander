@@ -1164,6 +1164,31 @@ button[type="submit"] {
   gap: 12px;
 }
 
+.deck-builder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.deck-builder-title-row h1 {
+  margin: 0;
+}
+
+.deck-builder-access-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #e1c48c;
+  background: #fff6de;
+  color: #7b5a00;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .deck-builder-summary-row {
   display: flex;
   align-items: center;

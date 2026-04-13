@@ -96,6 +96,7 @@ const commanderBuilderCount = document.getElementById('commander-builder-count')
 const commanderBuilderRerollButton = document.getElementById('commander-builder-reroll');
 const deckBuilderPage = document.querySelector('.page-deckbuilder, .page-deck-builder');
 const deckBuilderTitle = document.getElementById('deck-builder-title');
+const deckBuilderAccessBadge = document.getElementById('deck-builder-access-badge');
 const deckBuilderNameInput = document.getElementById('deck-builder-name');
 const deckBuilderOwnerInput = document.getElementById('deck-builder-owner');
 const deckBuilderPowerInput = document.getElementById('deck-builder-power-level');
@@ -246,6 +247,9 @@ let syncLastErrorMessage = '';
 let syncCloudRevision = 0;
 let syncCloudUpdatedAt = '';
 let syncCloudUpdatedBy = '';
+let syncAuthenticatedUserId = '';
+let syncAuthenticatedDisplayName = '';
+let syncAuthenticatedRole = '';
 let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
@@ -647,6 +651,7 @@ function normalizeDeckRecord(entry) {
 
   const name = String(entry.name || '').trim() || 'Untitled Deck';
   const owner = normalizeIdentityLabel(entry.owner || '');
+  const ownerUserId = String(entry.ownerUserId || '').trim().toLowerCase();
   const commander = normalizeDeckCardEntry(entry.commander);
   const cards = Array.isArray(entry.cards)
     ? entry.cards.map(normalizeDeckCardEntry).filter(Boolean)
@@ -662,6 +667,7 @@ function normalizeDeckRecord(entry) {
     id: String(entry.id || generateId()).trim(),
     name,
     owner,
+    ownerUserId,
     commander,
     cards,
     maybeboard,
@@ -1165,6 +1171,28 @@ function updateSyncMetadata({ revision = 0, updatedAt = '', updatedBy = '' } = {
   syncCloudUpdatedBy = String(updatedBy || '').trim();
 }
 
+function updateSyncAuthenticatedUser(auth = null) {
+  syncAuthenticatedUserId = String(auth?.userId || '').trim().toLowerCase();
+  syncAuthenticatedDisplayName = String(auth?.displayName || '').trim();
+  syncAuthenticatedRole = String(auth?.role || '').trim().toLowerCase();
+}
+
+function clearSyncAuthenticatedUser() {
+  updateSyncAuthenticatedUser(null);
+}
+
+function getCurrentSyncUserId() {
+  return String(syncAuthenticatedUserId || '').trim().toLowerCase();
+}
+
+function getCurrentSyncDisplayName() {
+  return String(syncAuthenticatedDisplayName || '').trim() || normalizeIdentityLabel(getSyncCredentials().user || '');
+}
+
+function isCurrentSyncUserAdmin() {
+  return syncAuthenticatedRole === 'admin';
+}
+
 function clearSyncConflict() {
   syncConflictInfo = null;
 }
@@ -1260,13 +1288,14 @@ function getSyncStatusSnapshot() {
   }
 
   if (syncConnectionState === 'connected') {
+    const connectedAs = getCurrentSyncDisplayName() || credentials.user;
     return {
       tone: credentialAgeDays !== null && credentialAgeDays >= 7 ? 'neutral' : 'success',
       message: credentialAgeDays !== null && credentialAgeDays >= 7
-        ? `Cloud sync is still connected as ${credentials.user}. Shared device? Disconnect when you're done.`
+        ? `Cloud sync is still connected as ${connectedAs}. Shared device? Disconnect when you're done.`
         : (lastSyncedText
           ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
-          : `Cloud sync connected as ${credentials.user}.`),
+          : `Cloud sync connected as ${connectedAs}.`),
     };
   }
 
@@ -1411,6 +1440,7 @@ async function pullCloudState() {
   const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
   const decks = Array.isArray(payload.decks) ? payload.decks : [];
   const records = Array.isArray(payload.records) ? payload.records : [];
+  updateSyncAuthenticatedUser(payload.auth || null);
   updateSyncMetadata({
     revision: payload.revision,
     updatedAt: payload.updatedAt,
@@ -1427,6 +1457,7 @@ async function pullCloudState() {
 
 async function fetchCloudStateMetadata() {
   const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET' });
+  updateSyncAuthenticatedUser(payload.auth || null);
   return {
     revision: Number.isFinite(Number(payload?.revision)) ? Number(payload.revision) : 0,
     updatedAt: String(payload?.updatedAt || '').trim(),
@@ -1530,6 +1561,7 @@ async function pushCloudState() {
         records: appState.records,
       }),
     });
+    updateSyncAuthenticatedUser(payload.auth || null);
     updateSyncMetadata({
       revision: payload.revision,
       updatedAt: payload.updatedAt,
@@ -5317,7 +5349,8 @@ function createEmptyDeckRecord() {
   return normalizeDeckRecord({
     id: generateId(),
     name: 'Untitled Deck',
-    owner: '',
+    owner: getCurrentSyncDisplayName(),
+    ownerUserId: getCurrentSyncUserId(),
     commander: null,
     cards: [],
     maybeboard: [],
@@ -5424,6 +5457,77 @@ function getDeckValidationSummary(deck) {
   };
 }
 
+function canCurrentUserEditDeck(deck) {
+  const ownerUserId = String(deck?.ownerUserId || '').trim().toLowerCase();
+  if (!ownerUserId) {
+    return true;
+  }
+
+  const currentUserId = getCurrentSyncUserId();
+  if (!currentUserId) {
+    return true;
+  }
+
+  return isCurrentSyncUserAdmin() || currentUserId === ownerUserId;
+}
+
+function getDeckReadOnlyMessage(deck) {
+  const ownerLabel = normalizeIdentityLabel(deck?.owner || '') || 'the deck owner';
+  return `Read-only: only ${ownerLabel} can edit this deck.`;
+}
+
+function applyDeckOwnership(nextDeck) {
+  const normalizedDeck = normalizeDeckRecord(nextDeck);
+  if (!normalizedDeck) {
+    return null;
+  }
+
+  const currentUserId = getCurrentSyncUserId();
+  if (!currentUserId || normalizedDeck.ownerUserId) {
+    return normalizedDeck;
+  }
+
+  return normalizeDeckRecord({
+    ...normalizedDeck,
+    ownerUserId: currentUserId,
+    owner: normalizedDeck.owner || getCurrentSyncDisplayName(),
+  });
+}
+
+function applyDeckBuilderAccessState(deck) {
+  const isReadOnly = Boolean(deck) && !canCurrentUserEditDeck(deck);
+
+  if (deckBuilderAccessBadge) {
+    deckBuilderAccessBadge.hidden = !isReadOnly;
+    deckBuilderAccessBadge.textContent = isReadOnly ? 'Read-only' : '';
+  }
+
+  if (deckBuilderNameInput) {
+    deckBuilderNameInput.disabled = isReadOnly;
+  }
+  if (deckBuilderOwnerInput) {
+    deckBuilderOwnerInput.disabled = isReadOnly;
+  }
+  if (deckBuilderPowerInput) {
+    deckBuilderPowerInput.disabled = isReadOnly;
+  }
+  if (deckBuilderSearchInput) {
+    deckBuilderSearchInput.disabled = isReadOnly;
+  }
+  if (deckBuilderTokenSearchInput) {
+    deckBuilderTokenSearchInput.disabled = isReadOnly;
+  }
+  if (deckBuilderImportButton) {
+    deckBuilderImportButton.disabled = isReadOnly;
+  }
+  if (deckBuilderTextList) {
+    deckBuilderTextList.disabled = isReadOnly;
+  }
+  if (deckBuilderUndoButton) {
+    deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
+  }
+}
+
 function getDeckSummaryLabel(deck) {
   const summary = getDeckValidationSummary(deck);
   if (!summary.commanderCount) {
@@ -5510,7 +5614,9 @@ function renderDeckLibrary() {
   deckLibraryTableBody.innerHTML = decks.map((deck) => {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
+    const canEditDeck = canCurrentUserEditDeck(deck);
     const warnings = [
+      deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
     ].filter(Boolean).join(', ') || '—';
 
@@ -5523,7 +5629,7 @@ function renderDeckLibrary() {
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
-          <button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}">Delete</button>
+          <button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>
         </td>
       </tr>`;
   }).join('');
@@ -5534,6 +5640,11 @@ function renderDeckLibrary() {
 async function deleteDeckRecord(deckId) {
   const deck = loadDecks().find((entry) => entry.id === deckId);
   if (!deck) {
+    return;
+  }
+
+  if (!canCurrentUserEditDeck(deck)) {
+    setDeckBuilderSaveStatus(getDeckReadOnlyMessage(deck), 'error');
     return;
   }
 
@@ -5664,6 +5775,10 @@ function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
 
 function updateDeckBuilderUndoButton() {
   if (!deckBuilderUndoButton) return;
+  if (activeDeckBuilderRecord && !canCurrentUserEditDeck(activeDeckBuilderRecord)) {
+    deckBuilderUndoButton.disabled = true;
+    return;
+  }
   const stackLen = activeDeckBuilderRecord
     ? (deckBuilderUndoStacks[activeDeckBuilderRecord.id] || []).length
     : 0;
@@ -5683,6 +5798,16 @@ async function undoDeckBuilderChange() {
 }
 
 function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success', { skipUndo = false } = {}) {
+  const ownedDeck = applyDeckOwnership(nextDeck);
+  if (!ownedDeck) {
+    return;
+  }
+
+  if (!canCurrentUserEditDeck(ownedDeck)) {
+    setDeckBuilderSaveStatus(getDeckReadOnlyMessage(ownedDeck), 'error');
+    return;
+  }
+
   if (!skipUndo && activeDeckBuilderRecord) {
     if (!deckBuilderUndoStacks[activeDeckBuilderRecord.id]) {
       deckBuilderUndoStacks[activeDeckBuilderRecord.id] = [];
@@ -5690,7 +5815,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
     deckBuilderUndoStacks[activeDeckBuilderRecord.id].push(JSON.parse(JSON.stringify(activeDeckBuilderRecord)));
   }
   const normalizedDeck = normalizeDeckRecord({
-    ...nextDeck,
+    ...ownedDeck,
     updatedAt: new Date().toISOString(),
   });
   const existingDecks = loadDecks();
@@ -6437,6 +6562,7 @@ function renderDeckBuilderSelection() {
 
   const deck = ensureActiveDeckBuilderRecord();
   const card = normalizeDeckCardEntry(deckBuilderSelectedCard);
+  const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
   
   // If no card is selected, show the commander if one exists
   if (!card) {
@@ -6464,7 +6590,7 @@ function renderDeckBuilderSelection() {
             ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
           </div>
           <div class="actions deck-card-preview-actions">
-            <button type="button" class="secondary-button" onclick="window.__deckBuilderRemoveCommander && window.__deckBuilderRemoveCommander(event)">Remove Commander</button>
+            <button type="button" class="secondary-button" onclick="window.__deckBuilderRemoveCommander && window.__deckBuilderRemoveCommander(event)"${isReadOnly ? ' disabled' : ''}>Remove Commander</button>
           </div>
         </article>`;
 
@@ -6505,10 +6631,10 @@ function renderDeckBuilderSelection() {
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="actions deck-card-preview-actions">
-        <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)">Add to Deck</button>
-        ${card.isToken ? '<button type="button" id="deck-builder-add-token" class="secondary-button" onclick="window.__deckBuilderAddSelectedToken && window.__deckBuilderAddSelectedToken(event)">Add to Tokens</button>' : ''}
-        <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)">Add to Maybeboard</button>
-        ${canSetCommander ? '<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)">Set as Commander</button>' : ''}
+        <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>
+        ${card.isToken ? `<button type="button" id="deck-builder-add-token" class="secondary-button" onclick="window.__deckBuilderAddSelectedToken && window.__deckBuilderAddSelectedToken(event)"${isReadOnly ? ' disabled' : ''}>Add to Tokens</button>` : ''}
+        <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)"${isReadOnly ? ' disabled' : ''}>Add to Maybeboard</button>
+        ${canSetCommander ? `<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>` : ''}
       </div>
     </article>`;
 
@@ -6665,6 +6791,7 @@ function renderDeckBuilderCards(deck) {
     summary.colorViolations.map((v) => getIdentityKey(v.replace(/\s*\([^)]*\)$/, '').trim()))
   );
   const isIllegalCard = (card) => illegalCardNames.has(getIdentityKey(card.name));
+  const isReadOnly = !canCurrentUserEditDeck(deck);
 
   const commanderMarkup = deck?.commander
     ? `
@@ -6673,7 +6800,7 @@ function renderDeckBuilderCards(deck) {
           <h3>Commander</h3>
           <p>1 card</p>
         </div>
-        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId })}</div>
+        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly })}</div>
       </section>`
     : `
       <section class="deck-builder-group">
@@ -6708,6 +6835,7 @@ function renderDeckBuilderCards(deck) {
         isIllegal: isIllegalCard(card),
         canSetCommander: canSetCardAsCommanderForDeck(deck, card),
         showArtPicker: card.id === deckBuilderArtPickerCardId,
+        readOnly: isReadOnly,
       })).join('');
       const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
         `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
@@ -6736,6 +6864,7 @@ function renderDeckBuilderCards(deck) {
           isIllegal: isIllegalCard(card),
           canSetCommander: canSetCardAsCommanderForDeck(deck, card),
           showArtPicker: card.id === deckBuilderArtPickerCardId,
+          readOnly: isReadOnly,
         })).join('')}</div>
       </section>`;
   }).join('');
@@ -6770,6 +6899,7 @@ function renderDeckBuilderCards(deck) {
           fromTokens: true,
           canSetCommander: false,
           showArtPicker: card.id === deckBuilderArtPickerCardId,
+          readOnly: isReadOnly,
         })).join('')}</div>`
         : '<p class="deck-builder-empty-copy">Track token cards here. Tokens do not count toward deck legality.</p>'}
     </section>`;
@@ -6787,6 +6917,7 @@ function renderDeckBuilderCards(deck) {
           fromMaybeboard: true,
           canSetCommander: canSetCardAsCommanderForDeck(deck, card),
           showArtPicker: card.id === deckBuilderArtPickerCardId,
+          readOnly: isReadOnly,
         })).join('')}</div>`
         : '<p class="deck-builder-empty-copy">Add cards here as possible includes. Maybeboard cards do not affect deck legality.</p>'}
     </section>`;
@@ -6884,6 +7015,10 @@ function renderDeckBuilderPage() {
     }
   }
 
+  applyDeckBuilderAccessState(deck);
+  if (!canCurrentUserEditDeck(deck)) {
+    setDeckBuilderSaveStatus(getDeckReadOnlyMessage(deck), 'muted');
+  }
   renderDeckBuilderValidation(deck);
   renderDeckBuilderSelection();
   renderDeckBuilderCards(deck);
@@ -8046,6 +8181,8 @@ const BASIC_LAND_NAMES = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wa
 function renderBasicLandRow(name, cards) {
   const count = cards.length;
   const sampleId = cards[0]?.id || '';
+  const deck = ensureActiveDeckBuilderRecord();
+  const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
   return `
     <div class="deck-card-row deck-card-row-basic-land" data-basic-land-name="${escapeHtml(name)}">
       <div class="deck-card-row-copy">
@@ -8053,9 +8190,9 @@ function renderBasicLandRow(name, cards) {
         <p class="deck-card-meta">Basic Land</p>
       </div>
       <div class="deck-card-row-actions deck-card-row-actions-land">
-        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}">−</button>
+        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
         <span class="deck-land-count">×${escapeHtml(String(count))}</span>
-        <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}">+</button>
+        <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
       </div>
     </div>`;
 }
@@ -8077,6 +8214,7 @@ async function addBasicLandToDeck(landName) {
 }
 
 function renderDeckCardRow(card, options = {}) {
+  const isReadOnly = Boolean(options.readOnly);
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
@@ -8098,19 +8236,19 @@ function renderDeckCardRow(card, options = {}) {
       </div>`
     : '';
   const removeAction = options.isCommander
-    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
-    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
+    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`;
   const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
-    ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
+    ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
   const addToDeckAction = options.fromMaybeboard
-    ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}">Add to Deck</button>`
+    ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>`
     : '';
   const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
-    ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}">To Maybeboard</button>`
+    ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>To Maybeboard</button>`
     : '';
   const artAction = !options.isBasicLand
-    ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}">Change Art</button>`
+    ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Change Art</button>`
     : '';
   const isArtPickerOpen = Boolean(options.showArtPicker);
   const artState = isArtPickerOpen ? deckBuilderArtPickerState : null;
@@ -11772,6 +11910,7 @@ function setupSyncUi() {
       syncLastSuccessAt = null;
       syncLastErrorMessage = '';
       updateSyncMetadata();
+      clearSyncAuthenticatedUser();
       clearSyncConflict();
       syncConnectionState = 'local';
       removeLocalStorageValue(SYNC_USER_STORAGE_KEY);

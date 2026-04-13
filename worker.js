@@ -142,6 +142,49 @@ function getTextValue(value) {
   return String(value || '').trim();
 }
 
+function normalizeMemberKey(value) {
+  return getTextValue(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function getConfiguredMembers(env) {
+  const raw = getTextValue(env.POD_MEMBERS_JSON);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((member) => {
+        const userId = getTextValue(member?.userId || member?.id);
+        const displayName = getTextValue(member?.displayName || member?.user || userId);
+        const token = getTextValue(member?.token || member?.accessCode);
+        const role = getTextValue(member?.role).toLowerCase() === 'admin' ? 'admin' : 'member';
+        if (!userId || !displayName || !token) {
+          return null;
+        }
+
+        return {
+          userId: normalizeMemberKey(userId),
+          displayName,
+          token,
+          role,
+          matchKeys: new Set([normalizeMemberKey(userId), normalizeMemberKey(displayName)]),
+        };
+      })
+      .filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+}
+
 function buildCommanderImageProxyUrl(source, requestOrigin) {
   const value = getTextValue(source);
   if (!value || !requestOrigin) {
@@ -554,9 +597,53 @@ function getRequestToken(request) {
   return (request.headers.get('X-Pod-Token') || '').trim();
 }
 
+function buildAutoProvisionedAuth(user) {
+  const normalizedUser = normalizeMemberKey(user);
+  if (!normalizedUser) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    user: getTextValue(user),
+    userId: normalizedUser,
+    displayName: getTextValue(user),
+    role: 'member',
+    authMode: 'auto-provisioned',
+  };
+}
+
 function hasValidAuth(request, env) {
   const user = getRequestUser(request);
   const token = getRequestToken(request);
+  const configuredMembers = getConfiguredMembers(env);
+
+  if (configuredMembers.length) {
+    if (!env.POD_STATE) {
+      return { ok: false, reason: 'Server missing POD_STATE KV binding.' };
+    }
+
+    const normalizedUser = normalizeMemberKey(user);
+    const member = configuredMembers.find((entry) => entry.token === token && entry.matchKeys.has(normalizedUser));
+    if (member) {
+      return {
+        ok: true,
+        user: member.displayName,
+        userId: member.userId,
+        displayName: member.displayName,
+        role: member.role,
+        authMode: 'member',
+      };
+    }
+
+    const autoProvisioned = buildAutoProvisionedAuth(user);
+    if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
+      return autoProvisioned;
+    }
+
+    return { ok: false, reason: 'Invalid member credentials.' };
+  }
+
   const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
 
   if (!configuredToken) {
@@ -575,7 +662,80 @@ function hasValidAuth(request, env) {
     return { ok: false, reason: 'Invalid pod access code.' };
   }
 
-  return { ok: true, user };
+  return {
+    ok: true,
+    user,
+    userId: normalizeMemberKey(user),
+    displayName: user,
+    role: 'member',
+    authMode: 'legacy',
+  };
+}
+
+function buildAuthPayload(auth) {
+  return {
+    userId: getTextValue(auth?.userId).toLowerCase(),
+    displayName: getTextValue(auth?.displayName || auth?.user),
+    role: getTextValue(auth?.role || 'member').toLowerCase(),
+    mode: getTextValue(auth?.authMode || 'legacy').toLowerCase(),
+  };
+}
+
+function enforceDeckOwnership(currentDecks, nextDecks, auth) {
+  const currentById = new Map(
+    (Array.isArray(currentDecks) ? currentDecks : [])
+      .map((deck) => [getTextValue(deck?.id), deck])
+      .filter(([deckId]) => deckId),
+  );
+  const nextById = new Set();
+  const normalizedDecks = [];
+  const authUserId = getTextValue(auth?.userId).toLowerCase();
+  const isAdmin = getTextValue(auth?.role).toLowerCase() === 'admin';
+
+  for (const rawDeck of Array.isArray(nextDecks) ? nextDecks : []) {
+    const deckId = getTextValue(rawDeck?.id);
+    const currentDeck = currentById.get(deckId) || null;
+    const currentOwnerUserId = normalizeMemberKey(currentDeck?.ownerUserId);
+    const requestedOwnerUserId = normalizeMemberKey(rawDeck?.ownerUserId);
+    const hasChanged = !currentDeck || JSON.stringify(currentDeck) !== JSON.stringify(rawDeck);
+
+    if (deckId) {
+      nextById.add(deckId);
+    }
+
+    if (hasChanged) {
+      if (currentDeck && currentOwnerUserId && !isAdmin && currentOwnerUserId !== authUserId) {
+        throw new Error(`Deck "${getTextValue(currentDeck?.name) || 'Untitled Deck'}" is locked to ${getTextValue(currentDeck?.owner) || 'its owner'}.`);
+      }
+
+      if (!currentDeck && requestedOwnerUserId && !isAdmin && requestedOwnerUserId !== authUserId) {
+        throw new Error('New decks can only be assigned to the authenticated user.');
+      }
+
+      const nextOwnerUserId = currentOwnerUserId || requestedOwnerUserId || authUserId;
+      normalizedDecks.push({
+        ...rawDeck,
+        ownerUserId: nextOwnerUserId,
+        owner: getTextValue(rawDeck?.owner) || (nextOwnerUserId === authUserId ? getTextValue(auth?.displayName || auth?.user) : getTextValue(currentDeck?.owner)),
+      });
+      continue;
+    }
+
+    normalizedDecks.push(rawDeck);
+  }
+
+  currentById.forEach((currentDeck, deckId) => {
+    if (nextById.has(deckId)) {
+      return;
+    }
+
+    const currentOwnerUserId = normalizeMemberKey(currentDeck?.ownerUserId);
+    if (currentOwnerUserId && !isAdmin && currentOwnerUserId !== authUserId) {
+      throw new Error(`Deck "${getTextValue(currentDeck?.name) || 'Untitled Deck'}" is locked to ${getTextValue(currentDeck?.owner) || 'its owner'}.`);
+    }
+  });
+
+  return normalizedDecks;
 }
 
 export default {
@@ -801,10 +961,14 @@ export default {
             revision: state.revision,
             updatedAt: state.updatedAt,
             updatedBy: state.updatedBy,
+            auth: buildAuthPayload(auth),
           }, 200);
         }
 
-        return jsonResponse(state, 200);
+        return jsonResponse({
+          ...state,
+          auth: buildAuthPayload(auth),
+        }, 200);
       }
 
       if (request.method === 'PUT') {
@@ -846,19 +1010,34 @@ export default {
 
         const updatedAt = new Date().toISOString();
         const nextRevision = currentRevision + 1;
+        let normalizedDecks;
+
+        try {
+          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth);
+        } catch (error) {
+          return jsonResponse({
+            error: error instanceof Error ? error.message : 'Deck ownership validation failed.',
+          }, 403);
+        }
 
         await env.POD_STATE.put(stateKey, JSON.stringify({
           games,
           powerLevels,
           deckLists,
-          decks,
+          decks: normalizedDecks,
           records,
           revision: nextRevision,
           updatedAt,
-          updatedBy: auth.user,
+          updatedBy: auth.displayName || auth.user,
         }));
 
-        return jsonResponse({ ok: true, revision: nextRevision, updatedAt, updatedBy: auth.user }, 200);
+        return jsonResponse({
+          ok: true,
+          revision: nextRevision,
+          updatedAt,
+          updatedBy: auth.displayName || auth.user,
+          auth: buildAuthPayload(auth),
+        }, 200);
       }
 
       return jsonResponse({ error: 'Method not allowed.' }, 405);
