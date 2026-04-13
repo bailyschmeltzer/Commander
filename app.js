@@ -99,6 +99,10 @@ const deckBuilderSearchResults = document.getElementById('deck-builder-search-re
 const deckBuilderSearchStatus = document.getElementById('deck-builder-search-status');
 const deckBuilderSelection = document.getElementById('deck-builder-selection');
 const deckBuilderCards = document.getElementById('deck-builder-cards');
+const deckBuilderTextList = document.getElementById('deck-builder-text-list');
+const deckBuilderExportButton = document.getElementById('deck-builder-export');
+const deckBuilderImportButton = document.getElementById('deck-builder-import');
+const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -6112,6 +6116,106 @@ async function selectAndAddDeckSearchResult(name) {
   }
 }
 
+// --- Import / Export ---
+
+function setDeckBuilderImportStatus(message, tone = 'muted') {
+  if (!deckBuilderImportStatus) return;
+  deckBuilderImportStatus.textContent = message;
+  deckBuilderImportStatus.className = `deck-builder-import-status status-${tone}`;
+}
+
+function exportDeckAsText(deck) {
+  const lines = [];
+  if (deck.commander) {
+    lines.push('// Commander');
+    lines.push(`1 ${deck.commander.name}`);
+    lines.push('');
+    lines.push('// Deck');
+  }
+  // Aggregate cards by name, preserve alpha order
+  const counts = new Map();
+  deck.cards.forEach((card) => {
+    const key = card.name;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([name, count]) => lines.push(`${count} ${name}`));
+  return lines.join('\n');
+}
+
+function parseDeckTextList(text) {
+  let commanderName = null;
+  let inCommanderSection = false;
+  const entries = [];
+
+  String(text || '').split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) { inCommanderSection = false; return; }
+    if (trimmed.startsWith('//') || trimmed.startsWith('#')) {
+      inCommanderSection = /commander/i.test(trimmed);
+      return;
+    }
+    const match = trimmed.match(/^(\d+)\s+(.+)$/);
+    if (!match) return;
+    const count = Math.max(1, Math.min(100, parseInt(match[1], 10)));
+    const name = match[2].trim();
+    if (inCommanderSection && !commanderName) {
+      commanderName = name;
+      inCommanderSection = false;
+    }
+    entries.push({ count, name });
+  });
+
+  return { entries, commanderName };
+}
+
+async function importDeckFromText(text) {
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+  if (!deck) { setDeckBuilderImportStatus('No active deck.', 'error'); return; }
+
+  const { entries, commanderName } = parseDeckTextList(text);
+  if (!entries.length) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
+
+  const totalUnique = entries.length;
+  setDeckBuilderImportStatus(`Importing 0 / ${totalUnique}...`, 'neutral');
+
+  if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
+
+  const newCards = [];
+  let newCommander = null;
+  const failed = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const { count, name } = entries[i];
+    setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
+    try {
+      const card = await fetchDeckCardByName(name);
+      if (!card) { failed.push(name); continue; }
+      const isCommander = commanderName && getIdentityKey(name) === getIdentityKey(commanderName);
+      if (isCommander) {
+        newCommander = card;
+      } else {
+        for (let c = 0; c < count; c++) {
+          newCards.push({ ...card, id: generateId() });
+        }
+      }
+    } catch (e) {
+      failed.push(name);
+    }
+  }
+
+  if (deckBuilderImportButton) deckBuilderImportButton.disabled = false;
+
+  const statusMsg = failed.length
+    ? `Imported. ${failed.length} card(s) not found: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.`
+    : `Imported ${newCards.length + (newCommander ? 1 : 0)} card(s).`;
+  const tone = failed.length ? 'error' : 'success';
+
+  persistDeckBuilderRecord({ ...deck, commander: newCommander ?? deck.commander, cards: newCards }, statusMsg, tone);
+  setDeckBuilderImportStatus(statusMsg, tone);
+}
+
 function getDeckOwnerGroups() {
   return getSortedDeckLists().reduce((groups, entry) => {
     const owner = (entry.owner || '').trim();
@@ -9625,6 +9729,27 @@ if (deckBuilderCards) {
         renderDeckBuilderCards(deck);
       }
     }
+  });
+}
+
+if (deckBuilderExportButton) {
+  deckBuilderExportButton.addEventListener('click', () => {
+    const deck = ensureActiveDeckBuilderRecord();
+    if (!deck) { setDeckBuilderImportStatus('No active deck to export.', 'error'); return; }
+    if (deckBuilderTextList) {
+      deckBuilderTextList.value = exportDeckAsText(deck);
+    }
+    setDeckBuilderImportStatus('Deck exported to text above.', 'success');
+  });
+}
+
+if (deckBuilderImportButton) {
+  deckBuilderImportButton.addEventListener('click', async () => {
+    if (!deckBuilderTextList?.value?.trim()) {
+      setDeckBuilderImportStatus('Paste a deck list above first.', 'error');
+      return;
+    }
+    await importDeckFromText(deckBuilderTextList.value);
   });
 }
 

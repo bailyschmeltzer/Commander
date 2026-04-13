@@ -1245,6 +1245,40 @@ button[type="submit"] {
   border-radius: 14px;
   background: #fbfcff;
   color: #54607d;
+
+.deck-builder-text-list {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid #d0d8f0;
+  border-radius: 10px;
+  background: #f8faff;
+  color: #1f2742;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.deck-builder-text-list:focus {
+  outline: none;
+  border-color: #8aa8e0;
+  background: #fff;
+}
+
+.deck-builder-import-export-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.deck-builder-import-status {
+  margin: 0;
+  font-size: 0.83rem;
+  min-height: 1.2em;
+}
 }
 
 .deck-card-preview {
