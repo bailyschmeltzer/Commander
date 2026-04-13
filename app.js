@@ -576,7 +576,11 @@ function normalizeDeckCardEntry(card) {
         imageUri: String(face?.imageUri || '').trim(),
         imageLargeUri: String(face?.imageLargeUri || '').trim(),
         imagePngUri: String(face?.imagePngUri || '').trim(),
-      })).filter((face) => face.name || face.oracleText || face.typeLine || face.manaCost)
+        power: String(face?.power || '').trim(),
+        toughness: String(face?.toughness || '').trim(),
+        loyalty: String(face?.loyalty || '').trim(),
+        defense: String(face?.defense || '').trim(),
+      })).filter((face) => face.name || face.oracleText || face.typeLine || face.manaCost || face.power || face.toughness || face.loyalty || face.defense)
       : [],
     colorIdentity: Array.isArray(card.colorIdentity) ? card.colorIdentity.map((value) => String(value || '').trim()).filter(Boolean) : [],
     power: String(card.power || '').trim(),
@@ -5115,21 +5119,14 @@ function getDeckValidationSummary(deck) {
   });
 
   const bannedCards = [];
-  const gameChangerCards = [];
   const commander = normalizedDeck?.commander || null;
   if (commander?.isBanned) {
     bannedCards.push(commander.name);
-  }
-  if (commander?.isGameChanger) {
-    gameChangerCards.push(commander.name);
   }
 
   normalizedDeck.cards.forEach((card) => {
     if (card.isBanned) {
       bannedCards.push(card.name);
-    }
-    if (card.isGameChanger) {
-      gameChangerCards.push(card.name);
     }
   });
 
@@ -5141,7 +5138,6 @@ function getDeckValidationSummary(deck) {
     totalCards,
     duplicates,
     bannedCards,
-    gameChangerCards,
     isValid: commanderCount === 1 && totalCards === 100 && !duplicates.length,
   };
 }
@@ -5214,7 +5210,6 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const warnings = [
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
-      summary.gameChangerCards.length ? `${summary.gameChangerCards.length} game changer${summary.gameChangerCards.length === 1 ? '' : 's'}` : '',
     ].filter(Boolean).join(', ') || '—';
 
     return `
@@ -5602,9 +5597,10 @@ function renderDeckBuilderSelection() {
       const commander = deck.commander;
       const badges = [
         commander.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
-        commander.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+        commander.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
       ].filter(Boolean).join('');
       const rulesText = getDeckCardRulesText(commander);
+      const statLine = getDeckCardStatLine(commander);
 
       deckBuilderSelection.innerHTML = `
         <article class="deck-card-preview">
@@ -5613,6 +5609,7 @@ function renderDeckBuilderSelection() {
             <h3>${escapeHtml(commander.name)}</h3>
             <p class="deck-card-preview-meta">${escapeHtml(commander.typeLine || 'No type line available')}</p>
             <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(commander.manaCost || '—')}</p>
+            ${statLine ? `<p class="deck-card-preview-meta">${escapeHtml(statLine)}</p>` : ''}
             ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
             ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
           </div>
@@ -5640,9 +5637,10 @@ function renderDeckBuilderSelection() {
 
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
-    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
   ].filter(Boolean).join('');
   const rulesText = getDeckCardRulesText(card);
+  const statLine = getDeckCardStatLine(card);
 
   deckBuilderSelection.innerHTML = `
     <article class="deck-card-preview">
@@ -5651,6 +5649,7 @@ function renderDeckBuilderSelection() {
         <h3>${escapeHtml(card.name)}</h3>
         <p class="deck-card-preview-meta">${escapeHtml(card.typeLine || 'No type line available')}</p>
         <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(card.manaCost || '—')}</p>
+        ${statLine ? `<p class="deck-card-preview-meta">${escapeHtml(statLine)}</p>` : ''}
         ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
@@ -5708,12 +5707,11 @@ function renderDeckBuilderValidation(deck) {
   deckBuilderCardCount.textContent = `${summary.totalCards} / 100 cards`;
 
   const lines = [
-    { label: summary.commanderCount === 1 ? 'Exactly one commander selected.' : 'Deck needs exactly one commander.', tone: summary.commanderCount === 1 ? 'success' : 'error' },
-    { label: summary.totalCards === 100 ? 'Deck has exactly 100 cards.' : `Deck currently has ${summary.totalCards} cards.`, tone: summary.totalCards === 100 ? 'success' : 'error' },
-    { label: summary.duplicates.length ? `Duplicate card names found: ${summary.duplicates.join(', ')}.` : 'No duplicate card names.', tone: summary.duplicates.length ? 'error' : 'success' },
-    { label: summary.bannedCards.length ? `Banned cards: ${summary.bannedCards.join(', ')}.` : 'No banned cards added.', tone: summary.bannedCards.length ? 'error' : 'success' },
-    { label: summary.gameChangerCards.length ? `Game Changers: ${summary.gameChangerCards.join(', ')}.` : 'No Game Changers added.', tone: summary.gameChangerCards.length ? 'neutral' : 'success' },
-  ];
+    summary.commanderCount === 1 ? null : { label: 'Deck needs exactly one commander.', tone: 'error' },
+    summary.totalCards === 100 ? null : { label: `Deck currently has ${summary.totalCards} cards.`, tone: 'error' },
+    summary.duplicates.length ? { label: `Duplicate card names found: ${summary.duplicates.join(', ')}.`, tone: 'error' } : null,
+    summary.bannedCards.length ? { label: `Banned cards: ${summary.bannedCards.join(', ')}.`, tone: 'error' } : null,
+  ].filter(Boolean);
 
   deckBuilderValidation.innerHTML = lines.map((line) => `
     <li class="deck-validation-item deck-validation-${line.tone}">${escapeHtml(line.label)}</li>`).join('');
@@ -6429,7 +6427,7 @@ async function addBasicLandToDeck(landName) {
 function renderDeckCardRow(card, options = {}) {
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
-    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger">Game Changer</span>' : '',
+    card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
   ].filter(Boolean).join('');
   const rulesText = getDeckCardRulesText(card);
   const statLine = getDeckCardStatLine(card);
