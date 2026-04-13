@@ -5506,6 +5506,38 @@ async function setSelectedCardAsCommander() {
   }, `${card.name} set as commander.`);
 }
 
+async function setDeckBuilderCardAsCommander(cardId) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    setDeckBuilderSaveStatus('Unable to open the deck right now.', 'error');
+    return;
+  }
+
+  const nextCommander = deck.cards.find((entry) => entry.id === cardId) || null;
+  if (!nextCommander) {
+    setDeckBuilderSaveStatus('Could not find that card in your deck.', 'error');
+    return;
+  }
+
+  if (deck.commander && getIdentityKey(deck.commander.name) !== getIdentityKey(nextCommander.name)) {
+    const confirmed = await promptLiveConfirm(`Replace ${deck.commander.name} as the commander for ${deck.name}?`, {
+      title: 'Replace commander',
+      confirmLabel: 'Set commander',
+    });
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  const nextCards = deck.cards.filter((entry) => entry.id !== cardId);
+  deckBuilderSelectedDeckCardId = null;
+  persistDeckBuilderRecord({
+    ...deck,
+    commander: nextCommander,
+    cards: nextCards,
+  }, `${nextCommander.name} set as commander.`);
+}
+
 function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
   const deck = ensureActiveDeckBuilderRecord();
   if (!deck) {
@@ -6911,6 +6943,9 @@ function renderDeckCardRow(card, options = {}) {
   const removeAction = options.isCommander
     ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true">Remove</button>`
     : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}">Remove</button>`;
+  const commanderAction = !options.isCommander
+    ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}">Set as Commander</button>`
+    : '';
 
   const cardDataAttr = options.isCommander ? '' : ` data-card-id="${escapeHtml(card.id)}" data-card-name="${escapeHtml(card.name)}"`;
 
@@ -6926,6 +6961,7 @@ function renderDeckCardRow(card, options = {}) {
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="deck-card-row-actions">
+        ${commanderAction}
         ${removeAction}
       </div>
     </div>`;
@@ -9925,6 +9961,12 @@ if (deckBuilderCards) {
     const removeCommanderButton = event.target.closest('[data-remove-commander="true"]');
     if (removeCommanderButton) {
       removeDeckBuilderCard('', { isCommander: true });
+      return;
+    }
+
+    const setCommanderButton = event.target.closest('[data-set-commander-id]');
+    if (setCommanderButton) {
+      await setDeckBuilderCardAsCommander(setCommanderButton.dataset.setCommanderId || '');
       return;
     }
 
