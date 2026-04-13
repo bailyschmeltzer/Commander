@@ -6222,6 +6222,55 @@ function fitDeckWheelSvgLabels(rootElement) {
   });
 }
 
+function renderDeckSelector() {
+  if (!deckSelectorOwnerList || !deckSelectorResults || !deckSelectorWheelStatus) {
+    return;
+  }
+
+  const ownerGroups = getDeckOwnerGroups();
+  const owners = Object.keys(ownerGroups).sort(compareTextValues);
+  const previouslySelected = new Set(getSelectedDeckSelectorOwners());
+  const shouldSelectAllByDefault = !previouslySelected.size;
+
+  if (!owners.length) {
+    deckSelectorOwnerList.innerHTML = '<p class="status-muted">Add deck lists with owners to use the selector.</p>';
+    deckSelectorResults.innerHTML = '<p>Add owned deck lists first.</p>';
+    deckSelectorWheelStatus.textContent = 'No owned decks available yet.';
+    renderDeckSelectorWheel([], 'No Decks');
+    return;
+  }
+
+  deckSelectorOwnerList.innerHTML = owners.map((owner) => {
+    const checked = shouldSelectAllByDefault || previouslySelected.has(owner) ? ' checked' : '';
+    const count = ownerGroups[owner]?.length || 0;
+    return `
+      <label class="deck-selector-option">
+        <input type="checkbox" name="deck-selector-owner" value="${escapeHtml(owner)}"${checked} />
+        <span>${escapeHtml(owner)} (${count})</span>
+      </label>`;
+  }).join('');
+
+  const selectedOwners = getSelectedDeckSelectorOwners();
+  if (!selectedOwners.length) {
+    deckSelectorResults.innerHTML = '<p>Select at least one player to randomize decks.</p>';
+    deckSelectorWheelStatus.textContent = 'Select players and click Spin the wheel.';
+    renderDeckSelectorWheel([], 'Select Players');
+    return;
+  }
+
+  const pooledDecks = getDeckSelectorPool(selectedOwners);
+  if (!pooledDecks.length) {
+    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
+    renderDeckSelectorWheel([], 'No Decks');
+    return;
+  }
+
+  deckSelectorResults.innerHTML = '<p>Click Spin the wheel to randomize a deck from the selected players.</p>';
+  deckSelectorWheelStatus.textContent = `${pooledDecks.length} eligible decks ready.`;
+  renderDeckSelectorWheel(pooledDecks, 'Ready to Spin');
+}
+
 function renderDeckSelectorWheel(deckPool, centerLabel = 'Ready to Spin') {
   if (!deckSelectorWheel || !deckSelectorWheelDisc) {
     return;
