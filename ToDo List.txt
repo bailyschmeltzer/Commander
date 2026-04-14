@@ -1,0 +1,11 @@
+ToDo List
+- Shortcut on commander selector to open a new deck builder with said commander preloaded
+- Fix ownership assigning of decks i.e. if i create a deck, but set the owner as steve, steve can edit it
+- Allow spaces in deck names
+- Remove deck URL panels
+- Make it so players are removed as an option in a game once added i.e. cant play two spots in a game
+- Hitting create new deck defaults owner to signed in user
+- Make tokens stack
+- Make rules and validation for Partner and "you may have as many copies of this card in your deck"
+- Filter by player defaults to logged in user
+- Further data validation
