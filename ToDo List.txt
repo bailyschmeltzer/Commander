@@ -9,3 +9,8 @@ ToDo List
 - Make rules and validation for Partner and "you may have as many copies of this card in your deck"
 - Filter by player defaults to logged in user
 - Further data validation
+- Page for keyword descriptions
+- Page for searching a card and viewing rulings on said card
+- Make Change Art button open the full card text
+- Clicking to close card text should close change art box as well
+- 
