@@ -5018,6 +5018,10 @@ function getUniqueValues(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
+function getCanonicalValues(values) {
+  return getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(values).values()));
+}
+
 function buildDatalistOptions(element, values) {
   if (!element) {
     return;
