@@ -1114,7 +1114,8 @@ function renameActiveGameStateIdentity(state, { type, sourceKey, replacementValu
 }
 
 function getUniqueValuesBySimilarity(values, threshold = 0.95) {
-  const unique = [];
+  const buckets = [];
+
   (Array.isArray(values) ? values : []).forEach((value) => {
     const normalized = String(value || '').trim();
     if (!normalized) {
@@ -1126,14 +1127,34 @@ function getUniqueValuesBySimilarity(values, threshold = 0.95) {
       return;
     }
 
-    const isDuplicate = unique.some((existing) => {
-      const existingKey = getIdentityKey(existing);
-      return existingKey && getStringSimilarity(normalizedKey, existingKey) >= threshold;
+    let bucket = buckets.find((entry) => getStringSimilarity(normalizedKey, entry.key) >= threshold);
+    if (!bucket) {
+      bucket = { key: normalizedKey, variants: new Map() };
+      buckets.push(bucket);
+    }
+
+    bucket.variants.set(normalized, (bucket.variants.get(normalized) || 0) + 1);
+  });
+
+  const unique = buckets.map((bucket) => {
+    let bestValue = '';
+    let bestScore = -1;
+    let bestCount = -1;
+
+    bucket.variants.forEach((count, value) => {
+      const score = getIdentityDisplayScore(value);
+      if (
+        score > bestScore
+        || (score === bestScore && count > bestCount)
+        || (score === bestScore && count === bestCount && value.localeCompare(bestValue) < 0)
+      ) {
+        bestValue = value;
+        bestScore = score;
+        bestCount = count;
+      }
     });
 
-    if (!isDuplicate) {
-      unique.push(normalized);
-    }
+    return bestValue;
   });
 
   return unique.sort((a, b) => a.localeCompare(b));
