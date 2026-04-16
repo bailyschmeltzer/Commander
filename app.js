@@ -10542,6 +10542,17 @@ function getPlayerStatsData(games) {
     return cacheBucket.playerStatsData;
   }
 
+  const rawCommanders = [];
+  games.forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const commander = (row.commander || '').trim();
+      if (commander) {
+        rawCommanders.push(commander);
+      }
+    });
+  });
+
+  const commanderMap = buildCanonicalIdentityMapFromValues(rawCommanders);
   const stats = {};
 
   games.forEach((game) => {
@@ -10566,7 +10577,7 @@ function getPlayerStatsData(games) {
         playerStat.wins += 1;
       }
 
-      const commander = (row.commander || '').trim();
+      const commander = canonicalizeIdentityValue((row.commander || '').trim(), commanderMap);
       if (commander) {
         playerStat.commanders[commander] = (playerStat.commanders[commander] || 0) + 1;
         if (!playerStat.commanderStats[commander]) {
@@ -10733,12 +10744,23 @@ function getCommanderStatsData(games) {
     return cacheBucket.commanderStatsData;
   }
 
+  const rawCommanders = [];
+  games.forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const commander = (row.commander || '').trim();
+      if (commander) {
+        rawCommanders.push(commander);
+      }
+    });
+  });
+
+  const commanderMap = buildCanonicalIdentityMapFromValues(rawCommanders);
   const stats = {};
 
   games.forEach((game) => {
     const firstBlood = getGameFirstBloodInfo(game);
     getGameRows(game).forEach((row) => {
-      const commander = (row.commander || '').trim();
+      const commander = canonicalizeIdentityValue((row.commander || '').trim(), commanderMap);
       if (!commander) {
         return;
       }
