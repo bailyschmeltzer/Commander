@@ -9412,7 +9412,7 @@ function getSortedHistoryGames(games) {
   return sorted;
 }
 
-function renderHistoryGame(game) {
+function renderHistoryGame(game, commanderMap) {
   const rows = getGameRows(game);
   const winner = getGameWinner(game) || '—';
   const totalKills = getGameTotalKills(game);
@@ -9424,10 +9424,11 @@ function renderHistoryGame(game) {
   const playerRows = rows
     .map((row) => {
       const killed = Array.isArray(row.killed) ? row.killed.join(', ') : row.killed || '';
+      const commander = canonicalizeIdentityValue(row.commander, commanderMap);
       return `
         <tr>
           <td>${escapeHtml(row.player)}</td>
-          <td>${escapeHtml(row.commander)}</td>
+          <td>${escapeHtml(commander)}</td>
           <td>${row.place || '—'}</td>
           <td>${typeof row.kills === 'number' ? row.kills : 0}</td>
           <td>${escapeHtml(killed)}</td>
@@ -9480,6 +9481,20 @@ function renderHistory(games) {
   const dateFromFilter = historyFilterDateFrom?.value || '';
   const dateToFilter = historyFilterDateTo?.value || '';
 
+  const allCommanders = [];
+  sortedGames.forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      if (row.commander) {
+        allCommanders.push(row.commander);
+      }
+    });
+  });
+
+  const commanderMap = buildCanonicalIdentityMapFromValues([
+    ...getKnownCommanderOptions(),
+    ...allCommanders,
+  ]);
+
   const filteredGames = sortedGames.filter((game) => {
     if (dateFromFilter && (game.date || '') < dateFromFilter) {
       return false;
@@ -9501,7 +9516,7 @@ function renderHistory(games) {
     }
 
     if (commanderFilter !== 'all') {
-      const foundCommander = getGameRows(game).some((row) => row.commander === commanderFilter);
+      const foundCommander = getGameRows(game).some((row) => canonicalizeIdentityValue(row.commander, commanderMap) === commanderFilter);
       if (!foundCommander) {
         return false;
       }
@@ -9518,7 +9533,7 @@ function renderHistory(games) {
     return;
   }
 
-  historyList.innerHTML = filteredGames.map(renderHistoryGame).join('');
+  historyList.innerHTML = filteredGames.map((game) => renderHistoryGame(game, commanderMap)).join('');
 }
 
 async function handleHistoryAction(event) {
@@ -9815,6 +9830,21 @@ function buildPlayerRankingEntries(games) {
     return cacheBucket.playerRankingEntries;
   }
 
+  const rawCommanders = [];
+  getGamesSortedByDateAscending(games).forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const commander = String(row.commander || '').trim();
+      if (commander) {
+        rawCommanders.push(commander);
+      }
+    });
+  });
+
+  const commanderMap = buildCanonicalIdentityMapFromValues([
+    ...getKnownCommanderOptions(),
+    ...rawCommanders,
+  ]);
+
   const stats = {};
   const eloKFactor = 28;
   const eloKillBonus = 2;
@@ -9852,7 +9882,7 @@ function buildPlayerRankingEntries(games) {
       const entry = stats[player];
       const place = getGameRowPlace(row, game);
       const kills = getRowKills(row);
-      const commander = String(row.commander || '').trim();
+      const commander = canonicalizeIdentityValue(String(row.commander || '').trim(), commanderMap);
       const firstBloodBonus = firstBlood?.actorPlayer === player ? 1 : 0;
       const isInPlayerWindow = playerGameWindowLookup.get(player)?.has(game.id) ?? true;
 
@@ -9943,6 +9973,21 @@ function buildCommanderRankingEntries(games) {
     return cacheBucket.commanderRankingEntries;
   }
 
+  const rawCommanders = [];
+  games.forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const commander = String(row.commander || '').trim();
+      if (commander) {
+        rawCommanders.push(commander);
+      }
+    });
+  });
+
+  const commanderMap = buildCanonicalIdentityMapFromValues([
+    ...getKnownCommanderOptions(),
+    ...rawCommanders,
+  ]);
+
   const stats = {};
 
   games.forEach((game) => {
@@ -9950,7 +9995,7 @@ function buildCommanderRankingEntries(games) {
     const firstBlood = getGameFirstBloodInfo(game);
 
     rows.forEach((row) => {
-      const commander = String(row.commander || '').trim();
+      const commander = canonicalizeIdentityValue(String(row.commander || '').trim(), commanderMap);
       if (!commander) {
         return;
       }
