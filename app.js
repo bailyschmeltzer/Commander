@@ -7412,7 +7412,7 @@ function renderDeckBuilderPage() {
 
   // Capture before ensureActiveDeckBuilderRecord() strips query params via replaceState
   const prefilledCommanderName = getQueryParam('commander');
-  const deck = ensureActiveDeckBuilderRecord();
+  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: !!prefilledCommanderName });
   if (!deck) {
     if (deckBuilderCards) {
       deckBuilderCards.innerHTML = '<p>No deck selected. Go back to the deck list page and create or open a deck.</p>';
@@ -8520,7 +8520,7 @@ function renderDeckSelectorResult(selectedOwners, deck) {
   const safeOwner = escapeHtml(deck.owner || 'Unassigned');
   const safePool = escapeHtml(selectedOwners.join(', '));
 
-  const buildHref = `deckbuilder.html?new=1&commander=${encodeURIComponent(deck.commander)}`;
+  const buildHref = `deckbuilder.html?der=${encodeURIComponent(deck.commander)}`;
 
   deckSelectorResults.innerHTML = `
     <article class="deck-selector-card">
