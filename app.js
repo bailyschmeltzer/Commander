@@ -956,12 +956,12 @@ function normalizeActiveGameStateData(state) {
 }
 
 function renameIdentityValue(value, sourceKey, replacementValue) {
-  const normalizedValue = normalizeIdentityLabel(value);
-  if (!normalizedValue) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
     return '';
   }
 
-  return getIdentityKey(normalizedValue) === sourceKey ? replacementValue : normalizedValue;
+  return getIdentityKey(rawValue) === sourceKey ? replacementValue : rawValue;
 }
 
 function renameIdentityList(value, sourceKey, replacementValue) {
@@ -1281,8 +1281,8 @@ function setIdentityRenameStatus(element, message, tone = 'muted') {
 
 async function handleIdentityRenameSubmit({ type, currentInput, nextInput, statusElement }) {
   const subjectLabel = type === 'player' ? 'player' : 'commander';
-  const currentValue = normalizeIdentityLabel(currentInput?.value || '');
-  const nextValue = normalizeIdentityLabel(nextInput?.value || '');
+  const currentValue = String(currentInput?.value || '').trim();
+  const nextValue = String(nextInput?.value || '').trim();
 
   if (!currentValue || !nextValue) {
     setIdentityRenameStatus(statusElement, `Enter both the current ${subjectLabel} name and the new one.`, 'error');
