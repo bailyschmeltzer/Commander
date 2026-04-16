@@ -6239,6 +6239,42 @@ async function moveDeckCardToMaybeboard(cardId) {
   }, `${card.name} moved to maybeboard.`);
 }
 
+function updateDeckBuilderTokenQuantity(cardId, delta) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    return;
+  }
+
+  const existingTokens = Array.isArray(deck.tokens) ? [...deck.tokens] : [];
+  let updated = false;
+  const nextTokens = existingTokens.reduce((result, entry) => {
+    if (entry.id !== cardId) {
+      result.push(entry);
+      return result;
+    }
+
+    const currentCount = Number.isFinite(Number(entry.count)) ? Math.max(1, Number(entry.count)) : 1;
+    const nextCount = currentCount + delta;
+    if (nextCount <= 0) {
+      updated = true;
+      return result;
+    }
+
+    updated = true;
+    result.push({ ...entry, count: nextCount });
+    return result;
+  }, []);
+
+  if (!updated) {
+    return;
+  }
+
+  persistDeckBuilderRecord({
+    ...deck,
+    tokens: nextTokens,
+  }, delta < 0 ? 'Token quantity decreased.' : 'Token quantity increased.');
+}
+
 function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
   const deck = ensureActiveDeckBuilderRecord();
   if (!deck) {
@@ -8275,6 +8311,13 @@ function renderDeckCardRow(card, options = {}) {
   const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
     ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>To Maybeboard</button>`
     : '';
+  const tokenQuantityAction = options.fromTokens
+    ? `
+      <button type="button" class="deck-token-minus" data-remove-token-id="${escapeHtml(card.id)}" aria-label="Remove one ${escapeHtml(card.name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+      <span class="deck-token-quantity">×${escapeHtml(String(Number.isFinite(Number(card.count)) ? Math.max(1, Number(card.count)) : 1))}</span>
+      <button type="button" class="deck-token-plus" data-add-token-id="${escapeHtml(card.id)}" aria-label="Add one ${escapeHtml(card.name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+    `
+    : '';
   const artAction = !options.isBasicLand
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Change Art</button>`
     : '';
@@ -8319,6 +8362,7 @@ function renderDeckCardRow(card, options = {}) {
           ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
         </div>
         <div class="deck-card-row-actions">
+          ${options.fromTokens ? tokenQuantityAction : ''}
           ${addToDeckAction}
           ${moveToMaybeboardAction}
           ${commanderAction}
@@ -11501,6 +11545,18 @@ if (deckBuilderCards) {
     const moveToMaybeboardButton = event.target.closest('[data-move-to-maybeboard-id]');
     if (moveToMaybeboardButton) {
       await moveDeckCardToMaybeboard(moveToMaybeboardButton.dataset.moveToMaybeboardId || '');
+      return;
+    }
+
+    const removeTokenButton = event.target.closest('[data-remove-token-id]');
+    if (removeTokenButton) {
+      updateDeckBuilderTokenQuantity(removeTokenButton.dataset.removeTokenId || '', -1);
+      return;
+    }
+
+    const addTokenButton = event.target.closest('[data-add-token-id]');
+    if (addTokenButton) {
+      updateDeckBuilderTokenQuantity(addTokenButton.dataset.addTokenId || '', 1);
       return;
     }
 
