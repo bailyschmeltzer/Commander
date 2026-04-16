@@ -429,7 +429,8 @@ function getIdentityDisplayScore(value) {
 function recordIdentityVariant(bucketMap, value) {
   const normalizedValue = normalizeIdentityLabel(value);
   const identityKey = getIdentityKey(normalizedValue);
-  if (!identityKey) {
+  const rawValue = String(value || '').trim();
+  if (!identityKey || !rawValue) {
     return;
   }
 
@@ -438,7 +439,7 @@ function recordIdentityVariant(bucketMap, value) {
   }
 
   const variants = bucketMap.get(identityKey);
-  variants.set(normalizedValue, (variants.get(normalizedValue) || 0) + 1);
+  variants.set(rawValue, (variants.get(rawValue) || 0) + 1);
 }
 
 function buildCanonicalIdentityMap(bucketMap) {
