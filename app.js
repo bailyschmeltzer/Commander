@@ -625,11 +625,33 @@ function normalizeDeckCardEntry(card) {
     toughness: String(card.toughness || '').trim(),
     loyalty: String(card.loyalty || '').trim(),
     defense: String(card.defense || '').trim(),
+    count: Number.isFinite(Number(card.count)) ? Math.max(1, Number(card.count)) : 1,
     isBanned: Boolean(card.isBanned),
     isGameChanger: Boolean(card.isGameChanger),
     isCommanderLegal: Boolean(card.isCommanderLegal),
     isToken: Boolean(card.isToken),
   };
+}
+
+function mergeDeckBuilderTokenCards(cards) {
+  const tokensByKey = new Map();
+  cards.forEach((card) => {
+    if (!card || !card.name) {
+      return;
+    }
+    const key = getIdentityKey(card.name);
+    if (!key) {
+      return;
+    }
+    const count = Number.isFinite(Number(card.count)) ? Math.max(1, Number(card.count)) : 1;
+    if (!tokensByKey.has(key)) {
+      tokensByKey.set(key, { ...card, count, id: String(card.id || generateId()).trim() });
+      return;
+    }
+    const existing = tokensByKey.get(key);
+    existing.count = (Number.isFinite(Number(existing.count)) ? Math.max(1, Number(existing.count)) : 1) + count;
+  });
+  return [...tokensByKey.values()];
 }
 
 function normalizeDeckPowerLevel(value) {
@@ -661,7 +683,7 @@ function normalizeDeckRecord(entry) {
     ? entry.maybeboard.map(normalizeDeckCardEntry).filter(Boolean)
     : [];
   const tokens = Array.isArray(entry.tokens)
-    ? entry.tokens.map(normalizeDeckCardEntry).filter(Boolean)
+    ? mergeDeckBuilderTokenCards(entry.tokens.map(normalizeDeckCardEntry).filter(Boolean))
     : [];
 
   return {
@@ -6020,15 +6042,29 @@ async function addSelectedCardToTokens() {
     return;
   }
 
-  const existsInTokens = (deck.tokens || []).some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
-  if (existsInTokens) {
-    await promptLiveAlert(`${card.name} is already in tokens.`, 'Duplicate token');
+  const existingTokens = Array.isArray(deck.tokens) ? [...deck.tokens] : [];
+  const cardKey = getIdentityKey(card.name);
+  const existingToken = existingTokens.find((entry) => getIdentityKey(entry.name) === cardKey);
+  if (existingToken) {
+    const updatedTokens = existingTokens.map((entry) => {
+      if (getIdentityKey(entry.name) !== cardKey) {
+        return entry;
+      }
+      return {
+        ...entry,
+        count: (Number.isFinite(Number(entry.count)) ? Math.max(1, Number(entry.count)) : 1) + 1,
+      };
+    });
+    persistDeckBuilderRecord({
+      ...deck,
+      tokens: updatedTokens,
+    }, `${card.name} quantity increased in tokens.`);
     return;
   }
 
   persistDeckBuilderRecord({
     ...deck,
-    tokens: [...(deck.tokens || []), card],
+    tokens: [...existingTokens, { ...card, count: 1 }],
   }, `${card.name} added to tokens.`);
 }
 
@@ -6892,11 +6928,12 @@ function renderDeckBuilderCards(deck) {
     </section>`;
 
   const tokenCards = (deck?.tokens || []).slice().sort((a, b) => compareTextValues(a.name, b.name));
+  const tokenCount = tokenCards.reduce((sum, card) => sum + (Number.isFinite(Number(card.count)) ? Math.max(1, Number(card.count)) : 1), 0);
   const tokensMarkup = `
     <section class="deck-builder-group">
       <div class="deck-builder-group-header">
         <h3>Tokens</h3>
-        <p>${escapeHtml(String(tokenCards.length))} token${tokenCards.length === 1 ? '' : 's'}</p>
+        <p>${escapeHtml(String(tokenCount))} token${tokenCount === 1 ? '' : 's'}</p>
       </div>
       ${tokenCards.length
         ? `<div class="deck-builder-group-cards">${tokenCards.map((card) => renderDeckCardRow(card, {
@@ -7684,9 +7721,7 @@ async function importDeckFromText(text) {
 
       // Token cards always route to token pool, regardless of source section.
       if (card.isToken || target === 'tokens') {
-        for (let c = 0; c < count; c++) {
-          importedTokens.push({ ...card, id: generateId() });
-        }
+        importedTokens.push({ ...card, id: generateId(), count });
       } else if (target === 'maybeboard') {
         importedMaybeboard.push({ ...card, id: generateId() });
       } else {
@@ -7706,9 +7741,10 @@ async function importDeckFromText(text) {
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = false;
 
+  const importedTokenCount = importedTokens.reduce((sum, token) => sum + (Number.isFinite(Number(token.count)) ? Math.max(1, Number(token.count)) : 1), 0);
   const statusMsg = failed.length
     ? `Imported. ${failed.length} card(s) not found: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.`
-    : `Imported ${newCards.length + importedMaybeboard.length + importedTokens.length + (newCommander ? 1 : 0)} card(s).`;
+    : `Imported ${newCards.length + importedMaybeboard.length + importedTokenCount + (newCommander ? 1 : 0)} card(s).`;
   const tone = failed.length ? 'error' : 'success';
 
   const nextDeck = applyDeckBuilderDraftMeta(deck);
@@ -7722,8 +7758,8 @@ async function importDeckFromText(text) {
 
   const existingTokens = Array.isArray(nextDeck.tokens) ? nextDeck.tokens : [];
   const mergedTokens = hasTokenSection
-    ? importedTokens
-    : [...existingTokens, ...importedTokens];
+    ? mergeDeckBuilderTokenCards(importedTokens)
+    : mergeDeckBuilderTokenCards([...existingTokens, ...importedTokens]);
 
   persistDeckBuilderRecord({
     ...nextDeck,
@@ -8275,7 +8311,7 @@ function renderDeckCardRow(card, options = {}) {
       ${imageMarkup}
       <div class="deck-card-row-main">
         <div class="deck-card-row-copy">
-          <p class="deck-card-name">${escapeHtml(card.name)}</p>
+          <p class="deck-card-name">${escapeHtml(card.name)}${Number.isFinite(Number(card.count)) && Number(card.count) > 1 ? `<span class="deck-card-count">×${escapeHtml(String(card.count))}</span>` : ''}</p>
           <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
           ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
           ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
