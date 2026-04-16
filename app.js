@@ -452,9 +452,9 @@ function buildCanonicalIdentityMap(bucketMap) {
 
     variants.forEach((count, value) => {
       const displayScore = getIdentityDisplayScore(value);
-      const shouldReplace = count > preferredCount
-        || (count === preferredCount && displayScore > preferredScore)
-        || (count === preferredCount && displayScore === preferredScore && value.localeCompare(preferredValue) < 0);
+      const shouldReplace = displayScore > preferredScore
+        || (displayScore === preferredScore && count > preferredCount)
+        || (displayScore === preferredScore && count === preferredCount && value.localeCompare(preferredValue) < 0);
 
       if (shouldReplace) {
         preferredValue = value;
