@@ -392,7 +392,13 @@ function getStorageWarningMessage() {
 }
 
 function normalizeIdentityLabel(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
+  const normalized = String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized;
 }
 
 function getIdentityKey(value) {
@@ -474,6 +480,134 @@ function canonicalizeIdentityValue(value, canonicalMap) {
 
   const identityKey = getIdentityKey(normalizedValue);
   return canonicalMap?.get(identityKey) || normalizedValue;
+}
+
+function getStringEditDistance(a, b) {
+  const aLength = a.length;
+  const bLength = b.length;
+  if (!aLength) return bLength;
+  if (!bLength) return aLength;
+
+  const row = Array.from({ length: bLength + 1 }, (_, index) => index);
+  let prevRow;
+
+  for (let i = 1; i <= aLength; i += 1) {
+    prevRow = row.slice();
+    row[0] = i;
+    for (let j = 1; j <= bLength; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(
+        prevRow[j] + 1,
+        row[j - 1] + 1,
+        prevRow[j - 1] + cost,
+      );
+    }
+  }
+
+  return row[bLength];
+}
+
+function getStringSimilarity(a, b) {
+  const normalizedA = String(a || '').trim().toLowerCase();
+  const normalizedB = String(b || '').trim().toLowerCase();
+  if (!normalizedA || !normalizedB) {
+    return 0;
+  }
+
+  const distance = getStringEditDistance(normalizedA, normalizedB);
+  return 1 - (distance / Math.max(normalizedA.length, normalizedB.length));
+}
+
+function getExactKnownCommander(rawCommander, knownCommanders) {
+  const commanderKey = getIdentityKey(rawCommander);
+  if (!commanderKey) {
+    return '';
+  }
+
+  return (Array.isArray(knownCommanders) ? knownCommanders : [])
+    .find((commander) => getIdentityKey(commander) === commanderKey) || '';
+}
+
+function getBestCommanderSuggestion(rawCommander, knownCommanders) {
+  const inputKey = getIdentityKey(rawCommander);
+  if (!inputKey) {
+    return '';
+  }
+
+  let best = { score: 0, commander: '' };
+  (Array.isArray(knownCommanders) ? knownCommanders : []).forEach((commander) => {
+    const candidateKey = getIdentityKey(commander);
+    const score = getStringSimilarity(inputKey, candidateKey);
+    if (score > best.score) {
+      best = { score, commander };
+    }
+  });
+
+  return best.score >= 0.75 ? best.commander : '';
+}
+
+async function resolveCommanderInput(rawCommander, knownCommanders) {
+  const exactKnown = getExactKnownCommander(rawCommander, knownCommanders);
+  if (exactKnown) {
+    return exactKnown;
+  }
+
+  if (!rawCommander || !rawCommander.trim()) {
+    return '';
+  }
+
+  try {
+    const card = await fetchDeckCardByName(rawCommander);
+    if (card?.name && getIdentityKey(card.name) === getIdentityKey(rawCommander)) {
+      return card.name;
+    }
+  } catch (error) {
+    // Ignore lookup failures during validation.
+  }
+
+  return '';
+}
+
+async function validateCommanderEntries(rows, { allowExactCardLookup = true } = {}) {
+  const knownCommandersList = Array.from(new Set(buildCanonicalIdentityMapFromValues(knownCommanders).values())).filter(Boolean);
+
+  for (const row of rows) {
+    const rawCommander = String(row.commanderRaw || row.commander || '').trim();
+    if (!rawCommander) {
+      return `Enter a commander for ${row.player}.`;
+    }
+
+    const exactMatch = getExactKnownCommander(rawCommander, knownCommandersList);
+    if (exactMatch) {
+      row.commander = exactMatch;
+      continue;
+    }
+
+    if (allowExactCardLookup) {
+      const resolved = await resolveCommanderInput(rawCommander, knownCommandersList);
+      if (resolved) {
+        row.commander = resolved;
+        continue;
+      }
+    }
+
+    const suggestion = getBestCommanderSuggestion(rawCommander, knownCommandersList);
+    if (suggestion) {
+      const confirmed = await promptLiveConfirm(
+        `Commander "${rawCommander}" does not exactly match a known commander. Did you mean "${suggestion}"?`,
+        { title: 'Confirm commander', confirmLabel: 'Use suggestion' },
+      );
+      if (confirmed) {
+        row.commander = suggestion;
+        continue;
+      }
+      return `Please correct the commander for ${row.player}: ${rawCommander}.`;
+    }
+
+    return `Commander "${rawCommander}" is not recognized. Enter the exact card name or choose a known commander.`;
+  }
+
+  return '';
 }
 
 function normalizeIdentityList(value, canonicalMap) {
@@ -974,22 +1108,22 @@ function getSavedDeckListEntryForCommander(commanderName) {
 }
 
 function buildDeckListLinkOrText(label) {
-  const normalizedLabel = normalizeIdentityLabel(label);
-  if (!normalizedLabel) {
+  const displayLabel = String(label || '').trim();
+  if (!displayLabel) {
     return '—';
   }
 
-  const deckListEntry = getSavedDeckListEntryForCommander(normalizedLabel);
+  const deckListEntry = getSavedDeckListEntryForCommander(displayLabel);
   if (!deckListEntry) {
-    return escapeHtml(normalizedLabel);
+    return escapeHtml(displayLabel);
   }
 
   const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
   if (!linkedDeckId) {
-    return escapeHtml(normalizedLabel);
+    return escapeHtml(displayLabel);
   }
 
-  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
+  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(displayLabel)}</a>`;
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
@@ -2678,6 +2812,7 @@ function getLiveSetupRows() {
     .map((row, index) => ({
       id: row.dataset.playerId || generateId(),
       player: canonicalizeIdentityValue(row.querySelector('[name="player"]')?.value || '', playerMap),
+      commanderRaw: row.querySelector('[name="commander"]')?.value || '',
       commander: canonicalizeIdentityValue(row.querySelector('[name="commander"]')?.value || '', commanderMap),
       seat: index + 1,
     }))
@@ -3150,6 +3285,12 @@ async function startLiveGame() {
   const players = getLiveSetupRows();
   if (players.length < 2) {
     await promptLiveAlert('Add at least two players to start a live game.', 'Unable to start game');
+    return;
+  }
+
+  const commanderValidationError = await validateCommanderEntries(players, { allowExactCardLookup: true });
+  if (commanderValidationError) {
+    await promptLiveAlert(commanderValidationError, 'Unable to start game');
     return;
   }
 
@@ -3769,14 +3910,16 @@ function getPlayerRows() {
 
   return Array.from(playerTableBody.querySelectorAll('tr')).map((row) => {
     const player = canonicalizeIdentityValue(row.querySelector('[name="player"]')?.value || '', playerMap);
-    const commander = canonicalizeIdentityValue(row.querySelector('[name="commander"]')?.value || '', commanderMap);
+    const commanderRaw = row.querySelector('[name="commander"]')?.value || '';
+    const commander = canonicalizeIdentityValue(commanderRaw, commanderMap);
     const placeRaw = row.querySelector('input[name="place"]').value.trim();
     const killsRaw = row.querySelector('input[name="kills"]').value.trim();
     const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value.trim();
-    const killed = normalizeList(row.querySelector('[name="killed"]').value);
+    const killed = normalizeList(row.querySelector('[name="killed"]')?.value || '');
 
     return {
       player,
+      commanderRaw,
       commander,
       placeRaw,
       killsRaw,
@@ -10859,6 +11002,12 @@ if (form) {
     const rows = getPlayerRows();
     if (!rows.length) {
       await promptLiveAlert('Please add at least one player row with a player name.', 'Unable to save game');
+      return;
+    }
+
+    const commanderValidationError = await validateCommanderEntries(rows, { allowExactCardLookup: true });
+    if (commanderValidationError) {
+      await promptLiveAlert(commanderValidationError, 'Unable to save game');
       return;
     }
 
