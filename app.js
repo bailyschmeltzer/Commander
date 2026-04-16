@@ -407,6 +407,7 @@ function getIdentityKey(value) {
 }
 
 function getIdentityDisplayScore(value) {
+  const stringValue = String(value || '');
   const normalizedValue = normalizeIdentityLabel(value);
   if (!normalizedValue) {
     return 0;
@@ -418,6 +419,9 @@ function getIdentityDisplayScore(value) {
   }
   if (/\b[A-Z]/.test(normalizedValue)) {
     score += 1;
+  }
+  if (/[^a-zA-Z0-9\s]/.test(stringValue)) {
+    score += 2;
   }
   return score;
 }
@@ -617,7 +621,17 @@ async function canonicalizeCommanderInputValue(rawCommander) {
     return exactKnown;
   }
 
-  return await resolveCommanderInput(rawCommander, knownCommandersList);
+  const resolvedCardName = await resolveCommanderInput(rawCommander, knownCommandersList);
+  if (resolvedCardName) {
+    return resolvedCardName;
+  }
+
+  const suggestion = getBestCommanderSuggestion(rawCommander, knownCommandersList);
+  if (suggestion) {
+    return suggestion;
+  }
+
+  return '';
 }
 
 async function validateCommanderEntries(rows, { allowExactCardLookup = true } = {}) {
