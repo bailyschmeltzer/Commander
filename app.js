@@ -10456,7 +10456,7 @@ function renderStreaks(games) {
   const playerEntries = buildStreakEntries(games, (row) => row.player, 'playerStreakEntries');
   const rawStreakCommanders = games.flatMap((game) => getGameRows(game).map((row) => String(row.commander || '').trim()).filter(Boolean));
   const streakCommanderMap = buildCanonicalIdentityMapFromValues([...getKnownCommanderOptions(), ...rawStreakCommanders]);
-  const commanderEntries = buildStreakEntries(games, (row) => canonicalizeIdentityValue(String(row.commander || '').trim(), streakCommanderMap), 'commanderStreakEntries');
+  const commanderEntries = buildStreakEntries(games, (row) => canonicalizeIdentityValue(String(row.commander || '').trim(), streakCommanderMap), 'commanderStreakEntriesCanonical');
 
   if (!playerEntries.length && !commanderEntries.length) {
     renderStatCardGroup(streaksSummary, [
