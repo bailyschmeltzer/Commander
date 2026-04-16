@@ -12,7 +12,3 @@ ToDo List
 - Page for searching a card and viewing rulings on said card
 - Make Change Art button open the full card text
 - Clicking to close card text should close change art box as well
-
-- Add validation when a commander is entered in the game and live trackers that it either matches an existing 
-    commander, or prompts to connect to an existing commander i.e. eowyn
-- New Name in commander stats should validate an actual card name as well

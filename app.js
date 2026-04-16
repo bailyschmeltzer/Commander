@@ -594,11 +594,6 @@ async function fetchDeckCardByNameWithFallback(name) {
 }
 
 async function resolveCommanderInput(rawCommander, knownCommanders) {
-  const exactKnown = getExactKnownCommander(rawCommander, knownCommanders);
-  if (exactKnown) {
-    return exactKnown;
-  }
-
   if (!rawCommander || !rawCommander.trim()) {
     return '';
   }
@@ -612,16 +607,16 @@ async function resolveCommanderInput(rawCommander, knownCommanders) {
     // Ignore lookup failures during validation.
   }
 
+  const exactKnown = getExactKnownCommander(rawCommander, knownCommanders);
+  if (exactKnown) {
+    return exactKnown;
+  }
+
   return '';
 }
 
 async function canonicalizeCommanderInputValue(rawCommander) {
   const knownCommandersList = getKnownCommanderOptions();
-  const exactKnown = getExactKnownCommander(rawCommander, knownCommandersList);
-  if (exactKnown) {
-    return exactKnown;
-  }
-
   const resolvedCardName = await resolveCommanderInput(rawCommander, knownCommandersList);
   if (resolvedCardName) {
     return resolvedCardName;
@@ -644,18 +639,18 @@ async function validateCommanderEntries(rows, { allowExactCardLookup = true } = 
       return `Enter a commander for ${row.player}.`;
     }
 
-    const exactMatch = getExactKnownCommander(rawCommander, knownCommandersList);
-    if (exactMatch) {
-      row.commander = exactMatch;
-      continue;
-    }
-
     if (allowExactCardLookup) {
       const resolved = await resolveCommanderInput(rawCommander, knownCommandersList);
       if (resolved) {
         row.commander = resolved;
         continue;
       }
+    }
+
+    const exactMatch = getExactKnownCommander(rawCommander, knownCommandersList);
+    if (exactMatch) {
+      row.commander = exactMatch;
+      continue;
     }
 
     const suggestion = getBestCommanderSuggestion(rawCommander, knownCommandersList);
