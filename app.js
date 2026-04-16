@@ -568,6 +568,16 @@ async function resolveCommanderInput(rawCommander, knownCommanders) {
   return '';
 }
 
+async function canonicalizeCommanderInputValue(rawCommander) {
+  const knownCommandersList = getKnownCommanderOptions();
+  const exactKnown = getExactKnownCommander(rawCommander, knownCommandersList);
+  if (exactKnown) {
+    return exactKnown;
+  }
+
+  return await resolveCommanderInput(rawCommander, knownCommandersList);
+}
+
 async function validateCommanderEntries(rows, { allowExactCardLookup = true } = {}) {
   const knownCommandersList = Array.from(new Set(buildCanonicalIdentityMapFromValues(knownCommanders).values())).filter(Boolean);
 
@@ -1046,6 +1056,32 @@ function renameActiveGameStateIdentity(state, { type, sourceKey, replacementValu
   });
 }
 
+function getUniqueValuesBySimilarity(values, threshold = 0.95) {
+  const unique = [];
+  (Array.isArray(values) ? values : []).forEach((value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) {
+      return;
+    }
+
+    const normalizedKey = getIdentityKey(normalized);
+    if (!normalizedKey) {
+      return;
+    }
+
+    const isDuplicate = unique.some((existing) => {
+      const existingKey = getIdentityKey(existing);
+      return existingKey && getStringSimilarity(normalizedKey, existingKey) >= threshold;
+    });
+
+    if (!isDuplicate) {
+      unique.push(normalized);
+    }
+  });
+
+  return unique.sort((a, b) => a.localeCompare(b));
+}
+
 function getKnownPlayerOptions() {
   const players = [...knownPlayers];
   loadRecords().forEach((record) => {
@@ -1061,7 +1097,7 @@ function getKnownPlayerOptions() {
       players.push(player.name);
     }
   });
-  return getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
+  return getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
 }
 
 function getKnownCommanderOptions() {
@@ -1079,7 +1115,7 @@ function getKnownCommanderOptions() {
       commanders.push(player.commander);
     }
   });
-  return getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
+  return getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
 }
 
 function renderIdentityRenameOptions() {
@@ -1095,16 +1131,50 @@ function renderIdentityRenameOptions() {
   }
 }
 
+function getBestDeckListEntryForCommander(commanderName, entries) {
+  if (!commanderName || !Array.isArray(entries) || !entries.length) {
+    return null;
+  }
+
+  const inputKey = getIdentityKey(commanderName);
+  if (!inputKey) {
+    return null;
+  }
+
+  let best = { score: 0, entry: null };
+  entries.forEach((entry) => {
+    if (!entry?.commander) {
+      return;
+    }
+    const entryKey = getIdentityKey(entry.commander);
+    if (!entryKey) {
+      return;
+    }
+    const score = getStringSimilarity(inputKey, entryKey);
+    if (score > best.score) {
+      best = { score, entry };
+    }
+  });
+
+  return best.score >= 0.9 ? best.entry : null;
+}
+
 function getSavedDeckListEntryForCommander(commanderName) {
   const commanderKey = getIdentityKey(commanderName);
   if (!commanderKey) {
     return null;
   }
 
-  return loadDeckLists()
+  const entries = loadDeckLists()
     .map(normalizeDeckListEntry)
-    .filter(Boolean)
-    .find((entry) => getIdentityKey(entry.commander) === commanderKey) || null;
+    .filter(Boolean);
+
+  const exactMatch = entries.find((entry) => getIdentityKey(entry.commander) === commanderKey) || null;
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  return getBestDeckListEntryForCommander(commanderName, entries);
 }
 
 function buildDeckListLinkOrText(label) {
@@ -5071,6 +5141,16 @@ function attachLookupWrapperHandlers(scope = document) {
       openLookupOptions(wrapper);
     });
 
+    input.addEventListener('blur', async () => {
+      if (input.name === 'commander') {
+        const canonicalValue = await canonicalizeCommanderInputValue(input.value);
+        if (canonicalValue && canonicalValue !== input.value.trim()) {
+          input.value = canonicalValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    });
+
     menu.addEventListener('mousedown', (event) => {
       event.preventDefault();
     });
@@ -5146,8 +5226,8 @@ function updateFormDatalists(games) {
     }
   });
 
-  knownPlayers = getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
-  knownCommanders = getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
+  knownPlayers = getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
+  knownCommanders = getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
 
   if (playerDatalist) {
     buildDatalistOptions(playerDatalist, knownPlayers);
@@ -5191,6 +5271,40 @@ function normalizeDeckListEntry(entry) {
   };
 }
 
+function getBestMatchingDeckForCommander(commanderName, decks, ownerKey = '') {
+  if (!commanderName || !Array.isArray(decks) || !decks.length) {
+    return null;
+  }
+
+  const inputKey = getIdentityKey(commanderName);
+  if (!inputKey) {
+    return null;
+  }
+
+  let best = { score: 0, deck: null };
+  decks.forEach((deck) => {
+    if (!deck?.commander?.name) {
+      return;
+    }
+
+    if (ownerKey && getIdentityKey(deck.owner || '') !== ownerKey) {
+      return;
+    }
+
+    const deckCommanderKey = getIdentityKey(deck.commander.name);
+    if (!deckCommanderKey) {
+      return;
+    }
+
+    const score = getStringSimilarity(inputKey, deckCommanderKey);
+    if (score > best.score) {
+      best = { score, deck };
+    }
+  });
+
+  return best.score >= 0.9 ? best.deck : null;
+}
+
 function getCommanderEquivalenceKey({ name = '', oracleId = '' } = {}) {
   const normalizedOracleId = String(oracleId || '').trim().toLowerCase();
   if (normalizedOracleId) {
@@ -5220,7 +5334,7 @@ function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
   }
 
   const ownerKey = getIdentityKey(entry.owner || '');
-  const ownerMatchedDeck = decks.find((deck) => {
+  const exactMatch = decks.find((deck) => {
     const deckCommanderKey = getCommanderEquivalenceKey({
       name: deck.commander?.name || '',
       oracleId: deck.commander?.oracleId || '',
@@ -5234,7 +5348,12 @@ function resolveLinkedDeckIdForDeckList(entry, decks = loadDecks()) {
     return getIdentityKey(deck.owner || '') === ownerKey;
   });
 
-  return ownerMatchedDeck?.id || '';
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const fallbackDeck = getBestMatchingDeckForCommander(entry.commander, decks, ownerKey);
+  return fallbackDeck?.id || '';
 }
 
 function linkDeckListToDeck(deck) {
