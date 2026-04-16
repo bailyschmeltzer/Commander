@@ -10552,7 +10552,10 @@ function getPlayerStatsData(games) {
     });
   });
 
-  const commanderMap = buildCanonicalIdentityMapFromValues(rawCommanders);
+  const commanderMap = buildCanonicalIdentityMapFromValues([
+    ...rawCommanders,
+    ...getKnownCommanderOptions(),
+  ]);
   const stats = {};
 
   games.forEach((game) => {
@@ -10754,7 +10757,10 @@ function getCommanderStatsData(games) {
     });
   });
 
-  const commanderMap = buildCanonicalIdentityMapFromValues(rawCommanders);
+  const commanderMap = buildCanonicalIdentityMapFromValues([
+    ...rawCommanders,
+    ...getKnownCommanderOptions(),
+  ]);
   const stats = {};
 
   games.forEach((game) => {
