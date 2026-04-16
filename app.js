@@ -5026,7 +5026,8 @@ function buildDatalistOptions(element, values) {
     return;
   }
 
-  element.innerHTML = values
+  const normalized = getUniqueValuesBySimilarity(values);
+  element.innerHTML = normalized
     .map((value) => `<option value="${escapeHtml(value)}"></option>`)
     .join('');
 }
@@ -5068,7 +5069,7 @@ function buildDropdownMenu(menuElement, values) {
     return;
   }
   
-  const normalized = getUniqueValues(values);
+  const normalized = getUniqueValuesBySimilarity(values);
   if (!normalized.length) {
     menuElement.innerHTML = '<div class="dropdown-empty">No saved options yet</div>';
     syncMobileLookupSelect(menuElement.closest('.combined-input-wrapper'));
@@ -5113,7 +5114,7 @@ function syncMobileLookupSelect(wrapper) {
     wrapper.appendChild(mobileSelect);
   }
 
-  const optionValues = getUniqueValues(
+  const optionValues = getUniqueValuesBySimilarity(
     Array.from(menu.querySelectorAll('.dropdown-item')).map((item) => item.dataset.value || '').filter(Boolean),
   );
 
