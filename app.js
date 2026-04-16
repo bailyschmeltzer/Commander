@@ -4833,31 +4833,31 @@ function deleteGame(gameId) {
 }
 
 function getHistoryFilterOptions(games) {
-  const winners = new Set();
-  const commanders = new Set();
-  const players = new Set();
+  const winners = [];
+  const commanders = [];
+  const players = [];
 
   games.forEach((game) => {
     const winner = getGameWinner(game);
     if (winner) {
-      winners.add(winner);
+      winners.push(winner);
     }
 
     getGameRows(game).forEach((row) => {
       if (row.player) {
-        players.add(row.player);
+        players.push(row.player);
       }
 
       if (row.commander) {
-        commanders.add(row.commander);
+        commanders.push(row.commander);
       }
     });
   });
 
   return {
-    winners: [...winners].sort((a, b) => a.localeCompare(b)),
-    commanders: [...commanders].sort((a, b) => a.localeCompare(b)),
-    players: [...players].sort((a, b) => a.localeCompare(b)),
+    winners: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(winners).values())),
+    commanders: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(commanders).values())),
+    players: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(players).values())),
   };
 }
 
@@ -5037,7 +5037,7 @@ function buildSelectOptions(element, values, selectedValue, placeholder) {
     return;
   }
 
-  const normalized = getUniqueValues(values);
+  const normalized = getUniqueValuesBySimilarity(values);
   element.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...normalized.map((value) => {
