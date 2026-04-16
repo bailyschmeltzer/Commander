@@ -478,13 +478,13 @@ function buildCanonicalIdentityMapFromValues(values) {
 }
 
 function canonicalizeIdentityValue(value, canonicalMap) {
-  const normalizedValue = normalizeIdentityLabel(value);
-  if (!normalizedValue) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
     return '';
   }
 
-  const identityKey = getIdentityKey(normalizedValue);
-  return canonicalMap?.get(identityKey) || normalizedValue;
+  const identityKey = getIdentityKey(rawValue);
+  return canonicalMap?.get(identityKey) || rawValue;
 }
 
 function getStringEditDistance(a, b) {
@@ -4836,28 +4836,30 @@ function getHistoryFilterOptions(games) {
   const winners = [];
   const commanders = [];
   const players = [];
+  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
+  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders);
 
   games.forEach((game) => {
     const winner = getGameWinner(game);
     if (winner) {
-      winners.push(winner);
+      winners.push(canonicalizeIdentityValue(winner, playerMap));
     }
 
     getGameRows(game).forEach((row) => {
       if (row.player) {
-        players.push(row.player);
+        players.push(canonicalizeIdentityValue(row.player, playerMap));
       }
 
       if (row.commander) {
-        commanders.push(row.commander);
+        commanders.push(canonicalizeIdentityValue(row.commander, commanderMap));
       }
     });
   });
 
   return {
-    winners: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(winners).values())),
-    commanders: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(commanders).values())),
-    players: getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(players).values())),
+    winners: getUniqueValuesBySimilarity(winners.filter(Boolean)),
+    commanders: getUniqueValuesBySimilarity(commanders.filter(Boolean)),
+    players: getUniqueValuesBySimilarity(players.filter(Boolean)),
   };
 }
 
