@@ -1061,7 +1061,7 @@ function getKnownPlayerOptions() {
       players.push(player.name);
     }
   });
-  return getUniqueValues(players.map((value) => normalizeIdentityLabel(value)).filter(Boolean));
+  return getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
 }
 
 function getKnownCommanderOptions() {
@@ -1079,7 +1079,7 @@ function getKnownCommanderOptions() {
       commanders.push(player.commander);
     }
   });
-  return getUniqueValues(commanders.map((value) => normalizeIdentityLabel(value)).filter(Boolean));
+  return getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
 }
 
 function renderIdentityRenameOptions() {
@@ -5146,8 +5146,8 @@ function updateFormDatalists(games) {
     }
   });
 
-  knownPlayers = getUniqueValues(players);
-  knownCommanders = getUniqueValues(commanders);
+  knownPlayers = getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(players).values()));
+  knownCommanders = getUniqueValues(Array.from(buildCanonicalIdentityMapFromValues(commanders).values()));
 
   if (playerDatalist) {
     buildDatalistOptions(playerDatalist, knownPlayers);
