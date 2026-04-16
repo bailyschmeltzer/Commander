@@ -5022,6 +5022,10 @@ function getCanonicalValues(values) {
   return getUniqueValuesBySimilarity(Array.from(buildCanonicalIdentityMapFromValues(values).values()));
 }
 
+if (typeof window !== 'undefined' && !window.getCanonicalValues) {
+  window.getCanonicalValues = getCanonicalValues;
+}
+
 function buildDatalistOptions(element, values) {
   if (!element) {
     return;
