@@ -539,7 +539,9 @@ async function fetchCommanderCandidates(identity) {
   return cards;
 }
 
-async function fetchCommanderCount(identity) {
+async function fetchCommanderSelectionFromSearch(identity, requestOrigin) {
+  // Fetch page 1 to get the total count and the first page of cards
+  const PAGE_SIZE = 175; // Scryfall default page size
   const searchUrl = new URL('https://api.scryfall.com/cards/search');
   searchUrl.searchParams.set('q', buildCommanderSearchQuery(identity));
   searchUrl.searchParams.set('order', 'edhrec');
@@ -552,28 +554,45 @@ async function fetchCommanderCount(identity) {
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Scryfall count request failed (${response.status}): ${detail}`);
+    throw new Error(`Scryfall request failed (${response.status}): ${detail}`);
   }
 
   const payload = await response.json();
-  return Number.isFinite(Number(payload?.total_cards)) ? Number(payload.total_cards) : 0;
-}
+  const totalCards = Number.isFinite(Number(payload?.total_cards)) ? Number(payload.total_cards) : 0;
+  const pageCards = Array.isArray(payload?.data) ? payload.data : [];
 
-async function fetchRandomCommander(identity, requestOrigin) {
-  const randomUrl = new URL('https://api.scryfall.com/cards/random');
-  randomUrl.searchParams.set('q', buildCommanderSearchQuery(identity));
-
-  const response = await fetch(randomUrl.toString(), {
-    headers: getScryfallHeaders(),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Scryfall random request failed (${response.status}): ${detail}`);
+  if (!pageCards.length) {
+    return { totalCards, card: null };
   }
 
-  const payload = await response.json();
-  return mapCommanderCard(payload, requestOrigin);
+  // If there are more pages, pick a random page and fetch it
+  const totalPages = Math.ceil(totalCards / PAGE_SIZE);
+  let candidates = pageCards;
+
+  if (totalPages > 1 && Math.random() > 0.5) {
+    const randomPage = 2 + Math.floor(Math.random() * (totalPages - 1));
+    const pageUrl = new URL('https://api.scryfall.com/cards/search');
+    pageUrl.searchParams.set('q', buildCommanderSearchQuery(identity));
+    pageUrl.searchParams.set('order', 'edhrec');
+    pageUrl.searchParams.set('unique', 'cards');
+    pageUrl.searchParams.set('page', String(randomPage));
+
+    try {
+      const pageResponse = await fetch(pageUrl.toString(), { headers: getScryfallHeaders() });
+      if (pageResponse.ok) {
+        const pagePaylod = await pageResponse.json();
+        const pageData = Array.isArray(pagePaylod?.data) ? pagePaylod.data : [];
+        if (pageData.length) {
+          candidates = pageData;
+        }
+      }
+    } catch (_) {
+      // Fall back to page 1 candidates
+    }
+  }
+
+  const raw = candidates[Math.floor(Math.random() * candidates.length)];
+  return { totalCards, card: mapCommanderCard(raw, requestOrigin) };
 }
 
 function isAllowedCommanderImageSource(value) {
@@ -803,10 +822,7 @@ export default {
       }
 
       try {
-        const [totalCards, card] = await Promise.all([
-          fetchCommanderCount(identity),
-          fetchRandomCommander(identity, requestOrigin),
-        ]);
+        const { totalCards, card } = await fetchCommanderSelectionFromSearch(identity, requestOrigin);
 
         return jsonResponse({
           identity,
