@@ -7410,6 +7410,8 @@ function renderDeckBuilderPage() {
     return;
   }
 
+  // Capture before ensureActiveDeckBuilderRecord() strips query params via replaceState
+  const prefilledCommanderName = getQueryParam('commander');
   const deck = ensureActiveDeckBuilderRecord();
   if (!deck) {
     if (deckBuilderCards) {
@@ -7450,9 +7452,8 @@ function renderDeckBuilderPage() {
   renderDeckBuilderTokenSearchResults();
   hydrateDeckCardStats(deck);
 
-  const prefilledCommander = getQueryParam('commander');
-  if (prefilledCommander && !deck.commander && canCurrentUserEditDeck(deck)) {
-    fetchDeckCardByName(prefilledCommander).then((card) => {
+  if (prefilledCommanderName && !deck.commander && canCurrentUserEditDeck(deck)) {
+    fetchDeckCardByName(prefilledCommanderName).then((card) => {
       if (!card) return;
       const currentDeck = ensureActiveDeckBuilderRecord();
       if (!currentDeck || currentDeck.commander) return;
