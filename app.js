@@ -9029,6 +9029,7 @@ function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
         <p class="commander-builder-source">${escapeHtml(sourceLabel)}</p>
         <div class="actions">
           <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">View on Scryfall</a>
+          <a href="${escapeHtml(`deckbuilder.html?new=1&commander=${encodeURIComponent(card.name)}`)}">Build This Deck</a>
         </div>
       </div>
     </article>`;
