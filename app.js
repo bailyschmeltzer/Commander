@@ -12398,6 +12398,8 @@ function setupSyncUi() {
 
 async function initializeApp() {
   appState = loadLocalState();
+  appState = normalizeAppStateData(appState);
+  persistLocalState(appState);
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
   hideLiveSourcePrompt();
