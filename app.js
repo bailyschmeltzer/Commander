@@ -7449,6 +7449,28 @@ function renderDeckBuilderPage() {
   renderDeckBuilderSearchResults();
   renderDeckBuilderTokenSearchResults();
   hydrateDeckCardStats(deck);
+
+  const prefilledCommander = getQueryParam('commander');
+  if (prefilledCommander && !deck.commander && canCurrentUserEditDeck(deck)) {
+    fetchDeckCardByName(prefilledCommander).then((card) => {
+      if (!card) return;
+      const currentDeck = ensureActiveDeckBuilderRecord();
+      if (!currentDeck || currentDeck.commander) return;
+      const eligibleCard = isCommanderEligibleCard(card) ? card : null;
+      if (!eligibleCard) {
+        deckBuilderSelectedCard = card;
+        persistDeckBuilderSelectedCard(card);
+        renderDeckBuilderSelection();
+        setDeckBuilderSaveStatus(`${card.name} pre-selected. Use Set as Commander if eligible.`, 'neutral');
+        return;
+      }
+      persistDeckBuilderRecord({
+        ...currentDeck,
+        name: eligibleCard.name,
+        commander: eligibleCard,
+      }, `${eligibleCard.name} set as commander.`);
+    }).catch(() => {});
+  }
 }
 
 async function runDeckBuilderSearch(query) {
@@ -8497,12 +8519,15 @@ function renderDeckSelectorResult(selectedOwners, deck) {
   const safeOwner = escapeHtml(deck.owner || 'Unassigned');
   const safePool = escapeHtml(selectedOwners.join(', '));
 
+  const buildHref = `deckbuilder.html?new=1&commander=${encodeURIComponent(deck.commander)}`;
+
   deckSelectorResults.innerHTML = `
     <article class="deck-selector-card">
       <p class="deck-selector-owner">From pool: ${safePool}</p>
       <h3>${safeCommander}</h3>
       <p>Owned by ${safeOwner}</p>
       <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
+      <a href="${escapeHtml(buildHref)}" class="secondary-button">Build This Deck</a>
     </article>`;
 }
 
