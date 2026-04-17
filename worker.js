@@ -790,15 +790,10 @@ function enforceDeckOwnership(currentDecks, nextDecks, auth, members) {
       }
     }
 
-    // Always resolve ownerUserId from the owner display name if the current user has permission.
-    // This corrects stale ownerUserId values even when the deck data hasn't otherwise changed.
-    const canModifyOwner = isAdmin || !currentOwnerUserId || currentOwnerUserId === authUserId;
-    const resolvedOwnerUserId = canModifyOwner
-      ? resolveOwnerUserIdFromMembers(getTextValue(rawDeck?.owner), members)
-      : '';
-    const nextOwnerUserId = canModifyOwner
-      ? (resolvedOwnerUserId || requestedOwnerUserId || currentOwnerUserId || authUserId)
-      : (currentOwnerUserId || requestedOwnerUserId || authUserId);
+    // Always re-resolve ownerUserId from owner display name using the member list.
+    // The lock check above already prevents unauthorized modifications.
+    const resolvedOwnerUserId = resolveOwnerUserIdFromMembers(getTextValue(rawDeck?.owner), members);
+    const nextOwnerUserId = resolvedOwnerUserId || requestedOwnerUserId || currentOwnerUserId || authUserId;
     normalizedDecks.push({
       ...rawDeck,
       ownerUserId: nextOwnerUserId,
