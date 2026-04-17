@@ -5072,16 +5072,34 @@ function buildSelectOptions(element, values, selectedValue, placeholder) {
   ].join('');
 }
 
+function getUsedPlayersInTable(tableBody, excludeRow) {
+  if (!tableBody) return new Set();
+  const used = new Set();
+  Array.from(tableBody.querySelectorAll('tr')).forEach((row) => {
+    if (row === excludeRow) return;
+    const input = row.querySelector('input[name="player"]');
+    const val = getIdentityKey(input?.value || '');
+    if (val) used.add(val);
+  });
+  return used;
+}
+
 function populateRowSelectors(row) {
   if (!row) {
     return;
   }
 
+  const tableBody = row.closest('tbody');
+  const usedPlayers = getUsedPlayersInTable(tableBody, row);
+  const availablePlayers = usedPlayers.size
+    ? knownPlayers.filter((p) => !usedPlayers.has(getIdentityKey(p)))
+    : knownPlayers;
+
   const playerMenu = row.querySelector('.player-dropdown-menu');
   const commanderMenu = row.querySelector('.commander-dropdown-menu');
 
   if (playerMenu) {
-    buildDropdownMenu(playerMenu, knownPlayers);
+    buildDropdownMenu(playerMenu, availablePlayers);
   }
 
   if (commanderMenu) {
@@ -5253,6 +5271,16 @@ function attachLookupWrapperHandlers(scope = document) {
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
       }
+      // When a player field loses focus, refresh sibling rows so they exclude this player.
+      if (input.name === 'player') {
+        const tableBody = wrapper.closest('tbody');
+        const currentRow = wrapper.closest('tr');
+        if (tableBody) {
+          Array.from(tableBody.querySelectorAll('tr')).forEach((siblingRow) => {
+            if (siblingRow !== currentRow) populateRowSelectors(siblingRow);
+          });
+        }
+      }
     });
 
     menu.addEventListener('mousedown', (event) => {
@@ -5268,6 +5296,17 @@ function attachLookupWrapperHandlers(scope = document) {
       event.preventDefault();
       event.stopPropagation();
       applyLookupSelection(wrapper, item.dataset.value || '');
+
+      // If this was a player selection, refresh sibling rows to exclude the chosen player.
+      if (input.name === 'player') {
+        const tableBody = wrapper.closest('tbody');
+        const currentRow = wrapper.closest('tr');
+        if (tableBody) {
+          Array.from(tableBody.querySelectorAll('tr')).forEach((siblingRow) => {
+            if (siblingRow !== currentRow) populateRowSelectors(siblingRow);
+          });
+        }
+      }
     });
   });
 }
