@@ -8304,7 +8304,7 @@ async function fetchPreconList() {
   if (!res.ok) throw new Error(`Failed to load precon list (${res.status})`);
   const json = await res.json();
   return (json.data || [])
-    .filter(d => d.type === 'Commander')
+    .filter(d => d.type === 'Commander Deck')
     .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate));
 }
 
