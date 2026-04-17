@@ -1884,6 +1884,11 @@ async function pushCloudState() {
       updatedAt: payload.updatedAt,
       updatedBy: payload.updatedBy,
     });
+    // If the server returned normalized decks (e.g. with resolved ownerUserId), adopt them.
+    if (Array.isArray(payload.decks)) {
+      appState = normalizeAppStateData({ ...appState, decks: payload.decks });
+      persistLocalState(appState);
+    }
     syncPendingChanges = false;
     syncRetryCount = 0;
     syncLastErrorMessage = '';

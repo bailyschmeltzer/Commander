@@ -1112,6 +1112,7 @@ export default {
           updatedAt,
           updatedBy: auth.displayName || auth.user,
           auth: buildAuthPayload(auth),
+          decks: normalizedDecks,
         }, 200);
       }
 
