@@ -1332,6 +1332,17 @@ button[type="submit"] {
   background: #fff;
 }
 
+.deck-builder-precon-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.deck-builder-precon-select {
+  flex: 1;
+  min-width: 0;
+}
+
 .deck-builder-import-export-actions {
   display: flex;
   gap: 8px;

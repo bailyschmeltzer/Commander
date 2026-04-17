@@ -118,6 +118,8 @@ const deckBuilderExportButton = document.getElementById('deck-builder-export');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
+const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
+const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
 const recordsForm = document.getElementById('records-form');
@@ -8297,6 +8299,32 @@ async function importDeckFromText(text) {
   setDeckBuilderImportStatus(statusMsg, tone);
 }
 
+async function fetchPreconList() {
+  const res = await fetch('https://mtgjson.com/api/v5/DeckList.json');
+  if (!res.ok) throw new Error(`Failed to load precon list (${res.status})`);
+  const json = await res.json();
+  return (json.data || [])
+    .filter(d => d.type === 'Commander')
+    .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate));
+}
+
+async function loadPreconDeckText(fileName) {
+  const res = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(fileName)}.json`);
+  if (!res.ok) throw new Error(`Failed to load deck (${res.status})`);
+  const json = await res.json();
+  const data = json.data || {};
+  const lines = [];
+  const commanders = data.commander || [];
+  if (commanders.length) {
+    lines.push('Commander:');
+    commanders.forEach(c => lines.push(`${c.count || 1} ${c.name}`));
+    lines.push('');
+  }
+  lines.push('Deck:');
+  (data.mainBoard || []).forEach(c => lines.push(`${c.count || 1} ${c.name}`));
+  return lines.join('\n');
+}
+
 function getDeckOwnerGroups() {
   return getSortedDeckLists().reduce((groups, entry) => {
     const owner = (entry.owner || '').trim();
@@ -12196,6 +12224,54 @@ if (deckBuilderImportButton) {
       return;
     }
     await importDeckFromText(deckBuilderTextList.value);
+  });
+}
+
+if (deckBuilderPreconSelect) {
+  let preconListLoaded = false;
+  deckBuilderPreconSelect.addEventListener('focus', async () => {
+    if (preconListLoaded) return;
+    const defaultOpt = deckBuilderPreconSelect.options[0];
+    defaultOpt.textContent = 'Loading precons...';
+    defaultOpt.disabled = true;
+    try {
+      const decks = await fetchPreconList();
+      preconListLoaded = true;
+      defaultOpt.textContent = 'Select a precon...';
+      defaultOpt.disabled = false;
+      decks.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.fileName;
+        opt.textContent = `${d.name} (${d.code})`;
+        deckBuilderPreconSelect.appendChild(opt);
+      });
+    } catch (_err) {
+      defaultOpt.textContent = 'Failed to load precons';
+      defaultOpt.disabled = false;
+    }
+  });
+  deckBuilderPreconSelect.addEventListener('change', () => {
+    if (deckBuilderPreconLoadButton) {
+      deckBuilderPreconLoadButton.disabled = !deckBuilderPreconSelect.value;
+    }
+  });
+}
+
+if (deckBuilderPreconLoadButton) {
+  deckBuilderPreconLoadButton.addEventListener('click', async () => {
+    const fileName = deckBuilderPreconSelect?.value;
+    if (!fileName) return;
+    deckBuilderPreconLoadButton.disabled = true;
+    setDeckBuilderImportStatus('Loading precon...', 'muted');
+    try {
+      const text = await loadPreconDeckText(fileName);
+      if (deckBuilderTextList) deckBuilderTextList.value = text;
+      await importDeckFromText(text);
+    } catch (err) {
+      setDeckBuilderImportStatus(err instanceof Error ? err.message : 'Failed to load precon.', 'error');
+    } finally {
+      deckBuilderPreconLoadButton.disabled = false;
+    }
   });
 }
 
