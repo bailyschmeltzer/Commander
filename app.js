@@ -5902,12 +5902,16 @@ function applyDeckBuilderAccessState(deck) {
     deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
   }
   if (deckBuilderDiscardButton) {
-    const commanderKey = getCommanderEquivalenceKey({ name: deck?.commander?.name || '', oracleId: deck?.commander?.oracleId || '' });
+    const deckOracleId = String(deck?.commander?.oracleId || '').trim().toLowerCase();
+    const deckNameKey = getIdentityKey(deck?.commander?.name || '');
     const ownerKey = getIdentityKey(deck?.owner || '');
-    const hasLinkedDeckList = commanderKey
+    const hasLinkedDeckList = deckNameKey
       ? loadDeckLists().some((dl) => {
-          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
-          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
+          const dlOracleId = String(dl.commanderOracleId || '').trim().toLowerCase();
+          const dlNameKey = getIdentityKey(dl.commander || '');
+          const commanderMatches = (deckOracleId && dlOracleId && deckOracleId === dlOracleId)
+            || (deckNameKey && dlNameKey && deckNameKey === dlNameKey);
+          return commanderMatches && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
         })
       : false;
     deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList;
@@ -6001,12 +6005,16 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const commanderKey = getCommanderEquivalenceKey({ name: deck.commander?.name || '', oracleId: deck.commander?.oracleId || '' });
+    const deckOracleId = String(deck.commander?.oracleId || '').trim().toLowerCase();
+    const deckNameKey = getIdentityKey(deck.commander?.name || '');
     const ownerKey = getIdentityKey(deck.owner || '');
-    const hasGameRecord = commanderKey
+    const hasGameRecord = deckNameKey
       ? loadDeckLists().some((dl) => {
-          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
-          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
+          const dlOracleId = String(dl.commanderOracleId || '').trim().toLowerCase();
+          const dlNameKey = getIdentityKey(dl.commander || '');
+          const commanderMatches = (deckOracleId && dlOracleId && deckOracleId === dlOracleId)
+            || (deckNameKey && dlNameKey && deckNameKey === dlNameKey);
+          return commanderMatches && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
         })
       : false;
     const warnings = [
