@@ -1,6 +1,5 @@
 ToDo List
 
-- option to discard the deck in the builder if a game has not been registered with the commander and owner
 - Fix ownership assigning of decks i.e. if i create a deck, but set the owner as steve, steve can edit it
 - Allow spaces in deck names
 - Remove deck URL panels
