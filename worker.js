@@ -745,7 +745,20 @@ function buildAuthPayload(auth) {
   };
 }
 
-function enforceDeckOwnership(currentDecks, nextDecks, auth) {
+function resolveOwnerUserIdFromMembers(ownerDisplayName, members) {
+  if (!ownerDisplayName || !Array.isArray(members) || !members.length) {
+    return '';
+  }
+  const key = normalizeMemberKey(ownerDisplayName);
+  // Exact match first (userId or displayName)
+  const exact = members.find((m) => m.matchKeys.has(key));
+  if (exact) return exact.userId;
+  // Prefix fallback: "steve" matches "steven", etc.
+  const prefix = members.find((m) => [...m.matchKeys].some((mk) => mk.startsWith(key) || key.startsWith(mk)));
+  return prefix ? prefix.userId : '';
+}
+
+function enforceDeckOwnership(currentDecks, nextDecks, auth, members) {
   const currentById = new Map(
     (Array.isArray(currentDecks) ? currentDecks : [])
       .map((deck) => [getTextValue(deck?.id), deck])
@@ -777,10 +790,11 @@ function enforceDeckOwnership(currentDecks, nextDecks, auth) {
       }
 
       // Allow admins or the current owner to transfer ownerUserId to another user.
-      // Otherwise fall back to the existing ownerUserId, then requested, then auth user.
+      // Resolve the owner display name against the member list to find the correct userId.
+      const resolvedOwnerUserId = resolveOwnerUserIdFromMembers(getTextValue(rawDeck?.owner), members);
       const canTransferOwnership = isAdmin || !currentOwnerUserId || currentOwnerUserId === authUserId;
-      const nextOwnerUserId = (canTransferOwnership && requestedOwnerUserId)
-        ? requestedOwnerUserId
+      const nextOwnerUserId = canTransferOwnership
+        ? (resolvedOwnerUserId || requestedOwnerUserId || currentOwnerUserId || authUserId)
         : (currentOwnerUserId || requestedOwnerUserId || authUserId);
       normalizedDecks.push({
         ...rawDeck,
@@ -1079,7 +1093,7 @@ export default {
         let normalizedDecks;
 
         try {
-          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth);
+          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth, configuredMembers);
         } catch (error) {
           return jsonResponse({
             error: error instanceof Error ? error.message : 'Deck ownership validation failed.',

@@ -7583,18 +7583,13 @@ function queueDeckBuilderMetaSave() {
   deckBuilderSaveTimer = setTimeout(() => {
     deckBuilderSaveTimer = null;
     const newOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
-    const newOwnerKey = getIdentityKey(newOwner);
-    const currentOwnerKey = getIdentityKey(deck.owner || '');
-    // If owner name changed, update ownerUserId to match (userId is the normalized display name)
-    // This allows reassigning a deck to another player so they can edit it.
-    const newOwnerUserId = newOwnerKey !== currentOwnerKey && newOwnerKey
-      ? newOwnerKey
-      : (deck.ownerUserId || '');
+    // Send the owner display name; the server resolves it to the correct userId
+    // via the full member list (matchKeys), so no client-side userId derivation needed.
     persistDeckBuilderRecord({
       ...deck,
       name: String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck',
       owner: newOwner,
-      ownerUserId: newOwnerUserId,
+      ownerUserId: deck.ownerUserId || '',
       powerLevel: normalizeDeckPowerLevel(deckBuilderPowerInput?.value),
     }, 'Deck details saved.');
   }, 220);
