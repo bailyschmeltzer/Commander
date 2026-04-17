@@ -7473,10 +7473,10 @@ function renderDeckBuilderPage() {
   if (deckBuilderTitle) {
     deckBuilderTitle.textContent = deck.name;
   }
-  if (deckBuilderNameInput && deckBuilderNameInput.value !== deck.name) {
+  if (deckBuilderNameInput && deckBuilderNameInput.value !== deck.name && !deckBuilderSaveTimer) {
     deckBuilderNameInput.value = deck.name;
   }
-  if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '')) {
+  if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '') && !deckBuilderSaveTimer) {
     deckBuilderOwnerInput.value = deck.owner || '';
   }
   if (deckBuilderPowerInput) {
@@ -7576,21 +7576,26 @@ function queueDeckBuilderMetaSave() {
     return;
   }
 
+  // Capture input values immediately so a refresh() during the debounce window
+  // cannot revert the input fields before the save fires.
+  const capturedName = String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck';
+  const capturedOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
+  const capturedPower = normalizeDeckPowerLevel(deckBuilderPowerInput?.value);
+
   if (deckBuilderSaveTimer) {
     clearTimeout(deckBuilderSaveTimer);
   }
 
   deckBuilderSaveTimer = setTimeout(() => {
     deckBuilderSaveTimer = null;
-    const newOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
     // Send the owner display name; the server resolves it to the correct userId
     // via the full member list (matchKeys), so no client-side userId derivation needed.
     persistDeckBuilderRecord({
       ...deck,
-      name: String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck',
-      owner: newOwner,
+      name: capturedName,
+      owner: capturedOwner,
       ownerUserId: deck.ownerUserId || '',
-      powerLevel: normalizeDeckPowerLevel(deckBuilderPowerInput?.value),
+      powerLevel: capturedPower,
     }, 'Deck details saved.');
   }, 220);
 }
