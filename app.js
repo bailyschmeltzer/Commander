@@ -7480,13 +7480,13 @@ function renderDeckBuilderPage() {
   if (deckBuilderTitle) {
     deckBuilderTitle.textContent = deck.name;
   }
-  if (deckBuilderNameInput && deckBuilderNameInput.value !== deck.name && !deckBuilderSaveTimer) {
+  if (deckBuilderNameInput && deckBuilderNameInput.value !== deck.name && !deckBuilderSaveTimer && document.activeElement !== deckBuilderNameInput) {
     deckBuilderNameInput.value = deck.name;
   }
-  if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '') && !deckBuilderSaveTimer) {
+  if (deckBuilderOwnerInput && deckBuilderOwnerInput.value !== (deck.owner || '') && !deckBuilderSaveTimer && document.activeElement !== deckBuilderOwnerInput) {
     deckBuilderOwnerInput.value = deck.owner || '';
   }
-  if (deckBuilderPowerInput) {
+  if (deckBuilderPowerInput && document.activeElement !== deckBuilderPowerInput) {
     const fallbackExpectedPower = deck.commander?.name ? getCommanderExpectedPower(deck.commander.name) : '';
     const displayPower = typeof deck.powerLevel === 'number' ? deck.powerLevel : fallbackExpectedPower;
     const nextValue = typeof displayPower === 'number' ? String(displayPower) : '';
