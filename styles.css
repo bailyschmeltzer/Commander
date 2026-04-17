@@ -1197,6 +1197,15 @@ button[type="submit"] {
   margin-bottom: 12px;
 }
 
+.deck-builder-discard-button {
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.deck-builder-discard-button:hover {
+  background: #fef2f2;
+}
+
 .deck-builder-count-chip {
   display: inline-flex;
   align-items: center;

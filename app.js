@@ -119,6 +119,7 @@ const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
+const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -5900,6 +5901,10 @@ function applyDeckBuilderAccessState(deck) {
   if (deckBuilderUndoButton) {
     deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
   }
+  if (deckBuilderDiscardButton) {
+    const hasGameRecord = deck?.id ? loadGames().some((g) => g.deckId === deck.id) : false;
+    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasGameRecord;
+  }
 }
 
 function getDeckSummaryLabel(deck) {
@@ -5989,6 +5994,7 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
+    const hasGameRecord = loadGames().some((g) => g.deckId === deck.id);
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
@@ -6003,7 +6009,7 @@ function renderDeckLibrary() {
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
-          <button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>
+          ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}
         </td>
       </tr>`;
   }).join('');
@@ -12082,6 +12088,19 @@ if (deckBuilderEdhplButton) {
     const url = `https://edhpowerlevel.com?d=${encodedDeck}`;
     window.open(url, '_blank', 'noopener,noreferrer');
     setDeckBuilderImportStatus('Opened EDHPowerLevel analysis in a new tab.', 'success');
+  });
+}
+
+if (deckBuilderDiscardButton) {
+  deckBuilderDiscardButton.addEventListener('click', () => {
+    const deck = activeDeckBuilderRecord;
+    if (!deck?.id) return;
+    if (!confirm(`Discard "${deck.name}"? This cannot be undone.`)) return;
+    const remaining = loadDecks().filter((d) => d.id !== deck.id);
+    saveDecks(remaining);
+    activeDeckBuilderId = '';
+    activeDeckBuilderRecord = null;
+    window.location.href = 'decklists.html';
   });
 }
 
