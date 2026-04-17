@@ -5902,20 +5902,37 @@ function applyDeckBuilderAccessState(deck) {
     deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
   }
   if (deckBuilderDiscardButton) {
-    const deckOracleId = String(deck?.commander?.oracleId || '').trim().toLowerCase();
-    const deckNameKey = getIdentityKey(deck?.commander?.name || '');
-    const ownerKey = getIdentityKey(deck?.owner || '');
-    const hasLinkedDeckList = deckNameKey
-      ? loadDeckLists().some((dl) => {
-          const dlOracleId = String(dl.commanderOracleId || '').trim().toLowerCase();
-          const dlNameKey = getIdentityKey(dl.commander || '');
-          const commanderMatches = (deckOracleId && dlOracleId && deckOracleId === dlOracleId)
-            || (deckNameKey && dlNameKey && deckNameKey === dlNameKey);
-          return commanderMatches && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
-        })
-      : false;
-    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList;
+    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || isDeckUsedInGame(deck);
   }
+}
+
+function isDeckUsedInGame(deck) {
+  if (!deck?.id) return false;
+  const deckOracleId = String(deck.commander?.oracleId || '').trim().toLowerCase();
+  const deckNameKey = getIdentityKey(deck.commander?.name || '');
+  const ownerKey = getIdentityKey(deck.owner || '');
+  if (!deckNameKey) return false;
+
+  const commanderMatchesDl = (dl) => {
+    const dlOracleId = String(dl.commanderOracleId || '').trim().toLowerCase();
+    const dlNameKey = getIdentityKey(dl.commander || '');
+    return (deckOracleId && dlOracleId && deckOracleId === dlOracleId)
+      || (deckNameKey && dlNameKey && deckNameKey === dlNameKey);
+  };
+
+  // Check deckLists (games registered with a deck URL)
+  if (loadDeckLists().some((dl) => commanderMatchesDl(dl) && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey))) {
+    return true;
+  }
+
+  // Check game playerRows (games registered without a deck URL)
+  return loadGames().some((game) =>
+    (Array.isArray(game.playerRows) ? game.playerRows : []).some((row) => {
+      const rowNameKey = getIdentityKey(row.commander || '');
+      const rowOwnerKey = getIdentityKey(row.player || '');
+      return rowNameKey === deckNameKey && (!ownerKey || rowOwnerKey === ownerKey);
+    })
+  );
 }
 
 function getDeckSummaryLabel(deck) {
@@ -6005,18 +6022,7 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const deckOracleId = String(deck.commander?.oracleId || '').trim().toLowerCase();
-    const deckNameKey = getIdentityKey(deck.commander?.name || '');
-    const ownerKey = getIdentityKey(deck.owner || '');
-    const hasGameRecord = deckNameKey
-      ? loadDeckLists().some((dl) => {
-          const dlOracleId = String(dl.commanderOracleId || '').trim().toLowerCase();
-          const dlNameKey = getIdentityKey(dl.commander || '');
-          const commanderMatches = (deckOracleId && dlOracleId && deckOracleId === dlOracleId)
-            || (deckNameKey && dlNameKey && deckNameKey === dlNameKey);
-          return commanderMatches && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
-        })
-      : false;
+    const hasGameRecord = isDeckUsedInGame(deck);
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
