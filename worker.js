@@ -1084,10 +1084,11 @@ export default {
 
         const updatedAt = new Date().toISOString();
         const nextRevision = currentRevision + 1;
+        const podMembers = getConfiguredMembers(env);
         let normalizedDecks;
 
         try {
-          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth, configuredMembers);
+          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth, podMembers);
         } catch (error) {
           return jsonResponse({
             error: error instanceof Error ? error.message : 'Deck ownership validation failed.',
