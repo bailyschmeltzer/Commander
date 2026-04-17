@@ -776,7 +776,12 @@ function enforceDeckOwnership(currentDecks, nextDecks, auth) {
         throw new Error('New decks can only be assigned to the authenticated user.');
       }
 
-      const nextOwnerUserId = currentOwnerUserId || requestedOwnerUserId || authUserId;
+      // Allow admins or the current owner to transfer ownerUserId to another user.
+      // Otherwise fall back to the existing ownerUserId, then requested, then auth user.
+      const canTransferOwnership = isAdmin || !currentOwnerUserId || currentOwnerUserId === authUserId;
+      const nextOwnerUserId = (canTransferOwnership && requestedOwnerUserId)
+        ? requestedOwnerUserId
+        : (currentOwnerUserId || requestedOwnerUserId || authUserId);
       normalizedDecks.push({
         ...rawDeck,
         ownerUserId: nextOwnerUserId,
