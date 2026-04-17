@@ -788,23 +788,22 @@ function enforceDeckOwnership(currentDecks, nextDecks, auth, members) {
       if (!currentDeck && requestedOwnerUserId && !isAdmin && requestedOwnerUserId !== authUserId) {
         throw new Error('New decks can only be assigned to the authenticated user.');
       }
-
-      // Allow admins or the current owner to transfer ownerUserId to another user.
-      // Resolve the owner display name against the member list to find the correct userId.
-      const resolvedOwnerUserId = resolveOwnerUserIdFromMembers(getTextValue(rawDeck?.owner), members);
-      const canTransferOwnership = isAdmin || !currentOwnerUserId || currentOwnerUserId === authUserId;
-      const nextOwnerUserId = canTransferOwnership
-        ? (resolvedOwnerUserId || requestedOwnerUserId || currentOwnerUserId || authUserId)
-        : (currentOwnerUserId || requestedOwnerUserId || authUserId);
-      normalizedDecks.push({
-        ...rawDeck,
-        ownerUserId: nextOwnerUserId,
-        owner: getTextValue(rawDeck?.owner) || (nextOwnerUserId === authUserId ? getTextValue(auth?.displayName || auth?.user) : getTextValue(currentDeck?.owner)),
-      });
-      continue;
     }
 
-    normalizedDecks.push(rawDeck);
+    // Always resolve ownerUserId from the owner display name if the current user has permission.
+    // This corrects stale ownerUserId values even when the deck data hasn't otherwise changed.
+    const canModifyOwner = isAdmin || !currentOwnerUserId || currentOwnerUserId === authUserId;
+    const resolvedOwnerUserId = canModifyOwner
+      ? resolveOwnerUserIdFromMembers(getTextValue(rawDeck?.owner), members)
+      : '';
+    const nextOwnerUserId = canModifyOwner
+      ? (resolvedOwnerUserId || requestedOwnerUserId || currentOwnerUserId || authUserId)
+      : (currentOwnerUserId || requestedOwnerUserId || authUserId);
+    normalizedDecks.push({
+      ...rawDeck,
+      ownerUserId: nextOwnerUserId,
+      owner: getTextValue(rawDeck?.owner) || (nextOwnerUserId === authUserId ? getTextValue(auth?.displayName || auth?.user) : getTextValue(currentDeck?.owner)),
+    });
   }
 
   currentById.forEach((currentDeck, deckId) => {
