@@ -5902,7 +5902,14 @@ function applyDeckBuilderAccessState(deck) {
     deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
   }
   if (deckBuilderDiscardButton) {
-    const hasLinkedDeckList = deck?.id ? loadDeckLists().some((dl) => dl.deckId === deck.id) : false;
+    const commanderKey = getCommanderEquivalenceKey({ name: deck?.commander?.name || '', oracleId: deck?.commander?.oracleId || '' });
+    const ownerKey = getIdentityKey(deck?.owner || '');
+    const hasLinkedDeckList = commanderKey
+      ? loadDeckLists().some((dl) => {
+          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
+          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
+        })
+      : false;
     deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList;
   }
 }
@@ -5994,7 +6001,14 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const hasGameRecord = loadDeckLists().some((dl) => dl.deckId === deck.id);
+    const commanderKey = getCommanderEquivalenceKey({ name: deck.commander?.name || '', oracleId: deck.commander?.oracleId || '' });
+    const ownerKey = getIdentityKey(deck.owner || '');
+    const hasGameRecord = commanderKey
+      ? loadDeckLists().some((dl) => {
+          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
+          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
+        })
+      : false;
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',

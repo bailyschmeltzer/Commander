@@ -1195,13 +1195,14 @@ button[type="submit"] {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .deck-builder-action-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .deck-builder-discard-button {
