@@ -12090,6 +12090,7 @@ if (deckBuilderCards) {
         return;
       }
 
+      deckBuilderSelectedDeckCardId = cardId;
       await openDeckBuilderArtPicker(cardId);
       return;
     }
@@ -12159,7 +12160,16 @@ if (deckBuilderCards) {
     if (deckCardRow && !event.target.closest('.deck-builder-remove-card')) {
       const cardId = deckCardRow.dataset.cardId || '';
       // Toggle: clicking the already-selected card collapses it
-      deckBuilderSelectedDeckCardId = (deckBuilderSelectedDeckCardId === cardId) ? null : cardId;
+      if (deckBuilderSelectedDeckCardId === cardId) {
+        deckBuilderSelectedDeckCardId = null;
+        // Also close art picker if it was open for this card
+        if (deckBuilderArtPickerCardId === cardId) {
+          deckBuilderArtPickerCardId = '';
+          deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+        }
+      } else {
+        deckBuilderSelectedDeckCardId = cardId;
+      }
       const deck = ensureActiveDeckBuilderRecord();
       if (deck) {
         renderDeckBuilderCards(deck);
