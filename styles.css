@@ -1160,7 +1160,7 @@ button[type="submit"] {
 
 .deck-builder-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
   gap: 12px;
 }
 
