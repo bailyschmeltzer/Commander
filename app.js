@@ -8777,7 +8777,7 @@ function renderDeckCardRow(card, options = {}) {
   ].filter(Boolean).join('');
   const rulesText = getDeckCardRulesText(card);
   const statLine = getDeckCardStatLine(card);
-  const isExpanded = options.isCommander || options.isSelected;
+  const isExpanded = options.isCommander || options.isSelected || Boolean(options.showArtPicker);
 
   const imageMarkup = isExpanded && (card.imageLargeUri || card.imageUri)
     ? `
@@ -12090,7 +12090,6 @@ if (deckBuilderCards) {
         return;
       }
 
-      deckBuilderSelectedDeckCardId = cardId;
       await openDeckBuilderArtPicker(cardId);
       return;
     }
