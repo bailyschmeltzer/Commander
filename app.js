@@ -7582,10 +7582,19 @@ function queueDeckBuilderMetaSave() {
 
   deckBuilderSaveTimer = setTimeout(() => {
     deckBuilderSaveTimer = null;
+    const newOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
+    const newOwnerKey = getIdentityKey(newOwner);
+    const currentOwnerKey = getIdentityKey(deck.owner || '');
+    // If owner name changed, update ownerUserId to match (userId is the normalized display name)
+    // This allows reassigning a deck to another player so they can edit it.
+    const newOwnerUserId = newOwnerKey !== currentOwnerKey && newOwnerKey
+      ? newOwnerKey
+      : (deck.ownerUserId || '');
     persistDeckBuilderRecord({
       ...deck,
       name: String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck',
-      owner: normalizeIdentityLabel(deckBuilderOwnerInput?.value || ''),
+      owner: newOwner,
+      ownerUserId: newOwnerUserId,
       powerLevel: normalizeDeckPowerLevel(deckBuilderPowerInput?.value),
     }, 'Deck details saved.');
   }, 220);
