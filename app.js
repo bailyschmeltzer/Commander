@@ -277,6 +277,7 @@ let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
 let deckBuilderArtPickerCardId = '';
 let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+let deckBuilderCommanderPrefill = '';
 let deckListOracleBackfillRan = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -7411,7 +7412,8 @@ function renderDeckBuilderPage() {
   }
 
   // Capture before ensureActiveDeckBuilderRecord() strips query params via replaceState
-  const prefilledCommanderName = getQueryParam('commander');
+  const prefilledCommanderName = deckBuilderCommanderPrefill;
+  deckBuilderCommanderPrefill = '';
   const deck = ensureActiveDeckBuilderRecord({ createIfMissing: !!prefilledCommanderName });
   if (!deck) {
     if (deckBuilderCards) {
@@ -12487,6 +12489,11 @@ async function initializeApp() {
   hideLiveSourcePrompt();
   initializePrimaryMenu();
   setupSyncUi();
+
+  // Capture commander prefill before any replaceState can strip the URL param
+  if (deckBuilderPage && !getQueryParam('deckId')) {
+    deckBuilderCommanderPrefill = getQueryParam('commander') || '';
+  }
 
   if (form) {
     resetForm();
