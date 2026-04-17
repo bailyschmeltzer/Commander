@@ -1164,6 +1164,10 @@ button[type="submit"] {
   gap: 12px;
 }
 
+.deck-builder-name-field {
+  grid-column: 1 / -1;
+}
+
 .deck-builder-title-row {
   display: flex;
   align-items: center;

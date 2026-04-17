@@ -1,6 +1,5 @@
 ToDo List
 
-- Allow spaces in deck names
 - Remove deck URL panels
 - Make it so players are removed as an option in a game once added i.e. cant play two spots in a game
 - Hitting create new deck defaults owner to signed in user
