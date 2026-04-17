@@ -280,6 +280,9 @@ let deckBuilderArtPickerCardId = '';
 let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
 let deckBuilderCommanderPrefill = '';
 let deckListOracleBackfillRan = false;
+let deckLibraryPlayerFilterDefaulted = false;
+let deckListPlayerFilterDefaulted = false;
+let historyPlayerFilterDefaulted = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
 const deckBuilderArtOptionsCache = new Map();
@@ -1496,6 +1499,9 @@ function updateSyncAuthenticatedUser(auth = null) {
 
 function clearSyncAuthenticatedUser() {
   updateSyncAuthenticatedUser(null);
+  deckLibraryPlayerFilterDefaulted = false;
+  deckListPlayerFilterDefaulted = false;
+  historyPlayerFilterDefaulted = false;
 }
 
 function getCurrentSyncUserId() {
@@ -4921,7 +4927,12 @@ function applyHistoryQueryFilters() {
     historyFilterCommander.value = commander || 'all';
   }
   if (historyFilterPlayer) {
-    historyFilterPlayer.value = player || 'all';
+    if (player) {
+      historyFilterPlayer.value = player;
+    } else if (!historyPlayerFilterDefaulted) {
+      historyFilterPlayer.value = normalizeIdentityLabel(getCurrentSyncDisplayName()) || 'all';
+      historyPlayerFilterDefaulted = true;
+    }
   }
   if (historyFilterDateFrom) {
     historyFilterDateFrom.value = fromDate || '';
@@ -6052,6 +6063,13 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
+  if (!deckLibraryPlayerFilterDefaulted && deckLibraryPlayerFilterSelect && !deckLibraryPlayerFilterSelect.value) {
+    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+    if (displayName && ownerFilterOptions.includes(displayName)) {
+      deckLibraryPlayerFilterSelect.value = displayName;
+    }
+    deckLibraryPlayerFilterDefaulted = true;
+  }
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
@@ -9335,6 +9353,13 @@ function renderDeckLists() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
+  if (!deckListPlayerFilterDefaulted && deckListPlayerFilterSelect && !deckListPlayerFilterSelect.value) {
+    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+    if (displayName && ownerFilterOptions.includes(displayName)) {
+      deckListPlayerFilterSelect.value = displayName;
+    }
+    deckListPlayerFilterDefaulted = true;
+  }
   const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
