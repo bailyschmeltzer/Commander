@@ -7706,6 +7706,7 @@ async function selectAndAddDeckSearchResult(name) {
     }
     deckBuilderSearchResultsState = [];
     renderDeckBuilderSearchResults();
+    setDeckBuilderSearchStatus('Search for a card to preview it before adding it to the deck.', 'muted');
   } catch (error) {
     setDeckBuilderSearchStatus(error instanceof Error ? error.message : 'Unable to load that card right now.', 'error');
   }
