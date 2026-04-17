@@ -1197,6 +1197,13 @@ button[type="submit"] {
   margin-bottom: 12px;
 }
 
+.deck-builder-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .deck-builder-discard-button {
   color: #b91c1c;
   border-color: #b91c1c;
