@@ -746,16 +746,18 @@ function buildAuthPayload(auth) {
 }
 
 function resolveOwnerUserIdFromMembers(ownerDisplayName, members) {
-  if (!ownerDisplayName || !Array.isArray(members) || !members.length) {
+  if (!ownerDisplayName) {
     return '';
   }
   const key = normalizeMemberKey(ownerDisplayName);
-  // Exact match first (userId or displayName)
-  const exact = members.find((m) => m.matchKeys.has(key));
-  if (exact) return exact.userId;
-  // Prefix fallback: "steve" matches "steven", etc.
-  const prefix = members.find((m) => [...m.matchKeys].some((mk) => mk.startsWith(key) || key.startsWith(mk)));
-  return prefix ? prefix.userId : '';
+  if (!key) return '';
+  // Exact match against a configured member's userId or displayName.
+  if (Array.isArray(members)) {
+    const match = members.find((m) => m.matchKeys.has(key));
+    if (match) return match.userId;
+  }
+  // Fall back to the normalized name itself (covers auto-provisioned users).
+  return key;
 }
 
 function enforceDeckOwnership(currentDecks, nextDecks, auth, members) {
