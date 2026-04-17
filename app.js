@@ -6063,15 +6063,15 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
-  if (!deckLibraryPlayerFilterDefaulted && deckLibraryPlayerFilterSelect && !deckLibraryPlayerFilterSelect.value) {
+  const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
+  let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
+  if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
     const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
     if (displayName && ownerFilterOptions.includes(displayName)) {
-      deckLibraryPlayerFilterSelect.value = displayName;
+      activeOwnerFilter = displayName;
       deckLibraryPlayerFilterDefaulted = true;
     }
   }
-  const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
-  const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckLibraryPlayerFilterSelect) {
     buildSelectOptions(deckLibraryPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
@@ -9353,15 +9353,15 @@ function renderDeckLists() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
-  if (!deckListPlayerFilterDefaulted && deckListPlayerFilterSelect && !deckListPlayerFilterSelect.value) {
+  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
+  let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
+  if (!activeOwnerFilter && !deckListPlayerFilterDefaulted) {
     const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
     if (displayName && ownerFilterOptions.includes(displayName)) {
-      deckListPlayerFilterSelect.value = displayName;
+      activeOwnerFilter = displayName;
       deckListPlayerFilterDefaulted = true;
     }
   }
-  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
-  const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckListPlayerFilterSelect) {
     buildSelectOptions(deckListPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
