@@ -12490,10 +12490,12 @@ async function initializeApp() {
   initializePrimaryMenu();
   setupSyncUi();
 
-  // Capture commander prefill before any replaceState can strip the URL param
-  if (deckBuilderPage && !getQueryParam('deckId')) {
-    deckBuilderCommanderPrefill = getQueryParam('commander') || '';
-  }
+  // Capture before refresh() or replaceState can strip URL params.
+  // Do NOT set deckBuilderCommanderPrefill yet — pullCloudState() overwrites appState
+  // and calls refresh(), which would wipe the newly created deck. We apply it after sync.
+  const pendingDeckCommanderPrefill = deckBuilderPage && !getQueryParam('deckId')
+    ? getQueryParam('commander') || ''
+    : ''
 
   if (form) {
     resetForm();
@@ -12529,6 +12531,13 @@ async function initializeApp() {
       syncLastErrorMessage = `${error.message}. Using local cache.`;
       refreshSyncStatus();
     }
+  }
+
+  // Create and prefill the deck AFTER cloud sync settles so pullCloudState
+  // cannot overwrite appState and wipe the newly created deck.
+  if (pendingDeckCommanderPrefill) {
+    deckBuilderCommanderPrefill = pendingDeckCommanderPrefill;
+    renderDeckBuilderPage();
   }
 }
 
