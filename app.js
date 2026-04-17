@@ -1258,17 +1258,28 @@ function buildDeckListLinkOrText(label) {
     return '—';
   }
 
+  // First try: find a deckList entry and resolve via that
   const deckListEntry = getSavedDeckListEntryForCommander(displayLabel);
-  if (!deckListEntry) {
-    return escapeHtml(displayLabel);
+  if (deckListEntry) {
+    const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
+    if (linkedDeckId) {
+      return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(displayLabel)}</a>`;
+    }
   }
 
-  const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
-  if (!linkedDeckId) {
-    return escapeHtml(displayLabel);
+  // Second try: find a built deck directly by commander name (for games registered without a deck URL)
+  const nameKey = getIdentityKey(displayLabel);
+  if (nameKey) {
+    const matchedDeck = loadDecks().find((deck) => {
+      const deckNameKey = getIdentityKey(deck.commander?.name || '');
+      return deckNameKey === nameKey;
+    });
+    if (matchedDeck) {
+      return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(matchedDeck.id))}">${escapeHtml(displayLabel)}</a>`;
+    }
   }
 
-  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(displayLabel)}</a>`;
+  return escapeHtml(displayLabel);
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
