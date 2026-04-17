@@ -1,6 +1,5 @@
 ToDo List
 
-- Fix ownership assigning of decks i.e. if i create a deck, but set the owner as steve, steve can edit it
 - Allow spaces in deck names
 - Remove deck URL panels
 - Make it so players are removed as an option in a game once added i.e. cant play two spots in a game

@@ -1888,6 +1888,8 @@ async function pushCloudState() {
     if (Array.isArray(payload.decks)) {
       appState = normalizeAppStateData({ ...appState, decks: payload.decks });
       persistLocalState(appState);
+      // Re-render so activeDeckBuilderRecord picks up the server-corrected values.
+      refresh();
     }
     syncPendingChanges = false;
     syncRetryCount = 0;
