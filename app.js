@@ -2617,7 +2617,7 @@ function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePla
   const currentCommanderDamage = sourcePlayerId ? (targetPlayer.commanderDamageTaken?.[sourcePlayerId] || 0) : 0;
   const commanderKill = eventType === 'commander-damage' && (currentCommanderDamage > 20);
   const lifeKill = projectedLife <= 0;
-  return Boolean(activeGameState.shouldPromptForSource || lifeKill || commanderKill);
+  return Boolean(lifeKill || commanderKill);
 }
 
 function maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, turnNumber) {
