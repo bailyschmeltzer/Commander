@@ -1,8 +1,5 @@
 ToDo List
 
-- fix mobile login
-- fix out button not properly recording turn killed
-- add pop up for final comments
 - dropdown formatting on deck list selector
 - adding cards prompts dupe notification when card does not exist in deck, still adds it though
 - add a deck breakdown/summary

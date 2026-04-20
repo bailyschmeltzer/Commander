@@ -4009,9 +4009,24 @@ async function completeActiveGame() {
     commander: player.commander,
     place: player.place,
     kills: player.kills,
+    turnKilled: player.eliminatedTurnNumber || null,
     killed: player.killedPlayers || [],
   }));
   const finishOrder = finalPlayers.map((player) => player.name);
+
+  const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
+    title: 'Final comments',
+    confirmLabel: 'Save game',
+    defaultValue: '',
+    placeholder: 'Optional notes',
+    multiline: true,
+  });
+  if (finalComments === null) {
+    return;
+  }
+
+  const autoNotes = buildActiveGameSummary({ ...activeGameState, players: finalPlayers });
+  const gameNotes = finalComments.trim() ? `${autoNotes} · ${finalComments.trim()}` : autoNotes;
 
   const games = loadGames();
   games.push({
@@ -4021,7 +4036,7 @@ async function completeActiveGame() {
     players: playerRows.map((row) => row.player),
     playerCommanders: playerRows.map((row) => ({ player: row.player, commander: row.commander })),
     finishOrder,
-    notes: buildActiveGameSummary({ ...activeGameState, players: finalPlayers }),
+    notes: gameNotes,
     liveSummary: {
       startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
       alternateWinCondition: activeGameState.alternateWinCondition || '',
