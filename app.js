@@ -7740,12 +7740,20 @@ async function selectDeckBuilderSearchResult(name) {
   }
 
   setDeckBuilderSearchStatus(`Loading ${normalizedName}...`, 'neutral');
+  deckBuilderSelectedCard = null;
+  persistDeckBuilderSelectedCard(null);
   try {
-    deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
-    if (deckBuilderSelectedCard?.isToken) {
+    const card = await fetchDeckCardByName(normalizedName);
+    if (!card) {
+      setDeckBuilderSearchStatus(`${normalizedName} was not found.`, 'error');
+      renderDeckBuilderSelection();
+      return;
+    }
+    if (card.isToken) {
       setDeckBuilderSearchStatus('That is a token card. Use Token Search to add it to the token pool.', 'error');
       return;
     }
+    deckBuilderSelectedCard = card;
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     setDeckBuilderSearchStatus(`${normalizedName} loaded. Choose Add to Deck or Add to Maybeboard.`, 'success');
@@ -7761,12 +7769,20 @@ async function selectAndAddDeckSearchResult(name) {
   }
 
   setDeckBuilderSearchStatus(`Adding ${normalizedName}...`, 'neutral');
+  deckBuilderSelectedCard = null;
+  persistDeckBuilderSelectedCard(null);
   try {
-    deckBuilderSelectedCard = await fetchDeckCardByName(normalizedName);
-    if (deckBuilderSelectedCard?.isToken) {
+    const card = await fetchDeckCardByName(normalizedName);
+    if (!card) {
+      setDeckBuilderSearchStatus(`${normalizedName} was not found.`, 'error');
+      renderDeckBuilderSelection();
+      return;
+    }
+    if (card.isToken) {
       setDeckBuilderSearchStatus('That is a token card. Use Token Search to add it to the token pool.', 'error');
       return;
     }
+    deckBuilderSelectedCard = card;
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
     await addSelectedCardToDeck();
