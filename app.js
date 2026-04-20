@@ -884,6 +884,7 @@ function normalizeDeckRecord(entry) {
   const owner = normalizeIdentityLabel(entry.owner || '');
   const ownerUserId = String(entry.ownerUserId || '').trim().toLowerCase();
   const commander = normalizeDeckCardEntry(entry.commander);
+  const secondCommander = normalizeDeckCardEntry(entry.secondCommander);
   const cards = Array.isArray(entry.cards)
     ? entry.cards.map(normalizeDeckCardEntry).filter(Boolean)
     : [];
@@ -900,6 +901,7 @@ function normalizeDeckRecord(entry) {
     owner,
     ownerUserId,
     commander,
+    secondCommander,
     cards,
     maybeboard,
     tokens,
@@ -5908,48 +5910,54 @@ function getCardEffectiveColorIdentity(card) {
 
 function getDeckValidationSummary(deck) {
   const normalizedDeck = normalizeDeckRecord(deck);
+  const commander = normalizedDeck?.commander || null;
+  const secondCommander = normalizedDeck?.secondCommander || null;
+
+  // Build a flat list of all names across both commanders + main deck (for duplicate detection)
   const cardNames = [];
-  if (normalizedDeck?.commander?.name) {
-    cardNames.push(normalizedDeck.commander.name);
-  }
+  if (commander?.name) cardNames.push(commander.name);
+  if (secondCommander?.name) cardNames.push(secondCommander.name);
   normalizedDeck.cards.forEach((card) => {
-    if (card?.name) {
-      cardNames.push(card.name);
-    }
+    if (card?.name) cardNames.push(card.name);
   });
 
-  // Basic lands are allowed to appear multiple times — exclude them from duplicate detection
+  // Cards whose oracle text says "a deck can have any number of cards named …" are exempt
+  // from the singleton rule, as are basic lands (detected by name key).
   const BASIC_LAND_KEYS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes',
     'snow-covered plains', 'snow-covered island', 'snow-covered swamp', 'snow-covered mountain', 'snow-covered forest']);
+  // Build a set of unlimited-copy card name keys from actual card objects
+  const unlimitedCopyKeys = new Set();
+  [...normalizedDeck.cards, commander, secondCommander]
+    .filter(Boolean)
+    .forEach((c) => { if (isUnlimitedCopiesCard(c)) unlimitedCopyKeys.add(getIdentityKey(c.name)); });
+
   const duplicates = [];
   const seenCount = new Map();
   cardNames.forEach((name) => {
     const key = getIdentityKey(name);
-    if (!key || BASIC_LAND_KEYS.has(key)) return;
+    if (!key || BASIC_LAND_KEYS.has(key) || unlimitedCopyKeys.has(key)) return;
     const count = (seenCount.get(key) || 0) + 1;
     seenCount.set(key, count);
     if (count === 2) duplicates.push(name);
   });
 
   const bannedCards = [];
-  const commander = normalizedDeck?.commander || null;
-  if (commander?.isBanned) {
-    bannedCards.push(commander.name);
-  }
-
+  if (commander?.isBanned) bannedCards.push(commander.name);
+  if (secondCommander?.isBanned) bannedCards.push(secondCommander.name);
   normalizedDeck.cards.forEach((card) => {
-    if (card.isBanned) {
-      bannedCards.push(card.name);
-    }
+    if (card.isBanned) bannedCards.push(card.name);
   });
 
-  const commanderCount = commander ? 1 : 0;
+  const commanderCount = (commander ? 1 : 0) + (secondCommander ? 1 : 0);
   const totalCards = normalizedDeck.cards.length + commanderCount;
 
-  // Color identity validation — only possible when a commander exists
+  // Color identity — union of both commanders when a partner pair is present
   const colorViolations = [];
   if (commander) {
     const commanderIdentity = getCardEffectiveColorIdentity(commander);
+    if (secondCommander) {
+      getCardEffectiveColorIdentity(secondCommander).forEach((c) => commanderIdentity.add(c));
+    }
     normalizedDeck.cards.forEach((card) => {
       const cardIdentity = getCardEffectiveColorIdentity(card);
       const illegal = [...cardIdentity].filter((c) => !commanderIdentity.has(c));
@@ -5960,13 +5968,15 @@ function getDeckValidationSummary(deck) {
     });
   }
 
+  // A valid deck has exactly 1 or 2 commanders (partner) and 100 total cards
+  const validCommanderCount = commanderCount === 1 || commanderCount === 2;
   return {
     commanderCount,
     totalCards,
     duplicates,
     bannedCards,
     colorViolations,
-    isValid: commanderCount === 1 && totalCards === 100 && !duplicates.length && !colorViolations.length,
+    isValid: validCommanderCount && totalCards === 100 && !duplicates.length && !colorViolations.length,
   };
 }
 
@@ -6399,6 +6409,26 @@ function isBasicLand(card) {
   return cardType.includes('basic land');
 }
 
+// Returns all oracle text strings for a card (main + faces), lowercased.
+function getCardOracleTexts(card) {
+  const texts = [String(card?.oracleText || '')];
+  if (Array.isArray(card?.cardFaces)) {
+    card.cardFaces.forEach((face) => texts.push(String(face?.oracleText || '')));
+  }
+  return texts;
+}
+
+// Returns true for cards whose oracle text reads "A deck can have any number of cards named …"
+// e.g. Slime Against Humanity, Persistent Petitioners, Rat Colony, etc.
+function isUnlimitedCopiesCard(card) {
+  return getCardOracleTexts(card).some((t) => /a deck can have any number of cards named/i.test(t));
+}
+
+// Returns true if a card is allowed to appear more than once in a deck.
+function allowsMultipleCopies(card) {
+  return isBasicLand(card) || isUnlimitedCopiesCard(card);
+}
+
 function applyDeckBuilderDraftMeta(deck) {
   if (!deck || !deckBuilderPage) {
     return deck;
@@ -6417,13 +6447,47 @@ function applyDeckBuilderDraftMeta(deck) {
   };
 }
 
-function cardHasPartnerAbility(card) {
-  const allText = [
-    String(card?.oracleText || ''),
-    ...(Array.isArray(card?.cardFaces) ? card.cardFaces.map((face) => String(face?.oracleText || '')) : []),
-  ].join(' ').toLowerCase();
+// Returns true if the card has the generic "Partner" keyword (NOT "Partner with X").
+function cardHasGenericPartner(card) {
+  return getCardOracleTexts(card).some((t) => /\bpartner\b(?!\s+with\b)/i.test(t));
+}
 
-  return /\bpartner\b/.test(allText);
+// Returns the named partner from "Partner with [Name]", or null if not present.
+function getCardPartnerWithName(card) {
+  for (const t of getCardOracleTexts(card)) {
+    const match = t.match(/\bpartner with ([^\n(]+)/i);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+// Returns true if the card has "Partner with X".
+function cardHasPartnerWith(card) {
+  return Boolean(getCardPartnerWithName(card));
+}
+
+// Returns true if the two cards form a valid partner pair (either both generic, or mutual "Partner with").
+function isCompatiblePartnerPair(card1, card2) {
+  // Both generic Partner
+  if (cardHasGenericPartner(card1) && cardHasGenericPartner(card2)) {
+    return true;
+  }
+  // Mutual "Partner with" — each names the other
+  const target1 = getCardPartnerWithName(card1);
+  const target2 = getCardPartnerWithName(card2);
+  if (
+    target1 && target2 &&
+    getIdentityKey(target1) === getIdentityKey(card2.name) &&
+    getIdentityKey(target2) === getIdentityKey(card1.name)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// Legacy alias still used in a couple of call-sites below.
+function cardHasPartnerAbility(card) {
+  return cardHasGenericPartner(card) || cardHasPartnerWith(card);
 }
 
 function isCommanderEligibleCard(card) {
@@ -6451,17 +6515,28 @@ function canSetCardAsCommanderForDeck(deck, card) {
     return false;
   }
 
+  // No commander yet — always allowed.
   if (!deck?.commander) {
     return true;
   }
 
-  return cardHasPartnerAbility(deck.commander) && cardHasPartnerAbility(card);
+  // Both commander slots already filled — allow replacing (will clear secondCommander).
+  if (deck.secondCommander) {
+    return true;
+  }
+
+  // One commander set — always allow the button to show; the action handler decides
+  // whether to add as a second commander or replace (with a confirm prompt).
+  return true;
 }
 
 function getDeckBuilderCardNameSet(deck) {
   const nameSet = new Set();
   if (deck?.commander?.name) {
     nameSet.add(getIdentityKey(deck.commander.name));
+  }
+  if (deck?.secondCommander?.name) {
+    nameSet.add(getIdentityKey(deck.secondCommander.name));
   }
   (deck?.cards || []).forEach((card) => {
     if (card?.name) {
@@ -6489,18 +6564,18 @@ async function addSelectedCardToDeck() {
     return;
   }
 
-  const isBasic = isBasicLand(card);
+  const isMultiAllowed = allowsMultipleCopies(card);
   const cardNameKey = getIdentityKey(card.name);
   const deckCardNameSet = getDeckBuilderCardNameSet(deck);
 
-  // Non-basic lands cannot have duplicates
-  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
-    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands can have multiple copies.`, 'Duplicate card');
+  // Singleton rule: only basic lands and unlimited-copy cards can have duplicates
+  if (!isMultiAllowed && deckCardNameSet.has(cardNameKey)) {
+    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands and cards that explicitly allow multiple copies can be added more than once.`, 'Duplicate card');
     return;
   }
 
   const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === cardNameKey);
-  if (!isBasic && existsInMaybeboard) {
+  if (!isMultiAllowed && existsInMaybeboard) {
     await promptLiveAlert(`${card.name} is already in the maybeboard. Remove it there before adding it to the deck.`, 'Duplicate card');
     return;
   }
@@ -6630,31 +6705,69 @@ async function setSelectedCardAsCommander() {
     return;
   }
 
-  if (!canSetCardAsCommanderForDeck(deck, card)) {
-    await promptLiveAlert('You can only replace an existing commander if both commanders have Partner.', 'Commander pairing');
-    return;
-  }
-
   const duplicateInDeck = deck.cards.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
   if (duplicateInDeck) {
     await promptLiveAlert(`${card.name} is already in the main deck. Remove it there before setting it as commander.`, 'Duplicate card');
     return;
   }
 
-  if (deck.commander && getIdentityKey(deck.commander.name) !== getIdentityKey(card.name)) {
-    const confirmed = await promptLiveConfirm(`Replace ${deck.commander.name} as the commander for ${deck.name}?`, {
-      title: 'Replace commander',
-      confirmLabel: 'Set commander',
-    });
-    if (!confirmed) {
-      return;
-    }
+  // ── No commander yet ──────────────────────────────────────────────────────
+  if (!deck.commander) {
+    const nextDeck = applyDeckBuilderDraftMeta(deck);
+    persistDeckBuilderRecord({ ...nextDeck, commander: card }, `${card.name} set as commander.`);
+    return;
   }
+
+  // ── Same card as existing commander (no-op) ───────────────────────────────
+  if (getIdentityKey(deck.commander.name) === getIdentityKey(card.name)) {
+    return;
+  }
+
+  // ── Same card as existing secondCommander (no-op) ─────────────────────────
+  if (deck.secondCommander && getIdentityKey(deck.secondCommander.name) === getIdentityKey(card.name)) {
+    return;
+  }
+
+  // ── Try to slot as second commander via partner ───────────────────────────
+  if (!deck.secondCommander && isCompatiblePartnerPair(deck.commander, card)) {
+    const nextDeck = applyDeckBuilderDraftMeta(deck);
+    persistDeckBuilderRecord({ ...nextDeck, secondCommander: card }, `${card.name} added as partner commander.`);
+    return;
+  }
+
+  // ── Incompatible partner-with: show a clear error instead of confirming ───
+  if (!deck.secondCommander && cardHasPartnerWith(card)) {
+    const requiredName = getCardPartnerWithName(card);
+    await promptLiveAlert(
+      `${card.name} requires "${requiredName}" as its partner. Only that specific card can be added as a second commander.`,
+      'Incompatible partner'
+    );
+    return;
+  }
+  if (!deck.secondCommander && cardHasPartnerWith(deck.commander)) {
+    const requiredName = getCardPartnerWithName(deck.commander);
+    await promptLiveAlert(
+      `${deck.commander.name} requires "${requiredName}" as its partner. ${card.name} is not the correct partner card.`,
+      'Incompatible partner'
+    );
+    return;
+  }
+
+  // ── Replace existing commander (and clear any secondCommander) ────────────
+  const replacingPair = deck.secondCommander
+    ? `This will also remove ${deck.secondCommander.name} from the command zone.`
+    : '';
+  const confirmed = await promptLiveConfirm(
+    `Replace ${deck.commander.name} as the commander for ${deck.name}?${replacingPair ? ' ' + replacingPair : ''}`,
+    { title: 'Replace commander', confirmLabel: 'Set commander' }
+  );
+  if (!confirmed) return;
 
   const nextDeck = applyDeckBuilderDraftMeta(deck);
   persistDeckBuilderRecord({
     ...nextDeck,
     commander: card,
+    secondCommander: null,
   }, `${card.name} set as commander.`);
 }
 
@@ -6677,20 +6790,56 @@ async function setDeckBuilderCardAsCommander(cardId) {
     return;
   }
 
-  if (!canSetCardAsCommanderForDeck(deck, nextCommander)) {
-    await promptLiveAlert('You can only replace an existing commander if both commanders have Partner.', 'Commander pairing');
+  // ── No commander yet ──────────────────────────────────────────────────────
+  if (!deck.commander) {
+    const nextCards = deck.cards.filter((entry) => entry.id !== cardId);
+    deckBuilderSelectedDeckCardId = null;
+    const nextDeck = applyDeckBuilderDraftMeta(deck);
+    persistDeckBuilderRecord({ ...nextDeck, commander: nextCommander, cards: nextCards }, `${nextCommander.name} set as commander.`);
     return;
   }
 
-  if (deck.commander && getIdentityKey(deck.commander.name) !== getIdentityKey(nextCommander.name)) {
-    const confirmed = await promptLiveConfirm(`Replace ${deck.commander.name} as the commander for ${deck.name}?`, {
-      title: 'Replace commander',
-      confirmLabel: 'Set commander',
-    });
-    if (!confirmed) {
-      return;
-    }
+  // ── Same card as existing commander (no-op) ───────────────────────────────
+  if (getIdentityKey(deck.commander.name) === getIdentityKey(nextCommander.name)) {
+    return;
   }
+
+  // ── Try to slot as second commander via partner ───────────────────────────
+  if (!deck.secondCommander && isCompatiblePartnerPair(deck.commander, nextCommander)) {
+    const nextCards = deck.cards.filter((entry) => entry.id !== cardId);
+    deckBuilderSelectedDeckCardId = null;
+    const nextDeck = applyDeckBuilderDraftMeta(deck);
+    persistDeckBuilderRecord({ ...nextDeck, secondCommander: nextCommander, cards: nextCards }, `${nextCommander.name} added as partner commander.`);
+    return;
+  }
+
+  // ── Incompatible partner-with: show a clear error ─────────────────────────
+  if (!deck.secondCommander && cardHasPartnerWith(nextCommander)) {
+    const requiredName = getCardPartnerWithName(nextCommander);
+    await promptLiveAlert(
+      `${nextCommander.name} requires "${requiredName}" as its partner. Only that specific card can be the second commander.`,
+      'Incompatible partner'
+    );
+    return;
+  }
+  if (!deck.secondCommander && cardHasPartnerWith(deck.commander)) {
+    const requiredName = getCardPartnerWithName(deck.commander);
+    await promptLiveAlert(
+      `${deck.commander.name} requires "${requiredName}" as its partner. ${nextCommander.name} is not the correct partner card.`,
+      'Incompatible partner'
+    );
+    return;
+  }
+
+  // ── Replace existing commander (and clear any secondCommander) ────────────
+  const replacingPair = deck.secondCommander
+    ? ` This will also remove ${deck.secondCommander.name} from the command zone.`
+    : '';
+  const confirmed = await promptLiveConfirm(
+    `Replace ${deck.commander.name} as the commander for ${deck.name}?${replacingPair}`,
+    { title: 'Replace commander', confirmLabel: 'Set commander' }
+  );
+  if (!confirmed) return;
 
   const nextCards = deck.cards.filter((entry) => entry.id !== cardId);
   deckBuilderSelectedDeckCardId = null;
@@ -6698,6 +6847,7 @@ async function setDeckBuilderCardAsCommander(cardId) {
   persistDeckBuilderRecord({
     ...nextDeck,
     commander: nextCommander,
+    secondCommander: null,
     cards: nextCards,
   }, `${nextCommander.name} set as commander.`);
 }
@@ -6720,11 +6870,11 @@ async function addMaybeboardCardToDeck(cardId) {
     return;
   }
 
-  const isBasic = isBasicLand(card);
+  const isMultiAllowed = allowsMultipleCopies(card);
   const cardNameKey = getIdentityKey(card.name);
   const deckCardNameSet = getDeckBuilderCardNameSet(deck);
-  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
-    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands can have multiple copies.`, 'Duplicate card');
+  if (!isMultiAllowed && deckCardNameSet.has(cardNameKey)) {
+    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands and cards that explicitly allow multiple copies can be added more than once.`, 'Duplicate card');
     return;
   }
 
@@ -6797,9 +6947,17 @@ function updateDeckBuilderTokenQuantity(cardId, delta) {
   }, delta < 0 ? 'Token quantity decreased.' : 'Token quantity increased.');
 }
 
-function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
+function removeDeckBuilderCard(cardId, { isCommander = false, isSecondCommander = false } = {}) {
   const deck = ensureActiveDeckBuilderRecord();
   if (!deck) {
+    return;
+  }
+
+  if (isSecondCommander) {
+    persistDeckBuilderRecord({
+      ...deck,
+      secondCommander: null,
+    }, 'Partner commander removed.', 'neutral');
     return;
   }
 
@@ -6807,6 +6965,7 @@ function removeDeckBuilderCard(cardId, { isCommander = false } = {}) {
     persistDeckBuilderRecord({
       ...deck,
       commander: null,
+      secondCommander: null,
     }, 'Commander removed.', 'neutral');
     return;
   }
@@ -7315,7 +7474,7 @@ function renderDeckBuilderValidation(deck) {
   deckBuilderCardCount.textContent = `${summary.totalCards} / 100 cards`;
 
   const lines = [
-    summary.commanderCount === 1 ? null : { label: 'Deck needs exactly one commander.', tone: 'error' },
+    (summary.commanderCount === 1 || summary.commanderCount === 2) ? null : { label: 'Deck needs at least one commander.', tone: 'error' },
     summary.totalCards === 100 ? null : { label: `Deck currently has ${summary.totalCards} cards.`, tone: 'error' },
     summary.duplicates.length ? { label: `Duplicate card names found: ${summary.duplicates.join(', ')}.`, tone: 'error' } : null,
     summary.bannedCards.length ? { label: `Banned cards: ${summary.bannedCards.join(', ')}.`, tone: 'error' } : null,
@@ -7392,14 +7551,18 @@ function renderDeckBuilderCards(deck) {
   const isIllegalCard = (card) => illegalCardNames.has(getIdentityKey(card.name));
   const isReadOnly = !canCurrentUserEditDeck(deck);
 
-  const commanderMarkup = deck?.commander
+  const commanderCards = [deck?.commander, deck?.secondCommander].filter(Boolean);
+  const commanderMarkup = commanderCards.length
     ? `
       <section class="deck-builder-group">
         <div class="deck-builder-group-header">
           <h3>Commander</h3>
-          <p>1 card</p>
+          <p>${commanderCards.length === 2 ? '2 cards — Partner' : '1 card'}</p>
         </div>
-        <div class="deck-builder-group-cards deck-builder-group-cards--single">${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly })}</div>
+        <div class="deck-builder-group-cards deck-builder-group-cards--single">
+          ${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly })}
+          ${deck.secondCommander ? renderDeckCardRow(deck.secondCommander, { isCommander: true, isSecondCommander: true, showArtPicker: deck.secondCommander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly }) : ''}
+        </div>
       </section>`
     : `
       <section class="deck-builder-group">
@@ -9058,9 +9221,11 @@ function renderDeckCardRow(card, options = {}) {
       </div>`
     : '';
   const removeAction = isExpanded
-    ? (options.isCommander
-      ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
-      : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
+    ? (options.isSecondCommander
+      ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true" data-remove-second-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+      : options.isCommander
+        ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+        : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
     : '';
   const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
@@ -12384,7 +12549,8 @@ if (deckBuilderCards) {
 
     const removeCommanderButton = event.target.closest('[data-remove-commander="true"]');
     if (removeCommanderButton) {
-      removeDeckBuilderCard('', { isCommander: true });
+      const isSecond = removeCommanderButton.dataset.removeSecondCommander === 'true';
+      removeDeckBuilderCard('', { isCommander: !isSecond, isSecondCommander: isSecond });
       return;
     }
 
