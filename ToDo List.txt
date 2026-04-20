@@ -2,7 +2,7 @@ ToDo List
 
 - Move names to all be in the center
 - Adding additional player after adding player details resets that dropdown for the extra player
-- minus icon hidden behind buttons
+- minus icon hidden behind buttons/plus hides behind commander damage box. maybe move inwards?
 - fix player ordering
 - fix mobile login
 - fix out button not properly recording turn killed

@@ -2930,13 +2930,17 @@ button[type="submit"] {
     min-height: 0;
   }
 
-  /* orientation-1 (BR) and orientation-4 (BL): name row at bottom of card body */
+  /* All 4 orientations: name row at CSS bottom (faces screen-center after rotation) */
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
     margin-bottom: 0;
     margin-top: 6px;
