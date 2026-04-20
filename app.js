@@ -153,6 +153,9 @@ const liveUndoButton = document.getElementById('live-undo');
 const liveSwapLifeButton = document.getElementById('live-swap-life');
 const liveFinishGameButton = document.getElementById('live-finish-game');
 const liveAbandonGameButton = document.getElementById('live-abandon-game');
+const liveTurnTracker = document.getElementById('live-turn-tracker');
+const liveTurnButton = document.getElementById('live-turn-button');
+const liveTurnNumberEl = document.getElementById('live-turn-number');
 const liveSourcePrompt = document.getElementById('live-source-prompt');
 const liveSourceTitle = document.getElementById('live-source-title');
 const liveSourceCopy = document.getElementById('live-source-copy');
@@ -3242,6 +3245,12 @@ function renderLiveGameStatus() {
   if (liveUndoButton) {
     liveUndoButton.disabled = !activeGameUndoState.length;
   }
+  if (liveTurnTracker) {
+    liveTurnTracker.hidden = !activeGameState;
+  }
+  if (liveTurnNumberEl && activeGameState) {
+    liveTurnNumberEl.textContent = String(getLiveTrackedTurnNumber());
+  }
   renderLivePlayerGrid();
   renderLiveEventLog();
 }
@@ -3605,16 +3614,7 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
 
   const projectedLife = targetPlayer.life - amount;
   const projectedCommanderDamage = (targetPlayer.commanderDamageTaken[sourcePlayerId] || 0) + amount;
-  const needsFirstBloodTurn = Boolean(sourcePlayerId && sourcePlayerId !== targetPlayerId && !activeGameState.firstBlood);
-  const needsKillTurn = !targetPlayer.cannotLoseTheGame && (projectedLife <= 0 || projectedCommanderDamage > 20);
-  let eventTurnNumber = getLiveTrackedTurnNumber();
-  if (needsFirstBloodTurn || needsKillTurn) {
-    const promptedTurn = await promptForTurnNumber(`What turn was this commander damage on?`, eventTurnNumber);
-    if (promptedTurn === null) {
-      return;
-    }
-    eventTurnNumber = promptedTurn;
-  }
+  const eventTurnNumber = getLiveTrackedTurnNumber();
 
   saveUndoSnapshot();
   targetPlayer.life -= amount;
@@ -3665,10 +3665,7 @@ async function manuallyEliminatePlayer(targetPlayerId) {
     return;
   }
 
-  const eventTurnNumber = await promptForTurnNumber(`What turn was ${targetPlayer.name} eliminated on?`);
-  if (eventTurnNumber === null) {
-    return;
-  }
+  const eventTurnNumber = getLiveTrackedTurnNumber();
 
   const eliminationDetails = await promptLiveText(`Enter ${targetPlayer.name}'s alternate lose condition for the notes. Leave blank for a normal elimination.`, {
     title: 'Alternate lose condition',
@@ -3731,16 +3728,7 @@ async function applyQuickLifeChange(playerId, delta) {
     return;
   }
 
-  const needsFirstBloodTurn = delta < 0 && Boolean(sourcePlayerId && sourcePlayerId !== playerId && !activeGameState.firstBlood);
-  const needsKillTurn = delta < 0 && !player.cannotLoseTheGame && projectedLife <= 0;
-  let turnNumber = getLiveTrackedTurnNumber();
-  if (needsFirstBloodTurn || needsKillTurn) {
-    const promptedTurn = await promptForTurnNumber(`What turn was this damage on?`, turnNumber);
-    if (promptedTurn === null) {
-      return;
-    }
-    turnNumber = promptedTurn;
-  }
+  const turnNumber = getLiveTrackedTurnNumber();
 
   saveUndoSnapshot();
   player.life += delta;
@@ -3832,11 +3820,7 @@ async function setPlayerCannotLoseState(playerId, isEnabled) {
     return;
   }
 
-  const turnNumber = await promptForTurnNumber(`What turn was ${player.name} eliminated on?`);
-  if (turnNumber === null) {
-    refreshLiveTrackerUi();
-    return;
-  }
+  const turnNumber = getLiveTrackedTurnNumber();
 
   saveUndoSnapshot();
   player.cannotLoseTheGame = false;
@@ -3884,10 +3868,7 @@ async function markPlayerAutomaticWinner(playerId) {
     return;
   }
 
-  const turnNumber = await promptForTurnNumber(`What turn did ${winner.name} win on?`);
-  if (turnNumber === null) {
-    return;
-  }
+  const turnNumber = getLiveTrackedTurnNumber();
 
   const alternateWinCondition = await promptLiveText(`Enter ${winner.name}'s alternate win condition for the notes. Leave blank for a normal win.`, {
     title: 'Alternate win condition',
@@ -11778,6 +11759,19 @@ if (liveAbandonGameButton) {
   liveAbandonGameButton.addEventListener('click', () => {
     closeLiveActionsMenu();
     abandonActiveGame();
+  });
+}
+
+if (liveTurnButton) {
+  liveTurnButton.addEventListener('click', () => {
+    if (!activeGameState) {
+      return;
+    }
+    activeGameState.turnNumber = getLiveTrackedTurnNumber() + 1;
+    persistActiveGameState(activeGameState);
+    if (liveTurnNumberEl) {
+      liveTurnNumberEl.textContent = String(activeGameState.turnNumber);
+    }
   });
 }
 

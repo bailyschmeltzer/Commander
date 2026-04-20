@@ -1,5 +1,7 @@
 ToDo List
 - First blood prompts twice if somebody gains life first and then loses life. it prompts at first life loss, and when going below starting life
+
+
 - add a one touch turn tracker
 - make turn tracking details automatic
 - fix player ordering
@@ -13,4 +15,4 @@ ToDo List
 - Further data validation
 - Page for keyword descriptions
 - Page for searching a card and viewing rulings on said card
-- Add option to preload a precon in deck builder
+- Add option to preload a precon in deck builder 

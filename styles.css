@@ -2197,6 +2197,10 @@ button[type="submit"] {
   flex-wrap: wrap;
 }
 
+.live-turn-tracker {
+  display: none;
+}
+
 #live-back {
   display: none;
 }
@@ -2730,6 +2734,47 @@ button[type="submit"] {
     border-radius: 12px;
     font-size: 0.86rem;
     justify-content: center;
+  }
+
+  .page-live-game.live-table-mode .live-turn-tracker {
+    display: block;
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4200;
+  }
+
+  .live-turn-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(123, 140, 196, 0.45);
+    background: rgba(15, 20, 38, 0.92);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .live-turn-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.65;
+  }
+
+  .live-turn-number {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-player-grid {
