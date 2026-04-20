@@ -2846,10 +2846,15 @@ button[type="submit"] {
     padding: 8px;
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     align-content: stretch;
     overflow: hidden;
     transform-origin: top left;
+  }
+
+  /* Center seat (5-player) is not rotated — keep name at top */
+  .page-live-game.live-table-mode .live-player-card-body.live-orientation-up {
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 {
@@ -2928,6 +2933,11 @@ button[type="submit"] {
   .page-live-game.live-table-mode .live-player-card-topline {
     margin-bottom: 6px;
     min-height: 0;
+    justify-content: center;
+  }
+
+  .page-live-game.live-table-mode .live-player-title-block {
+    text-align: center;
   }
 
   .page-live-game.live-table-mode .live-player-title-block h3 {
@@ -3042,6 +3052,7 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-card-topline {
     margin-bottom: 4px;
+    justify-content: center;
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-card-topline {

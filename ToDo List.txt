@@ -1,6 +1,5 @@
 ToDo List
 
-- fix life gain/loss button areas
 - Move names to all be in the center
 - Adding additional player after adding player details resets that dropdown for the extra player
 - minus icon hidden behind buttons
