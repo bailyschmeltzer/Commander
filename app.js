@@ -9191,6 +9191,7 @@ function renderDeckGroupCardRows(cards, { deck, isIllegalCard, isReadOnly }) {
 }
 
 function renderUnlimitedCopyCardRow(name, cards) {
+  const count = cards.length;
   const sampleId = cards[0]?.id || '';
   const typeLine = cards[0]?.typeLine || '';
   const deck = ensureActiveDeckBuilderRecord();
