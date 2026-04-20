@@ -2781,8 +2781,8 @@ button[type="submit"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "seat3 seat4"
-      "seat2 seat1";
+      "seat1 seat2"
+      "seat4 seat3";
     gap: 6px;
     height: 100dvh;
     margin: 0;
@@ -2853,27 +2853,27 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 {
-    top: var(--live-card-height, 0px);
-    left: 0;
-    transform: rotate(-90deg);
+    top: 0;
+    left: var(--live-card-width, 0px);
+    transform: rotate(90deg);
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 {
-    top: 0;
-    left: var(--live-card-width, 0px);
-    transform: rotate(90deg);
-  }
-
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 {
-    top: 0;
-    left: var(--live-card-width, 0px);
-    transform: rotate(90deg);
-  }
-
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
     top: var(--live-card-height, 0px);
     left: 0;
     transform: rotate(-90deg);
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 {
+    top: var(--live-card-height, 0px);
+    left: 0;
+    transform: rotate(-90deg);
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
+    top: 0;
+    left: var(--live-card-width, 0px);
+    transform: rotate(90deg);
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-orientation-left {
@@ -2930,17 +2930,15 @@ button[type="submit"] {
     min-height: 0;
   }
 
-  /* Topline stays at CSS top (row 1, auto). justify-content places text at the
-     corner that physically faces the screen center after each card's rotation.
-     orientation-1 (BR, -90deg) and orientation-3 (TL, +90deg): CSS top-right → center */
+  /* seat1(TL) and seat4(BL) use +90deg: CSS top faces screen-center → flex-end */
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline {
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
     justify-content: flex-end;
   }
 
-  /* orientation-2 (TR, -90deg) and orientation-4 (BL, +90deg): CSS top-left → center */
+  /* seat2(TR) and seat3(BR) use -90deg: CSS top faces screen-center → flex-start */
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline {
     justify-content: flex-start;
   }
 
