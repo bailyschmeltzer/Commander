@@ -6530,6 +6530,20 @@ function canSetCardAsCommanderForDeck(deck, card) {
   return true;
 }
 
+// For cards already in the deck list, "Set as Commander" should only appear when:
+//   • the card is selected/expanded
+//   • the existing commander has Partner (generic or "Partner with")
+//   • the card itself also has Partner (generic or "Partner with")
+// This is intentionally stricter than canSetCardAsCommanderForDeck, which is used
+// for the search-panel button where you set the initial commander.
+function deckCardShowPartnerCommanderButton(deck, card) {
+  if (!isCommanderEligibleCard(card)) return false;
+  if (!deck?.commander) return false;
+  if (!cardHasPartnerAbility(deck.commander)) return false;
+  if (!cardHasPartnerAbility(card)) return false;
+  return true;
+}
+
 function getDeckBuilderCardNameSet(deck) {
   const nameSet = new Set();
   if (deck?.commander?.name) {
@@ -7595,7 +7609,7 @@ function renderDeckBuilderCards(deck) {
       const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, {
         isSelected: card.id === deckBuilderSelectedDeckCardId,
         isIllegal: isIllegalCard(card),
-        canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+        canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
         showArtPicker: card.id === deckBuilderArtPickerCardId,
         readOnly: isReadOnly,
       })).join('');
@@ -7624,7 +7638,7 @@ function renderDeckBuilderCards(deck) {
         <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, {
           isSelected: card.id === deckBuilderSelectedDeckCardId,
           isIllegal: isIllegalCard(card),
-          canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+          canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
           showArtPicker: card.id === deckBuilderArtPickerCardId,
           readOnly: isReadOnly,
         })).join('')}</div>
@@ -7678,7 +7692,7 @@ function renderDeckBuilderCards(deck) {
         ? `<div class="deck-builder-group-cards">${maybeboardCards.map((card) => renderDeckCardRow(card, {
           isSelected: card.id === deckBuilderSelectedDeckCardId,
           fromMaybeboard: true,
-          canSetCommander: canSetCardAsCommanderForDeck(deck, card),
+          canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
           showArtPicker: card.id === deckBuilderArtPickerCardId,
           readOnly: isReadOnly,
         })).join('')}</div>`
@@ -9227,7 +9241,7 @@ function renderDeckCardRow(card, options = {}) {
         ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
         : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
     : '';
-  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
+  const commanderAction = isExpanded && !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
   const addToDeckAction = isExpanded && options.fromMaybeboard
