@@ -113,6 +113,7 @@ const deckBuilderTokenSearchResults = document.getElementById('deck-builder-toke
 const deckBuilderTokenSearchStatus = document.getElementById('deck-builder-token-search-status');
 const deckBuilderSelection = document.getElementById('deck-builder-selection');
 const deckBuilderCards = document.getElementById('deck-builder-cards');
+const deckBuilderBreakdown = document.getElementById('deck-builder-breakdown');
 const deckBuilderTextList = document.getElementById('deck-builder-text-list');
 const deckBuilderExportButton = document.getElementById('deck-builder-export');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
@@ -7584,6 +7585,151 @@ async function hydrateDeckCardStats(deck) {
   persistDeckBuilderRecord({ ...deck, commander: nextCommander, cards: nextCards }, '', 'muted');
 }
 
+function parseDeckCardCmc(manaCost) {
+  const tokens = String(manaCost || '').match(/\{[^}]+\}/g) || [];
+  return tokens.reduce((sum, token) => {
+    const inner = token.slice(1, -1);
+    if (/^\d+$/.test(inner)) return sum + parseInt(inner, 10);
+    if (/^[XYZ]$/i.test(inner)) return sum;
+    const numericHybrid = inner.match(/^(\d+)\//);
+    if (numericHybrid) return sum + parseInt(numericHybrid[1], 10);
+    return sum + 1;
+  }, 0);
+}
+
+function renderDeckBuilderBreakdown(deck) {
+  if (!deckBuilderBreakdown) return;
+  if (!deck) {
+    deckBuilderBreakdown.innerHTML = '';
+    return;
+  }
+
+  // --- Type breakdown ---
+  const typeOrder = ['Creature', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Instant', 'Sorcery', 'Land', 'Other'];
+  const typeCounts = new Map(typeOrder.map((t) => [t, 0]));
+  (deck.cards || []).forEach((card) => {
+    const type = typeOrder.includes(card.cardType) ? card.cardType : 'Other';
+    typeCounts.set(type, typeCounts.get(type) + 1);
+  });
+  const totalDeckCards = (deck.cards || []).length + (deck.commander ? 1 : 0);
+
+  const commanderRow = deck.commander ? '<tr><td>Commander</td><td class="deck-breakdown-count">1</td></tr>' : '';
+  const typeRows = typeOrder
+    .filter((t) => typeCounts.get(t) > 0)
+    .map((t) => `<tr><td>${escapeHtml(t)}</td><td class="deck-breakdown-count">${typeCounts.get(t)}</td></tr>`)
+    .join('');
+
+  const typeMarkup = `
+    <div class="deck-breakdown-section">
+      <h3>Card Types</h3>
+      <table class="deck-breakdown-table">
+        <tbody>
+          ${commanderRow}
+          ${typeRows}
+          <tr class="deck-breakdown-total"><td>Total</td><td class="deck-breakdown-count">${totalDeckCards}</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  // --- Mana curve ---
+  const cmcBuckets = [0, 1, 2, 3, 4, 5, 6, 7];
+  const cmcCounts = new Map(cmcBuckets.map((n) => [n, 0]));
+  [
+    ...(deck.commander ? [deck.commander] : []),
+    ...(deck.cards || []),
+  ]
+    .filter((card) => card.cardType !== 'Land')
+    .forEach((card) => {
+      const cmc = parseDeckCardCmc(card.manaCost);
+      const bucket = Math.min(cmc, 7);
+      cmcCounts.set(bucket, cmcCounts.get(bucket) + 1);
+    });
+
+  const maxCmcCount = Math.max(...cmcCounts.values(), 1);
+  const curveLabels = ['0', '1', '2', '3', '4', '5', '6', '7+'];
+
+  const curveCols = cmcBuckets.map((bucket, i) => {
+    const count = cmcCounts.get(bucket);
+    const barHeight = count === 0 ? 0 : Math.max(4, Math.round((count / maxCmcCount) * 80));
+    return `
+      <div class="deck-curve-col">
+        <div class="deck-curve-bar-wrap">
+          <span class="deck-curve-count">${count > 0 ? count : ''}</span>
+          <div class="deck-curve-bar" style="height:${barHeight}px"></div>
+        </div>
+        <div class="deck-curve-label">${escapeHtml(curveLabels[i])}</div>
+      </div>`;
+  }).join('');
+
+  const curveMarkup = `
+    <div class="deck-breakdown-section">
+      <h3>Mana Curve</h3>
+      <div class="deck-curve-chart">${curveCols}</div>
+    </div>`;
+
+  // --- Performance ---
+  let perfMarkup;
+  if (!deck.commander?.name) {
+    perfMarkup = `
+      <div class="deck-breakdown-section">
+        <h3>Performance</h3>
+        <p class="status-muted">No games registered</p>
+      </div>`;
+  } else {
+    const commanderKey = getIdentityKey(deck.commander.name);
+    const ownerKey = getIdentityKey(deck.owner || '');
+    const matchedRows = [];
+    loadGames().forEach((game) => {
+      const rows = getGameRows(game);
+      const row = rows.find((r) => {
+        const rCommanderKey = getIdentityKey(r.commander || '');
+        const rPlayerKey = getIdentityKey(r.player || '');
+        return rCommanderKey === commanderKey && (!ownerKey || rPlayerKey === ownerKey);
+      });
+      if (row) matchedRows.push(row);
+    });
+
+    if (!matchedRows.length) {
+      perfMarkup = `
+        <div class="deck-breakdown-section">
+          <h3>Performance</h3>
+          <p class="status-muted">No games registered</p>
+        </div>`;
+    } else {
+      const games = matchedRows.length;
+      const wins = matchedRows.filter((r) => r.place === 1).length;
+      const winRate = Math.round((wins / games) * 100);
+      const totalKills = matchedRows.reduce((sum, r) => sum + (typeof r.kills === 'number' ? r.kills : 0), 0);
+      const avgKills = (totalKills / games).toFixed(1);
+      const validPlaces = matchedRows.filter((r) => typeof r.place === 'number' && r.place > 0);
+      const avgPlace = validPlaces.length
+        ? (validPlaces.reduce((sum, r) => sum + r.place, 0) / validPlaces.length).toFixed(1)
+        : '—';
+
+      perfMarkup = `
+        <div class="deck-breakdown-section">
+          <h3>Performance</h3>
+          <table class="deck-breakdown-table">
+            <tbody>
+              <tr><td>Games played</td><td class="deck-breakdown-count">${games}</td></tr>
+              <tr><td>Wins</td><td class="deck-breakdown-count">${wins}</td></tr>
+              <tr><td>Win rate</td><td class="deck-breakdown-count">${winRate}%</td></tr>
+              <tr><td>Avg kills / game</td><td class="deck-breakdown-count">${avgKills}</td></tr>
+              <tr><td>Avg finish position</td><td class="deck-breakdown-count">${avgPlace}</td></tr>
+            </tbody>
+          </table>
+        </div>`;
+    }
+  }
+
+  deckBuilderBreakdown.innerHTML = `
+    <div class="deck-breakdown-grid">
+      ${typeMarkup}
+      ${curveMarkup}
+      ${perfMarkup}
+    </div>`;
+}
+
 function renderDeckBuilderPage() {
   if (!deckBuilderPage) {
     return;
@@ -7599,6 +7745,9 @@ function renderDeckBuilderPage() {
     }
     if (deckBuilderValidation) {
       deckBuilderValidation.innerHTML = '';
+    }
+    if (deckBuilderBreakdown) {
+      deckBuilderBreakdown.innerHTML = '';
     }
     return;
   }
@@ -7628,6 +7777,7 @@ function renderDeckBuilderPage() {
   renderDeckBuilderValidation(deck);
   renderDeckBuilderSelection();
   renderDeckBuilderCards(deck);
+  renderDeckBuilderBreakdown(deck);
   renderDeckBuilderSearchResults();
   renderDeckBuilderTokenSearchResults();
   hydrateDeckCardStats(deck);
