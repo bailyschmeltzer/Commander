@@ -2926,7 +2926,6 @@ function createLiveSetupRow(data = {}) {
     </td>
   `;
 
-  populateRowSelectors(row);
   attachLookupWrapperHandlers(row);
   return row;
 }
@@ -2949,7 +2948,9 @@ function addLiveSetupRow(data = {}) {
     return;
   }
 
-  liveGamePlayerBody.appendChild(createLiveSetupRow(data));
+  const row = createLiveSetupRow(data);
+  liveGamePlayerBody.appendChild(row);
+  populateRowSelectors(row);
   updateLiveSetupSeatLabels();
 }
 
@@ -2961,6 +2962,7 @@ function removeLiveSetupRow() {
   const rows = liveGamePlayerBody.querySelectorAll('tr');
   if (rows.length > 2) {
     rows[rows.length - 1].remove();
+    liveGamePlayerBody.querySelectorAll('tr').forEach((r) => populateRowSelectors(r));
   }
   updateLiveSetupSeatLabels();
 }
@@ -4089,19 +4091,21 @@ function createPlayerRow(data = {}) {
     <td><textarea name="killed" placeholder="Killed">${escapeHtml(killedValue)}</textarea></td>
   `;
 
-  populateRowSelectors(row);
   attachLookupWrapperHandlers(row);
   return row;
 }
 
 function addPlayerRow(data = {}) {
-  playerTableBody.appendChild(createPlayerRow(data));
+  const row = createPlayerRow(data);
+  playerTableBody.appendChild(row);
+  populateRowSelectors(row);
 }
 
 function removePlayerRow() {
   const rows = playerTableBody.querySelectorAll('tr');
   if (rows.length > 2) {
     rows[rows.length - 1].remove();
+    playerTableBody.querySelectorAll('tr').forEach((r) => populateRowSelectors(r));
   }
 }
 
