@@ -1121,6 +1121,43 @@ export default {
       return jsonResponse({ error: 'Method not allowed.' }, 405);
     }
 
+    if (url.pathname === '/api/keywords') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      try {
+        const [abilitiesRes, actionsRes, abilityWordsRes] = await Promise.all([
+          fetch('https://api.scryfall.com/catalog/keyword-abilities', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
+          fetch('https://api.scryfall.com/catalog/keyword-actions', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
+          fetch('https://api.scryfall.com/catalog/ability-words', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
+        ]);
+
+        if (!abilitiesRes.ok || !actionsRes.ok || !abilityWordsRes.ok) {
+          throw new Error('Scryfall catalog request failed');
+        }
+
+        const [abilitiesData, actionsData, abilityWordsData] = await Promise.all([
+          abilitiesRes.json(),
+          actionsRes.json(),
+          abilityWordsRes.json(),
+        ]);
+
+        return jsonResponse({
+          keywordAbilities: Array.isArray(abilitiesData?.data) ? abilitiesData.data : [],
+          keywordActions: Array.isArray(actionsData?.data) ? actionsData.data : [],
+          abilityWords: Array.isArray(abilityWordsData?.data) ? abilityWordsData.data : [],
+        }, 200, {
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load keyword catalog right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   },
 };

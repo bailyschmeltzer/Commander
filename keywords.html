@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Keyword Glossary — Commander</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page-keywords">
+    <div class="app-shell">
+      <header>
+        <h1>Keyword Glossary</h1>
+        <p>Every keyword ability, keyword action, and ability word in Magic: The Gathering — updated automatically from Scryfall.</p>
+        <div class="deck-builder-hero-actions">
+          <a href="index.html" class="secondary-button page-action-link">← Back</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="card">
+          <div class="keyword-controls">
+            <div class="field keyword-search-field">
+              <label for="keyword-search">Search keywords</label>
+              <input id="keyword-search" type="search" placeholder="e.g. Flying, Trample, Landfall…" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="keyword-category-tabs" role="tablist" aria-label="Category filter">
+              <button type="button" class="keyword-tab is-active" data-category="all" role="tab" aria-selected="true">All</button>
+              <button type="button" class="keyword-tab" data-category="ability" role="tab" aria-selected="false">Keyword Abilities</button>
+              <button type="button" class="keyword-tab" data-category="action" role="tab" aria-selected="false">Keyword Actions</button>
+              <button type="button" class="keyword-tab" data-category="word" role="tab" aria-selected="false">Ability Words</button>
+            </div>
+          </div>
+          <p id="keyword-status" class="status-muted">Loading keyword catalog…</p>
+          <div id="keyword-grid" class="keyword-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // ---------------------------------------------------------------------------
+      // Descriptions map — covers all known keywords as of 2026.
+      // New keywords from future sets show the card name + a Scryfall rules link.
+      // ---------------------------------------------------------------------------
+      const KEYWORD_DESCRIPTIONS = {
+        // ── Keyword Abilities (evergreen) ───────────────────────────────────────
+        'flying': 'This creature can only be blocked by creatures with flying or reach.',
+        'first strike': 'This creature deals combat damage before creatures without first strike.',
+        'double strike': 'This creature deals both first-strike and regular combat damage each combat.',
+        'deathtouch': 'Any amount of damage this creature deals to a creature is enough to destroy it.',
+        'lifelink': 'Damage dealt by this creature also causes you to gain that much life.',
+        'trample': 'If this creature would deal more combat damage than needed to destroy blockers, the excess is dealt to the defending player or planeswalker.',
+        'vigilance': 'Attacking doesn\'t cause this creature to tap.',
+        'haste': 'This creature can attack and use tap abilities the turn it comes under your control.',
+        'reach': 'This creature can block creatures with flying.',
+        'flash': 'You may cast this spell any time you could cast an instant.',
+        'hexproof': 'This permanent can\'t be the target of spells or abilities your opponents control.',
+        'indestructible': 'Effects that say "destroy" don\'t destroy this permanent, and it can\'t be destroyed by lethal damage.',
+        'menace': 'This creature can\'t be blocked except by two or more creatures.',
+        'prowess': 'Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.',
+        'ward': 'Whenever this permanent becomes the target of a spell or ability an opponent controls, counter it unless that player pays the ward cost.',
+        // ── Keyword Abilities (deciduous/returning) ─────────────────────────────
+        'affinity': 'This spell costs {1} less to cast for each permanent you control of the specified type.',
+        'aftermath': 'You may cast the aftermath half of this card from your graveyard, then exile it.',
+        'amplify': 'As this creature enters, put +1/+1 counters on it for each card of the specified type you reveal from your hand.',
+        'annihilator': 'Whenever this creature attacks, the defending player must sacrifice a number of permanents equal to the annihilator value.',
+        'aura swap': 'Pay the aura swap cost: Exchange this Aura with an Aura card in your hand.',
+        'awaken': 'If you pay the awaken cost, put +1/+1 counters on target land and it becomes a 0/0 Elemental creature in addition to its other types.',
+        'bands with other': 'This creature can band with creatures that share the specified type.',
+        'banding': 'Creatures with banding can attack or block in a group, and you choose how combat damage is assigned to them.',
+        'battle cry': 'Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.',
+        'bestow': 'If you cast this card for its bestow cost, it becomes an Aura that enchants a creature instead of entering as a creature.',
+        'bloodthirst': 'If an opponent was dealt damage this turn, this creature enters the battlefield with +1/+1 counters.',
+        'bushido': 'Whenever this creature blocks or becomes blocked, it gets +X/+X until end of turn, where X is its bushido value.',
+        'buyback': 'You may pay the buyback cost as you cast this spell. If you do, return it to your hand instead of putting it into the graveyard.',
+        'cascade': 'When you cast this spell, exile cards from the top of your library until you exile a nonland card with lesser mana value. You may cast that card for free, then put the exiled cards on the bottom of your library in a random order.',
+        'champion': 'When this creature enters, exile another creature you control of the specified type. When it leaves, return that exiled card to the battlefield.',
+        'changeling': 'This card is every creature type at all times.',
+        'cipher': 'When you cast this spell, you may exile it encoded on a creature you control. Whenever that creature deals combat damage to a player, you may cast a copy of this spell.',
+        'cleave': 'You may pay the cleave cost to cast this spell with the text in brackets removed.',
+        'cohort': 'Pay the cohort cost and tap an untapped Ally you control: [Effect].',
+        'companion': 'If this card is your chosen companion, you may pay {3} once per game to put it into your hand.',
+        'compleated': 'You may pay Phyrexian mana when casting this planeswalker. If you do, it enters with two fewer loyalty counters.',
+        'connive': 'Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.',
+        'conspire': 'As you cast this spell, you may tap two untapped creatures you control that share a color with it. If you do, copy the spell.',
+        'convoke': 'Your creatures can help cast this spell. Each creature you tap while casting it pays for {1} or one mana of that creature\'s color.',
+        'crew': 'Tap any number of creatures you control with total power equal to or greater than the crew value: This Vehicle becomes an artifact creature until end of turn.',
+        'cumulative upkeep': 'At the beginning of your upkeep, put an age counter on this permanent, then pay cumulative upkeep for each age counter on it or sacrifice it.',
+        'cycling': 'Pay the cycling cost, discard this card: Draw a card.',
+        'dash': 'You may cast this spell for its dash cost. If you do, it gains haste and is returned to your hand at the beginning of the next end step.',
+        'daybound': 'If a player casts no spells during their own turn, it becomes night. This card transforms into its nightbound face at night.',
+        'defender': 'This creature can\'t attack.',
+        'delve': 'Each card you exile from your graveyard while casting this spell pays for {1}.',
+        'demonstrate': 'When you cast this spell, you may copy it and give the copy to an opponent.',
+        'detain': 'Until your next turn, the target nonland permanent can\'t attack, block, or activate its abilities.',
+        'devoid': 'This card has no color.',
+        'devour': 'As this creature enters, you may sacrifice any number of creatures. For each creature sacrificed this way, put a number of +1/+1 counters on it equal to the devour value.',
+        'disturb': 'You may cast this card transformed from your graveyard for its disturb cost.',
+        'dredge': 'If you would draw a card, you may instead mill the dredge value of cards, then return this card from your graveyard to your hand.',
+        'echo': 'At the beginning of your upkeep, if this came under your control since your last upkeep, sacrifice it unless you pay its echo cost.',
+        'embalm': 'Pay the embalm cost, exile this card from your graveyard: Create a token that\'s a copy of it, except it\'s a white Zombie.',
+        'emerge': 'You may cast this spell for its emerge cost, reduced by the mana value of a creature you sacrifice.',
+        'enchant': 'This Aura can only enchant the specified permanent type.',
+        'enlist': 'As this creature attacks, you may tap a nonattacking creature you control that has no summoning sickness. If you do, add its power to this creature\'s power until end of turn.',
+        'epic': 'For the rest of the game, you can\'t cast spells, but at the beginning of each of your upkeeps you copy this spell.',
+        'equip': 'Attach to target creature you control. Equip only as a sorcery. This Equipment falls off if its equipped creature leaves play.',
+        'escape': 'You may cast this card from your graveyard for its escape cost by also exiling the required number of other cards from your graveyard.',
+        'eternalize': 'Pay the eternalize cost, exile this card from your graveyard: Create a 4/4 black Zombie token that\'s a copy of it.',
+        'evoke': 'You may cast this spell for its evoke cost. If you do, it\'s sacrificed when it enters the battlefield.',
+        'evolve': 'Whenever a creature enters the battlefield under your control with greater power or toughness than this creature, put a +1/+1 counter on it.',
+        'exalted': 'Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.',
+        'exploit': 'When this creature enters, you may sacrifice a creature. If you do, a triggered ability fires.',
+        'extort': 'Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.',
+        'fading': 'This permanent enters with fade counters. At your upkeep, remove one. When the last is removed, sacrifice it.',
+        'fear': 'This creature can\'t be blocked except by artifact creatures or black creatures.',
+        'flanking': 'Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.',
+        'flash': 'You may cast this spell any time you could cast an instant.',
+        'flashback': 'You may cast this card from your graveyard for its flashback cost. Then exile it.',
+        'flying': 'This creature can only be blocked by creatures with flying or reach.',
+        'forecast': 'Activate this ability only during your upkeep and only once each turn by revealing this card from your hand.',
+        'foretell': 'Pay {2} during your turn to exile this card face down. On a later turn, you may cast it for its foretell cost.',
+        'fortify': 'Attach to target land you control. Fortify only as a sorcery.',
+        'frenzy': 'Whenever this creature attacks and isn\'t blocked, it gets +X/+0 until end of turn.',
+        'fuse': 'You may cast both halves of this split card at once for their combined costs.',
+        'graft': 'This creature enters with +1/+1 counters. When another creature enters, you may move one counter to it.',
+        'gravestorm': 'When you cast this spell, copy it for each permanent that was put into a graveyard from the battlefield this turn.',
+        'haunt': 'When this spell is cast, exile it haunting target creature. When that creature dies, you may reuse the spell\'s effect.',
+        'hideaway': 'When this land enters, look at the top cards of your library and exile one face down.',
+        'horsemanship': 'This creature can only be blocked by creatures with horsemanship.',
+        'improvise': 'Each artifact you tap while casting this spell pays for {1}.',
+        'infect': 'This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.',
+        'ingest': 'Whenever this creature deals combat damage to a player, that player exiles the top card of their library.',
+        'intimidate': 'This creature can\'t be blocked except by artifact creatures or creatures that share a color with it.',
+        'jump-start': 'You may cast this card from your graveyard by paying its jump-start cost and discarding a card. Then exile it.',
+        'kicker': 'You may pay the kicker cost as an additional cost when casting this spell to get an additional effect.',
+        'landwalk': 'This creature is unblockable as long as the defending player controls a land of the specified type.',
+        'level up': 'Pay the level up cost as a sorcery: Put a level counter on this creature.',
+        'lifelink': 'Damage dealt by this creature also causes you to gain that much life.',
+        'living metal': 'During your turn, this Vehicle is also a creature.',
+        'living weapon': 'When this Equipment enters, create a 0/0 black Phyrexian Germ token and attach this to it.',
+        'madness': 'If you discard this card, you may cast it for its madness cost instead of putting it into your graveyard.',
+        'megamorph': 'You may cast this card face down as a 2/2 creature for {3}. Turn it face up at any time for its megamorph cost and put a +1/+1 counter on it.',
+        'menace': 'This creature can\'t be blocked except by two or more creatures.',
+        'mentor': 'Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.',
+        'miracle': 'If you draw this card as your first draw for the turn, you may cast it immediately for its miracle cost.',
+        'modular': 'This artifact creature enters with +1/+1 counters. When it dies, you may put its counters on a target artifact creature.',
+        'morph': 'You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.',
+        'myriad': 'Whenever this creature attacks, create a tapped and attacking token copy for each other opponent, exile them at end of combat.',
+        'ninjutsu': 'Pay the ninjutsu cost, return an unblocked attacker you control to hand: Put this card onto the battlefield tapped and attacking.',
+        'nightbound': 'If a player casts at least two spells during their own turn, it becomes day. This card transforms into its daybound face during day.',
+        'offering': 'You may cast this card any time you could cast an instant by sacrificing a creature of the specified type and paying the difference in mana costs.',
+        'outlast': 'Pay the outlast cost and tap this creature as a sorcery: Put a +1/+1 counter on it.',
+        'overload': 'You may pay the overload cost to change "target" to "each" in this spell\'s text.',
+        'partner': 'You can have two commanders if both have partner. Both start in the command zone.',
+        'partner with': 'You can have two commanders if both are designated partners. When this enters, you may search for its partner.',
+        'persist': 'When this creature dies, if it had no -1/-1 counters, return it to the battlefield with a -1/-1 counter.',
+        'phasing': 'This permanent phases out during your untap step if it phased in last turn, and back in if it phased out.',
+        'poisonous': 'Whenever this creature deals combat damage to a player, that player gets a poison counter.',
+        'populate': 'Create a token that is a copy of a creature token you control.',
+        'protection': 'This permanent can\'t be targeted, damaged, enchanted, equipped, blocked, or dealt damage by sources of the protected quality.',
+        'provoke': 'When this creature attacks, you may have target creature the defending player controls untap and block it if able.',
+        'prowl': 'You may cast this card for its prowl cost if you dealt combat damage to a player this turn with the specified creature type.',
+        'rampage': 'Whenever this creature becomes blocked, it gets +X/+X until end of turn for each creature blocking it beyond the first.',
+        'rebound': 'If you cast this spell from your hand, exile it as it resolves. At your next upkeep, you may cast it for free.',
+        'reconfigure': 'Pay the reconfigure cost: Attach or unattach this Equipment. Reconfigure only as a sorcery.',
+        'recover': 'When a creature is put into your graveyard from play, you may pay the recover cost. If you do, return this card to your hand.',
+        'reinforce': 'Pay the reinforce cost, discard this card: Put +1/+1 counters on target creature.',
+        'replicate': 'When you cast this spell, you may pay its replicate cost any number of times. For each time you paid it, copy the spell.',
+        'retrace': 'You may cast this card from your graveyard by discarding a land card in addition to paying its other costs.',
+        'ripple': 'When you cast this spell, you may reveal the top cards of your library. You may cast any revealed cards with the same name for free.',
+        'scavenge': 'Pay the scavenge cost, exile this card from your graveyard: Put +1/+1 counters equal to this card\'s power on target creature.',
+        'shadow': 'This creature can only block or be blocked by creatures with shadow.',
+        'shroud': 'This permanent can\'t be the target of spells or abilities.',
+        'skulk': 'This creature can\'t be blocked by creatures with greater power.',
+        'soulbond': 'When this creature or another creature enters, you may pair them. While they\'re paired, both have the listed bonus.',
+        'soulshift': 'When this creature dies, you may return target Spirit card with lesser mana value from your graveyard to your hand.',
+        'spectacle': 'You may cast this spell for its spectacle cost instead of its mana cost if an opponent lost life this turn.',
+        'splice onto arcane': 'As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card\'s effects to that spell.',
+        'split second': 'As long as this spell is on the stack, players can\'t cast other spells or activate non-mana abilities.',
+        'storm': 'When you cast this spell, copy it for each other spell cast before it this turn.',
+        'strive': 'This spell costs more to cast for each target beyond the first.',
+        'sunburst': 'This permanent enters with a charge counter or +1/+1 counter for each color of mana spent to cast it.',
+        'surge': 'You may cast this spell for its surge cost if you or a teammate cast another spell this turn.',
+        'suspend': 'Rather than cast this card from your hand, you may pay its suspend cost and exile it with time counters. At your upkeep, remove one. When the last is removed, cast it for free with haste.',
+        'totem armor': 'If enchanted permanent would be destroyed, instead remove all damage from it and destroy this Aura.',
+        'training': 'Whenever this creature attacks with another creature of greater power, put a +1/+1 counter on it.',
+        'trample': 'Excess combat damage this creature would deal to blockers is dealt to the defending player or planeswalker.',
+        'transfigure': 'Pay the transfigure cost, sacrifice this creature: Search your library for a creature with the same mana value and put it into play.',
+        'transmute': 'Pay the transmute cost, discard this card: Search your library for a card with the same mana value and put it into your hand.',
+        'unearth': 'Pay the unearth cost: Return this card from your graveyard. It gains haste. Exile it at end of turn or if it would leave the battlefield.',
+        'undying': 'When this creature dies, if it had no +1/+1 counters, return it to the battlefield with a +1/+1 counter.',
+        'unleash': 'You may have this creature enter with a +1/+1 counter. If it does, it can\'t block.',
+        'vanishing': 'This permanent enters with time counters. At your upkeep, remove one. When the last is removed, sacrifice it.',
+        'wither': 'This creature deals damage to creatures in the form of -1/-1 counters.',
+        // ── Keyword Actions ──────────────────────────────────────────────────────
+        'adapt': 'If this creature has no +1/+1 counters, put the indicated number of +1/+1 counters on it.',
+        'amass': 'Put +1/+1 counters on an Army token you control, or create a 0/0 black Zombie Army token and put them on it.',
+        'bolster': 'Put +1/+1 counters on the creature you control with the least toughness.',
+        'clash': 'Each clashing player reveals the top card of their library. The player whose card has the higher mana value wins.',
+        'discover': 'Exile cards from the top of your library until you exile a nonland card with mana value less than or equal to the discover value. Cast it for free or put it in your hand; put the rest on the bottom in a random order.',
+        'explore': 'Reveal the top card of your library. If it\'s a land, put it into your hand. Otherwise put a +1/+1 counter on this creature and optionally discard the card.',
+        'exert': 'You may exert this creature as it attacks. When you do, it doesn\'t untap during your next untap step, but you get a bonus.',
+        'fight': 'Each of the two target creatures deals damage equal to its power to the other.',
+        'investigate': 'Create a Clue token. It\'s an artifact with "{2}, Sacrifice this: Draw a card."',
+        'learn': 'You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.',
+        'manifest': 'Put a card from your hand onto the battlefield face down as a 2/2 creature. You may turn it face up any time for its mana cost if it\'s a creature.',
+        'meld': 'Exile these two specific cards, then put them onto the battlefield as a single meld card.',
+        'monstrous': 'Pay the monstrosity cost: If this creature isn\'t monstrous, put the indicated number of +1/+1 counters on it. It becomes monstrous.',
+        'populate': 'Create a token that is a copy of a creature token you control.',
+        'proliferate': 'Choose any number of permanents and/or players with counters on them, then give each one more counter of any kind already there.',
+        'regenerate': 'The next time this creature would be destroyed this turn, instead tap it, remove all damage from it, and remove it from combat.',
+        'scry': 'Look at the top X cards of your library. Put any number of them on the bottom in any order, and the rest on top in any order.',
+        'support': 'Put a +1/+1 counter on each of up to X other target creatures.',
+        'surveil': 'Look at the top X cards of your library. Put any number of them into your graveyard and the rest on top in any order.',
+        'transform': 'Turn this double-faced card to its other face.',
+        'venture into the dungeon': 'Enter the first room of a dungeon or advance to the next room of a dungeon you\'re in.',
+        'vote': 'Each player votes for one of the listed options, then effects happen based on which option got the most votes.',
+        // ── Ability Words ────────────────────────────────────────────────────────
+        'addendum': 'If you cast this spell during your main phase, you get an additional effect.',
+        'alliance': 'Whenever another creature enters under your control, [effect].',
+        'battalion': 'Whenever this creature and at least two other creatures attack, [effect].',
+        'channel': 'Discard this card: [Effect].',
+        'constellation': 'Whenever this or another enchantment enters under your control, [effect].',
+        'converge': 'This spell gets a bonus for each color of mana spent to cast it.',
+        'coven': 'This ability applies if you control three or more creatures with different powers.',
+        'delirium': 'This ability applies if there are four or more card types among cards in your graveyard.',
+        'domain': 'This ability gets better for each basic land type among lands you control (up to 5).',
+        'eminence': 'This ability works even if this commander is in the command zone.',
+        'enrage': 'Whenever this creature is dealt damage, [effect].',
+        'fateful hour': 'If you have 5 or less life, this has an additional effect.',
+        'ferocious': 'This ability applies if you control a creature with power 4 or greater.',
+        'formidable': 'This ability applies if creatures you control have total power 8 or greater.',
+        'grandeur': 'Discard another card with the same name: [Effect]. Only legendary cards have grandeur.',
+        'hellbent': 'This ability applies if you have no cards in hand.',
+        'heroic': 'Whenever you cast a spell that targets this creature, [effect].',
+        'imprint': 'When this enters, exile a card. Its abilities reference the exiled card.',
+        'kinship': 'At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this, you may reveal it for a bonus.',
+        'landfall': 'Whenever a land enters under your control, [effect].',
+        'lieutenant': 'As long as you control your commander, this creature has an additional ability.',
+        'magecraft': 'Whenever you cast or copy an instant or sorcery spell, [effect].',
+        'metalcraft': 'This ability applies if you control three or more artifacts.',
+        'morbid': 'This ability applies if a creature died this turn.',
+        'pack tactics': 'Whenever this creature attacks, if you attacked with creatures with total power 6 or greater, [effect].',
+        'parley': 'Each player reveals the top card of their library. For each nonland card revealed this way, [effect].',
+        'radiance': 'This spell affects the target and each other permanent that shares a color with it.',
+        'raid': 'This ability applies if you attacked with a creature this turn.',
+        'rally': 'Whenever this or another Ally enters under your control, [effect].',
+        'revolt': 'This ability applies if a permanent you controlled left the battlefield this turn.',
+        'spell mastery': 'This ability applies if there are two or more instant and/or sorcery cards in your graveyard.',
+        'sweep': 'Return any number of lands you control to their owner\'s hand. The spell gets better for each land returned this way.',
+        'tempting offer': 'Each opponent may choose to join your offer. If they do, all of you get a benefit; otherwise only you do.',
+        'threshold': 'This ability applies if you have seven or more cards in your graveyard.',
+        'undergrowth': 'This ability gets better for each creature card in your graveyard.',
+        'will of the council': 'Each player votes for one of the listed options, then the option with the most votes (or tied for most) happens.',
+      };
+
+      const CATEGORY_LABELS = {
+        ability: 'Keyword Ability',
+        action: 'Keyword Action',
+        word: 'Ability Word',
+      };
+
+      let allKeywords = [];
+      let activeCategory = 'all';
+      let searchQuery = '';
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function getDescriptionFor(name) {
+        return KEYWORD_DESCRIPTIONS[name.toLowerCase()] || null;
+      }
+
+      function renderGrid() {
+        const grid = document.getElementById('keyword-grid');
+        const status = document.getElementById('keyword-status');
+
+        const filtered = allKeywords.filter((kw) => {
+          if (activeCategory !== 'all' && kw.category !== activeCategory) return false;
+          if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            return kw.name.toLowerCase().includes(q) || (kw.description || '').toLowerCase().includes(q);
+          }
+          return true;
+        });
+
+        if (!filtered.length) {
+          grid.innerHTML = '';
+          status.textContent = allKeywords.length ? 'No keywords match your search.' : '';
+          status.className = 'status-muted';
+          return;
+        }
+
+        status.textContent = `Showing ${filtered.length} keyword${filtered.length === 1 ? '' : 's'}`;
+        status.className = 'status-muted';
+
+        grid.innerHTML = filtered.map((kw) => `
+          <article class="keyword-card">
+            <div class="keyword-card-header">
+              <strong class="keyword-card-name">${escapeHtml(kw.name)}</strong>
+              <span class="keyword-card-badge keyword-card-badge--${escapeHtml(kw.category)}">${escapeHtml(CATEGORY_LABELS[kw.category] || kw.category)}</span>
+            </div>
+            <p class="keyword-card-description">${kw.description
+              ? escapeHtml(kw.description)
+              : `<a class="keyword-rules-link" href="https://scryfall.com/search?q=oracle%3A%22${encodeURIComponent(kw.name)}%22&order=edhrec" target="_blank" rel="noopener noreferrer">Search on Scryfall ↗</a>`
+            }</p>
+          </article>`).join('');
+
+        // Re-insert links safely (we escaped everything, so re-render links via DOM)
+        filtered.forEach((kw, i) => {
+          if (!kw.description) {
+            const card = grid.children[i];
+            const p = card?.querySelector('.keyword-card-description');
+            if (p) {
+              const a = document.createElement('a');
+              a.className = 'keyword-rules-link';
+              a.href = `https://scryfall.com/search?q=oracle%3A%22${encodeURIComponent(kw.name)}%22&order=edhrec`;
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.textContent = 'Search on Scryfall ↗';
+              p.textContent = '';
+              p.appendChild(a);
+            }
+          }
+        });
+      }
+
+      async function loadKeywords() {
+        const status = document.getElementById('keyword-status');
+        try {
+          const res = await fetch('/api/keywords', { cache: 'no-store' });
+          if (!res.ok) throw new Error(`Request failed (${res.status})`);
+          const data = await res.json();
+
+          const abilities = (data.keywordAbilities || []).map((name) => ({ name, category: 'ability', description: getDescriptionFor(name) }));
+          const actions = (data.keywordActions || []).map((name) => ({ name, category: 'action', description: getDescriptionFor(name) }));
+          const words = (data.abilityWords || []).map((name) => ({ name, category: 'word', description: getDescriptionFor(name) }));
+
+          allKeywords = [...abilities, ...actions, ...words].sort((a, b) => a.name.localeCompare(b.name));
+          status.textContent = '';
+          renderGrid();
+        } catch (err) {
+          status.textContent = 'Unable to load keyword catalog right now. Please refresh the page.';
+          status.className = 'status-error';
+        }
+      }
+
+      document.getElementById('keyword-search').addEventListener('input', (e) => {
+        searchQuery = e.target.value.trim();
+        renderGrid();
+      });
+
+      document.querySelectorAll('.keyword-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.keyword-tab').forEach((t) => {
+            t.classList.remove('is-active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          tab.classList.add('is-active');
+          tab.setAttribute('aria-selected', 'true');
+          activeCategory = tab.dataset.category;
+          renderGrid();
+        });
+      });
+
+      loadKeywords();
+    </script>
+  </body>
+</html>
