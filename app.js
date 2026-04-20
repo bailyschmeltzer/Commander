@@ -9272,6 +9272,7 @@ function renderUnlimitedCopyCardRow(name, cards) {
 }
 
 function renderBasicLandRow(name, cards) {
+  const count = cards.length;
   const sampleId = cards[0]?.id || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
