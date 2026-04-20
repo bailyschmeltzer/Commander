@@ -1,6 +1,6 @@
 ToDo List
 
-- dropdown formatting on deck list selector
+- dropdown formatting on commander name selector for mobile
 - adding cards prompts dupe notification when card does not exist in deck, still adds it though
 - add a deck breakdown/summary
 - Remove deck URL panels

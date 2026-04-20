@@ -9493,9 +9493,11 @@ function renderDeckLists() {
           <td>${safeOwner}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
-            ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
-            <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
-            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
+            <div class="deck-list-table-actions">
+              ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
+              <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
+              <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
+            </div>
           </td>
         </tr>`;
     })
