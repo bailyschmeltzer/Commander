@@ -884,7 +884,8 @@ function normalizeDeckRecord(entry) {
   const owner = normalizeIdentityLabel(entry.owner || '');
   const ownerUserId = String(entry.ownerUserId || '').trim().toLowerCase();
   const commander = normalizeDeckCardEntry(entry.commander);
-  const secondCommander = normalizeDeckCardEntry(entry.secondCommander);
+  // A secondCommander without a primary commander is invalid — clear it.
+  const secondCommander = commander ? normalizeDeckCardEntry(entry.secondCommander) : null;
   const cards = Array.isArray(entry.cards)
     ? entry.cards.map(normalizeDeckCardEntry).filter(Boolean)
     : [];
@@ -6466,7 +6467,55 @@ function cardHasPartnerWith(card) {
   return Boolean(getCardPartnerWithName(card));
 }
 
-// Returns true if the two cards form a valid partner pair (either both generic, or mutual "Partner with").
+// Returns true if the card has "Friends forever".
+function cardHasFriendsForever(card) {
+  return getCardOracleTexts(card).some((t) => /\bfriends forever\b/i.test(t));
+}
+
+// Returns true if the card has "Choose a Background".
+function cardHasChooseABackground(card) {
+  return getCardOracleTexts(card).some((t) => /\bchoose a background\b/i.test(t));
+}
+
+// Returns true if the card is a Background enchantment (can pair with "Choose a Background").
+function cardIsBackground(card) {
+  const texts = [
+    String(card?.typeLine || ''),
+    ...(Array.isArray(card?.cardFaces) ? card.cardFaces.map((f) => String(f?.typeLine || '')) : []),
+  ];
+  return texts.some((t) => /\bbackground\b/i.test(t));
+}
+
+// Returns true if the card has "Doctor's companion" (pairs only with a card named "The Doctor").
+function cardHasDoctorsCompanion(card) {
+  return getCardOracleTexts(card).some((t) => /\bdoctor's companion\b/i.test(t));
+}
+
+// Returns true if the card's name is any variant of "The Doctor".
+function cardIsTheDoctor(card) {
+  return /^the doctor$/i.test(String(card?.name || '').trim());
+}
+
+// Returns a human-readable description of what pairing mechanic a card uses,
+// or null if the card has no pairing mechanic.
+function getCardPairingMechanicLabel(card) {
+  if (cardHasGenericPartner(card)) return 'Partner';
+  if (cardHasPartnerWith(card)) return `Partner with ${getCardPartnerWithName(card)}`;
+  if (cardHasFriendsForever(card)) return 'Friends forever';
+  if (cardHasChooseABackground(card)) return 'Choose a Background';
+  if (cardIsBackground(card)) return 'Background';
+  if (cardHasDoctorsCompanion(card)) return "Doctor's companion";
+  if (cardIsTheDoctor(card)) return 'The Doctor';
+  return null;
+}
+
+// Returns true if the two cards form a valid partner pair.
+// Handles all Commander-legal pairing mechanics:
+//   • Generic Partner + Generic Partner
+//   • Mutual "Partner with X" (each names the other)
+//   • Friends forever + Friends forever
+//   • "Choose a Background" creature + Background enchantment (either order)
+//   • "Doctor's companion" card + "The Doctor" (either order)
 function isCompatiblePartnerPair(card1, card2) {
   // Both generic Partner
   if (cardHasGenericPartner(card1) && cardHasGenericPartner(card2)) {
@@ -6482,12 +6531,34 @@ function isCompatiblePartnerPair(card1, card2) {
   ) {
     return true;
   }
+  // Friends forever
+  if (cardHasFriendsForever(card1) && cardHasFriendsForever(card2)) {
+    return true;
+  }
+  // Choose a Background ↔ Background (either order)
+  if (cardHasChooseABackground(card1) && cardIsBackground(card2)) return true;
+  if (cardHasChooseABackground(card2) && cardIsBackground(card1)) return true;
+  // Doctor's companion ↔ The Doctor (either order)
+  if (cardHasDoctorsCompanion(card1) && cardIsTheDoctor(card2)) return true;
+  if (cardHasDoctorsCompanion(card2) && cardIsTheDoctor(card1)) return true;
   return false;
+}
+
+// Returns true if the card has ANY pairing mechanic (used to decide whether to show the
+// in-deck-list "Set as Commander" button).
+function cardHasPairingMechanic(card) {
+  return cardHasGenericPartner(card)
+    || cardHasPartnerWith(card)
+    || cardHasFriendsForever(card)
+    || cardHasChooseABackground(card)
+    || cardIsBackground(card)
+    || cardHasDoctorsCompanion(card)
+    || cardIsTheDoctor(card);
 }
 
 // Legacy alias still used in a couple of call-sites below.
 function cardHasPartnerAbility(card) {
-  return cardHasGenericPartner(card) || cardHasPartnerWith(card);
+  return cardHasPairingMechanic(card);
 }
 
 function isCommanderEligibleCard(card) {
@@ -6539,8 +6610,8 @@ function canSetCardAsCommanderForDeck(deck, card) {
 function deckCardShowPartnerCommanderButton(deck, card) {
   if (!isCommanderEligibleCard(card)) return false;
   if (!deck?.commander) return false;
-  if (!cardHasPartnerAbility(deck.commander)) return false;
-  if (!cardHasPartnerAbility(card)) return false;
+  if (!cardHasPairingMechanic(deck.commander)) return false;
+  if (!cardHasPairingMechanic(card)) return false;
   return true;
 }
 
@@ -6748,21 +6819,16 @@ async function setSelectedCardAsCommander() {
     return;
   }
 
-  // ── Incompatible partner-with: show a clear error instead of confirming ───
-  if (!deck.secondCommander && cardHasPartnerWith(card)) {
-    const requiredName = getCardPartnerWithName(card);
-    await promptLiveAlert(
-      `${card.name} requires "${requiredName}" as its partner. Only that specific card can be added as a second commander.`,
-      'Incompatible partner'
-    );
-    return;
-  }
-  if (!deck.secondCommander && cardHasPartnerWith(deck.commander)) {
-    const requiredName = getCardPartnerWithName(deck.commander);
-    await promptLiveAlert(
-      `${deck.commander.name} requires "${requiredName}" as its partner. ${card.name} is not the correct partner card.`,
-      'Incompatible partner'
-    );
+  // ── Incompatible pairing: show a descriptive error instead of confirming ──
+  if (!deck.secondCommander && (cardHasPairingMechanic(card) || cardHasPairingMechanic(deck.commander))) {
+    const c1Label = getCardPairingMechanicLabel(deck.commander);
+    const c2Label = getCardPairingMechanicLabel(card);
+    const detail = c1Label && c2Label
+      ? `${deck.commander.name} has "${c1Label}" and ${card.name} has "${c2Label}" — these mechanics are not compatible with each other.`
+      : c1Label
+        ? `${deck.commander.name} has "${c1Label}" but ${card.name} is not a valid pairing for it.`
+        : `${card.name} has "${c2Label}" but ${deck.commander.name} is not a valid pairing for it.`;
+    await promptLiveAlert(detail, 'Incompatible pairing');
     return;
   }
 
@@ -6826,21 +6892,16 @@ async function setDeckBuilderCardAsCommander(cardId) {
     return;
   }
 
-  // ── Incompatible partner-with: show a clear error ─────────────────────────
-  if (!deck.secondCommander && cardHasPartnerWith(nextCommander)) {
-    const requiredName = getCardPartnerWithName(nextCommander);
-    await promptLiveAlert(
-      `${nextCommander.name} requires "${requiredName}" as its partner. Only that specific card can be the second commander.`,
-      'Incompatible partner'
-    );
-    return;
-  }
-  if (!deck.secondCommander && cardHasPartnerWith(deck.commander)) {
-    const requiredName = getCardPartnerWithName(deck.commander);
-    await promptLiveAlert(
-      `${deck.commander.name} requires "${requiredName}" as its partner. ${nextCommander.name} is not the correct partner card.`,
-      'Incompatible partner'
-    );
+  // ── Incompatible pairing: show a descriptive error ─────────────────────────
+  if (!deck.secondCommander && (cardHasPairingMechanic(nextCommander) || cardHasPairingMechanic(deck.commander))) {
+    const c1Label = getCardPairingMechanicLabel(deck.commander);
+    const c2Label = getCardPairingMechanicLabel(nextCommander);
+    const detail = c1Label && c2Label
+      ? `${deck.commander.name} has "${c1Label}" and ${nextCommander.name} has "${c2Label}" — these mechanics are not compatible with each other.`
+      : c1Label
+        ? `${deck.commander.name} has "${c1Label}" but ${nextCommander.name} is not a valid pairing for it.`
+        : `${nextCommander.name} has "${c2Label}" but ${deck.commander.name} is not a valid pairing for it.`;
+    await promptLiveAlert(detail, 'Incompatible pairing');
     return;
   }
 
