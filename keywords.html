@@ -516,6 +516,43 @@
       });
 
       loadKeywords();
+
+      // Nav menu toggle (mirrors app.js initializePrimaryMenu, standalone copy for this page)
+      (function () {
+        const pageSwitch = document.querySelector('.page-switch');
+        const toggleBtn = document.querySelector('.page-switch-toggle');
+        const panel = document.querySelector('.page-switch-panel');
+        if (!pageSwitch || !toggleBtn || !panel) return;
+
+        // Mark current page link
+        const currentPage = location.pathname.split('/').pop() || 'index.html';
+        panel.querySelectorAll('.page-link').forEach((link) => {
+          const href = (link.getAttribute('href') || '').trim().toLowerCase();
+          const isCurrent = href === currentPage.toLowerCase();
+          link.classList.toggle('is-current', isCurrent);
+          if (isCurrent) link.setAttribute('aria-current', 'page');
+        });
+
+        toggleBtn.addEventListener('click', () => {
+          const next = !pageSwitch.classList.contains('is-open');
+          pageSwitch.classList.toggle('is-open', next);
+          toggleBtn.setAttribute('aria-expanded', String(next));
+        });
+
+        panel.addEventListener('click', (e) => {
+          if (e.target.closest('.page-link')) {
+            pageSwitch.classList.remove('is-open');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!pageSwitch.contains(e.target)) {
+            pageSwitch.classList.remove('is-open');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+      })();
     </script>
   </body>
 </html>
