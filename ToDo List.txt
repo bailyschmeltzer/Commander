@@ -2,8 +2,6 @@ ToDo List
 - First blood prompts twice if somebody gains life first and then loses life. it prompts at first life loss, and when going below starting life
 
 
-- add a one touch turn tracker
-- make turn tracking details automatic
 - Adding additional player after adding player details resets that dropdown for the extra player
 - minus icon hidden behind buttons
 - fix player ordering

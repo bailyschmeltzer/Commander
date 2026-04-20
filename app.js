@@ -2597,7 +2597,7 @@ function promptForLivePlayerChoice({ title, description, excludePlayerIds = [] }
   });
 }
 
-function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePlayerId = '') {
+function shouldPromptForSource(targetPlayer, projectedLife, eventType) {
   if (!activeGameState || !targetPlayer) {
     return false;
   }
@@ -2606,18 +2606,16 @@ function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePla
     return true;
   }
 
-  if (eventType === 'life-loss' && !activeGameState.firstBlood) {
-    return Boolean(activeGameState.shouldPromptForSource);
+  if (eventType === 'life-loss') {
+    // Prompt until a real opponent is selected as first blood source.
+    if (!activeGameState.firstBlood) {
+      return true;
+    }
+    // After first blood, only prompt again if this hit would kill the player.
+    return projectedLife <= 0 && !targetPlayer.cannotLoseTheGame;
   }
 
-  if (targetPlayer.cannotLoseTheGame) {
-    return Boolean(activeGameState.shouldPromptForSource);
-  }
-
-  const currentCommanderDamage = sourcePlayerId ? (targetPlayer.commanderDamageTaken?.[sourcePlayerId] || 0) : 0;
-  const commanderKill = eventType === 'commander-damage' && (currentCommanderDamage > 20);
-  const lifeKill = projectedLife <= 0;
-  return Boolean(lifeKill || commanderKill);
+  return false;
 }
 
 function maybeRecordFirstBlood(sourcePlayerId, targetPlayerId, turnNumber) {
@@ -2700,7 +2698,6 @@ function eliminateLivePlayer(targetPlayer, sourcePlayerId, turnNumber, reason) {
     }
   }
 
-  activeGameState.shouldPromptForSource = true;
   return true;
 }
 
@@ -2752,13 +2749,6 @@ async function resolveLiveSourceSelection({ targetPlayerId, eventType, amount, p
 
   if (selectedSourceId === null) {
     return null;
-  }
-
-  if (eventType !== 'elimination') {
-    const stillNeedsFirstBlood = eventType === 'life-loss'
-      && !activeGameState.firstBlood
-      && (!selectedSourceId || selectedSourceId === targetPlayerId);
-    activeGameState.shouldPromptForSource = stillNeedsFirstBlood || (projectedLife <= 0 && !targetPlayer.cannotLoseTheGame);
   }
 
   return selectedSourceId || '';
@@ -2844,7 +2834,7 @@ function startLiveHoldRepeat(button) {
   }
 
   if (delta < 0 && shouldPromptForSource(player, player.life + delta, 'life-loss')) {
-    return;
+    return; // Don't hold-repeat while a source prompt would be needed
   }
 
   liveHoldRepeated = false;
@@ -3529,7 +3519,6 @@ async function startLiveGame() {
     startingPlayerId: liveSetupFirstPlayerId,
     turnOrder,
     firstBlood: null,
-    shouldPromptForSource: true,
     events: [],
     players: players.map((player) => ({
       id: player.id,
