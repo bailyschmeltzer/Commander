@@ -1121,6 +1121,88 @@ export default {
       return jsonResponse({ error: 'Method not allowed.' }, 405);
     }
 
+    if (url.pathname === '/api/card-rulings') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const name = getTextValue(url.searchParams.get('name'));
+      if (!name) {
+        return jsonResponse({ error: 'A card name is required.' }, 400);
+      }
+
+      try {
+        const namedUrl = new URL('https://api.scryfall.com/cards/named');
+        namedUrl.searchParams.set('exact', name);
+
+        let cardRes = await fetch(namedUrl.toString(), { headers: getScryfallHeaders() });
+        if (cardRes.status === 404) {
+          namedUrl.searchParams.delete('exact');
+          namedUrl.searchParams.set('fuzzy', name);
+          cardRes = await fetch(namedUrl.toString(), { headers: getScryfallHeaders() });
+        }
+
+        if (!cardRes.ok) {
+          if (cardRes.status === 404) {
+            return jsonResponse({ error: `No card found matching "${name}".` }, 404);
+          }
+          if (cardRes.status === 429) {
+            throw new Error(`Scryfall is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(cardRes)} seconds.`);
+          }
+          throw new Error(`Scryfall card lookup failed (${cardRes.status})`);
+        }
+
+        const card = await cardRes.json();
+
+        const rulingsRes = await fetch(`https://api.scryfall.com/cards/${card.id}/rulings`, {
+          headers: getScryfallHeaders(),
+        });
+        const rulingsData = rulingsRes.ok ? await rulingsRes.json() : { data: [] };
+        const rulings = Array.isArray(rulingsData?.data) ? rulingsData.data : [];
+
+        const cardFaces = Array.isArray(card?.card_faces) ? card.card_faces.map((face) => ({
+          name: getTextValue(face?.name),
+          manaCost: getTextValue(face?.mana_cost),
+          typeLine: getTextValue(face?.type_line),
+          oracleText: getTextValue(face?.oracle_text),
+          power: getTextValue(face?.power),
+          toughness: getTextValue(face?.toughness),
+          loyalty: getTextValue(face?.loyalty),
+          imageUri: buildCommanderImageProxyUrl(getTextValue(face?.image_uris?.normal), requestOrigin),
+          imageLargeUri: buildCommanderImageProxyUrl(getTextValue(face?.image_uris?.large), requestOrigin),
+        })) : [];
+
+        return jsonResponse({
+          card: {
+            id: getTextValue(card?.id),
+            name: getTextValue(card?.name),
+            manaCost: getTextValue(card?.mana_cost),
+            typeLine: getTextValue(card?.type_line),
+            oracleText: getTextValue(card?.oracle_text),
+            power: getTextValue(card?.power),
+            toughness: getTextValue(card?.toughness),
+            loyalty: getTextValue(card?.loyalty),
+            defense: getTextValue(card?.defense),
+            scryfallUri: getTextValue(card?.scryfall_uri),
+            setName: getTextValue(card?.set_name),
+            releasedAt: getTextValue(card?.released_at),
+            imageUri: buildCommanderImageProxyUrl(getCardImageUri(card), requestOrigin),
+            imageLargeUri: buildCommanderImageProxyUrl(getCardImageVariant(card, 'large'), requestOrigin),
+            layout: getTextValue(card?.layout),
+            cardFaces,
+          },
+          rulings,
+        }, 200, {
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        });
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to look up that card right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
     if (url.pathname === '/api/keywords') {
       if (request.method !== 'GET') {
         return jsonResponse({ error: 'Method not allowed.' }, 405);

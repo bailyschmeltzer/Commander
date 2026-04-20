@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Card Rulings — Commander</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page-rulings">
+    <div class="app-shell">
+      <header>
+        <h1>Card Rulings</h1>
+        <p>Search any Magic card to see its official rulings from Wizards of the Coast.</p>
+        <nav class="page-switch" aria-label="Primary">
+          <button type="button" class="page-switch-toggle secondary-button" aria-expanded="false">Browse Pages</button>
+          <div class="page-switch-panel">
+            <div class="page-switch-panel-header">
+              <p class="page-switch-kicker">Commander</p>
+              <h2>Browse the app</h2>
+              <p>Jump between tracking, stats, and deck tools from one clean menu.</p>
+            </div>
+            <div class="page-switch-grid">
+              <a href="index.html" class="page-link">Game Tracker</a>
+              <a href="livegame.html" class="page-link">Live Tracker</a>
+              <a href="rankings.html" class="page-link">Pod Rankings</a>
+              <a href="player.html" class="page-link">Player Stats</a>
+              <a href="commander.html" class="page-link">Commander Stats</a>
+              <a href="history.html" class="page-link">Full History</a>
+              <a href="decklists.html" class="page-link">Deck Lists</a>
+              <a href="deckselector.html" class="page-link">Deck Selector</a>
+              <a href="commanderbuilder.html" class="page-link">Commander Builder</a>
+              <a href="records.html" class="page-link">Pod Records</a>
+              <a href="keywords.html" class="page-link">Keyword Glossary</a>
+              <a href="rulings.html" class="page-link">Card Rulings</a>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="card">
+          <form id="rulings-form" class="rulings-search-form" autocomplete="off">
+            <div class="field rulings-search-field">
+              <label for="rulings-search">Card name</label>
+              <div class="rulings-search-wrap">
+                <input
+                  id="rulings-search"
+                  type="search"
+                  placeholder="e.g. Lightning Bolt, Sol Ring, Rhystic Study…"
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-autocomplete="list"
+                  aria-controls="rulings-autocomplete"
+                  aria-expanded="false"
+                />
+                <ul id="rulings-autocomplete" class="rulings-autocomplete" role="listbox" hidden></ul>
+              </div>
+            </div>
+            <button type="submit" class="primary-button">Look up rulings</button>
+          </form>
+          <p id="rulings-status" class="status-muted" role="status" aria-live="polite"></p>
+        </section>
+
+        <div id="rulings-result" class="rulings-result" hidden>
+          <div class="rulings-layout">
+            <div class="rulings-image-col" id="rulings-image-col"></div>
+            <div class="rulings-content-col">
+              <div class="rulings-card-info" id="rulings-card-info"></div>
+              <div class="rulings-section">
+                <h3 class="rulings-section-heading">Official Rulings</h3>
+                <div id="rulings-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function formatDate(iso) {
+        if (!iso) return '';
+        try {
+          return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric',
+          });
+        } catch (_) {
+          return iso;
+        }
+      }
+
+      // Replace {W}, {U}, {B}, {R}, {G}, {C}, {T}, {X}, numeric with styled spans
+      function renderManaSymbols(text) {
+        if (!text) return '';
+        return escapeHtml(text).replace(/\{([^}]+)\}/g, (_, sym) => {
+          const key = sym.toUpperCase();
+          return `<span class="mana-symbol mana-${key.replace(/\//g, '')}" title="{${sym}}">{${escapeHtml(sym)}}</span>`;
+        });
+      }
+
+      function renderOracleText(text) {
+        if (!text) return '';
+        // Render mana symbols, preserve newlines as <br>
+        return escapeHtml(text)
+          .replace(/\{([^}]+)\}/g, (_, sym) => `<span class="mana-sym">{${escapeHtml(sym)}}</span>`)
+          .replace(/\n/g, '<br>');
+      }
+
+      // ── Autocomplete ─────────────────────────────────────────────────────────
+
+      const searchInput = document.getElementById('rulings-search');
+      const autocompleteList = document.getElementById('rulings-autocomplete');
+      let autocompleteDebounce = null;
+      let selectedIndex = -1;
+      let autocompleteItems = [];
+
+      function closeAutocomplete() {
+        autocompleteList.hidden = true;
+        autocompleteList.innerHTML = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+        selectedIndex = -1;
+        autocompleteItems = [];
+      }
+
+      function renderAutocomplete(names) {
+        autocompleteItems = names;
+        selectedIndex = -1;
+        if (!names.length) {
+          closeAutocomplete();
+          return;
+        }
+        autocompleteList.innerHTML = names.map((name, i) =>
+          `<li role="option" class="rulings-autocomplete-item" data-index="${i}" aria-selected="false">${escapeHtml(name)}</li>`
+        ).join('');
+        autocompleteList.hidden = false;
+        searchInput.setAttribute('aria-expanded', 'true');
+      }
+
+      function highlightAutocompleteItem(index) {
+        const items = autocompleteList.querySelectorAll('.rulings-autocomplete-item');
+        items.forEach((el, i) => {
+          el.classList.toggle('is-highlighted', i === index);
+          el.setAttribute('aria-selected', String(i === index));
+        });
+      }
+
+      searchInput.addEventListener('input', () => {
+        clearTimeout(autocompleteDebounce);
+        const q = searchInput.value.trim();
+        if (q.length < 2) { closeAutocomplete(); return; }
+        autocompleteDebounce = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/deck-search?q=${encodeURIComponent(q)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const names = Array.isArray(data.results) ? data.results.map((r) => r.name || r).filter(Boolean) : [];
+            renderAutocomplete(names);
+          } catch (_) {
+            closeAutocomplete();
+          }
+        }, 200);
+      });
+
+      searchInput.addEventListener('keydown', (e) => {
+        if (autocompleteList.hidden) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, autocompleteItems.length - 1);
+          highlightAutocompleteItem(selectedIndex);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, -1);
+          highlightAutocompleteItem(selectedIndex);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+          e.preventDefault();
+          searchInput.value = autocompleteItems[selectedIndex];
+          closeAutocomplete();
+          loadRulings(searchInput.value);
+        } else if (e.key === 'Escape') {
+          closeAutocomplete();
+        }
+      });
+
+      autocompleteList.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.rulings-autocomplete-item');
+        if (!item) return;
+        e.preventDefault();
+        searchInput.value = autocompleteItems[Number(item.dataset.index)];
+        closeAutocomplete();
+        loadRulings(searchInput.value);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.rulings-search-wrap')) closeAutocomplete();
+      });
+
+      // ── Rulings lookup ───────────────────────────────────────────────────────
+
+      const form = document.getElementById('rulings-form');
+      const statusEl = document.getElementById('rulings-status');
+      const resultEl = document.getElementById('rulings-result');
+      const imageCol = document.getElementById('rulings-image-col');
+      const cardInfoEl = document.getElementById('rulings-card-info');
+      const rulingsListEl = document.getElementById('rulings-list');
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        closeAutocomplete();
+        const name = searchInput.value.trim();
+        if (name) loadRulings(name);
+      });
+
+      async function loadRulings(name) {
+        statusEl.textContent = 'Looking up card…';
+        resultEl.hidden = true;
+
+        try {
+          const res = await fetch(`/api/card-rulings?name=${encodeURIComponent(name)}`);
+          const data = await res.json();
+
+          if (!res.ok || data.error) {
+            statusEl.textContent = data.error || 'Card not found. Try a different spelling.';
+            resultEl.hidden = true;
+            return;
+          }
+
+          renderResult(data.card, data.rulings);
+          statusEl.textContent = '';
+          resultEl.hidden = false;
+
+          // Update URL without navigation so page can be shared
+          const params = new URLSearchParams({ card: name });
+          history.replaceState(null, '', `?${params}`);
+        } catch (err) {
+          statusEl.textContent = 'Unable to load rulings right now. Please try again.';
+        }
+      }
+
+      function renderResult(card, rulings) {
+        // ── Images ─────────────────────────────────────────────────────────────
+        const hasFaces = Array.isArray(card.cardFaces) && card.cardFaces.length >= 2 && card.cardFaces[0].imageUri;
+        imageCol.innerHTML = '';
+
+        if (hasFaces) {
+          const wrap = document.createElement('div');
+          wrap.className = 'rulings-dfc-images';
+          card.cardFaces.forEach((face) => {
+            if (face.imageUri) {
+              const img = document.createElement('img');
+              img.src = face.imageLargeUri || face.imageUri;
+              img.alt = face.name || card.name;
+              img.className = 'rulings-card-image';
+              img.loading = 'lazy';
+              wrap.appendChild(img);
+            }
+          });
+          imageCol.appendChild(wrap);
+        } else if (card.imageUri) {
+          const img = document.createElement('img');
+          img.src = card.imageLargeUri || card.imageUri;
+          img.alt = card.name;
+          img.className = 'rulings-card-image';
+          img.loading = 'lazy';
+          imageCol.appendChild(img);
+        }
+
+        // ── Card info ──────────────────────────────────────────────────────────
+        const ptStr = card.power && card.toughness ? `${card.power}/${card.toughness}` : '';
+        const loyaltyStr = card.loyalty ? `Loyalty: ${card.loyalty}` : '';
+        const defenseStr = card.defense ? `Defense: ${card.defense}` : '';
+        const statStr = [ptStr, loyaltyStr, defenseStr].filter(Boolean).join(' · ');
+
+        // For DFC without top-level oracle text, combine faces
+        let oracleHtml = '';
+        if (card.oracleText) {
+          oracleHtml = `<p class="rulings-oracle-text">${renderOracleText(card.oracleText)}</p>`;
+        } else if (hasFaces) {
+          oracleHtml = card.cardFaces.map((face) => face.oracleText ? `
+            <div class="rulings-face-oracle">
+              <p class="rulings-face-name">${escapeHtml(face.name)}</p>
+              <p class="rulings-oracle-text">${renderOracleText(face.oracleText)}</p>
+              ${(face.power && face.toughness) ? `<p class="rulings-stat">${escapeHtml(face.power)}/${escapeHtml(face.toughness)}</p>` : ''}
+            </div>` : '').join('');
+        }
+
+        cardInfoEl.innerHTML = `
+          <div class="rulings-card-header">
+            <h2 class="rulings-card-name">${escapeHtml(card.name)}</h2>
+            ${card.manaCost ? `<span class="rulings-mana-cost">${renderManaSymbols(card.manaCost)}</span>` : ''}
+          </div>
+          <p class="rulings-type-line">${escapeHtml(card.typeLine)}</p>
+          ${statStr ? `<p class="rulings-stat">${escapeHtml(statStr)}</p>` : ''}
+          ${oracleHtml}
+          <p class="rulings-set-line">
+            ${escapeHtml(card.setName)}${card.releasedAt ? ` · ${escapeHtml(card.releasedAt)}` : ''}
+            ${card.scryfallUri ? ` · <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer" class="rulings-scryfall-link">View on Scryfall ↗</a>` : ''}
+          </p>
+        `;
+
+        // ── Rulings list ───────────────────────────────────────────────────────
+        if (!rulings.length) {
+          rulingsListEl.innerHTML = '<p class="status-muted">No official rulings for this card.</p>';
+        } else {
+          rulingsListEl.innerHTML = rulings.map((ruling) => `
+            <div class="ruling-item">
+              <p class="ruling-date">${escapeHtml(formatDate(ruling.published_at))}</p>
+              <p class="ruling-text">${escapeHtml(ruling.comment)}</p>
+            </div>
+          `).join('');
+        }
+      }
+
+      // ── Load from URL on page load ────────────────────────────────────────────
+
+      (function () {
+        const params = new URLSearchParams(location.search);
+        const cardParam = params.get('card');
+        if (cardParam) {
+          searchInput.value = cardParam;
+          loadRulings(cardParam);
+        }
+      })();
+
+      // ── Nav menu toggle ───────────────────────────────────────────────────────
+
+      (function () {
+        const pageSwitch = document.querySelector('.page-switch');
+        const toggleBtn = document.querySelector('.page-switch-toggle');
+        const panel = document.querySelector('.page-switch-panel');
+        if (!pageSwitch || !toggleBtn || !panel) return;
+
+        const currentPage = location.pathname.split('/').pop() || 'index.html';
+        panel.querySelectorAll('.page-link').forEach((link) => {
+          const href = (link.getAttribute('href') || '').trim().toLowerCase();
+          const isCurrent = href === currentPage.toLowerCase();
+          link.classList.toggle('is-current', isCurrent);
+          if (isCurrent) link.setAttribute('aria-current', 'page');
+        });
+
+        toggleBtn.addEventListener('click', () => {
+          const next = !pageSwitch.classList.contains('is-open');
+          pageSwitch.classList.toggle('is-open', next);
+          toggleBtn.setAttribute('aria-expanded', String(next));
+        });
+
+        panel.addEventListener('click', (e) => {
+          if (e.target.closest('.page-link')) {
+            pageSwitch.classList.remove('is-open');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!pageSwitch.contains(e.target)) {
+            pageSwitch.classList.remove('is-open');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

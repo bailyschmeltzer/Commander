@@ -1942,6 +1942,225 @@ button[type="submit"] {
   text-decoration: underline;
 }
 
+/* Card Rulings page */
+.rulings-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+
+.rulings-search-field {
+  flex: 1 1 280px;
+  margin: 0;
+  position: relative;
+}
+
+.rulings-search-wrap {
+  position: relative;
+}
+
+.rulings-autocomplete {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #cdd2e8;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(30, 35, 80, 0.12);
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.rulings-autocomplete-item {
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #1f2742;
+}
+
+.rulings-autocomplete-item:hover,
+.rulings-autocomplete-item.is-highlighted {
+  background: #eef0ff;
+  color: #3040cc;
+}
+
+.rulings-result {
+  margin-top: 20px;
+}
+
+.rulings-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.rulings-image-col {
+  position: sticky;
+  top: 16px;
+}
+
+.rulings-card-image {
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(30, 35, 80, 0.18);
+  display: block;
+}
+
+.rulings-dfc-images {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rulings-content-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rulings-card-info {
+  background: #fafbff;
+  border: 1px solid #dde0ea;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.rulings-card-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.rulings-card-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1c1f2a;
+  margin: 0;
+}
+
+.rulings-mana-cost {
+  font-size: 0.85rem;
+  color: #3a4460;
+}
+
+.rulings-type-line {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #44507a;
+  margin: 2px 0 8px;
+}
+
+.rulings-stat {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1c1f2a;
+  margin: 0 0 8px;
+}
+
+.rulings-oracle-text {
+  font-size: 0.875rem;
+  color: #2e3452;
+  line-height: 1.6;
+  margin: 6px 0;
+  white-space: pre-wrap;
+}
+
+.rulings-face-oracle {
+  margin-bottom: 12px;
+}
+
+.rulings-face-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4353ff;
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rulings-set-line {
+  font-size: 0.78rem;
+  color: #66708f;
+  margin: 8px 0 0;
+}
+
+.rulings-scryfall-link {
+  color: #4353ff;
+  text-decoration: none;
+}
+
+.rulings-scryfall-link:hover {
+  text-decoration: underline;
+}
+
+.rulings-section-heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #66708f;
+  margin: 0 0 10px;
+}
+
+.ruling-item {
+  border-top: 1px solid #e8ecf5;
+  padding: 10px 0;
+}
+
+.ruling-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.ruling-date {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9098b8;
+  margin: 0 0 4px;
+}
+
+.ruling-text {
+  font-size: 0.875rem;
+  color: #2e3452;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.mana-sym {
+  font-size: 0.8em;
+  background: #eef0ff;
+  color: #3040cc;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-family: inherit;
+}
+
+@media (max-width: 640px) {
+  .rulings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rulings-image-col {
+    position: static;
+    display: flex;
+    justify-content: center;
+  }
+
+  .rulings-card-image {
+    max-width: 240px;
+  }
+}
+
 .deck-list-delete {
   background: #ff4d4f;
   color: #fff;
