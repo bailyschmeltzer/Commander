@@ -9053,16 +9053,18 @@ function renderDeckCardRow(card, options = {}) {
         />
       </div>`
     : '';
-  const removeAction = options.isCommander
-    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
-    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`;
+  const removeAction = isExpanded
+    ? (options.isCommander
+      ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+      : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
+    : '';
   const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
   const addToDeckAction = options.fromMaybeboard
     ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>`
     : '';
-  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
+  const moveToMaybeboardAction = isExpanded && !options.isCommander && !options.fromMaybeboard && !options.fromTokens
     ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>To Maybeboard</button>`
     : '';
   const tokenQuantityAction = options.fromTokens
@@ -9072,7 +9074,7 @@ function renderDeckCardRow(card, options = {}) {
       <button type="button" class="deck-token-plus" data-add-token-id="${escapeHtml(card.id)}" aria-label="Add one ${escapeHtml(card.name)}"${isReadOnly ? ' disabled' : ''}>+</button>
     `
     : '';
-  const artAction = !options.isBasicLand
+  const artAction = isExpanded && !options.isBasicLand
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Change Art</button>`
     : '';
   const isArtPickerOpen = Boolean(options.showArtPicker);
