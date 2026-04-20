@@ -303,6 +303,7 @@ let liveModalConfig = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
+let liveLifeEntryHoldTimerId = null;
 let liveMeasurementTimerId = null;
 const derivedGamesCache = new WeakMap();
 
@@ -11679,11 +11680,7 @@ if (livePlayerGrid) {
       return;
     }
 
-    const manualLifeEntryButton = event.target.closest('[data-action="manual-life-entry"]');
-    if (manualLifeEntryButton) {
-      applyManualLifeEntry(manualLifeEntryButton.dataset.playerId || '');
-      return;
-    }
+    // manual-life-entry is triggered by hold (pointerdown timer), not tap — skip here.
 
     const eliminateButton = event.target.closest('[data-action="manual-eliminate"]');
     if (eliminateButton) {
@@ -11717,23 +11714,39 @@ if (livePlayerGrid) {
   });
 
   livePlayerGrid.addEventListener('pointerdown', (event) => {
-    const button = event.target.closest('[data-action="adjust-life"]');
-    if (!button) {
+    const adjustButton = event.target.closest('[data-action="adjust-life"]');
+    if (adjustButton) {
+      startLiveHoldRepeat(adjustButton);
       return;
     }
 
-    startLiveHoldRepeat(button);
+    const lifeEntryButton = event.target.closest('[data-action="manual-life-entry"]');
+    if (lifeEntryButton) {
+      const playerId = lifeEntryButton.dataset.playerId || '';
+      liveLifeEntryHoldTimerId = setTimeout(() => {
+        liveLifeEntryHoldTimerId = null;
+        applyManualLifeEntry(playerId);
+      }, 500);
+    }
   });
 
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
     livePlayerGrid.addEventListener(eventName, () => {
       stopLiveHoldRepeat();
+      if (liveLifeEntryHoldTimerId) {
+        clearTimeout(liveLifeEntryHoldTimerId);
+        liveLifeEntryHoldTimerId = null;
+      }
     });
   });
 
   ['pointerup', 'pointercancel'].forEach((eventName) => {
     document.addEventListener(eventName, () => {
       stopLiveHoldRepeat();
+      if (liveLifeEntryHoldTimerId) {
+        clearTimeout(liveLifeEntryHoldTimerId);
+        liveLifeEntryHoldTimerId = null;
+      }
     });
   });
 }
