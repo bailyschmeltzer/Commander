@@ -3140,7 +3140,7 @@ function renderLivePlayerGrid() {
                   <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} as the winner">Win</button>
                   <label class="live-player-toggle live-player-toggle-compact">
                     <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}" aria-label="${playerName} cannot lose the game"${player.cannotLoseTheGame ? ' checked' : ''} />
-                    <span>No<br />lose</span>
+                    <span>Can't<br />lose</span>
                   </label>
                 </div>
                 <div class="live-player-counter-column">
@@ -5211,11 +5211,15 @@ function syncMobileLookupSelect(wrapper) {
     Array.from(menu.querySelectorAll('.dropdown-item')).map((item) => item.dataset.value || '').filter(Boolean),
   );
 
+  const previousValue = mobileSelect.value;
   mobileSelect.innerHTML = [
     `<option value="">${optionValues.length ? 'Choose saved option' : 'No saved options yet'}</option>`,
     ...optionValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
   ].join('');
   mobileSelect.disabled = optionValues.length === 0;
+  if (previousValue && optionValues.includes(previousValue)) {
+    mobileSelect.value = previousValue;
+  }
 }
 
 function openLookupOptions(wrapper) {
