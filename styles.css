@@ -3086,6 +3086,39 @@ button[type="submit"] {
     min-height: 0;
   }
 
+  .page-live-game.live-table-mode .live-player-life-split {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .page-live-game.live-table-mode .live-life-split-half {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .page-live-game.live-table-mode .live-life-split-loss {
+    left: 0;
+  }
+
+  .page-live-game.live-table-mode .live-life-split-gain {
+    right: 0;
+  }
+
+  .page-live-game.live-table-mode .live-life-split-display {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
   .page-live-game.live-table-mode .live-player-damage-column {
     min-height: 0;
     min-width: 0;

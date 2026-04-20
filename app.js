@@ -303,7 +303,6 @@ let liveModalConfig = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
-let liveLifeEntryHoldTimerId = null;
 let liveMeasurementTimerId = null;
 const derivedGamesCache = new WeakMap();
 
@@ -3145,7 +3144,11 @@ function renderLivePlayerGrid() {
                   </label>
                 </div>
                 <div class="live-player-counter-column">
-                  <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}" aria-label="Set life total for ${playerName}. Current life ${player.life}.">${player.life}</button>
+                  <div class="live-player-life-split">
+                    <button type="button" class="live-life-split-half live-life-split-loss" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1" aria-label="Subtract 1 life from ${playerName}"></button>
+                    <span class="live-player-life live-life-split-display" aria-hidden="true">${player.life}</span>
+                    <button type="button" class="live-life-split-half live-life-split-gain" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1" aria-label="Add 1 life to ${playerName}"></button>
+                  </div>
                 </div>
                 <div class="live-player-damage-column">
                   ${damageMarkup}
@@ -11680,7 +11683,7 @@ if (livePlayerGrid) {
       return;
     }
 
-    // manual-life-entry is triggered by hold (pointerdown timer), not tap — skip here.
+    // manual-life-entry: no longer in mobile mode — counter column uses split tap buttons.
 
     const eliminateButton = event.target.closest('[data-action="manual-eliminate"]');
     if (eliminateButton) {
@@ -11717,36 +11720,18 @@ if (livePlayerGrid) {
     const adjustButton = event.target.closest('[data-action="adjust-life"]');
     if (adjustButton) {
       startLiveHoldRepeat(adjustButton);
-      return;
-    }
-
-    const lifeEntryButton = event.target.closest('[data-action="manual-life-entry"]');
-    if (lifeEntryButton) {
-      const playerId = lifeEntryButton.dataset.playerId || '';
-      liveLifeEntryHoldTimerId = setTimeout(() => {
-        liveLifeEntryHoldTimerId = null;
-        applyManualLifeEntry(playerId);
-      }, 500);
     }
   });
 
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
     livePlayerGrid.addEventListener(eventName, () => {
       stopLiveHoldRepeat();
-      if (liveLifeEntryHoldTimerId) {
-        clearTimeout(liveLifeEntryHoldTimerId);
-        liveLifeEntryHoldTimerId = null;
-      }
     });
   });
 
   ['pointerup', 'pointercancel'].forEach((eventName) => {
     document.addEventListener(eventName, () => {
       stopLiveHoldRepeat();
-      if (liveLifeEntryHoldTimerId) {
-        clearTimeout(liveLifeEntryHoldTimerId);
-        liveLifeEntryHoldTimerId = null;
-      }
     });
   });
 }
