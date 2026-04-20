@@ -6584,13 +6584,12 @@ async function addSelectedCardToDeck() {
 
   // Singleton rule: only basic lands and unlimited-copy cards can have duplicates
   if (!isMultiAllowed && deckCardNameSet.has(cardNameKey)) {
-    await promptLiveAlert(`${card.name} is already in this deck. Only basic lands and cards that explicitly allow multiple copies can be added more than once.`, 'Duplicate card');
-    return;
-  }
-
-  const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === cardNameKey);
-  if (!isMultiAllowed && existsInMaybeboard) {
-    await promptLiveAlert(`${card.name} is already in the maybeboard. Remove it there before adding it to the deck.`, 'Duplicate card');
+    const isCommanderMatch = (deck.commander && getIdentityKey(deck.commander.name) === cardNameKey)
+      || (deck.secondCommander && getIdentityKey(deck.secondCommander.name) === cardNameKey);
+    const message = isCommanderMatch
+      ? `${card.name} is already set as commander and cannot also be in the main deck.`
+      : `${card.name} is already in this deck. Only basic lands and cards that explicitly allow multiple copies can be added more than once.`;
+    await promptLiveAlert(message, 'Duplicate card');
     return;
   }
 
@@ -7606,13 +7605,7 @@ function renderDeckBuilderCards(deck) {
       });
       const totalCards = group.cards.length;
       const basicRows = [...basicGroups.values()].map(({ name, cards }) => renderBasicLandRow(name, cards)).join('');
-      const nonBasicRows = nonBasics.map((card) => renderDeckCardRow(card, {
-        isSelected: card.id === deckBuilderSelectedDeckCardId,
-        isIllegal: isIllegalCard(card),
-        canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
-        showArtPicker: card.id === deckBuilderArtPickerCardId,
-        readOnly: isReadOnly,
-      })).join('');
+      const nonBasicRows = renderDeckGroupCardRows(nonBasics, { deck, isIllegalCard, isReadOnly });
       const quickAddButtons = BASIC_LAND_NAMES.map((name) =>
         `<button type="button" class="secondary-button deck-land-quick-add" data-add-basic="${escapeHtml(name)}">${escapeHtml(name)}</button>`
       ).join('');
@@ -7635,13 +7628,7 @@ function renderDeckBuilderCards(deck) {
           <h3>${escapeHtml(group.type)}</h3>
           <p>${escapeHtml(String(group.cards.length))} card${group.cards.length === 1 ? '' : 's'}</p>
         </div>
-        <div class="deck-builder-group-cards">${group.cards.map((card) => renderDeckCardRow(card, {
-          isSelected: card.id === deckBuilderSelectedDeckCardId,
-          isIllegal: isIllegalCard(card),
-          canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
-          showArtPicker: card.id === deckBuilderArtPickerCardId,
-          readOnly: isReadOnly,
-        })).join('')}</div>
+        <div class="deck-builder-group-cards">${renderDeckGroupCardRows(group.cards, { deck, isIllegalCard, isReadOnly })}</div>
       </section>`;
   }).join('');
 
@@ -9177,8 +9164,52 @@ function renderDeckSelectorAssignments(selectedOwners) {
 
 const BASIC_LAND_NAMES = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 
+// Renders a list of deck card rows, grouping unlimited-copy cards into stacked rows with +/- counters.
+function renderDeckGroupCardRows(cards, { deck, isIllegalCard, isReadOnly }) {
+  const unlimitedGroups = new Map(); // identity key → { name, typeLine, cards[] }
+  const regularCards = [];
+  cards.forEach((card) => {
+    if (isUnlimitedCopiesCard(card)) {
+      const key = getIdentityKey(card.name);
+      if (!unlimitedGroups.has(key)) unlimitedGroups.set(key, { name: card.name, typeLine: card.typeLine || '', cards: [] });
+      unlimitedGroups.get(key).cards.push(card);
+    } else {
+      regularCards.push(card);
+    }
+  });
+  const unlimitedRows = [...unlimitedGroups.values()]
+    .map(({ name, cards: grp }) => renderUnlimitedCopyCardRow(name, grp))
+    .join('');
+  const regularRows = regularCards.map((card) => renderDeckCardRow(card, {
+    isSelected: card.id === deckBuilderSelectedDeckCardId,
+    isIllegal: isIllegalCard(card),
+    canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
+    showArtPicker: card.id === deckBuilderArtPickerCardId,
+    readOnly: isReadOnly,
+  })).join('');
+  return unlimitedRows + regularRows;
+}
+
+function renderUnlimitedCopyCardRow(name, cards) {
+  const sampleId = cards[0]?.id || '';
+  const typeLine = cards[0]?.typeLine || '';
+  const deck = ensureActiveDeckBuilderRecord();
+  const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
+  return `
+    <div class="deck-card-row deck-card-row-basic-land">
+      <div class="deck-card-row-copy">
+        <p class="deck-card-name">${escapeHtml(name)}</p>
+        ${typeLine ? `<p class="deck-card-meta">${escapeHtml(typeLine)}</p>` : ''}
+      </div>
+      <div class="deck-card-row-actions deck-card-row-actions-land">
+        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+        <span class="deck-land-count">×${escapeHtml(String(count))}</span>
+        <button type="button" class="deck-land-plus" data-add-unlimited="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+      </div>
+    </div>`;
+}
+
 function renderBasicLandRow(name, cards) {
-  const count = cards.length;
   const sampleId = cards[0]?.id || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
@@ -9194,6 +9225,27 @@ function renderBasicLandRow(name, cards) {
         <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
       </div>
     </div>`;
+}
+
+async function addUnlimitedCopyCardToDeck(cardName) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) return;
+  // Use cached version or an existing deck copy (already has full oracle text)
+  let card = deckBuilderCardCache.get(cardName.toLowerCase());
+  if (!card) {
+    const existing = (deck.cards || []).find((c) => getIdentityKey(c.name) === getIdentityKey(cardName));
+    card = existing || null;
+  }
+  if (!card) {
+    try {
+      card = await fetchDeckCardByName(cardName);
+    } catch (e) {
+      setDeckBuilderSaveStatus(`Could not find ${cardName}.`, 'error');
+      return;
+    }
+  }
+  if (!card) { setDeckBuilderSaveStatus(`Could not find ${cardName}.`, 'error'); return; }
+  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${cardName} added.`);
 }
 
 async function addBasicLandToDeck(landName) {
@@ -12611,6 +12663,13 @@ if (deckBuilderCards) {
       return;
     }
 
+    // Unlimited-copy stacked row + button
+    const addUnlimitedButton = event.target.closest('[data-add-unlimited]');
+    if (addUnlimitedButton) {
+      await addUnlimitedCopyCardToDeck(addUnlimitedButton.dataset.addUnlimited || '');
+      return;
+    }
+
     // Handle selecting a deck card by clicking on it
     const deckCardRow = event.target.closest('.deck-card-row[data-card-name]');
     if (deckCardRow && !event.target.closest('.deck-builder-remove-card')) {
@@ -12725,12 +12784,15 @@ if (deckBuilderEdhplButton) {
 }
 
 if (deckBuilderDiscardButton) {
-  deckBuilderDiscardButton.addEventListener('click', () => {
+  deckBuilderDiscardButton.addEventListener('click', async () => {
     const deck = activeDeckBuilderRecord;
     if (!deck?.id) return;
-    if (!confirm(`Discard "${deck.name}"? This cannot be undone.`)) return;
-    const remaining = loadDecks().filter((d) => d.id !== deck.id);
-    saveDecks(remaining);
+    const confirmed = await promptLiveConfirm(`Delete "${deck.name}"? This cannot be undone.`, {
+      title: 'Delete deck',
+      confirmLabel: 'Delete deck',
+    });
+    if (!confirmed) return;
+    saveDecks(loadDecks().filter((d) => d.id !== deck.id));
     activeDeckBuilderId = '';
     activeDeckBuilderRecord = null;
     window.location.href = 'decklists.html';
