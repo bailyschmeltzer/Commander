@@ -1,5 +1,14 @@
 ToDo List
-
+- Prevent screen timeout on mobile in live tracker
+- add bigger life manipulation buttons
+- add a one touch turn tracker
+- make turn tracking details automatic
+- fix player ordering
+- fix mobile login
+- fix out button not properly recording turn killed
+- add pop up for final comments
+- adding cards prompts dupe notification when card does not exist in deck, still adds it though
+- add a deck breakdown/summary
 - Remove deck URL panels
 - Make rules and validation for Partner and "you may have as many copies of this card in your deck"
 - Further data validation

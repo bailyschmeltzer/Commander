@@ -293,6 +293,7 @@ const hydratedDeckIds = new Set();
 let activeGameState = null;
 let activeGameUndoState = [];
 let liveSetupFirstPlayerId = null;
+let wakeLockSentinel = null;
 let liveSourcePromptResolver = null;
 let liveModalResolver = null;
 let liveModalConfig = null;
@@ -3133,22 +3134,28 @@ function renderLivePlayerGrid() {
               ${firstPlayerMarkup}
             </div>
             <div class="live-player-main-layout">
-              <div class="live-player-action-column live-player-action-column-loss">
-                <button type="button" class="live-quick-action is-negative" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1" aria-label="Subtract 1 life from ${playerName}">-1</button>
-                <button type="button" class="live-quick-action is-positive" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1" aria-label="Add 1 life to ${playerName}">+1</button>
-                <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}" aria-label="Add commander damage to ${playerName}">Cmdr</button>
-                <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} out of the game">Out</button>
-                <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} as the winner">Win</button>
-                <label class="live-player-toggle live-player-toggle-compact">
-                  <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}" aria-label="${playerName} cannot lose the game"${player.cannotLoseTheGame ? ' checked' : ''} />
-                  <span>No<br />lose</span>
-                </label>
-              </div>
-              <div class="live-player-counter-column">
-                <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}" aria-label="Set life total for ${playerName}. Current life ${player.life}.">${player.life}</button>
-              </div>
-              <div class="live-player-damage-column">
-                ${damageMarkup}
+              <button type="button" class="live-tap-half live-tap-loss" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="-1" aria-label="Subtract 1 life from ${playerName}">
+                <span class="live-tap-hint" aria-hidden="true">−</span>
+              </button>
+              <button type="button" class="live-tap-half live-tap-gain" data-action="adjust-life" data-player-id="${escapeHtml(player.id)}" data-delta="1" aria-label="Add 1 life to ${playerName}">
+                <span class="live-tap-hint" aria-hidden="true">+</span>
+              </button>
+              <div class="live-player-content-overlay">
+                <div class="live-player-action-column">
+                  <button type="button" class="live-quick-action" data-action="manual-commander-damage" data-player-id="${escapeHtml(player.id)}" aria-label="Add commander damage to ${playerName}">Cmdr</button>
+                  <button type="button" class="live-quick-action" data-action="manual-eliminate" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} out of the game">Out</button>
+                  <button type="button" class="live-quick-action" data-action="auto-win" data-player-id="${escapeHtml(player.id)}" aria-label="Mark ${playerName} as the winner">Win</button>
+                  <label class="live-player-toggle live-player-toggle-compact">
+                    <input type="checkbox" data-action="toggle-cannot-lose" data-player-id="${escapeHtml(player.id)}" aria-label="${playerName} cannot lose the game"${player.cannotLoseTheGame ? ' checked' : ''} />
+                    <span>No<br />lose</span>
+                  </label>
+                </div>
+                <div class="live-player-counter-column">
+                  <button type="button" class="live-player-life live-player-life-button" data-action="manual-life-entry" data-player-id="${escapeHtml(player.id)}" aria-label="Set life total for ${playerName}. Current life ${player.life}.">${player.life}</button>
+                </div>
+                <div class="live-player-damage-column">
+                  ${damageMarkup}
+                </div>
               </div>
             </div>
           </div>
@@ -3246,6 +3253,27 @@ function refreshLiveTrackerUi() {
   updateLiveTableModeClass();
   renderLiveOrderPreview();
   renderLiveGameStatus();
+}
+
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    return;
+  }
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      wakeLockSentinel = null;
+    });
+  } catch {
+    wakeLockSentinel = null;
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release();
+    wakeLockSentinel = null;
+  }
 }
 
 function buildActiveGameSummary(gameState) {
@@ -3513,6 +3541,7 @@ async function startLiveGame() {
   });
   closeLiveActionsMenu();
   refreshLiveTrackerUi();
+  acquireWakeLock();
 }
 
 async function promptForPositiveNumber(message, defaultValue = 1) {
@@ -4001,6 +4030,7 @@ async function completeActiveGame() {
   saveGames(games);
   persistActiveGameState(null);
   persistActiveGameUndoState(null);
+  releaseWakeLock();
   refresh();
   refreshLiveTrackerUi();
   await promptLiveAlert('Live game saved to history.', 'Game saved');
@@ -4024,6 +4054,7 @@ async function abandonActiveGame() {
 
   persistActiveGameState(null);
   persistActiveGameUndoState(null);
+  releaseWakeLock();
   refreshLiveTrackerUi();
 }
 
@@ -12550,6 +12581,12 @@ window.addEventListener('popstate', () => {
   renderHistory(loadGames());
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && activeGameState && !wakeLockSentinel) {
+    acquireWakeLock();
+  }
+});
+
 window.addEventListener('resize', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
@@ -12710,6 +12747,9 @@ async function initializeApp() {
   persistLocalState(appState);
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
+  if (activeGameState) {
+    acquireWakeLock();
+  }
   hideLiveSourcePrompt();
   initializePrimaryMenu();
   setupSyncUi();

@@ -2895,18 +2895,69 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode .live-player-main-layout {
-    grid-template-columns: 54px minmax(0, 1fr) 10ch;
-    gap: 6px;
+    position: relative;
+    display: block;
     min-height: 0;
     height: 100%;
   }
 
-  .page-live-game.live-table-mode.live-table-mode-5 .live-player-main-layout {
+  .live-tap-half {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+    z-index: 0;
+  }
+
+  .live-tap-loss {
+    left: 0;
+    justify-content: flex-start;
+    padding: 0 0 5px 5px;
+  }
+
+  .live-tap-gain {
+    right: 0;
+    justify-content: flex-end;
+    padding: 0 5px 5px 0;
+  }
+
+  .live-tap-hint {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: rgba(32, 43, 79, 0.18);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .live-player-content-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) 10ch;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .live-player-content-overlay button,
+  .live-player-content-overlay input,
+  .live-player-content-overlay label {
+    pointer-events: auto;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-5 .live-player-content-overlay {
     grid-template-columns: 46px minmax(0, 1fr) 8ch;
     gap: 4px;
   }
 
-  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-main-layout {
+  .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-content-overlay {
     grid-template-columns: 88px minmax(0, 1fr) 9ch;
     gap: 6px;
   }
