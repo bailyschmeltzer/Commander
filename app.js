@@ -1763,25 +1763,32 @@ async function pullCloudState() {
   updateSyncControls();
   refreshSyncStatus();
 
-  const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
-  const games = Array.isArray(payload.games) ? payload.games : [];
-  const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
-  const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
-  const decks = Array.isArray(payload.decks) ? payload.decks : [];
-  const records = Array.isArray(payload.records) ? payload.records : [];
-  updateSyncAuthenticatedUser(payload.auth || null);
-  updateSyncMetadata({
-    revision: payload.revision,
-    updatedAt: payload.updatedAt,
-    updatedBy: payload.updatedBy,
-  });
-  clearSyncConflict();
-  appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
-  persistLocalState(appState);
-  syncConnectionState = 'connected';
-  syncLastErrorMessage = '';
-  syncLastSuccessAt = new Date().toISOString();
-  refresh();
+  try {
+    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
+    const games = Array.isArray(payload.games) ? payload.games : [];
+    const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
+    const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
+    const decks = Array.isArray(payload.decks) ? payload.decks : [];
+    const records = Array.isArray(payload.records) ? payload.records : [];
+    updateSyncAuthenticatedUser(payload.auth || null);
+    updateSyncMetadata({
+      revision: payload.revision,
+      updatedAt: payload.updatedAt,
+      updatedBy: payload.updatedBy,
+    });
+    clearSyncConflict();
+    appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
+    persistLocalState(appState);
+    syncConnectionState = 'connected';
+    syncLastErrorMessage = '';
+    syncLastSuccessAt = new Date().toISOString();
+    refresh();
+  } catch (error) {
+    syncConnectionState = hasSyncCredentials() ? 'configured' : 'local';
+    throw error;
+  } finally {
+    updateSyncControls();
+  }
 }
 
 async function fetchCloudStateMetadata() {

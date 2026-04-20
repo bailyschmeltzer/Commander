@@ -1,7 +1,5 @@
 ToDo List
 
-- Adding additional player after adding player details resets that dropdown for the extra player
-- change no lose to unable to lose
 - fix mobile login
 - fix out button not properly recording turn killed
 - add pop up for final comments
