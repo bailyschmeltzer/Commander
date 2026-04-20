@@ -4,6 +4,8 @@ ToDo List
 
 - add a one touch turn tracker
 - make turn tracking details automatic
+- Adding additional player after adding player details resets that dropdown for the extra player
+- minus icon hidden behind buttons
 - fix player ordering
 - fix mobile login
 - fix out button not properly recording turn killed
@@ -15,4 +17,3 @@ ToDo List
 - Further data validation
 - Page for keyword descriptions
 - Page for searching a card and viewing rulings on said card
-- Add option to preload a precon in deck builder 

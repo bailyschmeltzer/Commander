@@ -3716,6 +3716,38 @@ async function applyQuickLifeChange(playerId, delta) {
   }
 
   const projectedLife = player.life + delta;
+
+  if (delta < 0 && !shouldPromptForSource(player, projectedLife, 'life-loss')) {
+    // No prompt needed — apply silently
+    const turnNumber = getLiveTrackedTurnNumber();
+    saveUndoSnapshot();
+    player.life += delta;
+    recordLiveEvent({
+      type: 'life-loss',
+      actorPlayerId: '',
+      targetPlayerId: playerId,
+      amount: Math.abs(delta),
+      turnNumber,
+    });
+    const alivePlayers = getActiveAlivePlayers(activeGameState);
+    if (alivePlayers.length === 1) {
+      alivePlayers[0].place = 1;
+    }
+    persistActiveGameState(activeGameState);
+    refreshLiveTrackerUi();
+    if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
+      title: 'Finish game?',
+      confirmLabel: 'Finish and save',
+    })) {
+      await completeActiveGame();
+    }
+    return;
+  }
+
+  // Save undo snapshot BEFORE async prompts so the undo state always reflects
+  // the true pre-action game state (shouldPromptForSource and firstBlood intact).
+  saveUndoSnapshot();
+
   const sourcePlayerId = delta < 0
     ? await resolveLiveSourceSelection({
       targetPlayerId: playerId,
@@ -3725,12 +3757,12 @@ async function applyQuickLifeChange(playerId, delta) {
     })
     : '';
   if (sourcePlayerId === null) {
+    // User cancelled — pop the undo snapshot we eagerly saved
+    persistActiveGameUndoState(activeGameUndoState.slice(0, -1));
     return;
   }
 
   const turnNumber = getLiveTrackedTurnNumber();
-
-  saveUndoSnapshot();
   player.life += delta;
 
   const eventType = delta < 0 ? 'life-loss' : 'life-gain';
