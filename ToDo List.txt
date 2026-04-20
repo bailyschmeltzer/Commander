@@ -1,6 +1,5 @@
 ToDo List
 
-- Page for keyword descriptions
 - Page for searching a card and viewing rulings on said card
 - Make rules and validation for Partner and "you may have as many copies of this card in your deck"
 - Further data validation

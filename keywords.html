@@ -337,12 +337,40 @@
         });
       }
 
+      function loadKeywordsFromLocal() {
+        // Build keyword list entirely from the local descriptions map when the API is unavailable.
+        // We can't know the official category for each entry from the map alone, so we mark
+        // all of them as 'ability' (the most common type) except for known actions/words.
+        const ACTION_NAMES = new Set([
+          'adapt','amass','bolster','clash','discover','explore','exert','fight',
+          'investigate','learn','manifest','meld','monstrous','populate','proliferate',
+          'regenerate','scry','support','surveil','transform','venture into the dungeon','vote',
+        ]);
+        const WORD_NAMES = new Set([
+          'addendum','alliance','battalion','channel','constellation','converge','coven',
+          'delirium','domain','eminence','enrage','fateful hour','ferocious','formidable',
+          'grandeur','hellbent','heroic','imprint','kinship','landfall','lieutenant',
+          'magecraft','metalcraft','morbid','pack tactics','parley','radiance','raid',
+          'rally','revolt','spell mastery','sweep','tempting offer','threshold',
+          'undergrowth','will of the council',
+        ]);
+
+        return Object.entries(KEYWORD_DESCRIPTIONS)
+          .map(([key, description]) => {
+            const name = key.charAt(0).toUpperCase() + key.slice(1);
+            const category = ACTION_NAMES.has(key) ? 'action' : WORD_NAMES.has(key) ? 'word' : 'ability';
+            return { name, category, description };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+
       async function loadKeywords() {
         const status = document.getElementById('keyword-status');
         try {
           const res = await fetch('/api/keywords', { cache: 'no-store' });
           if (!res.ok) throw new Error(`Request failed (${res.status})`);
           const data = await res.json();
+          if (data.error) throw new Error(data.error);
 
           const abilities = (data.keywordAbilities || []).map((name) => ({ name, category: 'ability', description: getDescriptionFor(name) }));
           const actions = (data.keywordActions || []).map((name) => ({ name, category: 'action', description: getDescriptionFor(name) }));
@@ -352,8 +380,11 @@
           status.textContent = '';
           renderGrid();
         } catch (err) {
-          status.textContent = 'Unable to load keyword catalog right now. Please refresh the page.';
-          status.className = 'status-error';
+          // Fall back to the local descriptions map so the page is still useful.
+          allKeywords = loadKeywordsFromLocal();
+          status.textContent = 'Showing cached keyword data (live catalog unavailable).';
+          status.className = 'status-muted';
+          renderGrid();
         }
       }
 
