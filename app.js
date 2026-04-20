@@ -6530,11 +6530,10 @@ async function addSelectedCardToMaybeboard() {
   }
 
   const cardNameKey = getIdentityKey(card.name);
-  const isBasic = isBasicLand(card);
 
   const existsInMaybeboard = (deck.maybeboard || []).some((entry) => getIdentityKey(entry.name) === cardNameKey);
   if (existsInMaybeboard) {
-    await promptLiveAlert(`${card.name} is already in the maybeboard.`, 'Duplicate card');
+    setDeckBuilderSaveStatus(`${card.name} is already in the maybeboard.`, 'neutral');
     return;
   }
 
@@ -6542,6 +6541,9 @@ async function addSelectedCardToMaybeboard() {
     ...deck,
     maybeboard: [...(deck.maybeboard || []), card],
   }, `${card.name} added to maybeboard.`);
+  deckBuilderSelectedCard = null;
+  persistDeckBuilderSelectedCard(null);
+  renderDeckBuilderSelection();
 }
 
 async function addSelectedCardToTokens() {
