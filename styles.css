@@ -2846,15 +2846,10 @@ button[type="submit"] {
     padding: 8px;
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
     align-content: stretch;
     overflow: hidden;
     transform-origin: top left;
-  }
-
-  /* Center seat (5-player) is not rotated — keep name at top */
-  .page-live-game.live-table-mode .live-player-card-body.live-orientation-up {
-    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 {
@@ -2933,11 +2928,30 @@ button[type="submit"] {
   .page-live-game.live-table-mode .live-player-card-topline {
     margin-bottom: 6px;
     min-height: 0;
-    justify-content: center;
   }
 
-  .page-live-game.live-table-mode .live-player-title-block {
-    text-align: center;
+  /* orientation-1 (BR) and orientation-4 (BL): name row at bottom of card body */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
+    margin-bottom: 0;
+    margin-top: 6px;
+  }
+
+  /* Left column (seat3=TL, seat4=BL): text at left side of topline */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
+    justify-content: flex-start;
+  }
+
+  /* Right column (seat2=TR, seat1=BR): text at right side of topline */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline {
+    justify-content: flex-end;
   }
 
   .page-live-game.live-table-mode .live-player-title-block h3 {
