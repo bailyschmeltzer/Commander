@@ -2930,41 +2930,18 @@ button[type="submit"] {
     min-height: 0;
   }
 
-  /* All 4 orientations: name row at CSS bottom (faces screen-center after rotation)
-     Use order to reposition visually without breaking the 1fr/auto sizing. */
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
-    grid-template-rows: minmax(0, 1fr) auto;
-  }
-
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-main-layout,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-main-layout,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-main-layout,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-main-layout {
-    order: 1;
-  }
-
+  /* Topline stays at CSS top (row 1, auto). justify-content places text at the
+     corner that physically faces the screen center after each card's rotation.
+     orientation-1 (BR, -90deg) and orientation-3 (TL, +90deg): CSS top-right → center */
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
-    order: 2;
-    margin-bottom: 0;
-    margin-top: 6px;
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline {
+    justify-content: flex-end;
   }
 
-  /* Left column (seat3=TL, seat4=BL): text at left side of topline */
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline,
+  /* orientation-2 (TR, -90deg) and orientation-4 (BL, +90deg): CSS top-left → center */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
     justify-content: flex-start;
-  }
-
-  /* Right column (seat2=TR, seat1=BR): text at right side of topline */
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline {
-    justify-content: flex-end;
   }
 
   .page-live-game.live-table-mode .live-player-title-block h3 {
