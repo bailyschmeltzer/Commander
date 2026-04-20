@@ -6538,12 +6538,6 @@ async function addSelectedCardToMaybeboard() {
     return;
   }
 
-  const deckCardNameSet = getDeckBuilderCardNameSet(deck);
-  if (!isBasic && deckCardNameSet.has(cardNameKey)) {
-    await promptLiveAlert(`${card.name} is already in the deck. Remove it there before adding it to the maybeboard.`, 'Duplicate card');
-    return;
-  }
-
   persistDeckBuilderRecord({
     ...deck,
     maybeboard: [...(deck.maybeboard || []), card],
@@ -7612,6 +7606,13 @@ function renderDeckBuilderBreakdown(deck) {
     typeCounts.set(type, typeCounts.get(type) + 1);
   });
   const totalDeckCards = (deck.cards || []).length + (deck.commander ? 1 : 0);
+  const gameChangerCards = [
+    ...(deck.commander?.isGameChanger ? [deck.commander] : []),
+    ...(deck.cards || []).filter((c) => c.isGameChanger),
+  ];
+  const gameChangerRow = gameChangerCards.length
+    ? `<tr><td>&#9889; Game Changers</td><td class="deck-breakdown-count">${gameChangerCards.length}</td></tr>`
+    : '';
 
   const commanderRow = deck.commander ? '<tr><td>Commander</td><td class="deck-breakdown-count">1</td></tr>' : '';
   const typeRows = typeOrder
@@ -7627,6 +7628,7 @@ function renderDeckBuilderBreakdown(deck) {
           ${commanderRow}
           ${typeRows}
           <tr class="deck-breakdown-total"><td>Total</td><td class="deck-breakdown-count">${totalDeckCards}</td></tr>
+          ${gameChangerRow}
         </tbody>
       </table>
     </div>`;
@@ -9061,7 +9063,7 @@ function renderDeckCardRow(card, options = {}) {
   const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
-  const addToDeckAction = options.fromMaybeboard
+  const addToDeckAction = isExpanded && options.fromMaybeboard
     ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>`
     : '';
   const moveToMaybeboardAction = isExpanded && !options.isCommander && !options.fromMaybeboard && !options.fromTokens
