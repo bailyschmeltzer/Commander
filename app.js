@@ -12796,6 +12796,16 @@ if (deckBuilderDiscardButton) {
     saveDecks(loadDecks().filter((d) => d.id !== deck.id));
     activeDeckBuilderId = '';
     activeDeckBuilderRecord = null;
+    // Push to cloud immediately so decklists.html doesn't restore the deleted deck from cloud.
+    if (syncQueueTimer) {
+      clearTimeout(syncQueueTimer);
+      syncQueueTimer = null;
+    }
+    try {
+      await pushCloudState();
+    } catch (e) {
+      // Ignore — local deletion is already saved; cloud will sync on next opportunity.
+    }
     window.location.href = 'decklists.html';
   });
 }

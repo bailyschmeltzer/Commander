@@ -1,5 +1,3 @@
 ToDo List
 
-- Make rules and validation for Partner and "you may have as many copies of this card in your deck"
-- Further data validation
 - Remove deck URL panels
