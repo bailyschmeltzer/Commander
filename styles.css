@@ -2930,7 +2930,8 @@ button[type="submit"] {
     min-height: 0;
   }
 
-  /* All 4 orientations: name row at CSS bottom (faces screen-center after rotation) */
+  /* All 4 orientations: name row at CSS bottom (faces screen-center after rotation)
+     Use order to reposition visually without breaking the 1fr/auto sizing. */
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3,
@@ -2938,10 +2939,18 @@ button[type="submit"] {
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-main-layout,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-main-layout,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-main-layout,
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-main-layout {
+    order: 1;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline,
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
+    order: 2;
     margin-bottom: 0;
     margin-top: 6px;
   }
