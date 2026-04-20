@@ -2930,16 +2930,26 @@ button[type="submit"] {
     min-height: 0;
   }
 
-  /* seat1(TL) and seat4(BL) use +90deg: CSS top faces screen-center → flex-end */
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
+  /* seat1(TL) and seat4(BL) use +90deg: topline is at physical right edge
+     TL: center is bottom-right → flex-end
+     BL: center is top-right   → flex-start */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 .live-player-card-topline {
     justify-content: flex-end;
   }
 
-  /* seat2(TR) and seat3(BR) use -90deg: CSS top faces screen-center → flex-start */
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline,
-  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline {
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 .live-player-card-topline {
     justify-content: flex-start;
+  }
+
+  /* seat2(TR) and seat3(BR) use -90deg: topline is at physical left edge
+     TR: center is bottom-left → flex-start
+     BR: center is top-left   → flex-end */
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 .live-player-card-topline {
+    justify-content: flex-start;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 .live-player-card-topline {
+    justify-content: flex-end;
   }
 
   .page-live-game.live-table-mode .live-player-title-block h3 {
