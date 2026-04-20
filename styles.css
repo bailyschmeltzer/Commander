@@ -1920,6 +1920,11 @@ button[type="submit"] {
   color: #8a5a00;
 }
 
+.keyword-card-badge--jargon {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
 .keyword-card-description {
   margin: 0;
   font-size: 0.82rem;

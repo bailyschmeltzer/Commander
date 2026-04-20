@@ -36,6 +36,7 @@
               <button type="button" class="keyword-tab" data-category="ability" role="tab" aria-selected="false">Keyword Abilities</button>
               <button type="button" class="keyword-tab" data-category="action" role="tab" aria-selected="false">Keyword Actions</button>
               <button type="button" class="keyword-tab" data-category="word" role="tab" aria-selected="false">Ability Words</button>
+              <button type="button" class="keyword-tab" data-category="jargon" role="tab" aria-selected="false">Common Terms</button>
             </div>
           </div>
           <p id="keyword-status" class="status-muted">Loading keyword catalog…</p>
@@ -261,10 +262,88 @@
         'will of the council': 'Each player votes for one of the listed options, then the option with the most votes (or tied for most) happens.',
       };
 
+      // Common MTG player jargon — informal terms used at the table.
+      const COMMON_TERMS = {
+        '187 creature': "A creature with a powerful enters-the-battlefield triggered ability. Named after Man-o'-War.",
+        'aggro': "An aggressive strategy that tries to win quickly by attacking before opponents can set up.",
+        'alpha strike': "Attack with your entire team in an attempt to win the game in a single combat.",
+        'answer': "A card that specifically deals with a particular threat or strategy.",
+        'archenemy': "The player at the table who appears to be winning or most dangerous, drawing everyone else's attention.",
+        'beater': "A large creature whose primary purpose is to deal significant combat damage.",
+        'blink': "Exile a permanent, then return it to the battlefield immediately, triggering any enters-the-battlefield abilities.",
+        'bounce': "Return a permanent to its owner's hand using a spell or ability.",
+        'cantrip': "A cheap spell that replaces itself by drawing a card, costing you no net cards.",
+        'chump block': "Block with a weaker creature (sacrificing it) purely to prevent lethal combat damage from getting through.",
+        'combo': "Two or more cards that work together for a powerful or game-winning effect.",
+        'commander damage': "Damage dealt specifically by a commander. A player who has taken 21 or more combat damage from a single commander loses the game.",
+        'control': "A strategy focused on answering opponents' threats and winning in the late game through card advantage and powerful finishers.",
+        'counterspell': "An instant-speed spell or ability that counters another spell on the stack.",
+        'curve': "The distribution of mana costs in a deck. A good curve has plays available at each mana cost.",
+        'curve out': "Play a spell at each mana cost as your mana increases each turn, making efficient use of all available mana.",
+        'dies trigger': "An ability that triggers when a creature is put into the graveyard from the battlefield.",
+        'draw-go': "A control strategy of passing the turn with mana up, only interacting on opponents' turns.",
+        'draw spell': "A spell whose primary purpose is to draw additional cards.",
+        'engine': "A combination of cards that continuously generates value (cards, mana, tokens, etc.).",
+        'etb': "Enters the Battlefield — the trigger that fires when a permanent comes into play.",
+        'finisher': "A card that, once resolved, should end the game in your favor.",
+        'fizzle': "A spell fails to resolve because all of its targets became illegal before it could resolve. The spell is countered by the rules.",
+        'flicker': "Exile a permanent and immediately return it to the battlefield. Identical to blink.",
+        'fog': "Prevent all combat damage for a turn. Named after the card Fog.",
+        'go tall': "Make a single creature very large and powerful rather than spreading resources.",
+        'go wide': "Create many small creatures and attack with all of them to overwhelm opponents.",
+        'grind': "A long, resource-intensive game where players try to generate incremental advantages.",
+        'group hug': "A strategy or card that benefits all players equally, often used to stay off the threat radar.",
+        'group slug': "A strategy that deals damage or causes life loss for all players equally.",
+        'hate card': "A card specifically designed to counter or punish a particular strategy or deck type.",
+        'hatebear': "A small, cheap creature with an ability that significantly disrupts or punishes a specific strategy.",
+        'infinite combo': "A loop of two or more cards that can repeat indefinitely, generating unlimited mana, damage, tokens, or other resources.",
+        'jank': "Low-power, unusual, or quirky cards or strategies that are fun but not optimal.",
+        'kingmaker': "A player who can no longer win but has enough resources to decide which other player wins.",
+        'lock': "A combination of cards that prevents opponents from taking meaningful actions.",
+        'loot': "Draw a card, then discard a card.",
+        'ltb': "Leaves the Battlefield — the trigger that fires when a permanent is removed from play.",
+        'mana flood': "Drawing too many lands and not enough action spells.",
+        'mana rock': "An artifact that produces mana, such as Sol Ring or Arcane Signet.",
+        'mana screw': "Not drawing enough lands to cast your spells, leaving you stuck on low mana.",
+        'mana sink': "A way to productively spend excess mana you have no other use for.",
+        'mill': "Put cards from the top of a player's library directly into their graveyard. Named after Millstone.",
+        'overextend': "Commit too many resources to the board, leaving yourself vulnerable to a wipe.",
+        'pillow fort': "A defensive strategy that protects you from attacks using deterrents like Ghostly Prison or Propaganda.",
+        'pinger': "A creature or artifact that deals 1 damage to any target repeatedly as an activated ability.",
+        'politics': "Negotiating, making deals, or influencing the decisions of other players at the table.",
+        'priority': "The right to cast spells or activate abilities. Players receive priority in turn order.",
+        'ramp': "Accelerate your mana production beyond the usual one land per turn, through spells that fetch extra lands or create mana rocks.",
+        'rattlesnake': "A card that deters opponents from attacking or targeting you because of its threatened retaliation.",
+        'reanimator': "A strategy that puts powerful creatures in the graveyard and then returns them to the battlefield at a discount.",
+        'removal': "Any spell or ability that destroys, exiles, bounces, or otherwise deals with an opposing permanent.",
+        'ritual': "A spell that produces more mana than it costs, used to accelerate ahead on mana temporarily.",
+        'rummage': "Discard a card, then draw a card.",
+        'salt': "Frustration or anger, typically in response to losing or facing a particularly oppressive strategy.",
+        'silver bullet': "A single card that completely answers a specific threat or strategy.",
+        'spot removal': "Removal that targets a single permanent, as opposed to mass removal.",
+        'stax': "A strategy that restricts and taxes opponents' actions through extra costs, tapping permanents, or limiting resources. Named after Smokestack.",
+        'staple': "A widely played card considered nearly essential in many decks of a given color or archetype.",
+        'synergy': "When cards work together better in combination than they would individually.",
+        'tap out': "Spend all of your available mana, leaving yourself with none for responses.",
+        'tempo': "Staying ahead of opponents by making efficient plays that set them back or advance your position.",
+        'the stack': "The zone where spells and abilities wait to resolve. The most recently added effect resolves first (last in, first out).",
+        'threat': "A permanent or spell that, if left unanswered, will likely win or swing the game.",
+        'threat assessment': "Evaluating which player at the table poses the most danger and should be targeted.",
+        'top deck': "Drawing exactly the card you need from the top of your library at a crucial moment.",
+        'tuck': "Put a card (often a commander) into its owner's library. Previously used to permanently remove commanders before the rule change.",
+        'tutor': "Search your library for a specific card and put it into your hand (or directly onto the battlefield). Named after Demonic Tutor.",
+        'value': "Cards or plays that generate card advantage, mana advantage, or board presence beyond their immediate cost.",
+        'voltron': "A strategy that focuses on making one creature (usually the commander) enormous with Equipment, Auras, and other buffs.",
+        'weenie': "A small, cheap creature, often part of a go-wide strategy.",
+        'wheel': "Each player discards their hand and draws a new one. Named after Wheel of Fortune.",
+        'wipe': "A spell that destroys or exiles all (or most) creatures on the battlefield at once. Also called a board wipe or sweeper.",
+      };
+
       const CATEGORY_LABELS = {
         ability: 'Keyword Ability',
         action: 'Keyword Action',
         word: 'Ability Word',
+        jargon: 'Common Term',
       };
 
       let allKeywords = [];
@@ -375,13 +454,23 @@
           const abilities = (data.keywordAbilities || []).map((name) => ({ name, category: 'ability', description: getDescriptionFor(name) }));
           const actions = (data.keywordActions || []).map((name) => ({ name, category: 'action', description: getDescriptionFor(name) }));
           const words = (data.abilityWords || []).map((name) => ({ name, category: 'word', description: getDescriptionFor(name) }));
+          const jargon = Object.entries(COMMON_TERMS).map(([key, description]) => ({
+            name: key.charAt(0).toUpperCase() + key.slice(1),
+            category: 'jargon',
+            description,
+          }));
 
-          allKeywords = [...abilities, ...actions, ...words].sort((a, b) => a.name.localeCompare(b.name));
+          allKeywords = [...abilities, ...actions, ...words, ...jargon].sort((a, b) => a.name.localeCompare(b.name));
           status.textContent = '';
           renderGrid();
         } catch (err) {
           // Fall back to the local descriptions map so the page is still useful.
-          allKeywords = loadKeywordsFromLocal();
+          const jargonFallback = Object.entries(COMMON_TERMS).map(([key, description]) => ({
+            name: key.charAt(0).toUpperCase() + key.slice(1),
+            category: 'jargon',
+            description,
+          }));
+          allKeywords = [...loadKeywordsFromLocal(), ...jargonFallback].sort((a, b) => a.name.localeCompare(b.name));
           status.textContent = 'Showing cached keyword data (live catalog unavailable).';
           status.className = 'status-muted';
           renderGrid();
