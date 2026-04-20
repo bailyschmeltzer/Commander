@@ -2781,8 +2781,8 @@ button[type="submit"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "seat3 seat2"
-      "seat4 seat1";
+      "seat3 seat4"
+      "seat2 seat1";
     gap: 6px;
     height: 100dvh;
     margin: 0;
@@ -2859,9 +2859,9 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-2 {
-    top: var(--live-card-height, 0px);
-    left: 0;
-    transform: rotate(-90deg);
+    top: 0;
+    left: var(--live-card-width, 0px);
+    transform: rotate(90deg);
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-3 {
@@ -2871,9 +2871,9 @@ button[type="submit"] {
   }
 
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-4 {
-    top: 0;
-    left: var(--live-card-width, 0px);
-    transform: rotate(90deg);
+    top: var(--live-card-height, 0px);
+    left: 0;
+    transform: rotate(-90deg);
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-orientation-left {
