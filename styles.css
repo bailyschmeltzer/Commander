@@ -1440,7 +1440,7 @@ button[type="submit"] {
 
 .deck-builder-group-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -1470,8 +1470,8 @@ button[type="submit"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 6px 8px;
   border: 1px solid #e0e5f2;
   border-radius: 10px;
   background: #ffffff;
@@ -1534,9 +1534,9 @@ button[type="submit"] {
 
 .deck-card-row-main {
   min-width: 0;
-  flex: 1 1 240px;
+  flex: 1 1 0;
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .deck-card-row-copy {
