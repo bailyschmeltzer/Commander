@@ -2604,7 +2604,7 @@ function shouldPromptForSource(targetPlayer, projectedLife, eventType, sourcePla
   }
 
   if (eventType === 'life-loss' && !activeGameState.firstBlood) {
-    return true;
+    return Boolean(activeGameState.shouldPromptForSource);
   }
 
   if (targetPlayer.cannotLoseTheGame) {
