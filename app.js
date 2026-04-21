@@ -7493,41 +7493,6 @@ function renderDeckBuilderSelection() {
       </div>
     </article>`;
 
-  const addCardButton = deckBuilderSelection.querySelector('#deck-builder-add-card');
-  if (addCardButton) {
-    addCardButton.addEventListener('click', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      await addSelectedCardToDeck();
-    });
-  }
-
-  const setCommanderButton = deckBuilderSelection.querySelector('#deck-builder-set-commander');
-  if (setCommanderButton) {
-    setCommanderButton.addEventListener('click', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      await setSelectedCardAsCommander();
-    });
-  }
-
-  const addMaybeboardButton = deckBuilderSelection.querySelector('#deck-builder-add-maybeboard');
-  if (addMaybeboardButton) {
-    addMaybeboardButton.addEventListener('click', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      await addSelectedCardToMaybeboard();
-    });
-  }
-
-  const addTokenButton = deckBuilderSelection.querySelector('#deck-builder-add-token');
-  if (addTokenButton) {
-    addTokenButton.addEventListener('click', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      await addSelectedCardToTokens();
-    });
-  }
 }
 
 if (typeof window !== 'undefined') {
