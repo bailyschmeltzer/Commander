@@ -5761,12 +5761,25 @@ async function backfillDeckListCommanderOracleIds() {
   }
 }
 
+function applyDeckListOwnerFieldAccess() {
+  if (!deckOwnerInput) {
+    return;
+  }
+  const isAdmin = isCurrentSyncUserAdmin();
+  deckOwnerInput.disabled = !isAdmin;
+  const dropdownButton = deckOwnerInput.closest('.combined-input-wrapper')?.querySelector('.dropdown-button');
+  if (dropdownButton) {
+    dropdownButton.disabled = !isAdmin;
+  }
+}
+
 function populateDeckCommanderSelector() {
   if (!deckCommanderMenu) {
     if (deckOwnerMenu) {
       buildDropdownMenu(deckOwnerMenu, knownPlayers);
       attachLookupWrapperHandlers(deckListForm || document);
     }
+    applyDeckListOwnerFieldAccess();
     return;
   }
 
@@ -5775,6 +5788,7 @@ function populateDeckCommanderSelector() {
     buildDropdownMenu(deckOwnerMenu, knownPlayers);
   }
   attachLookupWrapperHandlers(deckListForm || document);
+  applyDeckListOwnerFieldAccess();
 }
 
 function populateDeckBuilderLookupMenus() {
@@ -9844,6 +9858,10 @@ function resetDeckListForm() {
   if (deckListCancelButton) {
     deckListCancelButton.hidden = true;
   }
+  if (deckOwnerInput && !isCurrentSyncUserAdmin()) {
+    deckOwnerInput.value = getCurrentSyncDisplayName();
+  }
+  applyDeckListOwnerFieldAccess();
 }
 
 function startDeckListEdit(deckId) {
@@ -9862,6 +9880,7 @@ function startDeckListEdit(deckId) {
     deckOwnerInput.value = entry.owner || '';
   }
   deckUrlInput.value = entry.url;
+  applyDeckListOwnerFieldAccess();
 
   if (deckListSubmitButton) {
     deckListSubmitButton.textContent = 'Save deck list';
