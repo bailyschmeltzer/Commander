@@ -5797,6 +5797,15 @@ function populateDeckBuilderLookupMenus() {
   }
 
   attachLookupWrapperHandlers(deckBuilderPage || document);
+
+  if (deckBuilderOwnerInput) {
+    const isAdmin = isCurrentSyncUserAdmin();
+    deckBuilderOwnerInput.disabled = !isAdmin;
+    const dropdownButton = deckBuilderOwnerInput.closest('.combined-input-wrapper')?.querySelector('.dropdown-button');
+    if (dropdownButton) {
+      dropdownButton.disabled = !isAdmin;
+    }
+  }
 }
 
 function populateRecordLookupMenus() {
@@ -6044,7 +6053,7 @@ function applyDeckBuilderAccessState(deck) {
     deckBuilderNameInput.disabled = isReadOnly;
   }
   if (deckBuilderOwnerInput) {
-    deckBuilderOwnerInput.disabled = isReadOnly;
+    deckBuilderOwnerInput.disabled = isReadOnly || !isCurrentSyncUserAdmin();
   }
   if (deckBuilderPowerInput) {
     deckBuilderPowerInput.disabled = isReadOnly;
