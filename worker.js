@@ -891,17 +891,25 @@ export default {
       }
 
       const query = getTextValue(url.searchParams.get('q'));
-      if (query.length < 2) {
+      if (query.length < 3) {
         return jsonResponse({ results: [] }, 200, {
           'Cache-Control': 'no-store, no-cache, must-revalidate',
         });
       }
 
       try {
+        const cfCache = caches.default;
+        const cacheKey = new Request(request.url, { method: 'GET' });
+        const cachedResponse = await cfCache.match(cacheKey);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
         const results = await fetchDeckSearchResults(query);
-        return jsonResponse({ results: results.slice(0, 12) }, 200, {
+        const response = jsonResponse({ results: results.slice(0, 12) }, 200, {
           'Cache-Control': 'public, max-age=300, s-maxage=300',
         });
+        await cfCache.put(cacheKey, response.clone());
+        return response;
       } catch (error) {
         return jsonResponse({
           error: 'Unable to search cards right now.',
@@ -916,17 +924,25 @@ export default {
       }
 
       const query = getTextValue(url.searchParams.get('q'));
-      if (query.length < 2) {
+      if (query.length < 3) {
         return jsonResponse({ results: [] }, 200, {
           'Cache-Control': 'no-store, no-cache, must-revalidate',
         });
       }
 
       try {
+        const cfCache = caches.default;
+        const cacheKey = new Request(request.url, { method: 'GET' });
+        const cachedResponse = await cfCache.match(cacheKey);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
         const results = await fetchTokenSearchResults(query);
-        return jsonResponse({ results }, 200, {
-          'Cache-Control': 'public, max-age=120, s-maxage=120',
+        const response = jsonResponse({ results }, 200, {
+          'Cache-Control': 'public, max-age=300, s-maxage=300',
         });
+        await cfCache.put(cacheKey, response.clone());
+        return response;
       } catch (error) {
         return jsonResponse({
           error: 'Unable to search token cards right now.',
@@ -947,10 +963,18 @@ export default {
       }
 
       try {
+        const cfCache = caches.default;
+        const cacheKey = new Request(request.url, { method: 'GET' });
+        const cachedResponse = await cfCache.match(cacheKey);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
         const prints = await fetchDeckCardPrints({ oracleId, name }, requestOrigin);
-        return jsonResponse({ prints }, 200, {
-          'Cache-Control': 'public, max-age=600, s-maxage=600',
+        const response = jsonResponse({ prints }, 200, {
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });
+        await cfCache.put(cacheKey, response.clone());
+        return response;
       } catch (error) {
         return jsonResponse({
           error: 'Unable to load card arts right now.',
@@ -969,11 +993,20 @@ export default {
         return jsonResponse({ error: 'A card name is required.' }, 400);
       }
 
+      const cfCache = caches.default;
+      const cacheKey = new Request(request.url, { method: 'GET' });
+      const cachedResponse = await cfCache.match(cacheKey);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
       try {
         const card = await fetchDeckCardByName(name, requestOrigin);
-        return jsonResponse({ card }, 200, {
+        const response = jsonResponse({ card }, 200, {
           'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });
+        await cfCache.put(cacheKey, response.clone());
+        return response;
       } catch (error) {
         return jsonResponse({
           error: 'Unable to load that card right now.',
@@ -1004,7 +1037,7 @@ export default {
       try {
         const cards = await fetchDeckCardsByNames(names, requestOrigin);
         return jsonResponse({ cards }, 200, {
-          'Cache-Control': 'public, max-age=600, s-maxage=600',
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });
       } catch (error) {
         return jsonResponse({

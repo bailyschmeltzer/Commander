@@ -7787,19 +7787,22 @@ async function hydrateDeckCardStats(deck) {
     return;
   }
 
-  const results = await Promise.allSettled(
-    toRefresh.map(({ card }) => fetchDeckCardByName(card.name))
-  );
+  const names = toRefresh.map(({ card }) => card.name);
+  let bulkMap;
+  try {
+    bulkMap = await fetchDeckCardsByNamesBulk(names);
+  } catch {
+    return;
+  }
 
   let updated = false;
   const nextCommander = deck.commander ? { ...deck.commander } : null;
   const nextCards = deck.cards.map((c) => ({ ...c }));
 
-  results.forEach((result, i) => {
-    if (result.status !== 'fulfilled' || !result.value) return;
-    const fresh = result.value;
+  toRefresh.forEach(({ type, card, index }) => {
+    const fresh = bulkMap.get(getIdentityKey(card.name));
+    if (!fresh) return;
     if (!fresh.power && !fresh.toughness && !fresh.loyalty && !fresh.defense) return;
-    const { type, index } = toRefresh[i];
     const patch = {
       power: fresh.power,
       toughness: fresh.toughness,
@@ -8052,11 +8055,11 @@ async function runDeckBuilderSearch(query) {
   const requestId = deckBuilderSearchRequestId + 1;
   deckBuilderSearchRequestId = requestId;
 
-  if (normalizedQuery.length < 2) {
+  if (normalizedQuery.length < 3) {
     deckBuilderSearchLoading = false;
     deckBuilderSearchResultsState = [];
     renderDeckBuilderSearchResults();
-    setDeckBuilderSearchStatus('Type at least 2 characters to search for a card.', 'muted');
+    setDeckBuilderSearchStatus('Type at least 3 characters to search for a card.', 'muted');
     return;
   }
 
@@ -8241,11 +8244,11 @@ async function runDeckBuilderTokenSearch(query) {
   const requestId = deckBuilderTokenSearchRequestId + 1;
   deckBuilderTokenSearchRequestId = requestId;
 
-  if (normalizedQuery.length < 2) {
+  if (normalizedQuery.length < 3) {
     deckBuilderTokenSearchLoading = false;
     deckBuilderTokenSearchResultsState = [];
     renderDeckBuilderTokenSearchResults();
-    setDeckBuilderTokenSearchStatus('Type at least 2 characters to search tokens.', 'muted');
+    setDeckBuilderTokenSearchStatus('Type at least 3 characters to search tokens.', 'muted');
     return;
   }
 
