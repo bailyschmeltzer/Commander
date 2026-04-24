@@ -8455,6 +8455,27 @@ function exportDeckAsText(deck) {
   [...counts.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([name, count]) => lines.push(`${count} ${name}`));
+
+  // Tokens section
+  const tokens = Array.isArray(deck.tokens) ? deck.tokens : [];
+  if (tokens.length > 0) {
+    lines.push('');
+    lines.push('// Tokens');
+    [...tokens]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .forEach((token) => lines.push(`${token.count || 1} ${token.name}`));
+  }
+
+  // Maybeboard section
+  const maybeboard = Array.isArray(deck.maybeboard) ? deck.maybeboard : [];
+  if (maybeboard.length > 0) {
+    lines.push('');
+    lines.push('// Maybeboard');
+    [...maybeboard]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .forEach((card) => lines.push(`1 ${card.name}`));
+  }
+
   return lines.join('\n');
 }
 
