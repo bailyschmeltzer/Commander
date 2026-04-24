@@ -7418,6 +7418,10 @@ function applyDeckBuilderCardArt(cardId, print) {
     return;
   }
 
+  const located = findDeckBuilderCardById(deck, cardId);
+  const targetNameKey = getIdentityKey(located?.card?.name || '');
+  const shouldApplyToSameNameCopies = located?.zone === 'cards' && Boolean(targetNameKey) && allowsMultipleCopies(located.card);
+
   const applyPrint = (card) => ({
     ...card,
     imageUri: String(print.imageUri || card.imageUri || '').trim(),
@@ -7431,7 +7435,9 @@ function applyDeckBuilderCardArt(cardId, print) {
   changed = changed || Boolean(deck.commander?.id === cardId);
 
   const updateList = (list) => (list || []).map((card) => {
-    if (card.id !== cardId) {
+    const matchesById = card.id === cardId;
+    const matchesSameNameCopy = shouldApplyToSameNameCopies && getIdentityKey(card.name) === targetNameKey;
+    if (!matchesById && !matchesSameNameCopy) {
       return card;
     }
     changed = true;
@@ -7872,7 +7878,42 @@ async function hydrateDeckCardStats(deck) {
 
   if (!updated) return;
 
-  persistDeckBuilderRecord({ ...deck, commander: nextCommander, cards: nextCards }, '', 'muted');
+  const latestDeck = ensureActiveDeckBuilderRecord();
+  if (!latestDeck || latestDeck.id !== deck.id) {
+    return;
+  }
+
+  const latestCommander = latestDeck.commander ? { ...latestDeck.commander } : null;
+  const latestCards = (latestDeck.cards || []).map((card) => ({ ...card }));
+
+  if (nextCommander && latestCommander && nextCommander.id === latestCommander.id) {
+    latestCommander.power = nextCommander.power;
+    latestCommander.toughness = nextCommander.toughness;
+    latestCommander.loyalty = nextCommander.loyalty;
+    latestCommander.defense = nextCommander.defense;
+    latestCommander.cardFaces = nextCommander.cardFaces;
+  }
+
+  const nextCardsById = new Map(nextCards.map((card) => [card.id, card]));
+  for (let index = 0; index < latestCards.length; index += 1) {
+    const current = latestCards[index];
+    const hydrated = nextCardsById.get(current.id);
+    if (!hydrated) {
+      continue;
+    }
+
+    current.power = hydrated.power;
+    current.toughness = hydrated.toughness;
+    current.loyalty = hydrated.loyalty;
+    current.defense = hydrated.defense;
+    current.cardFaces = hydrated.cardFaces;
+  }
+
+  persistDeckBuilderRecord({
+    ...latestDeck,
+    commander: latestCommander,
+    cards: latestCards,
+  }, '', 'muted', { skipUndo: true });
 }
 
 function parseDeckCardCmc(manaCost) {
@@ -9326,6 +9367,9 @@ function renderUnlimitedCopyCardRow(name, cards) {
   const typeLine = cards[0]?.typeLine || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
+  const artButton = sampleId
+    ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
+    : '';
   return `
     <div class="deck-card-row deck-card-row-basic-land">
       <div class="deck-card-row-copy">
@@ -9336,6 +9380,7 @@ function renderUnlimitedCopyCardRow(name, cards) {
         <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
         <span class="deck-land-count">×${escapeHtml(String(count))}</span>
         <button type="button" class="deck-land-plus" data-add-unlimited="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+        ${artButton}
       </div>
     </div>`;
 }
@@ -9345,6 +9390,9 @@ function renderBasicLandRow(name, cards) {
   const sampleId = cards[0]?.id || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
+  const artButton = sampleId
+    ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
+    : '';
   return `
     <div class="deck-card-row deck-card-row-basic-land" data-basic-land-name="${escapeHtml(name)}">
       <div class="deck-card-row-copy">
@@ -9355,6 +9403,7 @@ function renderBasicLandRow(name, cards) {
         <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
         <span class="deck-land-count">×${escapeHtml(String(count))}</span>
         <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+        ${artButton}
       </div>
     </div>`;
 }
