@@ -20,7 +20,8 @@ const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
-const DECKS_PERSIST_DEBOUNCE_MS = 180;
+const DECKS_PERSIST_DEBOUNCE_MS = 260;
+const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 1000;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -125,6 +126,7 @@ const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
+const deckBuilderBackToDecksLink = document.querySelector('.page-deckbuilder .page-action-link[href="decklists.html"], .page-deck-builder .page-action-link[href="decklists.html"]');
 const recordsForm = document.getElementById('records-form');
 const recordsTableBody = document.getElementById('records-table-body');
 const customRecordForm = document.getElementById('custom-record-form');
@@ -6462,7 +6464,11 @@ async function undoDeckBuilderChange() {
   persistDeckBuilderRecord(previousState, 'Change undone.', 'muted', { skipUndo: true });
 }
 
-function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success', { skipUndo = false } = {}) {
+function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success', {
+  skipUndo = false,
+  skipFullRefresh = false,
+  persistDelayMs = null,
+} = {}) {
   const ownedDeck = applyDeckOwnership(nextDeck);
   if (!ownedDeck) {
     return;
@@ -6488,7 +6494,10 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
     ? existingDecks.map((deck) => (deck.id === normalizedDeck.id ? normalizedDeck : deck))
     : [...existingDecks, normalizedDeck];
 
-  saveDecks(nextDecks, { deferPersist: true });
+  saveDecks(nextDecks, {
+    deferPersist: true,
+    delay: Number.isFinite(Number(persistDelayMs)) ? Number(persistDelayMs) : DECKS_PERSIST_DEBOUNCE_MS,
+  });
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
 
@@ -6499,6 +6508,11 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
   updateDeckBuilderUndoButton();
+  if (skipFullRefresh && deckBuilderPage) {
+    renderDeckBuilderPage();
+    return;
+  }
+
   refresh();
 }
 
@@ -7119,7 +7133,9 @@ function updateDeckBuilderTokenQuantity(cardId, delta) {
   persistDeckBuilderRecord({
     ...deck,
     tokens: nextTokens,
-  }, delta < 0 ? 'Token quantity decreased.' : 'Token quantity increased.');
+  }, delta < 0 ? 'Token quantity decreased.' : 'Token quantity increased.', 'success', {
+    persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+  });
 }
 
 function removeDeckBuilderCard(cardId, { isCommander = false, isSecondCommander = false } = {}) {
@@ -7145,12 +7161,17 @@ function removeDeckBuilderCard(cardId, { isCommander = false, isSecondCommander 
     return;
   }
 
+  const removedMainDeckCard = (deck.cards || []).find((card) => card.id === cardId) || null;
+  const useRapidDelay = Boolean(removedMainDeckCard && allowsMultipleCopies(removedMainDeckCard));
+
   persistDeckBuilderRecord({
     ...deck,
     cards: deck.cards.filter((card) => card.id !== cardId),
     maybeboard: (deck.maybeboard || []).filter((card) => card.id !== cardId),
     tokens: (deck.tokens || []).filter((card) => card.id !== cardId),
-  }, 'Card removed.', 'neutral');
+  }, 'Card removed.', 'neutral', useRapidDelay
+    ? { persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS }
+    : undefined);
 }
 
 async function fetchDeckSearchResultsList(query) {
@@ -9367,11 +9388,12 @@ function renderUnlimitedCopyCardRow(name, cards) {
   const typeLine = cards[0]?.typeLine || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
-  const artButton = sampleId
+  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || deckBuilderArtPickerCardId === sampleId);
+  const artButton = sampleId && isExpanded
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
     : '';
   return `
-    <div class="deck-card-row deck-card-row-basic-land">
+    <div class="deck-card-row deck-card-row-basic-land${isExpanded ? ' is-selected' : ''}" data-card-id="${escapeHtml(sampleId)}" data-card-name="${escapeHtml(name)}">
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(name)}</p>
         ${typeLine ? `<p class="deck-card-meta">${escapeHtml(typeLine)}</p>` : ''}
@@ -9390,11 +9412,12 @@ function renderBasicLandRow(name, cards) {
   const sampleId = cards[0]?.id || '';
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
-  const artButton = sampleId
+  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || deckBuilderArtPickerCardId === sampleId);
+  const artButton = sampleId && isExpanded
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
     : '';
   return `
-    <div class="deck-card-row deck-card-row-basic-land" data-basic-land-name="${escapeHtml(name)}">
+    <div class="deck-card-row deck-card-row-basic-land${isExpanded ? ' is-selected' : ''}" data-basic-land-name="${escapeHtml(name)}" data-card-id="${escapeHtml(sampleId)}" data-card-name="${escapeHtml(name)}">
       <div class="deck-card-row-copy">
         <p class="deck-card-name">${escapeHtml(name)}</p>
         <p class="deck-card-meta">Basic Land</p>
@@ -9426,7 +9449,10 @@ async function addUnlimitedCopyCardToDeck(cardName) {
     }
   }
   if (!card) { setDeckBuilderSaveStatus(`Could not find ${cardName}.`, 'error'); return; }
-  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${cardName} added.`);
+  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${cardName} added.`, 'success', {
+    skipFullRefresh: true,
+    persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+  });
 }
 
 async function addBasicLandToDeck(landName) {
@@ -9442,7 +9468,10 @@ async function addBasicLandToDeck(landName) {
     }
   }
   if (!card) { setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error'); return; }
-  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${landName} added.`);
+  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${landName} added.`, 'success', {
+    skipFullRefresh: true,
+    persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+  });
 }
 
 function renderDeckCardRow(card, options = {}) {
@@ -12998,6 +13027,32 @@ if (deckBuilderDiscardButton) {
 if (deckBuilderUndoButton) {
   deckBuilderUndoButton.addEventListener('click', async () => {
     await undoDeckBuilderChange();
+  });
+}
+
+if (deckBuilderBackToDecksLink) {
+  deckBuilderBackToDecksLink.addEventListener('click', async (event) => {
+    event.preventDefault();
+
+    // Force-save local changes and attempt an immediate cloud push before leaving.
+    flushQueuedDeckPersist();
+    if (syncQueueTimer) {
+      clearTimeout(syncQueueTimer);
+      syncQueueTimer = null;
+    }
+
+    if (hasSyncCredentials() && !syncConflictInfo) {
+      try {
+        await Promise.race([
+          pushCloudState(),
+          new Promise((resolve) => setTimeout(resolve, 1200)),
+        ]);
+      } catch (error) {
+        // Navigation should still proceed; sync can retry later.
+      }
+    }
+
+    window.location.href = deckBuilderBackToDecksLink.getAttribute('href') || 'decklists.html';
   });
 }
 
