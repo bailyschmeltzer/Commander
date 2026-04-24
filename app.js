@@ -19,6 +19,8 @@ const DECK_CARD_ENDPOINT = '/api/deck-card';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
+const DECKS_PERSIST_DEBOUNCE_MS = 180;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -305,6 +307,8 @@ let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
 let liveMeasurementTimerId = null;
+let activeGamePersistTimer = null;
+let decksPersistTimer = null;
 const derivedGamesCache = new WeakMap();
 
 const DEFAULT_RECORD_DEFINITIONS = [
@@ -1457,6 +1461,11 @@ function saveUndoSnapshot() {
 }
 
 function persistActiveGameState(state) {
+  if (activeGamePersistTimer) {
+    clearTimeout(activeGamePersistTimer);
+    activeGamePersistTimer = null;
+  }
+
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
   if (!normalizedState) {
@@ -1465,6 +1474,42 @@ function persistActiveGameState(state) {
   }
 
   writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState));
+}
+
+function queueActiveGameStatePersist(state, delay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS) {
+  const normalizedState = normalizeActiveGameStateData(state);
+  activeGameState = normalizedState;
+
+  if (activeGamePersistTimer) {
+    clearTimeout(activeGamePersistTimer);
+    activeGamePersistTimer = null;
+  }
+
+  if (!normalizedState) {
+    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
+    return;
+  }
+
+  activeGamePersistTimer = setTimeout(() => {
+    activeGamePersistTimer = null;
+    writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(activeGameState));
+  }, delay);
+}
+
+function flushQueuedActiveGamePersist() {
+  if (!activeGamePersistTimer) {
+    return;
+  }
+
+  clearTimeout(activeGamePersistTimer);
+  activeGamePersistTimer = null;
+
+  if (!activeGameState) {
+    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
+    return;
+  }
+
+  writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(activeGameState));
 }
 
 function getSyncCredentials() {
@@ -2273,11 +2318,42 @@ function saveDeckLists(deckLists) {
   queueCloudSync();
 }
 
-function saveDecks(decks) {
+function saveDecks(decks, options = {}) {
+  const { deferPersist = false, delay = DECKS_PERSIST_DEBOUNCE_MS } = options;
   appState = normalizeAppStateData({
     ...appState,
     decks: Array.isArray(decks) ? decks : [],
   });
+
+  if (!deferPersist) {
+    if (decksPersistTimer) {
+      clearTimeout(decksPersistTimer);
+      decksPersistTimer = null;
+    }
+
+    persistLocalState(appState);
+    queueCloudSync();
+    return;
+  }
+
+  if (decksPersistTimer) {
+    clearTimeout(decksPersistTimer);
+  }
+
+  decksPersistTimer = setTimeout(() => {
+    decksPersistTimer = null;
+    persistLocalState(appState);
+    queueCloudSync();
+  }, delay);
+}
+
+function flushQueuedDeckPersist() {
+  if (!decksPersistTimer) {
+    return;
+  }
+
+  clearTimeout(decksPersistTimer);
+  decksPersistTimer = null;
   persistLocalState(appState);
   queueCloudSync();
 }
@@ -2832,6 +2908,8 @@ function stopLiveHoldRepeat() {
     clearInterval(liveHoldIntervalId);
     liveHoldIntervalId = null;
   }
+
+  flushQueuedActiveGamePersist();
 }
 
 function startLiveHoldRepeat(button) {
@@ -3739,7 +3817,7 @@ async function applyQuickLifeChange(playerId, delta) {
     if (alivePlayers.length === 1) {
       alivePlayers[0].place = 1;
     }
-    persistActiveGameState(activeGameState);
+    queueActiveGameStatePersist(activeGameState);
     refreshLiveTrackerUi();
     if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
       title: 'Finish game?',
@@ -3790,7 +3868,7 @@ async function applyQuickLifeChange(playerId, delta) {
     alivePlayers[0].place = 1;
   }
 
-  persistActiveGameState(activeGameState);
+  queueActiveGameStatePersist(activeGameState);
   refreshLiveTrackerUi();
 
   if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
@@ -6410,7 +6488,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
     ? existingDecks.map((deck) => (deck.id === normalizedDeck.id ? normalizedDeck : deck))
     : [...existingDecks, normalizedDeck];
 
-  saveDecks(nextDecks);
+  saveDecks(nextDecks, { deferPersist: true });
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
 
@@ -13151,9 +13229,19 @@ window.addEventListener('offline', () => {
 });
 
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    flushQueuedActiveGamePersist();
+    flushQueuedDeckPersist();
+  }
+
   if (document.visibilityState === 'visible') {
     checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
   }
+});
+
+window.addEventListener('pagehide', () => {
+  flushQueuedActiveGamePersist();
+  flushQueuedDeckPersist();
 });
 
 window.addEventListener('focus', () => {
