@@ -9451,7 +9451,12 @@ async function addUnlimitedCopyCardToDeck(cardName) {
     }
   }
   if (!card) { setDeckBuilderSaveStatus(`Could not find ${cardName}.`, 'error'); return; }
-  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${cardName} added.`, 'success', {
+  const latestDeck = ensureActiveDeckBuilderRecord();
+  if (!latestDeck) {
+    return;
+  }
+
+  persistDeckBuilderRecord({ ...latestDeck, cards: [...latestDeck.cards, { ...card, id: generateId() }] }, `${cardName} added.`, 'success', {
     skipFullRefresh: true,
     persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
   });
@@ -9470,7 +9475,12 @@ async function addBasicLandToDeck(landName) {
     }
   }
   if (!card) { setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error'); return; }
-  persistDeckBuilderRecord({ ...deck, cards: [...deck.cards, { ...card, id: generateId() }] }, `${landName} added.`, 'success', {
+  const latestDeck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+  if (!latestDeck) {
+    return;
+  }
+
+  persistDeckBuilderRecord({ ...latestDeck, cards: [...latestDeck.cards, { ...card, id: generateId() }] }, `${landName} added.`, 'success', {
     skipFullRefresh: true,
     persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
   });
