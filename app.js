@@ -2325,13 +2325,15 @@ function saveDecks(decks, options = {}) {
     decks: Array.isArray(decks) ? decks : [],
   });
 
+  // Keep local state immediately consistent so rapid UI actions never snap back.
+  persistLocalState(appState);
+
   if (!deferPersist) {
     if (decksPersistTimer) {
       clearTimeout(decksPersistTimer);
       decksPersistTimer = null;
     }
 
-    persistLocalState(appState);
     queueCloudSync();
     return;
   }
@@ -2342,7 +2344,6 @@ function saveDecks(decks, options = {}) {
 
   decksPersistTimer = setTimeout(() => {
     decksPersistTimer = null;
-    persistLocalState(appState);
     queueCloudSync();
   }, delay);
 }
@@ -2354,7 +2355,6 @@ function flushQueuedDeckPersist() {
 
   clearTimeout(decksPersistTimer);
   decksPersistTimer = null;
-  persistLocalState(appState);
   queueCloudSync();
 }
 
