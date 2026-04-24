@@ -20,7 +20,7 @@ const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
-const DECKS_PERSIST_DEBOUNCE_MS = 260;
+const DECKS_PERSIST_DEBOUNCE_MS = 1000;
 const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 1000;
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
@@ -2327,15 +2327,13 @@ function saveDecks(decks, options = {}) {
     decks: Array.isArray(decks) ? decks : [],
   });
 
-  // Keep local state immediately consistent so rapid UI actions never snap back.
-  persistLocalState(appState);
-
   if (!deferPersist) {
     if (decksPersistTimer) {
       clearTimeout(decksPersistTimer);
       decksPersistTimer = null;
     }
 
+    persistLocalState(appState);
     queueCloudSync();
     return;
   }
@@ -2346,18 +2344,22 @@ function saveDecks(decks, options = {}) {
 
   decksPersistTimer = setTimeout(() => {
     decksPersistTimer = null;
-    queueCloudSync();
+    persistLocalState(appState);
+    queueCloudSync(0);
   }, delay);
 }
 
-function flushQueuedDeckPersist() {
-  if (!decksPersistTimer) {
+function flushQueuedDeckPersist({ force = false } = {}) {
+  if (!decksPersistTimer && !force) {
     return;
   }
 
-  clearTimeout(decksPersistTimer);
+  if (decksPersistTimer) {
+    clearTimeout(decksPersistTimer);
+  }
   decksPersistTimer = null;
-  queueCloudSync();
+  persistLocalState(appState);
+  queueCloudSync(0);
 }
 
 function normalizeList(value) {
@@ -13035,7 +13037,7 @@ if (deckBuilderBackToDecksLink) {
     event.preventDefault();
 
     // Force-save local changes and attempt an immediate cloud push before leaving.
-    flushQueuedDeckPersist();
+    flushQueuedDeckPersist({ force: true });
     if (syncQueueTimer) {
       clearTimeout(syncQueueTimer);
       syncQueueTimer = null;
@@ -13335,7 +13337,6 @@ window.addEventListener('offline', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushQueuedActiveGamePersist();
-    flushQueuedDeckPersist();
   }
 
   if (document.visibilityState === 'visible') {
@@ -13345,7 +13346,6 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('pagehide', () => {
   flushQueuedActiveGamePersist();
-  flushQueuedDeckPersist();
 });
 
 window.addEventListener('focus', () => {
