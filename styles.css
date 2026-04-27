@@ -3246,7 +3246,7 @@ button[type="submit"] {
     grid-template-rows: minmax(0, 0.78fr) minmax(0, 1.22fr);
     grid-template-areas:
       "seat1 seat1"
-      "seat2 seat3";
+      "seat3 seat2";
     gap: 6px;
     height: 100dvh;
     margin: 0;
@@ -3423,6 +3423,10 @@ button[type="submit"] {
   .page-live-game.live-table-mode.live-table-mode-3 .live-seat-1 .live-player-card-body {
     transform: rotate(180deg);
     transform-origin: center;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-3 .live-seat-2 .live-player-card-topline {
+    flex-direction: row-reverse;
   }
 
   .page-live-game.live-table-mode .live-player-life {
