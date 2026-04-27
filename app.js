@@ -3073,6 +3073,9 @@ function renderLiveOrderPreview() {
   }
 
   const rows = getLiveSetupRows();
+  if (liveStartingLifeInput) {
+    liveStartingLifeInput.value = rows.length === 2 ? '30' : '40';
+  }
   if (!rows.length) {
     liveOrderPreview.textContent = 'Add players to preview the randomized turn order.';
     return;
@@ -3585,7 +3588,8 @@ async function startLiveGame() {
     return;
   }
 
-  const startingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
+  const requestedStartingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
+  const startingLife = players.length === 2 ? 30 : requestedStartingLife;
   if (!startingLife || startingLife < 1) {
     await promptLiveAlert('Enter a valid starting life total.', 'Unable to start game');
     return;

@@ -3128,6 +3128,12 @@ button[type="submit"] {
     justify-items: end;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-2 .live-active-actions {
+    left: auto;
+    right: 12px;
+    justify-items: end;
+  }
+
   .page-live-game.live-table-mode .live-actions-toggle {
     display: inline-flex;
     align-items: center;
