@@ -3222,6 +3222,32 @@ button[type="submit"] {
     align-content: stretch;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-2 .live-player-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "seat1"
+      "seat2";
+    gap: 6px;
+    height: 100dvh;
+    margin: 0;
+    padding: 6px 6px 74px;
+    align-content: stretch;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-3 .live-player-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "seat1 seat1"
+      "seat2 seat3";
+    gap: 6px;
+    height: 100dvh;
+    margin: 0;
+    padding: 6px 6px 74px;
+    align-content: stretch;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: minmax(0, 1.12fr) minmax(0, 1.12fr) minmax(0, 0.7fr);
@@ -3284,6 +3310,16 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-2 .live-player-card-body,
+  .page-live-game.live-table-mode.live-table-mode-3 .live-player-card-body {
+    top: 0;
+    left: 0;
+    width: calc(var(--live-card-width, 0px) - 16px);
+    height: calc(var(--live-card-height, 0px) - 16px);
+    transform: none;
+    transform-origin: top left;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-4 .live-orientation-1 {
     top: 0;
     left: var(--live-card-width, 0px);
@@ -3329,6 +3365,16 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-2 .live-orientation-up,
+  .page-live-game.live-table-mode.live-table-mode-3 .live-orientation-up {
+    top: 0;
+    left: 0;
+    width: calc(var(--live-card-width, 0px) - 16px);
+    height: calc(var(--live-card-height, 0px) - 16px);
+    transform: none;
+    transform-origin: top left;
+  }
+
   .page-live-game.live-table-mode .live-player-life {
     font-size: clamp(8.5rem, 32vw, 13rem);
     text-align: center;
@@ -3342,6 +3388,16 @@ button[type="submit"] {
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-life,
   .page-live-game.live-table-mode.live-table-mode-5 .live-player-life-button {
     font-size: clamp(5.2rem, 18vw, 8rem);
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-2 .live-player-life,
+  .page-live-game.live-table-mode.live-table-mode-2 .live-player-life-button {
+    font-size: clamp(6.8rem, 22vw, 10rem);
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-3 .live-player-life,
+  .page-live-game.live-table-mode.live-table-mode-3 .live-player-life-button {
+    font-size: clamp(5.4rem, 17vw, 8.5rem);
   }
 
   .page-live-game.live-table-mode.live-table-mode-5 .live-seat-3 .live-player-life,

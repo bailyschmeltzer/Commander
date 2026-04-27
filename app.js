@@ -2375,7 +2375,7 @@ function getLiveMobileTablePlayerCount(activeGame = activeGameState) {
   }
 
   const playerCount = (activeGame.players || []).length;
-  return playerCount === 4 || playerCount === 5 ? playerCount : 0;
+  return playerCount >= 2 && playerCount <= 5 ? playerCount : 0;
 }
 
 function isLiveMobileTableMode() {
@@ -2385,12 +2385,21 @@ function isLiveMobileTableMode() {
 function updateLiveTableModeClass() {
   const mobileTablePlayerCount = getLiveMobileTablePlayerCount();
   document.body.classList.toggle('live-table-mode', mobileTablePlayerCount > 0);
+  document.body.classList.toggle('live-table-mode-2', mobileTablePlayerCount === 2);
+  document.body.classList.toggle('live-table-mode-3', mobileTablePlayerCount === 3);
   document.body.classList.toggle('live-table-mode-4', mobileTablePlayerCount === 4);
   document.body.classList.toggle('live-table-mode-5', mobileTablePlayerCount === 5);
 }
 
 function getLiveMobileSeatLayout(player, playerCount = getLiveMobileTablePlayerCount()) {
   const seat = Number.parseInt(`${player?.seat || 0}`, 10);
+  if (playerCount === 2 || playerCount === 3) {
+    return {
+      seatClass: `live-seat-${seat}`,
+      orientationClass: 'live-orientation-up',
+    };
+  }
+
   if (playerCount === 5) {
     const orientationBySeat = {
       1: 'right',
