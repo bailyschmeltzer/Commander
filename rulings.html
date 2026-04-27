@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- Page metadata and shared assets. -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,6 +17,7 @@
   </head>
   <body class="page-rulings">
     <div class="app-shell">
+      <!-- Page title and global navigation. -->
       <header>
         <h1>Card Rulings</h1>
         <p>Search any Magic card to see its official rulings from Wizards of the Coast.</p>
@@ -45,6 +47,7 @@
         </nav>
       </header>
 
+      <!-- Primary page content. -->
       <main>
         <section class="card">
           <form id="rulings-form" class="rulings-search-form" autocomplete="off">
@@ -84,6 +87,7 @@
       </main>
     </div>
 
+    <!-- Page-specific rulings lookup logic. -->
     <script>
       function escapeHtml(str) {
         return String(str || '')

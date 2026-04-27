@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- Page metadata and shared assets. -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,6 +17,7 @@
   </head>
   <body class="page-live-game">
     <div class="app-shell">
+      <!-- Page title, sync controls, and global navigation. -->
       <header>
         <h1>Live Game Tracker</h1>
         <p>Start a pod, randomize first play, track life and eliminations, then save a full game summary automatically.</p>
@@ -55,6 +57,7 @@
         </nav>
       </header>
 
+      <!-- Primary page content. -->
       <main>
         <section class="card">
           <h2>Setup</h2>
@@ -139,6 +142,7 @@
           </button>
         </div>
 
+        <!-- Source-selection modal for live game interactions. -->
         <div id="live-source-prompt" class="live-source-prompt" hidden>
           <div class="live-source-dialog" role="dialog" aria-modal="true" aria-labelledby="live-source-title" aria-describedby="live-source-copy">
             <h3 id="live-source-title">Select source</h3>
@@ -150,6 +154,7 @@
           </div>
         </div>
 
+        <!-- Shared confirmation modal used by app.js prompts. -->
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
           <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">
             <h3 id="live-modal-title">Confirm action</h3>
@@ -168,6 +173,7 @@
       </main>
     </div>
 
+    <!-- Shared application logic. -->
     <script src="app.js"></script>
   </body>
 </html>

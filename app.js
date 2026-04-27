@@ -1,3 +1,4 @@
+// Storage keys, API endpoints, and app-level timing constants.
 const STORAGE_KEY = 'commanderTrackerGames';
 const EXPECTED_POWER_STORAGE_KEY = 'commanderExpectedPowerLevels';
 const DECK_LIST_STORAGE_KEY = 'commanderDeckLists';
@@ -22,6 +23,8 @@ const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
 const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 1000;
+
+// Cached DOM references used across all pages.
 const form = document.getElementById('game-form');
 const dateInput = document.getElementById('game-date');
 const playerTableBody = document.getElementById('player-table-body');
@@ -173,6 +176,8 @@ const pageSwitch = document.querySelector('.page-switch');
 const pageSwitchToggleButton = document.querySelector('.page-switch-toggle');
 const pageSwitchPanel = document.querySelector('.page-switch-panel');
 
+// Accessibility roles for dynamic status regions.
+
 if (syncStatus) {
   syncStatus.setAttribute('role', 'status');
   syncStatus.setAttribute('aria-live', 'polite');
@@ -208,6 +213,8 @@ if (deckBuilderTokenSearchStatus) {
   deckBuilderTokenSearchStatus.setAttribute('role', 'status');
   deckBuilderTokenSearchStatus.setAttribute('aria-live', 'polite');
 }
+
+// In-memory runtime state and UI sort/filter state.
 
 let historySortKey = 'date';
 let historySortDescending = true;
@@ -313,6 +320,8 @@ const COMMANDER_BUILDER_COLOR_OPTIONS = [
   { code: 'R', label: 'Red' },
   { code: 'G', label: 'Green' },
 ];
+
+// Generic utility helpers shared throughout the app.
 
 function parseJsonSafe(value, fallback) {
   try {

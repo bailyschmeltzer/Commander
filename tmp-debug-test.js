@@ -1,3 +1,4 @@
+// Identity normalization and matching helpers used for ad-hoc debugging.
 const normalizeIdentityLabel = (value) => String(value || '')
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')

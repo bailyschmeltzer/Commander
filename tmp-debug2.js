@@ -1,3 +1,4 @@
+// Identity normalization and display-scoring helpers for debugging.
 const normalizeIdentityLabel = (value) => String(value || '')
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')

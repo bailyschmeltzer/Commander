@@ -1,3 +1,4 @@
+// HTTP/CORS and cache configuration for the Cloudflare Worker.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, PUT, OPTIONS',
@@ -8,6 +9,8 @@ const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
+
+// Response and normalization helpers.
 
 function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -68,6 +71,8 @@ function getCardImageVariant(card, size) {
 function buildCommanderSearchQuery(identity) {
   return `game:paper is:commander id=${identity}`;
 }
+
+// Card mapping helpers used by deck search, card detail, and commander endpoints.
 
 function getDeckLookupKey(value) {
   return getTextValue(value)
@@ -252,6 +257,8 @@ function getRetryAfterSeconds(response) {
   const retryAfter = Number.parseInt(String(response.headers.get('Retry-After') || '').trim(), 10);
   return Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
 }
+
+// Scryfall fetch and cache orchestration.
 
 async function fetchDeckSearchResults(query) {
   const cacheKey = getTextValue(query).toLowerCase();

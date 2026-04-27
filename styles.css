@@ -1,3 +1,4 @@
+/* Global base styles and design tokens. */
 :root {
   color-scheme: light;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -13,6 +14,8 @@ body {
   margin: 0;
   min-height: 100vh;
 }
+
+/* App shell and shared header layout. */
 
 .app-shell {
   width: 100%;
@@ -63,6 +66,8 @@ header p {
   margin-top: 8px;
   font-size: 0.86rem;
 }
+
+/* Global page switch navigation. */
 
 .page-switch {
   position: relative;
