@@ -3183,6 +3183,13 @@ button[type="submit"] {
     z-index: 4200;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-3 .live-turn-tracker {
+    bottom: auto;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) rotate(180deg);
+  }
+
   .live-turn-button {
     display: flex;
     flex-direction: column;
