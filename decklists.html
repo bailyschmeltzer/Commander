@@ -18,7 +18,7 @@
     <div class="app-shell">
       <header>
         <h1>Decks</h1>
-        <p>Open an existing deck, start a new one, and keep any reference deck links in one place.</p>
+        <p>Open an existing deck or start a new one in the builder.</p>
         <div class="sync-panel">
           <div class="sync-row">
             <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
@@ -86,81 +86,6 @@
                 </tr>
               </thead>
               <tbody id="deck-library-body"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Add or Edit Reference Deck URL</h2>
-          <p class="records-helper-text">These links still feed the deck selector page and can coexist with built decks.</p>
-          <form id="deck-list-form" autocomplete="off">
-            <div class="field">
-              <label for="deck-commander">Commander</label>
-              <div class="combined-input-wrapper">
-                <input id="deck-commander" class="lookup-input" type="text" list="commander-list" placeholder="Commander" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-                <button type="button" id="deck-commander-dropdown" class="dropdown-button" title="Show options">▼</button>
-                <div id="deck-commander-menu" class="dropdown-menu commander-dropdown-menu"></div>
-              </div>
-              <datalist id="commander-list"></datalist>
-            </div>
-
-            <div class="field">
-              <label for="deck-url">URL</label>
-              <input id="deck-url" type="url" placeholder="https://example.com/deck" required />
-            </div>
-
-            <div class="field">
-              <label for="deck-owner">Owner</label>
-              <div class="combined-input-wrapper">
-                <input id="deck-owner" class="lookup-input" type="text" list="player-list" placeholder="Who owns this deck?" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-                <button type="button" class="dropdown-button" title="Show players">▼</button>
-                <div id="deck-owner-menu" class="dropdown-menu"></div>
-              </div>
-              <datalist id="player-list"></datalist>
-            </div>
-
-            <div class="actions">
-              <button type="submit">Add deck list</button>
-              <button type="button" id="deck-list-cancel" class="secondary-button" hidden>Cancel edit</button>
-            </div>
-          </form>
-        </section>
-
-        <section class="card">
-          <h2>Find Reference Deck URL</h2>
-          <div class="field">
-            <label for="deck-lookup-commander">Commander</label>
-            <select id="deck-lookup-commander">
-              <option value="">Select a commander</option>
-            </select>
-          </div>
-          <div id="deck-lookup-result" class="deck-lookup-result">
-            <p>Select a commander to view its saved deck URL.</p>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Saved Reference Deck URLs</h2>
-          <div class="deck-filter-controls">
-            <div class="field">
-              <label for="deck-list-player-filter">Filter by player</label>
-              <select id="deck-list-player-filter">
-                <option value="">All players</option>
-              </select>
-            </div>
-            <button type="button" id="deck-list-player-filter-clear" class="secondary-button">Clear</button>
-          </div>
-          <div class="player-table-wrapper">
-            <table class="player-table deck-list-table" data-sort-table="deckLists">
-              <thead>
-                <tr>
-                  <th scope="col" class="sortable-header" data-column="commander" tabindex="0" aria-sort="none">Commander <span class="sort-indicator"></span></th>
-                  <th scope="col" class="sortable-header" data-column="owner" tabindex="0" aria-sort="none">Owner <span class="sort-indicator"></span></th>
-                  <th scope="col" class="sortable-header" data-column="url" tabindex="0" aria-sort="none">URL <span class="sort-indicator"></span></th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="deck-list-body"></tbody>
             </table>
           </div>
         </section>

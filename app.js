@@ -68,20 +68,6 @@ const commanderRenameStatus = document.getElementById('commander-rename-status')
 const commanderRenameDatalist = document.getElementById('commander-rename-list');
 const commanderRenameMenu = document.getElementById('commander-rename-menu');
 const removePlayerRowButton = document.getElementById('remove-player-row');
-const deckListForm = document.getElementById('deck-list-form');
-const deckCommanderInput = document.getElementById('deck-commander');
-const deckCommanderMenu = document.getElementById('deck-commander-menu');
-const deckCommanderDropdownButton = document.getElementById('deck-commander-dropdown');
-const deckOwnerInput = document.getElementById('deck-owner');
-const deckOwnerMenu = document.getElementById('deck-owner-menu');
-const deckUrlInput = document.getElementById('deck-url');
-const deckListTableBody = document.getElementById('deck-list-body');
-const deckListCancelButton = document.getElementById('deck-list-cancel');
-const deckListSubmitButton = document.querySelector('#deck-list-form button[type="submit"]');
-const deckListPlayerFilterSelect = document.getElementById('deck-list-player-filter');
-const deckListPlayerFilterClearButton = document.getElementById('deck-list-player-filter-clear');
-const deckLookupSelect = document.getElementById('deck-lookup-commander');
-const deckLookupResult = document.getElementById('deck-lookup-result');
 const deckLibraryCreateButton = document.getElementById('deck-library-create');
 const deckLibraryPlayerFilterSelect = document.getElementById('deck-library-player-filter');
 const deckLibraryPlayerFilterClearButton = document.getElementById('deck-library-player-filter-clear');
@@ -203,11 +189,6 @@ if (liveEventLog) {
   liveEventLog.setAttribute('aria-relevant', 'additions text');
 }
 
-if (deckLookupResult) {
-  deckLookupResult.setAttribute('role', 'status');
-  deckLookupResult.setAttribute('aria-live', 'polite');
-}
-
 if (commanderBuilderStatus) {
   commanderBuilderStatus.setAttribute('role', 'status');
   commanderBuilderStatus.setAttribute('aria-live', 'polite');
@@ -243,11 +224,9 @@ const tableSortState = {
   recentCommanderTrends: { column: 'points', descending: true },
   playerStreaks: { column: 'currentWins', descending: true },
   commanderStreaks: { column: 'currentWins', descending: true },
-  deckLists: { column: 'commander', descending: false },
   decks: { column: 'updatedAt', descending: true },
 };
 let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [] };
-let editingDeckListId = null;
 let syncQueueTimer = null;
 let syncRetryTimer = null;
 let syncInFlight = false;
@@ -291,7 +270,6 @@ let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], messa
 let deckBuilderCommanderPrefill = '';
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
-let deckListPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -1557,7 +1535,6 @@ function updateSyncAuthenticatedUser(auth = null) {
 function clearSyncAuthenticatedUser() {
   updateSyncAuthenticatedUser(null);
   deckLibraryPlayerFilterDefaulted = false;
-  deckListPlayerFilterDefaulted = false;
   historyPlayerFilterDefaulted = false;
 }
 
@@ -2240,10 +2217,6 @@ function getTableSortDefaultDescending(tableKey, column) {
     return true;
   }
 
-  if (tableKey === 'deckLists') {
-    return false;
-  }
-
   return !ascendingColumns.has(column);
 }
 
@@ -2264,9 +2237,6 @@ function rerenderSortedTable(tableKey) {
     case 'playerStreaks':
     case 'commanderStreaks':
       renderRankingsPage(games);
-      break;
-    case 'deckLists':
-      renderDeckLists();
       break;
     default:
       break;
@@ -5550,7 +5520,6 @@ function updateFormDatalists(games) {
 
   refreshRowSelectors();
   attachLookupWrapperHandlers(form || document);
-  populateDeckCommanderSelector();
   populateDeckBuilderLookupMenus();
   populateRecordLookupMenus();
 }
@@ -5713,64 +5682,6 @@ function getNormalizedDeckUrl(url) {
   }
 }
 
-function getDeckListValidationSummary(deckLists, { commander, commanderOracleId = '', owner, url, editingDeckListId = '' }) {
-  const normalizedCommander = normalizeIdentityLabel(commander);
-  const normalizedCommanderOracleId = String(commanderOracleId || '').trim();
-  const normalizedOwner = normalizeIdentityLabel(owner);
-  const normalizedCommanderKey = getCommanderEquivalenceKey({
-    name: normalizedCommander,
-    oracleId: normalizedCommanderOracleId,
-  });
-  const normalizedOwnerKey = getIdentityKey(normalizedOwner);
-  const urlResult = getNormalizedDeckUrl(url);
-  if (urlResult.error) {
-    return { error: urlResult.error };
-  }
-
-  if (!normalizedCommander) {
-    return { error: 'Please choose or enter a commander.' };
-  }
-
-  if (!normalizedOwner) {
-    return { error: 'Please enter the deck owner.' };
-  }
-
-  const hostname = new URL(urlResult.value).hostname.toLowerCase();
-  const duplicateCommanderEntry = deckLists.find((entry) => {
-    if (editingDeckListId && entry.id === editingDeckListId) {
-      return false;
-    }
-    const entryCommanderKey = getCommanderEquivalenceKey({
-      name: entry.commander,
-      oracleId: entry.commanderOracleId,
-    });
-    return entryCommanderKey === normalizedCommanderKey;
-  }) || null;
-  const duplicateUrlEntry = deckLists.find((entry) => {
-    if (editingDeckListId && entry.id === editingDeckListId) {
-      return false;
-    }
-    return entry.url === urlResult.value;
-  }) || null;
-  const ownerMismatch = duplicateUrlEntry && getIdentityKey(duplicateUrlEntry.owner) !== normalizedOwnerKey;
-  const commanderMismatch = duplicateUrlEntry && getCommanderEquivalenceKey({
-    name: duplicateUrlEntry.commander,
-    oracleId: duplicateUrlEntry.commanderOracleId,
-  }) !== normalizedCommanderKey;
-
-  return {
-    commander: normalizedCommander,
-    commanderOracleId: normalizedCommanderOracleId,
-    owner: normalizedOwner,
-    url: urlResult.value,
-    duplicateCommanderEntry,
-    duplicateUrlEntry,
-    hostname,
-    needsHostConfirmation: !RECOGNIZED_DECK_HOSTS.has(hostname),
-    hasUrlConflict: Boolean(ownerMismatch || commanderMismatch),
-  };
-}
-
 function getChangedRecordTitlesAfterGameRemoval(gameId) {
   const currentGames = loadGames();
   const nextGames = currentGames.filter((game) => game.id !== gameId);
@@ -5843,36 +5754,6 @@ async function backfillDeckListCommanderOracleIds() {
   }
 }
 
-function applyDeckListOwnerFieldAccess() {
-  if (!deckOwnerInput) {
-    return;
-  }
-  const isAdmin = isCurrentSyncUserAdmin();
-  deckOwnerInput.disabled = !isAdmin;
-  const dropdownButton = deckOwnerInput.closest('.combined-input-wrapper')?.querySelector('.dropdown-button');
-  if (dropdownButton) {
-    dropdownButton.disabled = !isAdmin;
-  }
-}
-
-function populateDeckCommanderSelector() {
-  if (!deckCommanderMenu) {
-    if (deckOwnerMenu) {
-      buildDropdownMenu(deckOwnerMenu, knownPlayers);
-      attachLookupWrapperHandlers(deckListForm || document);
-    }
-    applyDeckListOwnerFieldAccess();
-    return;
-  }
-
-  buildDropdownMenu(deckCommanderMenu, knownCommanders);
-  if (deckOwnerMenu) {
-    buildDropdownMenu(deckOwnerMenu, knownPlayers);
-  }
-  attachLookupWrapperHandlers(deckListForm || document);
-  applyDeckListOwnerFieldAccess();
-}
-
 function populateDeckBuilderLookupMenus() {
   if (deckBuilderOwnerMenu) {
     buildDropdownMenu(deckBuilderOwnerMenu, knownPlayers);
@@ -5911,48 +5792,6 @@ function populateRecordLookupMenus() {
 
   attachLookupWrapperHandlers(recordsForm || document);
   attachLookupWrapperHandlers(customRecordForm || document);
-}
-
-function renderDeckLookup() {
-  if (!deckLookupSelect || !deckLookupResult) {
-    return;
-  }
-
-  const deckLists = getSortedDeckLists();
-  const selectedCommander = deckLookupSelect.value;
-
-  buildSelectOptions(
-    deckLookupSelect,
-    deckLists.map((entry) => entry.commander),
-    selectedCommander,
-    'Select a commander',
-  );
-
-  const activeCommander = deckLookupSelect.value;
-  if (!deckLists.length) {
-    deckLookupResult.innerHTML = '<p>No deck lists saved yet.</p>';
-    return;
-  }
-
-  if (!activeCommander) {
-    deckLookupResult.innerHTML = '<p>Select a commander to view its saved deck URL.</p>';
-    return;
-  }
-
-  const selectedDeck = deckLists.find((entry) => entry.commander === activeCommander);
-  if (!selectedDeck) {
-    deckLookupResult.innerHTML = '<p>No saved URL found for that commander.</p>';
-    return;
-  }
-
-  const safeCommander = escapeHtml(selectedDeck.commander);
-  const safeUrl = escapeHtml(selectedDeck.url);
-  const safeOwner = escapeHtml(selectedDeck.owner || 'Unassigned');
-  deckLookupResult.innerHTML = `
-    <p class="deck-lookup-label">${safeCommander}</p>
-    <p>Owner: ${safeOwner}</p>
-    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${safeUrl}</a>
-  `;
 }
 
 function getDeckBuilderHref(deckId) {
@@ -10011,152 +9850,6 @@ function renderCommanderBuilder() {
   updateCommanderBuilderControls();
 }
 
-function resetDeckListForm() {
-  if (!deckListForm) {
-    return;
-  }
-
-  editingDeckListId = null;
-  deckListForm.reset();
-  if (deckListSubmitButton) {
-    deckListSubmitButton.textContent = 'Add deck list';
-  }
-  if (deckListCancelButton) {
-    deckListCancelButton.hidden = true;
-  }
-  if (deckOwnerInput && !isCurrentSyncUserAdmin()) {
-    deckOwnerInput.value = getCurrentSyncDisplayName();
-  }
-  applyDeckListOwnerFieldAccess();
-}
-
-function startDeckListEdit(deckId) {
-  if (!deckListForm) {
-    return;
-  }
-
-  const entry = loadDeckLists().find((deck) => deck.id === deckId);
-  if (!entry) {
-    return;
-  }
-
-  editingDeckListId = entry.id;
-  deckCommanderInput.value = entry.commander;
-  if (deckOwnerInput) {
-    deckOwnerInput.value = entry.owner || '';
-  }
-  deckUrlInput.value = entry.url;
-  applyDeckListOwnerFieldAccess();
-
-  if (deckListSubmitButton) {
-    deckListSubmitButton.textContent = 'Save deck list';
-  }
-  if (deckListCancelButton) {
-    deckListCancelButton.hidden = false;
-  }
-}
-
-function deleteDeckList(deckId) {
-  const remaining = loadDeckLists().filter((deck) => deck.id !== deckId);
-  saveDeckLists(remaining);
-
-  if (editingDeckListId === deckId) {
-    resetDeckListForm();
-  }
-
-  refresh();
-}
-
-function renderDeckLists() {
-  if (!deckListTableBody) {
-    return;
-  }
-
-  const sortState = getTableSort('deckLists', 'commander', false);
-  const sortedDeckLists = getSortedDeckLists()
-    .slice()
-    .sort((a, b) => {
-      let result = 0;
-      switch (sortState.column) {
-        case 'commander':
-          result = compareTextValues(a.commander, b.commander);
-          break;
-        case 'owner':
-          result = compareTextValues(a.owner, b.owner);
-          break;
-        case 'url':
-          result = compareTextValues(a.url, b.url);
-          break;
-        default:
-          result = compareTextValues(a.commander, b.commander);
-          break;
-      }
-
-      if (result === 0) {
-        result = compareTextValues(a.commander, b.commander);
-      }
-
-      return finalizeSortResult(result, sortState.descending);
-    });
-
-  const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
-  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
-  let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
-  if (!activeOwnerFilter && !deckListPlayerFilterDefaulted) {
-    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
-    if (displayName && ownerFilterOptions.includes(displayName)) {
-      activeOwnerFilter = displayName;
-      deckListPlayerFilterDefaulted = true;
-    }
-  }
-
-  if (deckListPlayerFilterSelect) {
-    buildSelectOptions(deckListPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
-  }
-
-  const deckLists = activeOwnerFilter
-    ? sortedDeckLists.filter((entry) => normalizeIdentityLabel(entry.owner || '') === activeOwnerFilter)
-    : sortedDeckLists;
-
-  if (!sortedDeckLists.length) {
-    deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists saved yet.</td></tr>';
-    updateSortableTableIndicators('deckLists');
-    return;
-  }
-
-  if (!deckLists.length) {
-    deckListTableBody.innerHTML = '<tr><td colspan="4">No deck lists found for that player.</td></tr>';
-    updateSortableTableIndicators('deckLists');
-    return;
-  }
-
-  const decks = loadDecks();
-
-  deckListTableBody.innerHTML = deckLists
-    .map((entry) => {
-      const safeCommander = escapeHtml(entry.commander);
-      const safeOwner = escapeHtml(entry.owner || '—');
-      const safeUrl = escapeHtml(entry.url);
-      const linkedDeckId = resolveLinkedDeckIdForDeckList(entry, decks);
-      return `
-        <tr>
-          <td>${safeCommander}</td>
-          <td>${safeOwner}</td>
-          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
-          <td>
-            <div class="deck-list-table-actions">
-              ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
-              <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
-              <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
-            </div>
-          </td>
-        </tr>`;
-    })
-    .join('');
-
-  updateSortableTableIndicators('deckLists');
-}
-
 function collectRecordsFromTable() {
   if (!recordsTableBody) {
     return loadRecords();
@@ -10229,41 +9922,6 @@ function renderRecords() {
     .join('');
 
   populateRecordLookupMenus();
-}
-
-async function handleDeckListTableAction(event) {
-  const button = event.target.closest('button');
-  if (!button || !deckListTableBody.contains(button)) {
-    return;
-  }
-
-  const deckId = button.dataset.id;
-  if (!deckId) {
-    return;
-  }
-
-  if (button.classList.contains('deck-list-open')) {
-    window.location.href = getDeckBuilderHref(deckId);
-    return;
-  }
-
-  if (button.classList.contains('deck-list-edit')) {
-    startDeckListEdit(deckId);
-    return;
-  }
-
-  if (button.classList.contains('deck-list-delete')) {
-    const entry = loadDeckLists().find((deck) => deck.id === deckId) || null;
-    const description = entry
-      ? `Delete the saved deck link for ${entry.commander}${entry.owner ? ` owned by ${entry.owner}` : ''}?`
-      : 'Delete this deck list? This removes the saved deck link immediately.';
-    if (await promptLiveConfirm(description, {
-      title: 'Delete deck list?',
-      confirmLabel: 'Delete deck list',
-    })) {
-      deleteDeckList(deckId);
-    }
-  }
 }
 
 function getGameWinner(game) {
@@ -12120,8 +11778,6 @@ function refresh() {
   renderHistory(games);
   renderCommanderStats(games);
   renderDeckLibrary();
-  renderDeckLookup();
-  renderDeckLists();
   renderDeckSelector();
   renderCommanderBuilder();
   renderDeckBuilderPage();
@@ -12612,33 +12268,6 @@ if (commanderStatsTableBody) {
   commanderStatsTableBody.addEventListener('change', handleCommanderExpectedInput);
 }
 
-if (deckListTableBody) {
-  deckListTableBody.addEventListener('click', handleDeckListTableAction);
-}
-
-if (deckLookupSelect) {
-  deckLookupSelect.addEventListener('change', () => {
-    renderDeckLookup();
-  });
-}
-
-if (deckListPlayerFilterSelect) {
-  deckListPlayerFilterSelect.addEventListener('change', () => {
-    renderDeckLists();
-    applyResponsiveTableLabels();
-  });
-}
-
-if (deckListPlayerFilterClearButton) {
-  deckListPlayerFilterClearButton.addEventListener('click', () => {
-    if (deckListPlayerFilterSelect) {
-      deckListPlayerFilterSelect.value = '';
-    }
-    renderDeckLists();
-    applyResponsiveTableLabels();
-  });
-}
-
 if (deckLibraryCreateButton) {
   deckLibraryCreateButton.addEventListener('click', () => {
     window.location.href = 'deckbuilder.html?new=1';
@@ -12680,12 +12309,6 @@ if (deckLibraryTableBody) {
         await deleteDeckRecord(deckId);
       }
     }
-  });
-}
-
-if (deckListCancelButton) {
-  deckListCancelButton.addEventListener('click', () => {
-    resetDeckListForm();
   });
 }
 
@@ -13086,120 +12709,6 @@ if (deckBuilderBackToDecksLink) {
     }
 
     window.location.href = deckBuilderBackToDecksLink.getAttribute('href') || 'decklists.html';
-  });
-}
-
-if (deckListForm && deckCommanderInput && deckUrlInput) {
-  deckListForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const deckLists = loadDeckLists()
-      .map(normalizeDeckListEntry)
-      .filter(Boolean);
-
-    let resolvedCommanderOracleId = '';
-    try {
-      const resolvedCommanderCard = await fetchDeckCardByName(deckCommanderInput.value);
-      resolvedCommanderOracleId = String(resolvedCommanderCard?.oracleId || '').trim();
-    } catch (error) {
-      // Commander text can still be saved even if lookup fails.
-    }
-
-    const validationSummary = getDeckListValidationSummary(deckLists, {
-      commander: deckCommanderInput.value,
-      commanderOracleId: resolvedCommanderOracleId,
-      owner: deckOwnerInput?.value || '',
-      url: deckUrlInput.value,
-      editingDeckListId,
-    });
-
-    if (validationSummary.error) {
-      await promptLiveAlert(validationSummary.error, 'Unable to save deck list');
-      return;
-    }
-
-    if (validationSummary.hasUrlConflict && !await promptLiveConfirm(
-      `This URL is already saved for ${validationSummary.duplicateUrlEntry.commander} owned by ${validationSummary.duplicateUrlEntry.owner}. Save it anyway?`,
-      {
-        title: 'Reuse saved URL?',
-        confirmLabel: 'Save anyway',
-      },
-    )) {
-      return;
-    }
-
-    if (validationSummary.needsHostConfirmation && !await promptLiveConfirm(
-      `${validationSummary.hostname} is not one of the common deck-list sites already used here. Save this link anyway?`,
-      {
-        title: 'Unknown deck host',
-        confirmLabel: 'Save link',
-      },
-    )) {
-      return;
-    }
-
-    const duplicateCommanderIndex = deckLists.findIndex((entry) => {
-      if (editingDeckListId && entry.id === editingDeckListId) {
-        return false;
-      }
-      return getCommanderEquivalenceKey({
-        name: entry.commander,
-        oracleId: entry.commanderOracleId,
-      }) === getCommanderEquivalenceKey({
-        name: validationSummary.commander,
-        oracleId: validationSummary.commanderOracleId,
-      });
-    });
-
-    if (editingDeckListId) {
-      const index = deckLists.findIndex((entry) => entry.id === editingDeckListId);
-      if (index >= 0) {
-        deckLists[index] = {
-          ...deckLists[index],
-          id: editingDeckListId,
-          commander: validationSummary.commander,
-          commanderOracleId: validationSummary.commanderOracleId,
-          owner: validationSummary.owner,
-          url: validationSummary.url,
-        };
-      } else {
-        deckLists.push({
-          id: generateId(),
-          commander: validationSummary.commander,
-          commanderOracleId: validationSummary.commanderOracleId,
-          owner: validationSummary.owner,
-          url: validationSummary.url,
-          deckId: '',
-        });
-      }
-
-      if (duplicateCommanderIndex >= 0) {
-        deckLists.splice(duplicateCommanderIndex, 1);
-      }
-    } else {
-      if (duplicateCommanderIndex >= 0) {
-        deckLists[duplicateCommanderIndex] = {
-          ...deckLists[duplicateCommanderIndex],
-          commander: validationSummary.commander,
-          commanderOracleId: validationSummary.commanderOracleId,
-          owner: validationSummary.owner,
-          url: validationSummary.url,
-        };
-      } else {
-        deckLists.push({
-          id: generateId(),
-          commander: validationSummary.commander,
-          commanderOracleId: validationSummary.commanderOracleId,
-          owner: validationSummary.owner,
-          url: validationSummary.url,
-          deckId: '',
-        });
-      }
-    }
-
-    saveDeckLists(deckLists);
-    resetDeckListForm();
-    refresh();
   });
 }
 
