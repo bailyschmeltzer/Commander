@@ -3243,7 +3243,7 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode.live-table-mode-3 .live-player-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.78fr) minmax(0, 1.22fr);
     grid-template-areas:
       "seat1 seat1"
       "seat2 seat3";
@@ -3316,7 +3316,15 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
-  .page-live-game.live-table-mode.live-table-mode-2 .live-player-card-body,
+  .page-live-game.live-table-mode.live-table-mode-2 .live-player-card-body {
+    top: 0;
+    left: 0;
+    width: calc(var(--live-card-width, 0px) - 16px);
+    height: calc(var(--live-card-height, 0px) - 16px);
+    transform: none;
+    transform-origin: top left;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-3 .live-player-card-body {
     top: 0;
     left: 0;
@@ -3371,7 +3379,15 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
-  .page-live-game.live-table-mode.live-table-mode-2 .live-orientation-up,
+  .page-live-game.live-table-mode.live-table-mode-2 .live-orientation-up {
+    top: 0;
+    left: 0;
+    width: calc(var(--live-card-width, 0px) - 16px);
+    height: calc(var(--live-card-height, 0px) - 16px);
+    transform: none;
+    transform-origin: top left;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-3 .live-orientation-up {
     top: 0;
     left: 0;
@@ -3381,7 +3397,30 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-3 .live-orientation-right {
+    top: 0;
+    left: var(--live-card-width, 0px);
+    width: calc(var(--live-card-height, 0px) - 16px);
+    height: calc(var(--live-card-width, 0px) - 16px);
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-3 .live-orientation-left {
+    top: var(--live-card-height, 0px);
+    left: 0;
+    width: calc(var(--live-card-height, 0px) - 16px);
+    height: calc(var(--live-card-width, 0px) - 16px);
+    transform: rotate(-90deg);
+    transform-origin: top left;
+  }
+
   .page-live-game.live-table-mode.live-table-mode-2 .live-seat-1 .live-player-card-body {
+    transform: rotate(180deg);
+    transform-origin: center;
+  }
+
+  .page-live-game.live-table-mode.live-table-mode-3 .live-seat-1 .live-player-card-body {
     transform: rotate(180deg);
     transform-origin: center;
   }

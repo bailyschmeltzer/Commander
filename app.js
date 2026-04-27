@@ -2393,10 +2393,23 @@ function updateLiveTableModeClass() {
 
 function getLiveMobileSeatLayout(player, playerCount = getLiveMobileTablePlayerCount()) {
   const seat = Number.parseInt(`${player?.seat || 0}`, 10);
-  if (playerCount === 2 || playerCount === 3) {
+  if (playerCount === 2) {
     return {
       seatClass: `live-seat-${seat}`,
       orientationClass: 'live-orientation-up',
+    };
+  }
+
+  if (playerCount === 3) {
+    const orientationBySeat = {
+      1: 'up',
+      2: 'right',
+      3: 'left',
+    };
+
+    return {
+      seatClass: `live-seat-${seat}`,
+      orientationClass: `live-orientation-${orientationBySeat[seat] || 'up'}`,
     };
   }
 
