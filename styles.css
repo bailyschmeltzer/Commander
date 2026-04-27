@@ -3375,6 +3375,11 @@ button[type="submit"] {
     transform-origin: top left;
   }
 
+  .page-live-game.live-table-mode.live-table-mode-2 .live-seat-1 .live-player-card-body {
+    transform: rotate(180deg);
+    transform-origin: center;
+  }
+
   .page-live-game.live-table-mode .live-player-life {
     font-size: clamp(8.5rem, 32vw, 13rem);
     text-align: center;
