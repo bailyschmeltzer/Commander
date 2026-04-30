@@ -3048,6 +3048,42 @@ function addLiveSetupRow(data = {}) {
   updateLiveSetupSeatLabels();
 }
 
+function prepareLiveRematchSetup(previousPlayers = []) {
+  if (!liveGamePlayerBody) {
+    return;
+  }
+
+  const rematchPlayers = previousPlayers
+    .slice()
+    .sort((firstPlayer, secondPlayer) => {
+      const firstSeat = Number.isFinite(firstPlayer?.seat) ? firstPlayer.seat : Number.MAX_SAFE_INTEGER;
+      const secondSeat = Number.isFinite(secondPlayer?.seat) ? secondPlayer.seat : Number.MAX_SAFE_INTEGER;
+      return firstSeat - secondSeat;
+    })
+    .map((player) => ({
+      player: player.name || '',
+      commander: '',
+    }))
+    .filter((player) => player.player);
+
+  if (!rematchPlayers.length) {
+    return;
+  }
+
+  liveGamePlayerBody.innerHTML = '';
+  rematchPlayers.forEach((player) => {
+    addLiveSetupRow(player);
+  });
+
+  liveSetupFirstPlayerId = null;
+  if (liveGameDateInput) {
+    liveGameDateInput.value = new Date().toISOString().slice(0, 10);
+  }
+  renderLiveOrderPreview();
+  liveGameForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  liveGamePlayerBody.querySelector('input[name="commander"]')?.focus();
+}
+
 function removeLiveSetupRow() {
   if (!liveGamePlayerBody) {
     return;
@@ -3582,6 +3618,38 @@ function initializePrimaryMenu() {
   });
 }
 
+function initializeLiveTrackerTouchGuards() {
+  if (!document.body.classList.contains('page-live-game')) {
+    return;
+  }
+
+  if (document.body.dataset.liveTouchGuardsInitialized === 'true') {
+    return;
+  }
+
+  document.body.dataset.liveTouchGuardsInitialized = 'true';
+  let lastTouchEndAt = 0;
+
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((eventName) => {
+    document.addEventListener(eventName, (event) => {
+      event.preventDefault();
+    }, { passive: false });
+  });
+
+  document.addEventListener('touchend', (event) => {
+    const touchTarget = event.target.closest?.('.live-player-grid, .live-active-actions, .live-source-dialog, .live-player-life-button, .live-quick-action, .live-tap-half, .live-life-split-half');
+    if (!touchTarget) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastTouchEndAt < 350) {
+      event.preventDefault();
+    }
+    lastTouchEndAt = now;
+  }, { passive: false });
+}
+
 async function startLiveGame() {
   const players = getLiveSetupRows();
   if (players.length < 2) {
@@ -4049,6 +4117,11 @@ async function completeActiveGame() {
     return;
   }
 
+  const rematchPlayers = activeGameState.players.map((player) => ({
+    name: player.name,
+    seat: player.seat,
+  }));
+
   if (!activeGameState.events.length && !await promptLiveConfirm('This live game has no recorded events yet. Save it anyway?', {
     title: 'Save empty live game?',
     confirmLabel: 'Save anyway',
@@ -4155,6 +4228,14 @@ async function completeActiveGame() {
   refresh();
   refreshLiveTrackerUi();
   await promptLiveAlert('Live game saved to history.', 'Game saved');
+
+  if (await promptLiveConfirm('Start a rematch with the same players in the same seats? You can pick new commanders before starting the next game.', {
+    title: 'Start rematch?',
+    confirmLabel: 'Set up rematch',
+    cancelLabel: 'Not now',
+  })) {
+    prepareLiveRematchSetup(rematchPlayers);
+  }
 }
 
 async function abandonActiveGame() {
@@ -13047,6 +13128,7 @@ async function initializeApp() {
   }
   hideLiveSourcePrompt();
   initializePrimaryMenu();
+  initializeLiveTrackerTouchGuards();
   setupSyncUi();
 
   // Capture before refresh() or replaceState can strip URL params.

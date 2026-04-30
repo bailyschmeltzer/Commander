@@ -2829,6 +2829,15 @@ button[type="submit"] {
   cursor: pointer;
 }
 
+.page-live-game,
+.page-live-game button,
+.page-live-game [role="button"],
+.page-live-game input,
+.page-live-game select,
+.page-live-game textarea {
+  touch-action: manipulation;
+}
+
 .live-player-life-button-standard {
   font: inherit;
   color: inherit;
