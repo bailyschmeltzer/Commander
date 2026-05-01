@@ -293,6 +293,8 @@ let liveModalConfig = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
+const LIVE_HOLD_REPEAT_START_DELAY_MS = 180;
+const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
 let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
@@ -2937,8 +2939,8 @@ function startLiveHoldRepeat(button) {
     applyQuickLifeChange(playerId, delta);
     liveHoldIntervalId = setInterval(() => {
       applyQuickLifeChange(playerId, delta);
-    }, 260);
-  }, 350);
+    }, LIVE_HOLD_REPEAT_INTERVAL_MS);
+  }, LIVE_HOLD_REPEAT_START_DELAY_MS);
 }
 
 function getLiveTrackedTurnNumber() {
@@ -3323,6 +3325,21 @@ function updateLivePlayerCardMeasurements() {
     window.clearTimeout(liveMeasurementTimerId);
   }
   liveMeasurementTimerId = window.setTimeout(measureCards, 120);
+}
+
+function stabilizeLiveTableModeLayout() {
+  if (!isLiveMobileTableMode()) {
+    return;
+  }
+
+  const syncLayout = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    updateLivePlayerCardMeasurements();
+  };
+
+  syncLayout();
+  requestAnimationFrame(syncLayout);
+  window.setTimeout(syncLayout, 180);
 }
 
 function renderLiveEventLog() {
@@ -3711,6 +3728,7 @@ async function startLiveGame() {
   });
   closeLiveActionsMenu();
   refreshLiveTrackerUi();
+  stabilizeLiveTableModeLayout();
   acquireWakeLock();
 }
 

@@ -2838,6 +2838,16 @@ button[type="submit"] {
   touch-action: manipulation;
 }
 
+.page-live-game .live-player-life-button,
+.page-live-game .live-quick-action,
+.page-live-game .live-tap-half,
+.page-live-game .live-life-split-half {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .live-player-life-button-standard {
   font: inherit;
   color: inherit;
