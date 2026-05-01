@@ -8229,10 +8229,11 @@ function renderDeckBuilderBreakdown(deck) {
   deckBuilderBreakdown.innerHTML = `
     <div class="deck-breakdown-grid">
       ${typeMarkup}
+      <div class="deck-builder-mana-curve-slot"></div>
       ${perfMarkup}
     </div>`;
   if (deckBuilderManaCurve) {
-    deckBuilderBreakdown.querySelector('.deck-breakdown-grid').appendChild(deckBuilderManaCurve);
+    deckBuilderBreakdown.querySelector('.deck-builder-mana-curve-slot').appendChild(deckBuilderManaCurve);
   }
 }
 
