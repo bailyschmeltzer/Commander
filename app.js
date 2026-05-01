@@ -2318,6 +2318,16 @@ function saveGames(games) {
   });
   appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
   persistLocalState(appState);
+
+  // Storage events do not fire in the same tab, so update the deck-builder
+  // performance panel immediately after game saves.
+  if (deckBuilderPage) {
+    const activeDeck = applyDeckBuilderDraftMeta(ensureActiveDeckBuilderRecord() || null);
+    if (activeDeck) {
+      renderDeckBuilderBreakdown(activeDeck);
+    }
+  }
+
   queueCloudSync();
 }
 
