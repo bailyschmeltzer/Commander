@@ -3121,8 +3121,8 @@ button[type="submit"] {
   .page-live-game.live-table-mode main,
   .page-live-game.live-table-mode #live-active-card {
     display: block;
-    height: 100dvh;
-    min-height: 100dvh;
+    height: var(--live-vh, 100dvh);
+    min-height: var(--live-vh, 100dvh);
     margin: 0;
     padding: 0;
     background: transparent;
@@ -3248,7 +3248,7 @@ button[type="submit"] {
       "seat1 seat2"
       "seat4 seat3";
     gap: 6px;
-    height: 100dvh;
+    height: var(--live-vh, 100dvh);
     margin: 0;
     padding: 6px 6px 74px;
     align-content: stretch;
@@ -3261,7 +3261,7 @@ button[type="submit"] {
       "seat1"
       "seat2";
     gap: 6px;
-    height: 100dvh;
+    height: var(--live-vh, 100dvh);
     margin: 0;
     padding: 6px 6px 74px;
     align-content: stretch;
@@ -3274,7 +3274,7 @@ button[type="submit"] {
       "seat1 seat1"
       "seat3 seat2";
     gap: 6px;
-    height: 100dvh;
+    height: var(--live-vh, 100dvh);
     margin: 0;
     padding: 6px 6px 74px;
     align-content: stretch;
@@ -3288,7 +3288,7 @@ button[type="submit"] {
       "seat1 seat2"
       "seat3 seat3";
     gap: 6px;
-    height: 100dvh;
+    height: var(--live-vh, 100dvh);
     margin: 0;
     padding: 6px 6px 74px;
     align-content: stretch;

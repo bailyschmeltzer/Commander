@@ -3335,16 +3335,29 @@ function updateLivePlayerCardMeasurements() {
   liveMeasurementTimerId = window.setTimeout(measureCards, 120);
 }
 
+function updateLiveViewportHeightVariable() {
+  if (!document.body.classList.contains('page-live-game')) {
+    return;
+  }
+
+  const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+  if (viewportHeight > 0) {
+    document.documentElement.style.setProperty('--live-vh', `${viewportHeight}px`);
+  }
+}
+
 function stabilizeLiveTableModeLayout() {
   if (!isLiveMobileTableMode()) {
     return;
   }
 
   const syncLayout = () => {
+    updateLiveViewportHeightVariable();
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    refreshLiveTrackerUi();
+    updateLiveTableModeClass();
+    updateLivePlayerCardMeasurements();
   };
 
   syncLayout();
@@ -3416,6 +3429,7 @@ function refreshLiveTrackerUi() {
   if (!liveSourcePromptResolver) {
     hideLiveSourcePrompt();
   }
+  updateLiveViewportHeightVariable();
   updateLiveTableModeClass();
   renderLiveOrderPreview();
   renderLiveGameStatus();
@@ -12988,6 +13002,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('resize', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
+  updateLiveViewportHeightVariable();
   refreshLiveTrackerUi();
 });
 
@@ -12995,15 +13010,18 @@ window.addEventListener('orientationchange', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
   window.setTimeout(() => {
+    updateLiveViewportHeightVariable();
     refreshLiveTrackerUi();
   }, 100);
 });
 
 window.addEventListener('load', () => {
+  updateLiveViewportHeightVariable();
   refreshLiveTrackerUi();
 });
 
 window.visualViewport?.addEventListener('resize', () => {
+  updateLiveViewportHeightVariable();
   refreshLiveTrackerUi();
 });
 
