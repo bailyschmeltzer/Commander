@@ -7256,7 +7256,7 @@ async function fetchDeckCardByName(name) {
     return deckBuilderCardCache.get(normalizedName);
   }
 
-  const response = await fetch(`${DECK_CARD_ENDPOINT}?name=${encodeURIComponent(name)}`, {
+  const response = await fetch(`${DECK_CARD_ENDPOINT}&name=${encodeURIComponent(name)}`, {
     cache: 'no-store',
   });
 
