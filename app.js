@@ -8174,40 +8174,7 @@ function renderDeckBuilderBreakdown(deck) {
     </div>`;
 
   // --- Mana curve ---
-  const cmcBuckets = [0, 1, 2, 3, 4, 5, 6, 7];
-  const cmcCounts = new Map(cmcBuckets.map((n) => [n, 0]));
-  [
-    ...(deck.commander ? [deck.commander] : []),
-    ...(deck.cards || []),
-  ]
-    .filter((card) => card.cardType !== 'Land')
-    .forEach((card) => {
-      const cmc = parseDeckCardCmc(card.manaCost);
-      const bucket = Math.min(cmc, 7);
-      cmcCounts.set(bucket, cmcCounts.get(bucket) + 1);
-    });
 
-  const maxCmcCount = Math.max(...cmcCounts.values(), 1);
-  const curveLabels = ['0', '1', '2', '3', '4', '5', '6', '7+'];
-
-  const curveCols = cmcBuckets.map((bucket, i) => {
-    const count = cmcCounts.get(bucket);
-    const barHeight = count === 0 ? 0 : Math.max(4, Math.round((count / maxCmcCount) * 80));
-    return `
-      <div class="deck-curve-col">
-        <div class="deck-curve-bar-wrap">
-          <span class="deck-curve-count">${count > 0 ? count : ''}</span>
-          <div class="deck-curve-bar" style="height:${barHeight}px"></div>
-        </div>
-        <div class="deck-curve-label">${escapeHtml(curveLabels[i])}</div>
-      </div>`;
-  }).join('');
-
-  const curveMarkup = `
-    <div class="deck-breakdown-section">
-      <h3>Mana Curve</h3>
-      <div class="deck-curve-chart">${curveCols}</div>
-    </div>`;
 
   // --- Performance ---
   let perfMarkup;
@@ -8267,7 +8234,6 @@ function renderDeckBuilderBreakdown(deck) {
   deckBuilderBreakdown.innerHTML = `
     <div class="deck-breakdown-grid">
       ${typeMarkup}
-      ${curveMarkup}
       ${perfMarkup}
     </div>`;
 }
