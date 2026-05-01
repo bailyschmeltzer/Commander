@@ -7718,7 +7718,7 @@ function getDeckCardManaValue(card) {
     return null;
   }
 
-  const manaCost = normalizedCard.manaCost || normalizedCard.cardFaces.find((face) => face?.manaCost)?.manaCost || '';
+  const manaCost = normalizedCard.manaCost || normalizedCard.cardFaces[0]?.manaCost || '';
   if (!manaCost) {
     return 0;
   }
@@ -13428,3 +13428,4 @@ async function initializeApp() {
 }
 
 initializeApp();
+
