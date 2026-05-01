@@ -8180,17 +8180,53 @@ function renderDeckBuilderBreakdown(deck) {
         <p class="status-muted">No games registered</p>
       </div>`;
   } else {
-    const commanderKey = getIdentityKey(deck.commander.name);
+    const commanderKeys = [
+      getIdentityKey(deck.commander?.name || ''),
+      getIdentityKey(deck.secondCommander?.name || ''),
+    ].filter(Boolean);
     const ownerKey = getIdentityKey(deck.owner || '');
+    const rowMatchesCommander = (rowCommander) => {
+      if (!commanderKeys.length) {
+        return false;
+      }
+
+      const rawCommander = String(rowCommander || '').trim();
+      if (!rawCommander) {
+        return false;
+      }
+
+      const directKey = getIdentityKey(rawCommander);
+      if (commanderKeys.includes(directKey)) {
+        return true;
+      }
+
+      const splitKeys = rawCommander
+        .split(/\s*(?:\/|\+|&|,|\||\band\b)\s*/i)
+        .map((value) => getIdentityKey(value))
+        .filter(Boolean);
+      if (!splitKeys.length) {
+        return false;
+      }
+
+      // For partner decks, prefer exact pair matches but still allow
+      // either partner name so older game rows remain visible.
+      if (commanderKeys.length > 1) {
+        return commanderKeys.every((key) => splitKeys.includes(key))
+          || commanderKeys.some((key) => splitKeys.includes(key));
+      }
+
+      return splitKeys.includes(commanderKeys[0]);
+    };
+
     const matchedRows = [];
     loadGames().forEach((game) => {
       const rows = getGameRows(game);
-      const row = rows.find((r) => {
-        const rCommanderKey = getIdentityKey(r.commander || '');
+      rows.forEach((r) => {
         const rPlayerKey = getIdentityKey(r.player || '');
-        return rCommanderKey === commanderKey && (!ownerKey || rPlayerKey === ownerKey);
+        if ((!ownerKey || rPlayerKey === ownerKey) && rowMatchesCommander(r.commander)) {
+          matchedRows.push(r);
+        }
       });
-      if (row) matchedRows.push(row);
     });
 
     if (!matchedRows.length) {
