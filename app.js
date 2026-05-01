@@ -2930,7 +2930,12 @@ function startLiveHoldRepeat(button, { applyInitialChange = false } = {}) {
   }
 
   if (delta < 0 && shouldPromptForSource(player, player.life + delta, 'life-loss')) {
-    return; // Don't hold-repeat while a source prompt would be needed
+    if (applyInitialChange) {
+      // Allow one immediate life-loss tap (which may prompt for source),
+      // but do not start hold-repeat while a source prompt is needed.
+      applyQuickLifeChange(playerId, delta);
+    }
+    return;
   }
 
   liveHoldRepeated = false;
