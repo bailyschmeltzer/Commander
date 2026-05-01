@@ -8373,6 +8373,15 @@ function queueDeckBuilderMetaSave() {
   const capturedOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
   const capturedPower = normalizeDeckPowerLevel(deckBuilderPowerInput?.value);
 
+  // Keep the performance panel in sync while typing, rather than waiting
+  // for the debounced persistence cycle to complete.
+  renderDeckBuilderBreakdown({
+    ...deck,
+    name: capturedName,
+    owner: capturedOwner,
+    powerLevel: capturedPower,
+  });
+
   if (deckBuilderSaveTimer) {
     clearTimeout(deckBuilderSaveTimer);
   }
