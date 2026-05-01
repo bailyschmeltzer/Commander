@@ -1254,40 +1254,6 @@ button[type="submit"] {
   list-style: none;
 }
 
-.deck-builder-mana-curve {
-  margin-top: 16px;
-}
-
-.deck-builder-mana-curve-card {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #dde3f2;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
-}
-
-.deck-builder-mana-curve-empty {
-  border-style: dashed;
-}
-
-.deck-builder-mana-curve-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.deck-builder-mana-curve-header h3,
-.deck-builder-mana-curve-header p {
-  margin: 0;
-}
-
-.deck-builder-mana-curve-header p {
-  color: #5d6884;
-  font-weight: 600;
-}
-
 .deck-builder-mana-curve-chart {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
@@ -4102,7 +4068,6 @@ button[type="submit"] {
 
   .page-deckbuilder .deck-builder-summary-row,
   .page-decklists .deck-library-header,
-  .page-deckbuilder .deck-builder-mana-curve-header,
   .page-deckbuilder .deck-builder-group-header,
   .page-deckbuilder .deck-card-row {
     flex-direction: column;

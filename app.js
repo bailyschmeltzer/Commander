@@ -7792,12 +7792,10 @@ function renderDeckBuilderManaCurve(deck) {
   const manaValues = [...groups.keys()].sort((first, second) => first - second);
   if (!manaValues.length) {
     deckBuilderManaCurve.innerHTML = `
-      <section class="deck-builder-mana-curve-card deck-builder-mana-curve-empty">
-        <div class="deck-builder-mana-curve-header">
-          <h3>Mana Curve</h3>
-          <p>Add nonland cards to see the curve.</p>
-        </div>
-      </section>`;
+      <div class="deck-breakdown-section">
+        <h3>Mana Curve</h3>
+        <p class="status-muted">Add nonland cards to see the curve.</p>
+      </div>`;
     return;
   }
 
@@ -7823,15 +7821,12 @@ function renderDeckBuilderManaCurve(deck) {
   }).join('');
 
   deckBuilderManaCurve.innerHTML = `
-    <section class="deck-builder-mana-curve-card">
-      <div class="deck-builder-mana-curve-header">
-        <h3>Mana Curve</h3>
-        <p>Nonland cards only. Click a bar to view card names.</p>
-      </div>
+    <div class="deck-breakdown-section">
+      <h3>Mana Curve</h3>
       <div class="deck-builder-mana-curve-chart" role="group" aria-label="Deck mana curve">
         ${bars}
       </div>
-    </section>`;
+    </div>`;
 }
 
 function getDeckBuilderGroupedCards(deck) {
@@ -8236,6 +8231,9 @@ function renderDeckBuilderBreakdown(deck) {
       ${typeMarkup}
       ${perfMarkup}
     </div>`;
+  if (deckBuilderManaCurve) {
+    deckBuilderBreakdown.querySelector('.deck-breakdown-grid').appendChild(deckBuilderManaCurve);
+  }
 }
 
 function renderDeckBuilderPage() {
