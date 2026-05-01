@@ -1254,6 +1254,105 @@ button[type="submit"] {
   list-style: none;
 }
 
+.deck-builder-mana-curve {
+  margin-top: 16px;
+}
+
+.deck-builder-mana-curve-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #dde3f2;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
+}
+
+.deck-builder-mana-curve-empty {
+  border-style: dashed;
+}
+
+.deck-builder-mana-curve-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deck-builder-mana-curve-header h3,
+.deck-builder-mana-curve-header p {
+  margin: 0;
+}
+
+.deck-builder-mana-curve-header p {
+  color: #5d6884;
+  font-weight: 600;
+}
+
+.deck-builder-mana-curve-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 10px;
+  align-items: end;
+  min-height: 220px;
+}
+
+.deck-builder-curve-bar {
+  display: grid;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  justify-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #233252;
+}
+
+.deck-builder-curve-bar:disabled {
+  cursor: default;
+}
+
+.deck-builder-curve-bar:not(:disabled) {
+  cursor: pointer;
+}
+
+.deck-builder-curve-bar:not(:disabled):hover .deck-builder-curve-column,
+.deck-builder-curve-bar:not(:disabled):focus-visible .deck-builder-curve-column {
+  background: linear-gradient(180deg, #2f6ee5 0%, #1947aa 100%);
+  transform: translateY(-2px);
+}
+
+.deck-builder-curve-bar:focus-visible {
+  outline: 2px solid #2547a8;
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.deck-builder-curve-bar.is-empty {
+  color: #8d98b2;
+}
+
+.deck-builder-curve-count,
+.deck-builder-curve-label {
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.deck-builder-curve-column {
+  width: 100%;
+  min-height: 10px;
+  border-radius: 12px 12px 6px 6px;
+  background: linear-gradient(180deg, #6f96eb 0%, #3257ba 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.deck-builder-curve-bar.is-empty .deck-builder-curve-column {
+  background: #d8deec;
+  box-shadow: none;
+}
+
 .deck-validation-item {
   padding: 12px 14px;
   border-radius: 14px;
@@ -2693,6 +2792,10 @@ button[type="submit"] {
   margin-top: 0;
 }
 
+#live-modal-copy {
+  white-space: pre-line;
+}
+
 .live-modal-field {
   display: grid;
   gap: 10px;
@@ -2847,7 +2950,6 @@ button[type="submit"] {
   user-select: none;
   -webkit-touch-callout: none;
 }
-
 .live-player-life-button-standard {
   font: inherit;
   color: inherit;
@@ -4000,6 +4102,7 @@ button[type="submit"] {
 
   .page-deckbuilder .deck-builder-summary-row,
   .page-decklists .deck-library-header,
+  .page-deckbuilder .deck-builder-mana-curve-header,
   .page-deckbuilder .deck-builder-group-header,
   .page-deckbuilder .deck-card-row {
     flex-direction: column;

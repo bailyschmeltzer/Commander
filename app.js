@@ -97,6 +97,7 @@ const deckBuilderOwnerMenu = document.getElementById('deck-builder-owner-menu');
 const deckBuilderCardCount = document.getElementById('deck-builder-card-count');
 const deckBuilderSaveStatus = document.getElementById('deck-builder-save-status');
 const deckBuilderValidation = document.getElementById('deck-builder-validation');
+const deckBuilderManaCurve = document.getElementById('deck-builder-mana-curve');
 const deckBuilderSearchInput = document.getElementById('deck-builder-search');
 const deckBuilderSearchResults = document.getElementById('deck-builder-search-results');
 const deckBuilderSearchStatus = document.getElementById('deck-builder-search-status');
@@ -783,6 +784,42 @@ function getDeckCardPrimaryType(typeLine) {
   const typePriority = ['creature', 'artifact', 'enchantment', 'planeswalker', 'battle', 'instant', 'sorcery', 'land'];
   const matchedType = typePriority.find((type) => normalizedTypeLine.includes(type));
   return matchedType ? matchedType.charAt(0).toUpperCase() + matchedType.slice(1) : 'Other';
+}
+
+function normalizeDeckCardFace(face) {
+  if (!face || typeof face !== 'object') {
+    return null;
+  }
+
+  const name = String(face.name || '').trim();
+  const manaCost = String(face.manaCost || '').trim();
+  const typeLine = String(face.typeLine || '').trim();
+  const oracleText = String(face.oracleText || '').trim();
+  const imageUri = String(face.imageUri || '').trim();
+  const imageLargeUri = String(face.imageLargeUri || '').trim();
+  const imagePngUri = String(face.imagePngUri || '').trim();
+  const power = String(face.power || '').trim();
+  const toughness = String(face.toughness || '').trim();
+  const loyalty = String(face.loyalty || '').trim();
+  const defense = String(face.defense || '').trim();
+
+  if (!name && !manaCost && !typeLine && !oracleText && !imageUri && !imageLargeUri && !imagePngUri && !power && !toughness && !loyalty && !defense) {
+    return null;
+  }
+
+  return {
+    name,
+    manaCost,
+    typeLine,
+    oracleText,
+    imageUri,
+    imageLargeUri,
+    imagePngUri,
+    power,
+    toughness,
+    loyalty,
+    defense,
+  };
 }
 
 function normalizeDeckCardEntry(card) {
@@ -3838,7 +3875,7 @@ async function applyCommanderDamageToPlayer(targetPlayerId) {
     alivePlayers[0].place = 1;
   }
 
-  persistActiveGameState(activeGameState);
+  queueActiveGameStatePersist(activeGameState);
   refreshLiveTrackerUi();
 
   if (alivePlayers.length === 1 && await promptLiveConfirm(`${alivePlayers[0].name} is the last player alive. Finish and save this game now?`, {
@@ -7652,6 +7689,147 @@ function renderDeckBuilderValidation(deck) {
     <li class="deck-validation-item deck-validation-${line.tone}">${escapeHtml(line.label)}</li>`).join('');
 }
 
+function getDeckManaSymbolValue(rawSymbol) {
+  const symbol = String(rawSymbol || '').trim().toUpperCase();
+  if (!symbol) {
+    return 0;
+  }
+
+  if (/^\d+$/.test(symbol)) {
+    return Number.parseInt(symbol, 10);
+  }
+
+  if (symbol === 'X' || symbol === 'Y' || symbol === 'Z') {
+    return 0;
+  }
+
+  if (symbol.includes('/')) {
+    const parts = symbol.split('/').map((part) => part.trim()).filter(Boolean);
+    const numericPart = parts.find((part) => /^\d+$/.test(part));
+    return numericPart ? Number.parseInt(numericPart, 10) : 1;
+  }
+
+  return 1;
+}
+
+function getDeckCardManaValue(card) {
+  const normalizedCard = normalizeDeckCardEntry(card);
+  if (!normalizedCard || normalizedCard.cardType === 'Land') {
+    return null;
+  }
+
+  const manaCost = normalizedCard.manaCost || normalizedCard.cardFaces.find((face) => face?.manaCost)?.manaCost || '';
+  if (!manaCost) {
+    return 0;
+  }
+
+  const symbols = manaCost.match(/\{[^}]+\}/g);
+  if (!symbols?.length) {
+    return 0;
+  }
+
+  return symbols.reduce((total, symbol) => total + getDeckManaSymbolValue(symbol.slice(1, -1)), 0);
+}
+
+function getDeckBuilderManaCurveGroups(deck) {
+  const groups = new Map();
+  const entries = [];
+
+  if (deck?.commander) {
+    entries.push({ card: deck.commander, label: `${deck.commander.name} (Commander)` });
+  }
+
+  (deck?.cards || []).forEach((card) => {
+    entries.push({ card, label: card.name });
+  });
+
+  entries.forEach(({ card, label }) => {
+    const manaValue = getDeckCardManaValue(card);
+    if (!Number.isInteger(manaValue) || manaValue < 0) {
+      return;
+    }
+
+    if (!groups.has(manaValue)) {
+      groups.set(manaValue, []);
+    }
+
+    groups.get(manaValue).push(label);
+  });
+
+  groups.forEach((cards) => {
+    cards.sort((first, second) => compareTextValues(first, second));
+  });
+
+  return groups;
+}
+
+async function showDeckBuilderManaValueCards(manaValue) {
+  const deck = ensureActiveDeckBuilderRecord();
+  const cards = getDeckBuilderManaCurveGroups(deck).get(manaValue) || [];
+  if (!cards.length) {
+    return;
+  }
+
+  await showLiveModal({
+    title: `Mana value ${manaValue}`,
+    description: `${cards.length} card${cards.length === 1 ? '' : 's'}\n${cards.join('\n')}`,
+    confirmLabel: 'Close',
+    showCancel: false,
+    showInput: false,
+  });
+}
+
+function renderDeckBuilderManaCurve(deck) {
+  if (!deckBuilderManaCurve) {
+    return;
+  }
+
+  const groups = getDeckBuilderManaCurveGroups(deck);
+  const manaValues = [...groups.keys()].sort((first, second) => first - second);
+  if (!manaValues.length) {
+    deckBuilderManaCurve.innerHTML = `
+      <section class="deck-builder-mana-curve-card deck-builder-mana-curve-empty">
+        <div class="deck-builder-mana-curve-header">
+          <h3>Mana Curve</h3>
+          <p>Add nonland cards to see the curve.</p>
+        </div>
+      </section>`;
+    return;
+  }
+
+  const maxManaValue = manaValues[manaValues.length - 1];
+  const maxCount = Math.max(...manaValues.map((manaValue) => groups.get(manaValue)?.length || 0), 1);
+  const bars = Array.from({ length: maxManaValue + 1 }, (_, manaValue) => {
+    const cards = groups.get(manaValue) || [];
+    const count = cards.length;
+    const heightPercent = count ? Math.max(Math.round((count / maxCount) * 100), 14) : 8;
+
+    return `
+      <button
+        type="button"
+        class="deck-builder-curve-bar${count ? '' : ' is-empty'}"
+        data-mana-value="${manaValue}"
+        aria-label="Mana value ${manaValue}: ${count} card${count === 1 ? '' : 's'}"
+        ${count ? '' : 'disabled'}
+      >
+        <span class="deck-builder-curve-count">${count}</span>
+        <span class="deck-builder-curve-column" style="height: ${heightPercent}%"></span>
+        <span class="deck-builder-curve-label">${manaValue}</span>
+      </button>`;
+  }).join('');
+
+  deckBuilderManaCurve.innerHTML = `
+    <section class="deck-builder-mana-curve-card">
+      <div class="deck-builder-mana-curve-header">
+        <h3>Mana Curve</h3>
+        <p>Nonland cards only. Click a bar to view card names.</p>
+      </div>
+      <div class="deck-builder-mana-curve-chart" role="group" aria-label="Deck mana curve">
+        ${bars}
+      </div>
+    </section>`;
+}
+
 function getDeckBuilderGroupedCards(deck) {
   const typeOrder = ['Creature', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Instant', 'Sorcery', 'Land', 'Other'];
   const groups = new Map(typeOrder.map((type) => [type, []]));
@@ -8135,6 +8313,7 @@ function renderDeckBuilderPage() {
     setDeckBuilderSaveStatus(getDeckReadOnlyMessage(deck), 'muted');
   }
   renderDeckBuilderValidation(deck);
+  renderDeckBuilderManaCurve(deck);
   renderDeckBuilderSelection();
   renderDeckBuilderCards(deck);
   renderDeckBuilderBreakdown(deck);
@@ -12846,6 +13025,22 @@ if (deckBuilderUndoButton) {
   });
 }
 
+if (deckBuilderManaCurve) {
+  deckBuilderManaCurve.addEventListener('click', async (event) => {
+    const bar = event.target.closest('.deck-builder-curve-bar[data-mana-value]');
+    if (!(bar instanceof HTMLButtonElement) || bar.disabled) {
+      return;
+    }
+
+    const manaValue = Number.parseInt(bar.dataset.manaValue || '', 10);
+    if (!Number.isFinite(manaValue)) {
+      return;
+    }
+
+    await showDeckBuilderManaValueCards(manaValue);
+  });
+}
+
 if (deckBuilderBackToDecksLink) {
   deckBuilderBackToDecksLink.addEventListener('click', async (event) => {
     event.preventDefault();
@@ -13041,6 +13236,7 @@ window.addEventListener('offline', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushQueuedActiveGamePersist();
+    flushQueuedDeckPersist();
   }
 
   if (document.visibilityState === 'visible') {
@@ -13050,6 +13246,7 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('pagehide', () => {
   flushQueuedActiveGamePersist();
+  flushQueuedDeckPersist();
 });
 
 window.addEventListener('focus', () => {
