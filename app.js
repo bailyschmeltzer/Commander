@@ -7253,7 +7253,11 @@ async function fetchDeckCardByName(name) {
   }
 
   if (deckBuilderCardCache.has(normalizedName)) {
-    return deckBuilderCardCache.get(normalizedName);
+    const cached = deckBuilderCardCache.get(normalizedName);
+    if (cached.manaCost || cached.cardFaces?.length) {
+      return cached;
+    }
+    deckBuilderCardCache.delete(normalizedName);
   }
 
   const response = await fetch(`${DECK_CARD_ENDPOINT}&name=${encodeURIComponent(name)}`, {
