@@ -2919,7 +2919,7 @@ function stopLiveHoldRepeat() {
   flushQueuedActiveGamePersist();
 }
 
-function startLiveHoldRepeat(button) {
+function startLiveHoldRepeat(button, { applyInitialChange = false } = {}) {
   stopLiveHoldRepeat();
 
   const playerId = button.dataset.playerId || '';
@@ -2934,9 +2934,12 @@ function startLiveHoldRepeat(button) {
   }
 
   liveHoldRepeated = false;
+  if (applyInitialChange) {
+    applyQuickLifeChange(playerId, delta);
+  }
+
   liveHoldTimerId = setTimeout(() => {
     liveHoldRepeated = true;
-    applyQuickLifeChange(playerId, delta);
     liveHoldIntervalId = setInterval(() => {
       applyQuickLifeChange(playerId, delta);
     }, LIVE_HOLD_REPEAT_INTERVAL_MS);
@@ -3333,13 +3336,16 @@ function stabilizeLiveTableModeLayout() {
   }
 
   const syncLayout = () => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    updateLivePlayerCardMeasurements();
+    refreshLiveTrackerUi();
   };
 
   syncLayout();
   requestAnimationFrame(syncLayout);
-  window.setTimeout(syncLayout, 180);
+  window.setTimeout(syncLayout, 120);
+  window.setTimeout(syncLayout, 320);
 }
 
 function renderLiveEventLog() {
@@ -12175,8 +12181,9 @@ if (livePlayerGrid) {
       return;
     }
 
-    if (liveHoldRepeated) {
-      liveHoldRepeated = false;
+    // Pointer interactions are handled on pointerdown for immediate response.
+    // Keep click handling for keyboard activation (detail === 0).
+    if (event.detail !== 0) {
       return;
     }
 
@@ -12192,7 +12199,7 @@ if (livePlayerGrid) {
   livePlayerGrid.addEventListener('pointerdown', (event) => {
     const adjustButton = event.target.closest('[data-action="adjust-life"]');
     if (adjustButton) {
-      startLiveHoldRepeat(adjustButton);
+      startLiveHoldRepeat(adjustButton, { applyInitialChange: true });
     }
   });
 
