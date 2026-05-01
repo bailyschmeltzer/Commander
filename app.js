@@ -16,7 +16,7 @@ const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
-const DECK_CARD_ENDPOINT = '/api/deck-card';
+const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
