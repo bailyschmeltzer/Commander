@@ -8190,64 +8190,39 @@ function renderDeckBuilderBreakdown(deck) {
         <p class="status-muted">No games registered</p>
       </div>`;
   } else {
-    const commanderKeys = [
-      getIdentityKey(deck.commander?.name || ''),
-      getIdentityKey(deck.secondCommander?.name || ''),
+    const allGames = loadGames();
+
+    // Build a commanderMap from all recorded commanders + known commanders,
+    // exactly as getCommanderStatsData does, so canonicalization is consistent.
+    const rawCommanders = [];
+    allGames.forEach((game) => {
+      getGameRows(game).forEach((row) => {
+        const c = (row.commander || '').trim();
+        if (c) rawCommanders.push(c);
+      });
+    });
+    const commanderMap = buildCanonicalIdentityMapFromValues([
+      ...rawCommanders,
+      ...getKnownCommanderOptions(),
+    ]);
+
+    // Canonical keys for the deck's commander(s)
+    const deckCommanderNames = [
+      deck.commander?.name || '',
+      deck.secondCommander?.name || '',
     ].filter(Boolean);
-    const ownerKey = getIdentityKey(deck.owner || '');
-    const rowMatchesCommander = (rowCommander) => {
-      if (!commanderKeys.length) {
-        return false;
-      }
-
-      const rawCommander = String(rowCommander || '').trim();
-      if (!rawCommander) {
-        return false;
-      }
-
-      const directKey = getIdentityKey(rawCommander);
-      if (commanderKeys.includes(directKey)) {
-        return true;
-      }
-
-      const splitKeys = rawCommander
-        .split(/\s*(?:\/|\+|&|,|\||\band\b)\s*/i)
-        .map((value) => getIdentityKey(value))
-        .filter(Boolean);
-
-      const candidateKeys = [directKey, ...splitKeys].filter(Boolean);
-      const fuzzyMatch = candidateKeys.some((candidate) =>
-        commanderKeys.some((key) => (
-          candidate === key
-          || (candidate.length >= 6 && candidate.includes(key))
-          || (key.length >= 6 && key.includes(candidate))
-        ))
-      );
-      if (fuzzyMatch) {
-        return true;
-      }
-
-      if (!splitKeys.length) {
-        return false;
-      }
-
-      // For partner decks, prefer exact pair matches but still allow
-      // either partner name so older game rows remain visible.
-      if (commanderKeys.length > 1) {
-        return commanderKeys.every((key) => splitKeys.includes(key))
-          || commanderKeys.some((key) => splitKeys.includes(key));
-      }
-
-      return splitKeys.includes(commanderKeys[0]);
-    };
+    const commanderKeys = deckCommanderNames
+      .map((n) => getIdentityKey(canonicalizeIdentityValue(n, commanderMap)))
+      .filter(Boolean);
 
     const matchedRows = [];
-    loadGames().forEach((game) => {
+    allGames.forEach((game) => {
       const rows = getGameRows(game);
       rows.forEach((r) => {
-        const rPlayerKey = getIdentityKey(r.player || '');
-        const ownerMatches = !ownerKey || !rPlayerKey || rPlayerKey === ownerKey;
-        if (ownerMatches && rowMatchesCommander(r.commander)) {
+        const canonicalRowCommander = canonicalizeIdentityValue((r.commander || '').trim(), commanderMap);
+        if (!canonicalRowCommander) return;
+        const rowKey = getIdentityKey(canonicalRowCommander);
+        if (commanderKeys.includes(rowKey)) {
           matchedRows.push(r);
         }
       });
