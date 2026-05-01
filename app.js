@@ -8214,6 +8214,19 @@ function renderDeckBuilderBreakdown(deck) {
         .split(/\s*(?:\/|\+|&|,|\||\band\b)\s*/i)
         .map((value) => getIdentityKey(value))
         .filter(Boolean);
+
+      const candidateKeys = [directKey, ...splitKeys].filter(Boolean);
+      const fuzzyMatch = candidateKeys.some((candidate) =>
+        commanderKeys.some((key) => (
+          candidate === key
+          || (candidate.length >= 6 && candidate.includes(key))
+          || (key.length >= 6 && key.includes(candidate))
+        ))
+      );
+      if (fuzzyMatch) {
+        return true;
+      }
+
       if (!splitKeys.length) {
         return false;
       }
@@ -8233,7 +8246,8 @@ function renderDeckBuilderBreakdown(deck) {
       const rows = getGameRows(game);
       rows.forEach((r) => {
         const rPlayerKey = getIdentityKey(r.player || '');
-        if ((!ownerKey || rPlayerKey === ownerKey) && rowMatchesCommander(r.commander)) {
+        const ownerMatches = !ownerKey || !rPlayerKey || rPlayerKey === ownerKey;
+        if (ownerMatches && rowMatchesCommander(r.commander)) {
           matchedRows.push(r);
         }
       });
