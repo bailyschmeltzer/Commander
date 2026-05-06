@@ -253,6 +253,7 @@ let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
 let storageErrorMessage = '';
+let syncDecksMutationVersion = 0;
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
@@ -1957,6 +1958,8 @@ async function pushCloudState() {
     return;
   }
 
+  const requestDeckMutationVersion = syncDecksMutationVersion;
+  let shouldQueueFollowUpSync = false;
   syncInFlight = true;
   syncConnectionState = 'connected';
   syncLastErrorMessage = '';
@@ -1983,14 +1986,16 @@ async function pushCloudState() {
       updatedAt: payload.updatedAt,
       updatedBy: payload.updatedBy,
     });
+    const decksChangedDuringFlight = syncDecksMutationVersion !== requestDeckMutationVersion;
     // If the server returned normalized decks (e.g. with resolved ownerUserId), adopt them.
-    if (Array.isArray(payload.decks)) {
+    if (Array.isArray(payload.decks) && !decksChangedDuringFlight) {
       appState = normalizeAppStateData({ ...appState, decks: payload.decks });
       persistLocalState(appState);
       // Re-render so activeDeckBuilderRecord picks up the server-corrected values.
       refresh();
     }
-    syncPendingChanges = false;
+    syncPendingChanges = decksChangedDuringFlight;
+    shouldQueueFollowUpSync = decksChangedDuringFlight;
     syncRetryCount = 0;
     syncLastErrorMessage = '';
     clearSyncConflict();
@@ -2012,6 +2017,9 @@ async function pushCloudState() {
     syncInFlight = false;
     updateSyncControls();
     refreshSyncStatus();
+    if (shouldQueueFollowUpSync) {
+      queueCloudSync(0);
+    }
   }
 }
 
@@ -2354,6 +2362,7 @@ function saveDeckLists(deckLists) {
 
 function saveDecks(decks, options = {}) {
   const { deferPersist = false, delay = DECKS_PERSIST_DEBOUNCE_MS } = options;
+  syncDecksMutationVersion += 1;
   appState = normalizeAppStateData({
     ...appState,
     decks: Array.isArray(decks) ? decks : [],
