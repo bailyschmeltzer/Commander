@@ -265,8 +265,6 @@ label {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  padding: 4px 6px;
-  color: #1c2836;
 }
 
 .player-table-wrapper {
@@ -274,9 +272,6 @@ label {
   overflow-x: auto;
   overflow-y: visible;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(245, 248, 252, 0.42), rgba(237, 242, 249, 0.3));
-  border-radius: 12px;
-  padding: 1px;
 }
 
 .player-table-wrapper.dropdown-open {
@@ -509,10 +504,6 @@ label {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(215, 228, 245, 0.16), rgba(205, 220, 240, 0.12));
-  margin-bottom: 16px;
 }
 
 .records-helper-text {
@@ -897,17 +888,12 @@ button[type="submit"] {
 .stats-panel {
   display: grid;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(215, 228, 245, 0.16), rgba(205, 220, 240, 0.12));
 }
 
 .rankings-summary {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(215, 228, 245, 0.12), rgba(205, 220, 240, 0.08));
+}
 
 .rankings-helper-text {
   margin-top: 0;
@@ -941,6 +927,18 @@ button[type="submit"] {
 
 .rankings-table tbody tr:nth-child(odd) {
   background: linear-gradient(90deg, rgba(215, 228, 245, 0.1), rgba(205, 220, 240, 0.06));
+}
+
+.page-rankings .rankings-streaks-table th:nth-child(1),
+.page-rankings .rankings-streaks-table td:nth-child(1) {
+  width: 30%;
+}
+
+.page-rankings .rankings-streaks-table th:nth-child(2),
+.page-rankings .rankings-streaks-table td:nth-child(2),
+.page-rankings .rankings-streaks-table th:nth-child(5),
+.page-rankings .rankings-streaks-table td:nth-child(5) {
+  width: 7%;
 }
 
 .page-rankings .rankings-main-table .rankings-games-column,
@@ -1481,6 +1479,7 @@ button[type="submit"] {
   border-radius: 14px;
   background: #fbfcff;
   color: #54607d;
+}
 
 .deck-builder-text-list {
   display: block;
@@ -1525,7 +1524,6 @@ button[type="submit"] {
   margin: 0;
   font-size: 0.83rem;
   min-height: 1.2em;
-}
 }
 
 .deck-card-preview {
@@ -3203,8 +3201,10 @@ button[type="submit"] {
   color: #66708f;
 }
 
-.deck-selector-card a {
-  color: #2c3a72;
+main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyword-tab),
+main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyword-tab):visited {
+  color: var(--text-main);
+  font-weight: 700;
   text-decoration: underline;
 }
 
