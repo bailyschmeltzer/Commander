@@ -283,7 +283,6 @@ let deckBuilderHoldIntervalId = null;
 let deckBuilderMutationQueue = Promise.resolve();
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
-let deckLibraryRenderPass = 0;
 let historyPlayerFilterDefaulted = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -3704,46 +3703,10 @@ function togglePrimaryMenu(forceOpen) {
   }
 }
 
-function applyPrimaryMenuMobileViewportFix() {
-  if (!pageSwitch || !pageSwitchPanel || !document.body) {
-    return;
-  }
-
-  const isMobileLike = window.matchMedia('(max-width: 1200px), (hover: none) and (pointer: coarse)').matches;
-  if (!isMobileLike) {
-    return;
-  }
-
-  // Move the menu container outside header so fixed positioning targets the viewport.
-  if (pageSwitch.parentElement !== document.body) {
-    document.body.appendChild(pageSwitch);
-  }
-
-  pageSwitch.style.position = 'fixed';
-  pageSwitch.style.right = '12px';
-  pageSwitch.style.bottom = 'calc(12px + env(safe-area-inset-bottom))';
-  pageSwitch.style.left = 'auto';
-  pageSwitch.style.top = 'auto';
-  pageSwitch.style.zIndex = '4300';
-  pageSwitch.style.marginTop = '0';
-  pageSwitch.style.justifyContent = 'flex-end';
-
-  pageSwitchPanel.style.position = 'fixed';
-  pageSwitchPanel.style.right = '12px';
-  pageSwitchPanel.style.bottom = 'calc(76px + env(safe-area-inset-bottom))';
-  pageSwitchPanel.style.left = '12px';
-  pageSwitchPanel.style.top = 'auto';
-  pageSwitchPanel.style.width = 'auto';
-  pageSwitchPanel.style.maxHeight = 'min(72vh, 620px)';
-  pageSwitchPanel.style.overflowY = 'auto';
-}
-
 function initializePrimaryMenu() {
   if (!pageSwitch || !pageSwitchToggleButton || !pageSwitchPanel) {
     return;
   }
-
-  applyPrimaryMenuMobileViewportFix();
 
   const currentPageName = getCurrentPageName();
   Array.from(pageSwitchPanel.querySelectorAll('.page-link')).forEach((link) => {
@@ -3766,104 +3729,6 @@ function initializePrimaryMenu() {
       closePrimaryMenu();
     }
   });
-}
-
-function applyRuntimeMobileLayoutFixes() {
-  if (typeof document === 'undefined' || !document.head) {
-    return;
-  }
-
-  const styleId = 'runtime-mobile-layout-fixes';
-  let styleElement = document.getElementById(styleId);
-  if (!styleElement) {
-    styleElement = document.createElement('style');
-    styleElement.id = styleId;
-    document.head.appendChild(styleElement);
-  }
-
-  styleElement.textContent = `
-@media (max-width: 1200px), (hover: none) and (pointer: coarse) {
-  .page-switch {
-    position: fixed !important;
-    right: 12px !important;
-    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
-    left: auto !important;
-    top: auto !important;
-    z-index: 4300 !important;
-    margin-top: 0 !important;
-    justify-content: flex-end !important;
-  }
-
-  .page-switch-toggle {
-    min-height: 52px !important;
-    padding: 12px 16px !important;
-    border-radius: 999px !important;
-  }
-
-  .page-switch-panel {
-    position: fixed !important;
-    top: auto !important;
-    right: 12px !important;
-    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
-    left: 12px !important;
-    width: auto !important;
-    max-height: min(72vh, 620px) !important;
-    overflow-y: auto !important;
-  }
-
-  .page-decklists .deck-library-table {
-    display: table !important;
-    width: 100% !important;
-    table-layout: fixed !important;
-    border-collapse: collapse !important;
-  }
-
-  .page-decklists .deck-library-table colgroup {
-    display: table-column-group !important;
-  }
-
-  .page-decklists .deck-library-table thead {
-    display: table-header-group !important;
-  }
-
-  .page-decklists .deck-library-table tbody {
-    display: table-row-group !important;
-  }
-
-  .page-decklists .deck-library-table tr {
-    display: table-row !important;
-    border: none !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    padding: 0 !important;
-  }
-
-  .page-decklists .deck-library-table th,
-  .page-decklists .deck-library-table td {
-    display: table-cell !important;
-    border: 1px solid rgba(91, 120, 168, 0.22) !important;
-    padding: 8px !important;
-    text-align: left !important;
-  }
-
-  .page-decklists .deck-library-table td::before {
-    content: none !important;
-    display: none !important;
-  }
-
-  .page-decklists .deck-library-table td:nth-child(6) {
-    display: table-cell !important;
-    grid-template-columns: none !important;
-    gap: 0 !important;
-    align-items: initial !important;
-  }
-
-  .page-decklists .deck-library-table td:nth-child(6) button {
-    width: auto !important;
-    margin-top: 0 !important;
-  }
-}
-`;
 }
 
 function initializeLiveTrackerTouchGuards() {
@@ -6527,47 +6392,6 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
-
-  function populateDeckLibraryRowDetails(decks, deckUsageLookup, renderPass) {
-    if (!deckLibraryTableBody) {
-      return;
-    }
-
-    const rowsByDeckId = new Map(
-      Array.from(deckLibraryTableBody.querySelectorAll('tr[data-deck-id]')).map((row) => [String(row.dataset.deckId || ''), row])
-    );
-
-    decks.forEach((deck) => {
-      if (renderPass !== deckLibraryRenderPass) {
-        return;
-      }
-
-      const row = rowsByDeckId.get(String(deck.id || ''));
-      if (!row) {
-        return;
-      }
-
-      const statusCell = row.querySelector('.deck-library-status-cell');
-      const actionsCell = row.querySelector('.deck-library-actions-cell');
-      const summary = getDeckValidationSummary(deck);
-      const canEditDeck = canCurrentUserEditDeck(deck);
-      const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
-      const warnings = [
-        deck.ownerUserId && !canEditDeck ? 'locked' : '',
-        summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
-      ].filter(Boolean).join(', ') || '—';
-
-      if (statusCell) {
-        statusCell.innerHTML = `${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}`;
-      }
-
-      if (actionsCell) {
-        actionsCell.innerHTML = `
-          <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
-          ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}`;
-      }
-    });
-  }
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
   if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
@@ -6586,8 +6410,6 @@ function renderDeckLibrary() {
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
   const deckUsageLookup = buildDeckUsageLookup();
-  const renderPass = deckLibraryRenderPass + 1;
-  deckLibraryRenderPass = renderPass;
 
   if (!sortedDecks.length) {
     deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
@@ -6602,30 +6424,30 @@ function renderDeckLibrary() {
   }
 
   deckLibraryTableBody.innerHTML = decks.map((deck) => {
+    const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
+    const canEditDeck = canCurrentUserEditDeck(deck);
+    const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
+    const warnings = [
+      deck.ownerUserId && !canEditDeck ? 'locked' : '',
+      summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
+    ].filter(Boolean).join(', ') || '—';
 
     return `
-      <tr data-deck-id="${escapeHtml(deck.id)}">
+      <tr>
         <td data-label="Deck">${escapeHtml(deck.name)}</td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
-        <td data-label="Status" class="deck-library-status-cell">Loading status...</td>
-        <td data-label="Actions" class="deck-library-actions-cell">
+        <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
+        <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
+          ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}
         </td>
       </tr>`;
   }).join('');
 
   updateSortableTableIndicators('decks');
-
-  const scheduleDeckLibraryDetails = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-    ? window.requestAnimationFrame.bind(window)
-    : (callback) => setTimeout(callback, 0);
-
-  scheduleDeckLibraryDetails(() => {
-    populateDeckLibraryRowDetails(decks, deckUsageLookup, renderPass);
-  });
 }
 
 async function deleteDeckRecord(deckId) {
@@ -13955,7 +13777,6 @@ async function initializeApp() {
     acquireWakeLock();
   }
   hideLiveSourcePrompt();
-  applyRuntimeMobileLayoutFixes();
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
   setupSyncUi();
@@ -14012,4 +13833,3 @@ async function initializeApp() {
 }
 
 initializeApp();
-
