@@ -279,6 +279,7 @@ let deckBuilderCommanderPrefill = '';
 let deckBuilderBasicLandWarmPromise = null;
 let deckBuilderHoldTimerId = null;
 let deckBuilderHoldIntervalId = null;
+let deckBuilderMutationQueue = Promise.resolve();
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
@@ -7389,6 +7390,13 @@ function warmDeckBuilderBasicLandCache() {
   return deckBuilderBasicLandWarmPromise;
 }
 
+function queueDeckBuilderMutation(task) {
+  const runTask = async () => task();
+  const queuedTask = deckBuilderMutationQueue.then(runTask, runTask);
+  deckBuilderMutationQueue = queuedTask.catch(() => {});
+  return queuedTask;
+}
+
 async function fetchDeckCardArtOptions(card) {
   const oracleId = String(card?.oracleId || '').trim();
   const name = String(card?.name || '').trim();
@@ -9759,45 +9767,49 @@ async function addUnlimitedCopyCardToDeck(cardName) {
 }
 
 async function addBasicLandToDeck(landName) {
-  const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
-  if (!deck) return;
-  let card = deckBuilderCardCache.get(landName.toLowerCase());
-  if (!card) {
-    await warmDeckBuilderBasicLandCache();
-    card = deckBuilderCardCache.get(landName.toLowerCase());
-  }
-  if (!card) {
-    try {
-      card = await fetchDeckCardByName(landName);
-    } catch (e) {
-      setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error');
+  return queueDeckBuilderMutation(async () => {
+    const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+    if (!deck) return;
+    let card = deckBuilderCardCache.get(landName.toLowerCase());
+    if (!card) {
+      await warmDeckBuilderBasicLandCache();
+      card = deckBuilderCardCache.get(landName.toLowerCase());
+    }
+    if (!card) {
+      try {
+        card = await fetchDeckCardByName(landName);
+      } catch (e) {
+        setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error');
+        return;
+      }
+    }
+    if (!card) { setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error'); return; }
+    const latestDeck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
+    if (!latestDeck) {
       return;
     }
-  }
-  if (!card) { setDeckBuilderSaveStatus(`Could not find ${landName}.`, 'error'); return; }
-  const latestDeck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
-  if (!latestDeck) {
-    return;
-  }
 
-  persistDeckBuilderRecord({ ...latestDeck, cards: [...latestDeck.cards, { ...card, id: generateId() }] }, `${landName} added.`, 'success', {
-    skipFullRefresh: true,
-    persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+    persistDeckBuilderRecord({ ...latestDeck, cards: [...latestDeck.cards, { ...card, id: generateId() }] }, `${landName} added.`, 'success', {
+      skipFullRefresh: true,
+      persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+    });
   });
 }
 
 function removeBasicLandFromDeck(landName) {
-  const deck = ensureActiveDeckBuilderRecord();
-  if (!deck) {
-    return;
-  }
+  return queueDeckBuilderMutation(() => {
+    const deck = ensureActiveDeckBuilderRecord();
+    if (!deck) {
+      return;
+    }
 
-  const match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === getIdentityKey(landName));
-  if (!match?.id) {
-    return;
-  }
+    const match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === getIdentityKey(landName));
+    if (!match?.id) {
+      return;
+    }
 
-  removeDeckBuilderCard(match.id);
+    removeDeckBuilderCard(match.id);
+  });
 }
 
 function renderDeckCardRow(card, options = {}) {
