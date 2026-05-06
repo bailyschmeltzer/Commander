@@ -4,18 +4,17 @@
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --page-bg: #dbe4ef;
   --page-bg-accent: #c8d5e4;
-  --page-bg-warm: #e3eaf2;
-  --surface: rgba(239, 243, 248, 0.72);
-  --surface-strong: rgba(245, 248, 252, 0.82);
-  --surface-muted: rgba(246, 249, 253, 0.9);
+  color: #1d7a43;
+  font-weight: 700;
   --border-soft: rgba(103, 123, 152, 0.18);
   --border-strong: rgba(83, 104, 136, 0.26);
   --text-main: #202834;
-  --text-muted: #5a6678;
+  color: #af2f27;
+  font-weight: 700;
   --shadow-soft: 0 18px 40px rgba(35, 49, 73, 0.08);
   --shadow-card: 0 14px 30px rgba(35, 49, 73, 0.07);
   background: var(--page-bg);
-  color: var(--text-main);
+  color: #596789;
 }
 
 * {
@@ -23,64 +22,53 @@
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
+.card {
+  position: relative;
+  overflow: hidden;
   background-color: var(--page-bg);
   background-image:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.36), transparent 30%),
-    radial-gradient(circle at top right, rgba(195, 210, 228, 0.56), transparent 26%),
-    linear-gradient(180deg, var(--page-bg-warm) 0%, var(--page-bg) 24%, #d6e0ec 100%);
+  padding: 20px;
   color: var(--text-main);
 }
 
-body::before {
+.card h2 {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-  background-size: 32px 32px;
+
+label {
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.36), transparent 72%);
   opacity: 0.18;
   z-index: -1;
 }
 
-/* App shell and shared header layout. */
-
+.player-table-wrapper {
+  position: relative;
 .app-shell {
   width: 100%;
   max-width: none;
   margin: 0 auto;
-  padding: 24px;
-}
 
-header {
-  margin-bottom: 24px;
-  padding: 20px 22px;
-  border: 1px solid var(--border-soft);
-  border-radius: 22px;
+.player-table-wrapper.dropdown-open {
+  overflow: visible;
+  z-index: 40;
+}
   background: #ffffff;
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(12px);
-  position: relative;
-  z-index: 200;
-}
-
-header h1 {
-  margin: 0 0 8px;
+  border-collapse: collapse;
+  table-layout: fixed;
   font-size: clamp(2rem, 3vw, 2.6rem);
 }
 
-header p {
-  margin: 0;
-  color: var(--text-muted);
-}
-
-.sync-panel {
-  margin-top: 14px;
-  padding: 12px;
+.player-table th,
+.player-table td {
+  border: 1px solid rgba(91, 120, 168, 0.22);
+  padding: 10px;
   border: 1.5px solid rgba(91, 120, 168, 0.24);
   border-radius: 12px;
   background: #ffffff;
@@ -4880,6 +4868,136 @@ main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keywor
   .page-live-game.live-table-mode .page-switch,
   .page-live-game.live-table-mode .page-switch-panel,
   .page-live-game.live-table-mode .page-switch-toggle {
+    display: none !important;
+  }
+}
+
+/* Final baseline table system: restore row/cell alignment and separator lines. */
+.player-table,
+.history-game-table,
+.records-table,
+.rankings-table,
+.player-stats-table,
+.commander-stats-table,
+.deck-library-table,
+.deck-list-table,
+.live-setup-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.player-table th,
+.player-table td,
+.history-game-table th,
+.history-game-table td,
+.records-table th,
+.records-table td,
+.rankings-table th,
+.rankings-table td,
+.player-stats-table th,
+.player-stats-table td,
+.commander-stats-table th,
+.commander-stats-table td,
+.deck-library-table th,
+.deck-library-table td,
+.deck-list-table th,
+.deck-list-table td,
+.live-setup-table th,
+.live-setup-table td {
+  border: 1px solid rgba(91, 120, 168, 0.22);
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+@media (max-width: 900px) {
+  .player-table,
+  .history-game-table,
+  .records-table,
+  .rankings-table,
+  .player-stats-table,
+  .commander-stats-table,
+  .deck-library-table,
+  .deck-list-table,
+  .live-setup-table {
+    display: table !important;
+    table-layout: fixed !important;
+  }
+
+  .player-table thead,
+  .history-game-table thead,
+  .records-table thead,
+  .rankings-table thead,
+  .player-stats-table thead,
+  .commander-stats-table thead,
+  .deck-library-table thead,
+  .deck-list-table thead,
+  .live-setup-table thead {
+    display: table-header-group !important;
+  }
+
+  .player-table tbody,
+  .history-game-table tbody,
+  .records-table tbody,
+  .rankings-table tbody,
+  .player-stats-table tbody,
+  .commander-stats-table tbody,
+  .deck-library-table tbody,
+  .deck-list-table tbody,
+  .live-setup-table tbody {
+    display: table-row-group !important;
+    gap: 0 !important;
+  }
+
+  .player-table tr,
+  .history-game-table tr,
+  .records-table tr,
+  .rankings-table tr,
+  .player-stats-table tr,
+  .commander-stats-table tr,
+  .deck-library-table tr,
+  .deck-list-table tr,
+  .live-setup-table tr {
+    display: table-row !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .player-table th,
+  .player-table td,
+  .history-game-table th,
+  .history-game-table td,
+  .records-table th,
+  .records-table td,
+  .rankings-table th,
+  .rankings-table td,
+  .player-stats-table th,
+  .player-stats-table td,
+  .commander-stats-table th,
+  .commander-stats-table td,
+  .deck-library-table th,
+  .deck-library-table td,
+  .deck-list-table th,
+  .deck-list-table td,
+  .live-setup-table th,
+  .live-setup-table td {
+    display: table-cell !important;
+    border: 1px solid rgba(91, 120, 168, 0.22) !important;
+    padding: 8px !important;
+  }
+
+  .player-table td::before,
+  .history-game-table td::before,
+  .records-table td::before,
+  .rankings-table td::before,
+  .player-stats-table td::before,
+  .commander-stats-table td::before,
+  .deck-library-table td::before,
+  .deck-list-table td::before,
+  .live-setup-table td::before {
+    content: none !important;
     display: none !important;
   }
 }
