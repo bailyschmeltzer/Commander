@@ -4616,6 +4616,60 @@ main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keywor
     right: auto;
     left: 0;
   }
+
+  /* Keep Built Decks in table format on tablet/mobile. */
+  .page-decklists .deck-library-table {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  .page-decklists .deck-library-table colgroup {
+    display: table-column-group;
+  }
+
+  .page-decklists .deck-library-table thead {
+    display: table-header-group;
+  }
+
+  .page-decklists .deck-library-table tbody {
+    display: table-row-group;
+  }
+
+  .page-decklists .deck-library-table tr {
+    display: table-row;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .page-decklists .deck-library-table th,
+  .page-decklists .deck-library-table td {
+    display: table-cell;
+    border: 1px solid rgba(91, 120, 168, 0.22);
+    padding: 8px;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .page-decklists .deck-library-table td::before {
+    content: none;
+    display: none;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) {
+    display: table-cell;
+    grid-template-columns: none;
+    gap: 0;
+    align-items: initial;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) button {
+    width: auto;
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 560px) {
