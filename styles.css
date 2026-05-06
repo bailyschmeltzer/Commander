@@ -5163,4 +5163,79 @@ header a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyw
     content: none !important;
     display: none !important;
   }
+
+  .page-switch-panel {
+    overflow-y: visible !important;
+    max-height: none !important;
+  }
+
+  .page-switch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .page-deckbuilder .deck-builder-layout {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .page-deckbuilder .deck-builder-left-col,
+  .page-deckbuilder .deck-builder-cards-card,
+  .page-deckbuilder .deck-builder-breakdown-card {
+    grid-column: auto !important;
+  }
+
+  .page-deckbuilder .deck-builder-meta-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .page-deckbuilder .deck-builder-summary-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  .page-deckbuilder .deck-builder-action-buttons {
+    width: auto !important;
+  }
+
+  .page-deckbuilder .deck-builder-group-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .page-deckbuilder .deck-card-row {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .page-deckbuilder .deck-card-row-actions,
+  .page-deckbuilder .deck-card-row-actions button,
+  .page-deckbuilder .page-action-link {
+    width: auto !important;
+  }
+
+  .page-deckbuilder .deck-card-row-image {
+    width: min(100%, 120px) !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-deckbuilder .deck-builder-group-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  .page-deckbuilder .deck-card-row {
+    flex-direction: column !important;
+  }
+
+  .page-deckbuilder .deck-card-row-actions,
+  .page-deckbuilder .deck-card-row-actions button,
+  .page-deckbuilder .page-action-link {
+    width: 100% !important;
+  }
+}
 }
