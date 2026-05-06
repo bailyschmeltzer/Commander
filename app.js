@@ -283,6 +283,7 @@ let deckBuilderHoldIntervalId = null;
 let deckBuilderMutationQueue = Promise.resolve();
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
+let deckLibraryRenderPass = 0;
 let historyPlayerFilterDefaulted = false;
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -6392,6 +6393,47 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
+
+  function populateDeckLibraryRowDetails(decks, deckUsageLookup, renderPass) {
+    if (!deckLibraryTableBody) {
+      return;
+    }
+
+    const rowsByDeckId = new Map(
+      Array.from(deckLibraryTableBody.querySelectorAll('tr[data-deck-id]')).map((row) => [String(row.dataset.deckId || ''), row])
+    );
+
+    decks.forEach((deck) => {
+      if (renderPass !== deckLibraryRenderPass) {
+        return;
+      }
+
+      const row = rowsByDeckId.get(String(deck.id || ''));
+      if (!row) {
+        return;
+      }
+
+      const statusCell = row.querySelector('.deck-library-status-cell');
+      const actionsCell = row.querySelector('.deck-library-actions-cell');
+      const summary = getDeckValidationSummary(deck);
+      const canEditDeck = canCurrentUserEditDeck(deck);
+      const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
+      const warnings = [
+        deck.ownerUserId && !canEditDeck ? 'locked' : '',
+        summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
+      ].filter(Boolean).join(', ') || '—';
+
+      if (statusCell) {
+        statusCell.innerHTML = `${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}`;
+      }
+
+      if (actionsCell) {
+        actionsCell.innerHTML = `
+          <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
+          ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}`;
+      }
+    });
+  }
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
   if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
@@ -6410,6 +6452,8 @@ function renderDeckLibrary() {
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
   const deckUsageLookup = buildDeckUsageLookup();
+  const renderPass = deckLibraryRenderPass + 1;
+  deckLibraryRenderPass = renderPass;
 
   if (!sortedDecks.length) {
     deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
@@ -6424,30 +6468,30 @@ function renderDeckLibrary() {
   }
 
   deckLibraryTableBody.innerHTML = decks.map((deck) => {
-    const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
-    const canEditDeck = canCurrentUserEditDeck(deck);
-    const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
-    const warnings = [
-      deck.ownerUserId && !canEditDeck ? 'locked' : '',
-      summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
-    ].filter(Boolean).join(', ') || '—';
 
     return `
-      <tr>
+      <tr data-deck-id="${escapeHtml(deck.id)}">
         <td data-label="Deck">${escapeHtml(deck.name)}</td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
-        <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
-        <td data-label="Actions">
+        <td data-label="Status" class="deck-library-status-cell">Loading status...</td>
+        <td data-label="Actions" class="deck-library-actions-cell">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
-          ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}
         </td>
       </tr>`;
   }).join('');
 
   updateSortableTableIndicators('decks');
+
+  const scheduleDeckLibraryDetails = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame.bind(window)
+    : (callback) => setTimeout(callback, 0);
+
+  scheduleDeckLibraryDetails(() => {
+    populateDeckLibraryRowDetails(decks, deckUsageLookup, renderPass);
+  });
 }
 
 async function deleteDeckRecord(deckId) {
