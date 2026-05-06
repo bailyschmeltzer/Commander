@@ -22,7 +22,7 @@ const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
-const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 1000;
+const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 0;
 
 // Cached DOM references used across all pages.
 const form = document.getElementById('game-form');
@@ -276,6 +276,9 @@ let deckBuilderSaveTimer = null;
 let deckBuilderArtPickerCardId = '';
 let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
 let deckBuilderCommanderPrefill = '';
+let deckBuilderBasicLandWarmPromise = null;
+let deckBuilderHoldTimerId = null;
+let deckBuilderHoldIntervalId = null;
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
@@ -2363,6 +2366,17 @@ function saveDecks(decks, options = {}) {
 
     persistLocalState(appState);
     queueCloudSync();
+    return;
+  }
+
+  if (Number(delay) <= 0) {
+    if (decksPersistTimer) {
+      clearTimeout(decksPersistTimer);
+      decksPersistTimer = null;
+    }
+
+    persistLocalState(appState);
+    queueCloudSync(0);
     return;
   }
 
@@ -7356,6 +7370,25 @@ async function fetchDeckCardsByNamesBulk(names) {
   return resultMap;
 }
 
+function warmDeckBuilderBasicLandCache() {
+  const missingNames = BASIC_LAND_NAMES.filter((name) => !deckBuilderCardCache.has(name.toLowerCase()));
+  if (!missingNames.length) {
+    return Promise.resolve(new Map());
+  }
+
+  if (deckBuilderBasicLandWarmPromise) {
+    return deckBuilderBasicLandWarmPromise;
+  }
+
+  deckBuilderBasicLandWarmPromise = fetchDeckCardsByNamesBulk(missingNames)
+    .catch(() => new Map())
+    .finally(() => {
+      deckBuilderBasicLandWarmPromise = null;
+    });
+
+  return deckBuilderBasicLandWarmPromise;
+}
+
 async function fetchDeckCardArtOptions(card) {
   const oracleId = String(card?.oracleId || '').trim();
   const name = String(card?.name || '').trim();
@@ -8277,6 +8310,8 @@ function renderDeckBuilderPage() {
     return;
   }
 
+  void warmDeckBuilderBasicLandCache();
+
   // Capture before ensureActiveDeckBuilderRecord() strips query params via replaceState
   const prefilledCommanderName = deckBuilderCommanderPrefill;
   deckBuilderCommanderPrefill = '';
@@ -9082,23 +9117,20 @@ async function importDeckFromText(text) {
   const tone = failed.length ? 'error' : 'success';
 
   const nextDeck = applyDeckBuilderDraftMeta(deck);
+  const existingCards = Array.isArray(nextDeck.cards) ? nextDeck.cards : [];
   const existingMaybeboard = Array.isArray(nextDeck.maybeboard) ? nextDeck.maybeboard : [];
-  const mergedMaybeboard = hasMaybeboardSection
-    ? importedMaybeboard
-    : [
-      ...existingMaybeboard,
-      ...importedMaybeboard.filter((card) => !existingMaybeboard.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name))),
-    ];
+  const mergedMaybeboard = [
+    ...existingMaybeboard,
+    ...importedMaybeboard.filter((card) => !existingMaybeboard.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name))),
+  ];
 
   const existingTokens = Array.isArray(nextDeck.tokens) ? nextDeck.tokens : [];
-  const mergedTokens = hasTokenSection
-    ? mergeDeckBuilderTokenCards(importedTokens)
-    : mergeDeckBuilderTokenCards([...existingTokens, ...importedTokens]);
+  const mergedTokens = mergeDeckBuilderTokenCards([...existingTokens, ...importedTokens]);
 
   persistDeckBuilderRecord({
     ...nextDeck,
-    commander: newCommander ?? nextDeck.commander,
-    cards: newCards,
+    commander: nextDeck.commander ?? newCommander,
+    cards: [...existingCards, ...newCards],
     maybeboard: mergedMaybeboard,
     tokens: mergedTokens,
   }, statusMsg, tone);
@@ -9636,12 +9668,65 @@ function renderBasicLandRow(name, cards) {
         <p class="deck-card-meta">Basic Land</p>
       </div>
       <div class="deck-card-row-actions deck-card-row-actions-land">
-        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
         <span class="deck-land-count">×${escapeHtml(String(count))}</span>
         <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
         ${artButton}
       </div>
     </div>`;
+}
+
+function stopDeckBuilderHoldRepeat() {
+  if (deckBuilderHoldTimerId) {
+    clearTimeout(deckBuilderHoldTimerId);
+    deckBuilderHoldTimerId = null;
+  }
+  if (deckBuilderHoldIntervalId) {
+    clearInterval(deckBuilderHoldIntervalId);
+    deckBuilderHoldIntervalId = null;
+  }
+}
+
+function getDeckBuilderBasicLandHoldAction(target) {
+  const button = target?.closest?.('[data-add-basic], [data-remove-basic]');
+  if (!button || button.disabled) {
+    return null;
+  }
+
+  const addBasicName = String(button.dataset.addBasic || '').trim();
+  if (addBasicName) {
+    return () => {
+      void addBasicLandToDeck(addBasicName);
+    };
+  }
+
+  const removeBasicName = String(button.dataset.removeBasic || '').trim();
+  if (removeBasicName) {
+    return () => {
+      removeBasicLandFromDeck(removeBasicName);
+    };
+  }
+
+  return null;
+}
+
+function startDeckBuilderHoldRepeat(target, { applyInitialChange = false } = {}) {
+  stopDeckBuilderHoldRepeat();
+
+  const action = getDeckBuilderBasicLandHoldAction(target);
+  if (!action) {
+    return;
+  }
+
+  if (applyInitialChange) {
+    action();
+  }
+
+  deckBuilderHoldTimerId = setTimeout(() => {
+    deckBuilderHoldIntervalId = setInterval(() => {
+      action();
+    }, LIVE_HOLD_REPEAT_INTERVAL_MS);
+  }, LIVE_HOLD_REPEAT_START_DELAY_MS);
 }
 
 async function addUnlimitedCopyCardToDeck(cardName) {
@@ -9678,6 +9763,10 @@ async function addBasicLandToDeck(landName) {
   if (!deck) return;
   let card = deckBuilderCardCache.get(landName.toLowerCase());
   if (!card) {
+    await warmDeckBuilderBasicLandCache();
+    card = deckBuilderCardCache.get(landName.toLowerCase());
+  }
+  if (!card) {
     try {
       card = await fetchDeckCardByName(landName);
     } catch (e) {
@@ -9695,6 +9784,20 @@ async function addBasicLandToDeck(landName) {
     skipFullRefresh: true,
     persistDelayMs: DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
   });
+}
+
+function removeBasicLandFromDeck(landName) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    return;
+  }
+
+  const match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === getIdentityKey(landName));
+  if (!match?.id) {
+    return;
+  }
+
+  removeDeckBuilderCard(match.id);
 }
 
 function renderDeckCardRow(card, options = {}) {
@@ -12803,6 +12906,15 @@ document.addEventListener('click', async (event) => {
 });
 
 if (deckBuilderCards) {
+  deckBuilderCards.addEventListener('pointerdown', (event) => {
+    const holdButton = event.target.closest('[data-add-basic], [data-remove-basic]');
+    if (!holdButton) {
+      return;
+    }
+
+    startDeckBuilderHoldRepeat(holdButton, { applyInitialChange: true });
+  });
+
   deckBuilderCards.addEventListener('click', async (event) => {
     const changeArtButton = event.target.closest('[data-change-art-id]');
     if (changeArtButton) {
@@ -12873,6 +12985,16 @@ if (deckBuilderCards) {
       return;
     }
 
+    const removeBasicButton = event.target.closest('[data-remove-basic]');
+    if (removeBasicButton) {
+      if (event.detail !== 0) {
+        return;
+      }
+
+      removeBasicLandFromDeck(removeBasicButton.dataset.removeBasic || '');
+      return;
+    }
+
     const removeCardButton = event.target.closest('.deck-builder-remove-card[data-card-id]');
     if (removeCardButton) {
       removeDeckBuilderCard(removeCardButton.dataset.cardId || '');
@@ -12882,6 +13004,10 @@ if (deckBuilderCards) {
     // Quick-add basic land buttons (both inline +/- on stacked row and the quick-add panel)
     const addBasicButton = event.target.closest('[data-add-basic]');
     if (addBasicButton) {
+      if (event.detail !== 0) {
+        return;
+      }
+
       await addBasicLandToDeck(addBasicButton.dataset.addBasic || '');
       return;
     }
@@ -12913,6 +13039,18 @@ if (deckBuilderCards) {
         renderDeckBuilderCards(deck);
       }
     }
+  });
+
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
+    deckBuilderCards.addEventListener(eventName, () => {
+      stopDeckBuilderHoldRepeat();
+    });
+  });
+
+  ['pointerup', 'pointercancel'].forEach((eventName) => {
+    document.addEventListener(eventName, () => {
+      stopDeckBuilderHoldRepeat();
+    });
   });
 }
 
