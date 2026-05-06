@@ -5035,109 +5035,6 @@ header a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyw
   text-decoration: underline;
 }
 
-.page-switch {
-  position: relative;
-  z-index: 201;
-  display: flex;
-  justify-content: flex-start;
-  margin-top: 0;
-}
-
-.page-switch-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 12px 18px;
-  border-radius: 16px;
-  border: 1px solid #23438e;
-  background: linear-gradient(145deg, #2f63d8 0%, #1d3f92 100%);
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 16px 34px rgba(29, 63, 146, 0.28);
-}
-
-.page-switch-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 0;
-  z-index: 9999;
-  display: none;
-  pointer-events: auto;
-  width: min(560px, calc(100vw - 48px));
-  max-height: min(70vh, 640px);
-  overflow-y: auto;
-  gap: 18px;
-  padding: 20px;
-  border: 1px solid rgba(121, 162, 255, 0.42);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(133, 183, 255, 0.26), transparent 30%),
-    linear-gradient(180deg, rgba(30, 58, 128, 0.97) 0%, rgba(22, 41, 95, 0.97) 100%);
-  box-shadow: 0 22px 54px rgba(14, 24, 58, 0.34);
-  backdrop-filter: blur(18px);
-}
-
-.page-switch.is-open .page-switch-panel {
-  display: grid;
-}
-
-.page-link {
-  display: flex;
-  align-items: center;
-  min-height: 64px;
-  padding: 14px 16px;
-  border: 1px solid rgba(154, 186, 255, 0.24);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #f4f7ff !important;
-  text-decoration: none !important;
-  font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.page-link:hover {
-  transform: translateY(-1px);
-  background: rgba(129, 168, 255, 0.2);
-  border-color: rgba(182, 207, 255, 0.48);
-  box-shadow: 0 12px 24px rgba(10, 21, 56, 0.22);
-}
-
-.page-link.is-current {
-  border-color: rgba(255, 255, 255, 0.5);
-  background: linear-gradient(145deg, #5b8cff 0%, #3f67cf 100%);
-  color: #ffffff !important;
-  box-shadow: 0 16px 28px rgba(18, 34, 80, 0.28);
-}
-
-@media (max-width: 1200px) {
-  .page-switch {
-    position: fixed;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    left: auto;
-    top: auto;
-    z-index: 4300;
-    justify-content: flex-end;
-  }
-
-  .page-switch-toggle {
-    min-height: 52px;
-    padding: 12px 16px;
-    border-radius: 999px;
-  }
-
-  .page-switch-panel {
-    position: fixed;
-    top: auto;
-    right: 12px;
-    bottom: calc(76px + env(safe-area-inset-bottom));
-    left: 12px;
-    width: auto;
-    max-height: min(72vh, 620px);
-  }
-}
-
 @media (max-width: 560px) {
   header {
     padding: 14px;
@@ -5153,10 +5050,117 @@ header a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyw
     font-size: 0.95rem;
     line-height: 1.4;
   }
+}
 
-  .page-link {
-    min-height: 54px;
-    font-size: 0.88rem;
-    padding: 10px 12px;
+/* Ultimate mobile table recovery: neutralize stacked-card transforms and restore real tables. */
+@media (max-width: 900px) {
+  .page-game-tracker .player-table-wrapper,
+  .player-table-wrapper,
+  .history-table-wrapper,
+  .deck-library-table-wrapper,
+  .records-table-wrapper,
+  .rankings-table-wrapper {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .player-table,
+  .history-game-table,
+  .records-table,
+  .rankings-table,
+  .player-stats-table,
+  .commander-stats-table,
+  .deck-library-table,
+  .deck-list-table,
+  .live-setup-table {
+    display: table !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .player-table thead,
+  .history-game-table thead,
+  .records-table thead,
+  .rankings-table thead,
+  .player-stats-table thead,
+  .commander-stats-table thead,
+  .deck-library-table thead,
+  .deck-list-table thead,
+  .live-setup-table thead {
+    display: table-header-group !important;
+  }
+
+  .player-table tbody,
+  .history-game-table tbody,
+  .records-table tbody,
+  .rankings-table tbody,
+  .player-stats-table tbody,
+  .commander-stats-table tbody,
+  .deck-library-table tbody,
+  .deck-list-table tbody,
+  .live-setup-table tbody {
+    display: table-row-group !important;
+  }
+
+  .player-table tr,
+  .history-game-table tr,
+  .records-table tr,
+  .rankings-table tr,
+  .player-stats-table tr,
+  .commander-stats-table tr,
+  .deck-library-table tr,
+  .deck-list-table tr,
+  .live-setup-table tr {
+    display: table-row !important;
+    width: auto !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  .player-table th,
+  .player-table td,
+  .history-game-table th,
+  .history-game-table td,
+  .records-table th,
+  .records-table td,
+  .rankings-table th,
+  .rankings-table td,
+  .player-stats-table th,
+  .player-stats-table td,
+  .commander-stats-table th,
+  .commander-stats-table td,
+  .deck-library-table th,
+  .deck-library-table td,
+  .deck-list-table th,
+  .deck-list-table td,
+  .live-setup-table th,
+  .live-setup-table td {
+    display: table-cell !important;
+    width: auto !important;
+    min-width: 0 !important;
+    border: 1px solid rgba(91, 120, 168, 0.22) !important;
+    padding: 8px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+  }
+
+  .player-table td::before,
+  .history-game-table td::before,
+  .records-table td::before,
+  .rankings-table td::before,
+  .player-stats-table td::before,
+  .commander-stats-table td::before,
+  .deck-library-table td::before,
+  .deck-list-table td::before,
+  .live-setup-table td::before {
+    content: none !important;
+    display: none !important;
   }
 }
