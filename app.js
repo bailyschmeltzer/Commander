@@ -2348,7 +2348,7 @@ function loadDeckLists() {
 }
 
 function loadDecks() {
-  return Array.isArray(appState.decks) ? appState.decks.map(normalizeDeckRecord).filter(Boolean) : [];
+  return Array.isArray(appState.decks) ? appState.decks : [];
 }
 
 function saveDeckLists(deckLists) {
@@ -6084,7 +6084,7 @@ function getCardEffectiveColorIdentity(card) {
 }
 
 function getDeckValidationSummary(deck) {
-  const normalizedDeck = normalizeDeckRecord(deck);
+  const normalizedDeck = deck?.cards && deck?.commander ? deck : normalizeDeckRecord(deck);
   const commander = normalizedDeck?.commander || null;
   const secondCommander = normalizedDeck?.secondCommander || null;
 
@@ -6258,15 +6258,89 @@ function isDeckUsedInGame(deck) {
   );
 }
 
-function getDeckSummaryLabel(deck) {
-  const summary = getDeckValidationSummary(deck);
-  if (!summary.commanderCount) {
+function buildDeckUsageLookup(deckLists = loadDeckLists(), games = loadGames()) {
+  const anyCommanderOracleIds = new Set();
+  const anyCommanderNameKeys = new Set();
+  const ownerCommanderOracleIds = new Set();
+  const ownerCommanderNameKeys = new Set();
+
+  const addCommanderUsage = (name, owner, oracleId = '') => {
+    const ownerKey = getIdentityKey(owner || '');
+    const commanderNameKey = getIdentityKey(name || '');
+    const commanderOracleId = String(oracleId || '').trim().toLowerCase();
+
+    if (commanderOracleId) {
+      anyCommanderOracleIds.add(commanderOracleId);
+      if (ownerKey) {
+        ownerCommanderOracleIds.add(`${ownerKey}::${commanderOracleId}`);
+      }
+    }
+
+    if (commanderNameKey) {
+      anyCommanderNameKeys.add(commanderNameKey);
+      if (ownerKey) {
+        ownerCommanderNameKeys.add(`${ownerKey}::${commanderNameKey}`);
+      }
+    }
+  };
+
+  deckLists.forEach((deckList) => {
+    addCommanderUsage(deckList?.commander, deckList?.owner, deckList?.commanderOracleId);
+  });
+
+  games.forEach((game) => {
+    (Array.isArray(game?.playerRows) ? game.playerRows : []).forEach((row) => {
+      addCommanderUsage(row?.commander, row?.player);
+    });
+  });
+
+  return {
+    anyCommanderOracleIds,
+    anyCommanderNameKeys,
+    ownerCommanderOracleIds,
+    ownerCommanderNameKeys,
+  };
+}
+
+function isDeckUsedInGameFromLookup(deck, usageLookup) {
+  if (!deck?.id || !usageLookup) {
+    return false;
+  }
+
+  const deckOracleId = String(deck.commander?.oracleId || '').trim().toLowerCase();
+  const deckNameKey = getIdentityKey(deck.commander?.name || '');
+  const ownerKey = getIdentityKey(deck.owner || '');
+
+  if (deckOracleId) {
+    if (ownerKey) {
+      if (usageLookup.ownerCommanderOracleIds.has(`${ownerKey}::${deckOracleId}`)) {
+        return true;
+      }
+    } else if (usageLookup.anyCommanderOracleIds.has(deckOracleId)) {
+      return true;
+    }
+  }
+
+  if (!deckNameKey) {
+    return false;
+  }
+
+  if (ownerKey) {
+    return usageLookup.ownerCommanderNameKeys.has(`${ownerKey}::${deckNameKey}`);
+  }
+
+  return usageLookup.anyCommanderNameKeys.has(deckNameKey);
+}
+
+function getDeckSummaryLabel(deck, summary = null) {
+  const resolvedSummary = summary || getDeckValidationSummary(deck);
+  if (!resolvedSummary.commanderCount) {
     return 'Commander missing';
   }
-  if (summary.totalCards !== 100) {
-    return `${summary.totalCards}/100 cards`;
+  if (resolvedSummary.totalCards !== 100) {
+    return `${resolvedSummary.totalCards}/100 cards`;
   }
-  if (summary.duplicates.length) {
+  if (resolvedSummary.duplicates.length) {
     return 'Duplicate cards found';
   }
   return 'Ready';
@@ -6335,6 +6409,7 @@ function renderDeckLibrary() {
   const decks = activeOwnerFilter
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
+  const deckUsageLookup = buildDeckUsageLookup();
 
   if (!sortedDecks.length) {
     deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
@@ -6352,7 +6427,7 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const hasGameRecord = isDeckUsedInGame(deck);
+    const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
@@ -6364,7 +6439,7 @@ function renderDeckLibrary() {
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
-        <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
+        <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
           ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-library-delete" data-id="${escapeHtml(deck.id)}"${canEditDeck ? '' : ' disabled'}>Delete</button>`}
