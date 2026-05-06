@@ -3704,10 +3704,46 @@ function togglePrimaryMenu(forceOpen) {
   }
 }
 
+function applyPrimaryMenuMobileViewportFix() {
+  if (!pageSwitch || !pageSwitchPanel || !document.body) {
+    return;
+  }
+
+  const isMobileLike = window.matchMedia('(max-width: 1200px), (hover: none) and (pointer: coarse)').matches;
+  if (!isMobileLike) {
+    return;
+  }
+
+  // Move the menu container outside header so fixed positioning targets the viewport.
+  if (pageSwitch.parentElement !== document.body) {
+    document.body.appendChild(pageSwitch);
+  }
+
+  pageSwitch.style.position = 'fixed';
+  pageSwitch.style.right = '12px';
+  pageSwitch.style.bottom = 'calc(12px + env(safe-area-inset-bottom))';
+  pageSwitch.style.left = 'auto';
+  pageSwitch.style.top = 'auto';
+  pageSwitch.style.zIndex = '4300';
+  pageSwitch.style.marginTop = '0';
+  pageSwitch.style.justifyContent = 'flex-end';
+
+  pageSwitchPanel.style.position = 'fixed';
+  pageSwitchPanel.style.right = '12px';
+  pageSwitchPanel.style.bottom = 'calc(76px + env(safe-area-inset-bottom))';
+  pageSwitchPanel.style.left = '12px';
+  pageSwitchPanel.style.top = 'auto';
+  pageSwitchPanel.style.width = 'auto';
+  pageSwitchPanel.style.maxHeight = 'min(72vh, 620px)';
+  pageSwitchPanel.style.overflowY = 'auto';
+}
+
 function initializePrimaryMenu() {
   if (!pageSwitch || !pageSwitchToggleButton || !pageSwitchPanel) {
     return;
   }
+
+  applyPrimaryMenuMobileViewportFix();
 
   const currentPageName = getCurrentPageName();
   Array.from(pageSwitchPanel.querySelectorAll('.page-link')).forEach((link) => {

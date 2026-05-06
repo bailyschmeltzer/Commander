@@ -1236,6 +1236,33 @@ button[type="submit"] {
   width: 16%;
 }
 
+.deck-library-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid rgba(91, 120, 168, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.deck-library-table th,
+.deck-library-table td {
+  border: 1px solid rgba(91, 120, 168, 0.26);
+  padding: 9px 10px;
+}
+
+.deck-library-table tbody tr:nth-child(odd) {
+  background: rgba(224, 234, 245, 0.22);
+}
+
+.deck-library-table tbody tr:hover {
+  background: rgba(214, 227, 242, 0.34);
+}
+
+.deck-library-table td:nth-child(6) {
+  white-space: nowrap;
+}
+
 .deck-library-warning-text {
   margin-top: 6px;
   color: #7a3245;
