@@ -7947,12 +7947,18 @@ function renderDeckBuilderCards(deck) {
 
   const groups = getDeckBuilderGroupedCards(deck);
 
-  // Build a set of illegal card ids for color identity violations
+  // Build sets of card names that fail deck validation so rows can be highlighted.
   const summary = getDeckValidationSummary(deck);
-  const illegalCardNames = new Set(
+  const colorViolationNames = new Set(
     summary.colorViolations.map((v) => getIdentityKey(v.replace(/\s*\([^)]*\)$/, '').trim()))
   );
-  const isIllegalCard = (card) => illegalCardNames.has(getIdentityKey(card.name));
+  const duplicateCardNames = new Set(
+    summary.duplicates.map((name) => getIdentityKey(name))
+  );
+  const isIllegalCard = (card) => {
+    const key = getIdentityKey(card?.name);
+    return Boolean(key) && (colorViolationNames.has(key) || duplicateCardNames.has(key));
+  };
   const isReadOnly = !canCurrentUserEditDeck(deck);
 
   const commanderCards = [deck?.commander, deck?.secondCommander].filter(Boolean);
@@ -7964,8 +7970,8 @@ function renderDeckBuilderCards(deck) {
           <p>${commanderCards.length === 2 ? '2 cards — Partner' : '1 card'}</p>
         </div>
         <div class="deck-builder-group-cards deck-builder-group-cards--single">
-          ${renderDeckCardRow(deck.commander, { isCommander: true, showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly })}
-          ${deck.secondCommander ? renderDeckCardRow(deck.secondCommander, { isCommander: true, isSecondCommander: true, showArtPicker: deck.secondCommander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly }) : ''}
+          ${renderDeckCardRow(deck.commander, { isCommander: true, isIllegal: isIllegalCard(deck.commander), showArtPicker: deck.commander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly })}
+          ${deck.secondCommander ? renderDeckCardRow(deck.secondCommander, { isCommander: true, isSecondCommander: true, isIllegal: isIllegalCard(deck.secondCommander), showArtPicker: deck.secondCommander?.id === deckBuilderArtPickerCardId, readOnly: isReadOnly }) : ''}
         </div>
       </section>`
     : `
@@ -9128,26 +9134,178 @@ async function importDeckFromText(text) {
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = false;
 
   const importedTokenCount = importedTokens.reduce((sum, token) => sum + (Number.isFinite(Number(token.count)) ? Math.max(1, Number(token.count)) : 1), 0);
-  const statusMsg = failed.length
-    ? `Imported. ${failed.length} card(s) not found: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.`
-    : `Imported ${newCards.length + importedMaybeboard.length + importedTokenCount + (newCommander ? 1 : 0)} card(s).`;
-  const tone = failed.length ? 'error' : 'success';
-
   const nextDeck = applyDeckBuilderDraftMeta(deck);
-  const existingCards = Array.isArray(nextDeck.cards) ? nextDeck.cards : [];
+  const importOnlyAcceptedCards = [];
+  const importOnlyNameCounts = new Map();
+  const skippedImportDuplicateNames = new Set();
+
+  if (newCommander?.name) {
+    const commanderKey = getIdentityKey(newCommander.name);
+    if (commanderKey) {
+      importOnlyNameCounts.set(commanderKey, 1);
+    }
+  }
+
+  newCards.forEach((card) => {
+    const key = getIdentityKey(card?.name);
+    if (!key) {
+      importOnlyAcceptedCards.push(card);
+      return;
+    }
+
+    if (!allowsMultipleCopies(card) && (importOnlyNameCounts.get(key) || 0) > 0) {
+      skippedImportDuplicateNames.add(card.name);
+      return;
+    }
+
+    importOnlyAcceptedCards.push(card);
+    importOnlyNameCounts.set(key, (importOnlyNameCounts.get(key) || 0) + 1);
+  });
+
+  const importedDeckCardTotal = importOnlyAcceptedCards.length + (newCommander ? 1 : 0);
+  const shouldReplaceDeckContents = importedDeckCardTotal === 100;
+  const baseCommander = shouldReplaceDeckContents ? (newCommander || null) : (nextDeck.commander ?? newCommander);
+  const baseSecondCommander = shouldReplaceDeckContents ? null : (nextDeck.secondCommander || null);
+  const existingCards = shouldReplaceDeckContents ? [] : (Array.isArray(nextDeck.cards) ? nextDeck.cards : []);
+  const acceptedNewCards = [];
+  const overflowDeckCards = [];
+  const skippedDuplicateNames = new Set(skippedImportDuplicateNames);
+  const mainDeckNameCounts = new Map();
+  const commanderCount = (baseCommander ? 1 : 0) + (baseSecondCommander ? 1 : 0);
+  let remainingDeckSlots = shouldReplaceDeckContents
+    ? Math.max(0, 100 - commanderCount)
+    : Math.max(0, 100 - (existingCards.length + commanderCount));
+
+  if (baseCommander?.name) {
+    const commanderKey = getIdentityKey(baseCommander.name);
+    if (commanderKey) {
+      mainDeckNameCounts.set(commanderKey, 1);
+    }
+  }
+
+  if (baseSecondCommander?.name) {
+    const secondCommanderKey = getIdentityKey(baseSecondCommander.name);
+    if (secondCommanderKey) {
+      mainDeckNameCounts.set(secondCommanderKey, 1);
+    }
+  }
+
+  existingCards.forEach((card) => {
+    const key = getIdentityKey(card?.name);
+    if (!key) {
+      return;
+    }
+    mainDeckNameCounts.set(key, (mainDeckNameCounts.get(key) || 0) + 1);
+  });
+
+  importOnlyAcceptedCards.forEach((card) => {
+    const key = getIdentityKey(card?.name);
+    if (!key) {
+      if (remainingDeckSlots > 0) {
+        acceptedNewCards.push(card);
+        remainingDeckSlots -= 1;
+      } else {
+        overflowDeckCards.push(card);
+      }
+      return;
+    }
+
+    if (!allowsMultipleCopies(card) && (mainDeckNameCounts.get(key) || 0) > 0) {
+      skippedDuplicateNames.add(card.name);
+      return;
+    }
+
+    if (remainingDeckSlots <= 0) {
+      overflowDeckCards.push(card);
+      return;
+    }
+
+    acceptedNewCards.push(card);
+    mainDeckNameCounts.set(key, (mainDeckNameCounts.get(key) || 0) + 1);
+    remainingDeckSlots -= 1;
+  });
+
   const existingMaybeboard = Array.isArray(nextDeck.maybeboard) ? nextDeck.maybeboard : [];
+  const maybeboardNameSet = new Set(
+    existingMaybeboard
+      .map((card) => getIdentityKey(card?.name))
+      .filter(Boolean)
+  );
+  const acceptedMaybeboardCards = [];
+  const skippedMaybeboardNames = new Set();
+  const partialOverflowNames = new Set();
+
+  overflowDeckCards.forEach((card) => {
+    const key = getIdentityKey(card?.name);
+    if (!key) {
+      acceptedMaybeboardCards.push(card);
+      return;
+    }
+
+    if (maybeboardNameSet.has(key) || mainDeckNameCounts.has(key)) {
+      skippedMaybeboardNames.add(card.name);
+      return;
+    }
+
+    acceptedMaybeboardCards.push(card);
+    maybeboardNameSet.add(key);
+    partialOverflowNames.add(card.name);
+  });
+
+  importedMaybeboard.forEach((card) => {
+    const key = getIdentityKey(card?.name);
+    if (!key) {
+      acceptedMaybeboardCards.push(card);
+      return;
+    }
+
+    if (maybeboardNameSet.has(key) || mainDeckNameCounts.has(key)) {
+      skippedMaybeboardNames.add(card.name);
+      return;
+    }
+
+    acceptedMaybeboardCards.push(card);
+    maybeboardNameSet.add(key);
+  });
+
   const mergedMaybeboard = [
     ...existingMaybeboard,
-    ...importedMaybeboard.filter((card) => !existingMaybeboard.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name))),
+    ...acceptedMaybeboardCards,
   ];
 
   const existingTokens = Array.isArray(nextDeck.tokens) ? nextDeck.tokens : [];
   const mergedTokens = mergeDeckBuilderTokenCards([...existingTokens, ...importedTokens]);
 
+  const importedCardCount = acceptedNewCards.length + acceptedMaybeboardCards.length + importedTokenCount + (newCommander ? 1 : 0);
+  const statusParts = [];
+  if (importedCardCount) {
+    statusParts.push(`Imported ${importedCardCount} card(s).`);
+  }
+  if (shouldReplaceDeckContents) {
+    statusParts.push('Detected a 100-card import and replaced the current deck contents.');
+  } else if (partialOverflowNames.size) {
+    const overflowNames = [...partialOverflowNames];
+    statusParts.push(`Partial import filled the deck to 100 cards and moved ${overflowNames.length} extra card(s) to the maybeboard: ${overflowNames.slice(0, 3).join(', ')}${overflowNames.length > 3 ? '…' : ''}.`);
+  }
+  if (failed.length) {
+    statusParts.push(`Could not find ${failed.length} card(s): ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}.`);
+  }
+  if (skippedDuplicateNames.size) {
+    const skippedNames = [...skippedDuplicateNames];
+    statusParts.push(`Skipped ${skippedNames.length} duplicate singleton card(s): ${skippedNames.slice(0, 3).join(', ')}${skippedNames.length > 3 ? '…' : ''}.`);
+  }
+  if (skippedMaybeboardNames.size) {
+    const skippedNames = [...skippedMaybeboardNames];
+    statusParts.push(`Skipped ${skippedNames.length} maybeboard duplicate card(s): ${skippedNames.slice(0, 3).join(', ')}${skippedNames.length > 3 ? '…' : ''}.`);
+  }
+  const statusMsg = statusParts.join(' ') || 'Import finished.';
+  const tone = failed.length || skippedDuplicateNames.size || skippedMaybeboardNames.size ? 'error' : 'success';
+
   persistDeckBuilderRecord({
     ...nextDeck,
-    commander: nextDeck.commander ?? newCommander,
-    cards: [...existingCards, ...newCards],
+    commander: baseCommander,
+    secondCommander: baseSecondCommander,
+    cards: [...existingCards, ...acceptedNewCards],
     maybeboard: mergedMaybeboard,
     tokens: mergedTokens,
   }, statusMsg, tone);
