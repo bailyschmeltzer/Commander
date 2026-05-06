@@ -3732,6 +3732,104 @@ function initializePrimaryMenu() {
   });
 }
 
+function applyRuntimeMobileLayoutFixes() {
+  if (typeof document === 'undefined' || !document.head) {
+    return;
+  }
+
+  const styleId = 'runtime-mobile-layout-fixes';
+  let styleElement = document.getElementById(styleId);
+  if (!styleElement) {
+    styleElement = document.createElement('style');
+    styleElement.id = styleId;
+    document.head.appendChild(styleElement);
+  }
+
+  styleElement.textContent = `
+@media (max-width: 1200px), (hover: none) and (pointer: coarse) {
+  .page-switch {
+    position: fixed !important;
+    right: 12px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: 4300 !important;
+    margin-top: 0 !important;
+    justify-content: flex-end !important;
+  }
+
+  .page-switch-toggle {
+    min-height: 52px !important;
+    padding: 12px 16px !important;
+    border-radius: 999px !important;
+  }
+
+  .page-switch-panel {
+    position: fixed !important;
+    top: auto !important;
+    right: 12px !important;
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: auto !important;
+    max-height: min(72vh, 620px) !important;
+    overflow-y: auto !important;
+  }
+
+  .page-decklists .deck-library-table {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  .page-decklists .deck-library-table colgroup {
+    display: table-column-group !important;
+  }
+
+  .page-decklists .deck-library-table thead {
+    display: table-header-group !important;
+  }
+
+  .page-decklists .deck-library-table tbody {
+    display: table-row-group !important;
+  }
+
+  .page-decklists .deck-library-table tr {
+    display: table-row !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .page-decklists .deck-library-table th,
+  .page-decklists .deck-library-table td {
+    display: table-cell !important;
+    border: 1px solid rgba(91, 120, 168, 0.22) !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+
+  .page-decklists .deck-library-table td::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) {
+    display: table-cell !important;
+    grid-template-columns: none !important;
+    gap: 0 !important;
+    align-items: initial !important;
+  }
+
+  .page-decklists .deck-library-table td:nth-child(6) button {
+    width: auto !important;
+    margin-top: 0 !important;
+  }
+}
+`;
+}
+
 function initializeLiveTrackerTouchGuards() {
   if (!document.body.classList.contains('page-live-game')) {
     return;
@@ -13821,6 +13919,7 @@ async function initializeApp() {
     acquireWakeLock();
   }
   hideLiveSourcePrompt();
+  applyRuntimeMobileLayoutFixes();
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
   setupSyncUi();
