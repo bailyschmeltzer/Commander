@@ -5041,4 +5041,81 @@ main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keywor
       right: auto !important;
       left: 0 !important;
     }
+
+    /* Built Decks should stay compact on mobile: keep table layout + horizontal scroll. */
+    .page-decklists .player-table-wrapper {
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+    }
+
+    .page-decklists .deck-library-table {
+      display: table !important;
+      width: 100% !important;
+      min-width: 760px;
+      table-layout: fixed !important;
+      border-collapse: collapse !important;
+      border: 1.5px solid rgba(91, 120, 168, 0.3) !important;
+      background: #ffffff !important;
+    }
+
+    .page-decklists .deck-library-table colgroup {
+      display: table-column-group !important;
+    }
+
+    .page-decklists .deck-library-table thead {
+      display: table-header-group !important;
+    }
+
+    .page-decklists .deck-library-table tbody {
+      display: table-row-group !important;
+      gap: 0 !important;
+    }
+
+    .page-decklists .deck-library-table tr {
+      display: table-row !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      padding: 0 !important;
+    }
+
+    .page-decklists .deck-library-table th,
+    .page-decklists .deck-library-table td {
+      display: table-cell !important;
+      border: 1px solid rgba(91, 120, 168, 0.24) !important;
+      padding: 8px 10px !important;
+      text-align: left !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .page-decklists .deck-library-table td::before {
+      content: none !important;
+      display: none !important;
+    }
+
+    .page-decklists .deck-library-table td[colspan] {
+      display: table-cell !important;
+      padding: 8px 10px !important;
+    }
+
+    .page-decklists .deck-library-table td[colspan]::before {
+      content: none !important;
+      display: none !important;
+    }
+
+    .page-decklists .deck-library-table td:nth-child(6) {
+      display: table-cell !important;
+      white-space: nowrap;
+      grid-template-columns: none !important;
+      gap: 0 !important;
+      align-items: initial !important;
+    }
+
+    .page-decklists .deck-library-table td:nth-child(6) button {
+      width: auto !important;
+      margin-top: 0 !important;
+      margin-right: 6px;
+    }
   }
