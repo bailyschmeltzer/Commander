@@ -265,6 +265,8 @@ label {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
+  padding: 4px 6px;
+  color: #1c2836;
 }
 
 .player-table-wrapper {
@@ -272,6 +274,9 @@ label {
   overflow-x: auto;
   overflow-y: visible;
   z-index: 1;
+  background: linear-gradient(180deg, rgba(245, 248, 252, 0.42), rgba(237, 242, 249, 0.3));
+  border-radius: 12px;
+  padding: 1px;
 }
 
 .player-table-wrapper.dropdown-open {
@@ -357,6 +362,14 @@ label {
   width: 24%;
 }
 
+.player-stats-table th {
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.32), rgba(210, 225, 240, 0.24));
+}
+
+.player-stats-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.1), rgba(205, 220, 240, 0.06));
+}
+
 .commander-stats-table {
   font-size: 0.92rem;
   table-layout: auto;
@@ -408,6 +421,14 @@ label {
 .commander-stats-table th:nth-child(12),
 .commander-stats-table td:nth-child(12) {
   width: 11%;
+}
+
+.commander-stats-table th {
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.32), rgba(210, 225, 240, 0.24));
+}
+
+.commander-stats-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.1), rgba(205, 220, 240, 0.06));
 }
 
 .commander-expected-input {
@@ -488,6 +509,10 @@ label {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(215, 228, 245, 0.16), rgba(205, 220, 240, 0.12));
+  margin-bottom: 16px;
 }
 
 .records-helper-text {
@@ -507,6 +532,11 @@ label {
 
 .records-table th {
   overflow: hidden;
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.32), rgba(210, 225, 240, 0.24));
+}
+
+.records-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.1), rgba(205, 220, 240, 0.06));
 }
 
 .records-table input,
@@ -631,8 +661,12 @@ label {
   width: 39%;
 }
 
-.player-table th {
-  background: linear-gradient(180deg, rgba(230, 238, 245, 0.88), rgba(222, 232, 244, 0.78));
+.player-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.12), rgba(205, 220, 240, 0.08));
+}
+
+.player-table tbody tr:nth-child(even) {
+  background: transparent;
 }
 
 .player-table input,
@@ -863,12 +897,17 @@ button[type="submit"] {
 .stats-panel {
   display: grid;
   gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(215, 228, 245, 0.16), rgba(205, 220, 240, 0.12));
 }
 
 .rankings-summary {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin-bottom: 18px;
-}
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(215, 228, 245, 0.12), rgba(205, 220, 240, 0.08));
 
 .rankings-helper-text {
   margin-top: 0;
@@ -894,6 +933,14 @@ button[type="submit"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.rankings-table th {
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.32), rgba(210, 225, 240, 0.24));
+}
+
+.rankings-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.1), rgba(205, 220, 240, 0.06));
 }
 
 .page-rankings .rankings-main-table .rankings-games-column,
@@ -973,9 +1020,9 @@ button[type="submit"] {
 .history-empty-state {
   margin: 0;
   padding: 14px;
-  border: 1px dashed #ccd5e8;
+  border: 1px dashed rgba(91, 120, 168, 0.28);
   border-radius: 14px;
-  background: #fbfcff;
+  background: linear-gradient(180deg, rgba(215, 228, 245, 0.24), rgba(205, 220, 240, 0.16));
   color: #4f5668;
 }
 
@@ -992,9 +1039,9 @@ button[type="submit"] {
   gap: 10px;
   margin-bottom: 16px;
   padding: 12px 14px;
-  border: 1px solid #dde4f2;
+  border: 1.2px solid rgba(91, 120, 168, 0.24);
   border-radius: 14px;
-  background: #f8faff;
+  background: linear-gradient(180deg, rgba(215, 228, 245, 0.18), rgba(205, 220, 240, 0.12));
 }
 
 .history-active-filter-summary {
@@ -1049,13 +1096,18 @@ button[type="submit"] {
 
 .history-game-table th,
 .history-game-table td {
-  border: 1px solid #e4e8f2;
+  border: 1px solid rgba(91, 120, 168, 0.22);
   padding: 10px;
   text-align: left;
 }
 
 .history-game-table th {
-  background: #f4f6fb;
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.48), rgba(210, 225, 240, 0.36));
+  border-bottom: 1.5px solid rgba(91, 120, 168, 0.28);
+}
+
+.history-game-table tbody tr:nth-child(odd) {
+  background: linear-gradient(90deg, rgba(215, 228, 245, 0.12), rgba(205, 220, 240, 0.08));
 }
 
 .history-item .row {
@@ -1070,10 +1122,10 @@ button[type="submit"] {
 }
 
 .deck-lookup-result {
-  border: 1px solid #e4e8f2;
+  border: 1.2px solid rgba(91, 120, 168, 0.24);
   border-radius: 14px;
   padding: 16px;
-  background: #fbfcff;
+  background: linear-gradient(180deg, rgba(220, 230, 245, 0.2), rgba(210, 225, 240, 0.14));
 }
 
 .deck-lookup-result p {
