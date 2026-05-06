@@ -4951,9 +4951,9 @@ main a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keywor
 
   /* Authoritative mobile table formatting and live-tracker nav visibility. */
   @media (max-width: 900px) {
-    .page-live-game .page-switch,
-    .page-live-game .page-switch-panel,
-    .page-live-game .page-switch-toggle {
+    .page-live-game.live-table-mode .page-switch,
+    .page-live-game.live-table-mode .page-switch-panel,
+    .page-live-game.live-table-mode .page-switch-toggle {
       display: none !important;
     }
 
