@@ -3685,9 +3685,6 @@ function closePrimaryMenu() {
   }
 
   pageSwitch.classList.remove('is-open');
-  if (pageSwitchPanel) {
-    pageSwitchPanel.style.display = 'none';
-  }
   if (pageSwitchToggleButton) {
     pageSwitchToggleButton.setAttribute('aria-expanded', 'false');
   }
@@ -3702,11 +3699,6 @@ function togglePrimaryMenu(forceOpen) {
     ? forceOpen
     : !pageSwitch.classList.contains('is-open');
   pageSwitch.classList.toggle('is-open', nextOpen);
-  if (pageSwitchPanel) {
-    pageSwitchPanel.style.display = nextOpen ? 'grid' : 'none';
-    pageSwitchPanel.style.overflowY = 'visible';
-    pageSwitchPanel.style.maxHeight = 'none';
-  }
   if (pageSwitchToggleButton) {
     pageSwitchToggleButton.setAttribute('aria-expanded', String(nextOpen));
   }
@@ -3742,8 +3734,8 @@ function applyPrimaryMenuMobileViewportFix() {
   pageSwitchPanel.style.left = '12px';
   pageSwitchPanel.style.top = 'auto';
   pageSwitchPanel.style.width = 'auto';
-  pageSwitchPanel.style.maxHeight = 'none';
-  pageSwitchPanel.style.overflowY = 'visible';
+  pageSwitchPanel.style.maxHeight = 'min(72vh, 620px)';
+  pageSwitchPanel.style.overflowY = 'auto';
 }
 
 function initializePrimaryMenu() {
@@ -3815,12 +3807,8 @@ function applyRuntimeMobileLayoutFixes() {
     bottom: calc(76px + env(safe-area-inset-bottom)) !important;
     left: 12px !important;
     width: auto !important;
-    max-height: none !important;
-    overflow-y: visible !important;
-  }
-
-  .page-switch-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-height: min(72vh, 620px) !important;
+    overflow-y: auto !important;
   }
 
   .page-decklists .deck-library-table {

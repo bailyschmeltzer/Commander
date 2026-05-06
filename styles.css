@@ -5164,16 +5164,6 @@ header a:not(.page-link):not(.secondary-button):not(.page-action-link):not(.keyw
     display: none !important;
   }
 
-  .page-switch-panel {
-    overflow-y: visible !important;
-    max-height: none !important;
-  }
-
-  .page-switch-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-  }
-
   .page-deckbuilder .deck-builder-layout {
     grid-template-columns: 1fr !important;
     gap: 14px !important;
