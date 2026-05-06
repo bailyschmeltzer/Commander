@@ -50,7 +50,7 @@ body::before {
 
 .app-shell {
   width: 100%;
-  max-width: 1440px;
+  max-width: none;
   margin: 0 auto;
   padding: 24px;
 }
@@ -512,13 +512,16 @@ label {
 }
 
 .records-table {
-  table-layout: fixed;
+  width: 100%;
+  table-layout: auto;
 }
 
 .records-table th,
 .records-table td {
   vertical-align: top;
   overflow: visible;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .records-table th {
@@ -549,19 +552,35 @@ label {
 }
 
 .record-title-cell {
+  width: 16%;
   min-width: 140px;
 }
 
 .record-value-cell {
+  width: 8%;
   min-width: 84px;
 }
 
 .record-unit-cell {
+  width: 8%;
   min-width: 100px;
 }
 
+.record-player-cell {
+  width: 16%;
+}
+
 .record-commander-cell {
+  width: 13%;
   min-width: 44px;
+}
+
+.record-date-cell {
+  width: 12%;
+}
+
+.record-notes-cell {
+  width: 27%;
 }
 
 .record-badge,
@@ -611,23 +630,6 @@ label {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #89a0ff 0%, #4f67d8 100%);
-}
-
-.player-table th:nth-child(2),
-.player-table td:nth-child(2) {
-  width: 22%;
-}
-
-.player-table th:nth-child(3),
-.player-table td:nth-child(3),
-.player-table th:nth-child(4),
-.player-table td:nth-child(4) {
-  width: 8%;
-}
-
-.player-table th:nth-child(5),
-.player-table td:nth-child(5) {
-  width: 44%;
 }
 
 .page-game-tracker .player-table th:nth-child(2),
