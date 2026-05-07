@@ -284,6 +284,9 @@ let deckBuilderMutationQueue = Promise.resolve();
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
+let rankingsCommanderIdentityLoading = false;
+let rankingsCommanderIdentityRequestId = 0;
+const rankingsCommanderIdentityAttemptedKeys = new Set();
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
 const deckBuilderArtOptionsCache = new Map();
@@ -11409,6 +11412,156 @@ function renderStatCardGroup(container, cards) {
   });
 }
 
+function buildSkeletonTableRows(columnCount, rowCount = 4) {
+  return Array.from({ length: rowCount }, () => `
+      <tr>
+        ${Array.from({ length: columnCount }, () => '<td><span class="table-skeleton"></span></td>').join('')}
+      </tr>`).join('');
+}
+
+function renderRankingsLoadingState() {
+  if (rankingsSummary) {
+    rankingsSummary.innerHTML = Array.from({ length: 6 }, () => `
+      <article class="stats-card stats-card--skeleton" aria-hidden="true">
+        <span class="stats-skeleton stats-skeleton--title"></span>
+        <span class="stats-skeleton stats-skeleton--body"></span>
+      </article>`).join('');
+  }
+
+  if (recentTrendsSummary) {
+    recentTrendsSummary.innerHTML = Array.from({ length: 4 }, () => `
+      <article class="stats-card stats-card--skeleton" aria-hidden="true">
+        <span class="stats-skeleton stats-skeleton--title"></span>
+        <span class="stats-skeleton stats-skeleton--body"></span>
+      </article>`).join('');
+  }
+
+  if (streaksSummary) {
+    streaksSummary.innerHTML = Array.from({ length: 4 }, () => `
+      <article class="stats-card stats-card--skeleton" aria-hidden="true">
+        <span class="stats-skeleton stats-skeleton--title"></span>
+        <span class="stats-skeleton stats-skeleton--body"></span>
+      </article>`).join('');
+  }
+
+  if (rankingsTableBody) {
+    rankingsTableBody.innerHTML = buildSkeletonTableRows(13, 5);
+  }
+  if (recentPlayerTrendsBody) {
+    recentPlayerTrendsBody.innerHTML = buildSkeletonTableRows(7, 4);
+  }
+  if (recentCommanderTrendsBody) {
+    recentCommanderTrendsBody.innerHTML = buildSkeletonTableRows(7, 4);
+  }
+  if (playerStreaksBody) {
+    playerStreaksBody.innerHTML = buildSkeletonTableRows(6, 4);
+  }
+  if (commanderStreaksBody) {
+    commanderStreaksBody.innerHTML = buildSkeletonTableRows(6, 4);
+  }
+}
+
+function getCachedCommanderCardByName(name) {
+  const normalizedName = String(name || '').trim();
+  const normalizedKey = getIdentityKey(normalizedName);
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const cachedCard = deckBuilderCardCache.get(normalizedName.toLowerCase());
+  if (cachedCard) {
+    return cachedCard;
+  }
+
+  const savedDeckMatch = loadDecks().find((deck) => getIdentityKey(deck?.commander?.name || '') === normalizedKey);
+  return savedDeckMatch?.commander || null;
+}
+
+function getCommanderIdentitySymbols(name) {
+  const card = getCachedCommanderCardByName(name);
+  if (!card) {
+    return null;
+  }
+
+  const identity = Array.from(getCardEffectiveColorIdentity(card));
+  const orderedIdentity = ['W', 'U', 'B', 'R', 'G'].filter((color) => identity.includes(color));
+  return orderedIdentity.length ? orderedIdentity : ['C'];
+}
+
+function buildCommanderIdentityPips(name) {
+  const identitySymbols = getCommanderIdentitySymbols(name);
+  if (!identitySymbols) {
+    return '';
+  }
+
+  return `<span class="commander-identity-pips" aria-label="Color identity ${identitySymbols.map((symbol) => COLOR_LETTER_NAMES[symbol] || 'Colorless').join(', ')}">${identitySymbols.map((symbol) => `<span class="commander-identity-pip commander-identity-pip--${symbol.toLowerCase()}" title="${escapeHtml(COLOR_LETTER_NAMES[symbol] || 'Colorless')}">${escapeHtml(symbol)}</span>`).join('')}</span>`;
+}
+
+function buildCommanderDisplayHtml(name, contentHtml) {
+  const displayName = String(name || '').trim();
+  if (!displayName) {
+    return '—';
+  }
+
+  return `<span class="commander-identity-display">${contentHtml}${buildCommanderIdentityPips(displayName)}</span>`;
+}
+
+function collectRankingsCommanderNames(games) {
+  const commanderNames = new Set();
+
+  buildPlayerRankingEntries(games).forEach((entry) => {
+    if (entry.favoriteCommander) {
+      commanderNames.add(entry.favoriteCommander);
+    }
+  });
+
+  buildCommanderRankingEntries(games).forEach((entry) => {
+    if (entry.name) {
+      commanderNames.add(entry.name);
+    }
+  });
+
+  buildStreakEntries(games, (row) => row.commander, 'commanderStreakEntries').forEach((entry) => {
+    if (entry.name) {
+      commanderNames.add(entry.name);
+    }
+  });
+
+  return Array.from(commanderNames);
+}
+
+function getPendingRankingsCommanderNames(games) {
+  return collectRankingsCommanderNames(games).filter((name) => {
+    const identityKey = getIdentityKey(name);
+    return identityKey && !getCachedCommanderCardByName(name) && !rankingsCommanderIdentityAttemptedKeys.has(identityKey);
+  });
+}
+
+function ensureRankingsCommanderIdentities(games) {
+  const pendingNames = getPendingRankingsCommanderNames(games);
+  if (!pendingNames.length) {
+    return false;
+  }
+
+  pendingNames.forEach((name) => rankingsCommanderIdentityAttemptedKeys.add(getIdentityKey(name)));
+  rankingsCommanderIdentityLoading = true;
+  renderRankingsLoadingState();
+
+  const requestId = ++rankingsCommanderIdentityRequestId;
+  fetchDeckCardsByNamesBulk(pendingNames)
+    .catch(() => new Map())
+    .finally(() => {
+      if (requestId !== rankingsCommanderIdentityRequestId) {
+        return;
+      }
+      rankingsCommanderIdentityLoading = false;
+      renderRankingsPage(loadGames());
+      applyResponsiveTableLabels();
+    });
+
+  return true;
+}
+
 function renderPodRankings(games) {
   if (!rankingsSummary || !rankingsTableBody) {
     return;
@@ -11571,7 +11724,7 @@ function renderPodRankings(games) {
         <td>${entry.kills}</td>
         <td>${entry.firstBloods}</td>
         <td>${formatAveragePlace(entry.avgPlace)}</td>
-        <td>${entry.favoriteCommander ? buildHistoryFilterLink(entry.favoriteCommander, { commander: entry.favoriteCommander }) : '—'}</td>
+        <td>${entry.favoriteCommander ? buildCommanderDisplayHtml(entry.favoriteCommander, buildHistoryFilterLink(entry.favoriteCommander, { commander: entry.favoriteCommander })) : '—'}</td>
         <td><span class="form-dots">${formDots}</span></td>
       </tr>`;
     })
@@ -11718,7 +11871,7 @@ function renderRecentTrends(games) {
   recentCommanderTrendsBody.innerHTML = (sortedCommanderEntries.length ? sortedCommanderEntries : [])
     .map((entry) => `
       <tr>
-        <td>${buildDeckListLinkOrText(entry.name)}</td>
+        <td>${buildCommanderDisplayHtml(entry.name, buildDeckListLinkOrText(entry.name))}</td>
         <td>${entry.games}</td>
         <td>${entry.points}</td>
         <td>${formatPercent(entry.winRate)}</td>
@@ -11858,7 +12011,7 @@ function renderStreaks(games) {
   commanderStreaksBody.innerHTML = sortedCommanderEntries.length
     ? sortedCommanderEntries.map((entry) => `
         <tr>
-          <td>${buildDeckListLinkOrText(entry.name)}</td>
+          <td>${buildCommanderDisplayHtml(entry.name, buildDeckListLinkOrText(entry.name))}</td>
           <td>${entry.games}</td>
           <td>${entry.currentWinStreak}</td>
           <td>${entry.bestWinStreak}</td>
@@ -11872,6 +12025,15 @@ function renderStreaks(games) {
 }
 
 function renderRankingsPage(games) {
+  if (rankingsCommanderIdentityLoading) {
+    renderRankingsLoadingState();
+    return;
+  }
+
+  if (games.length && ensureRankingsCommanderIdentities(games)) {
+    return;
+  }
+
   renderPodRankings(games);
   renderRecentTrends(games);
   renderStreaks(games);
