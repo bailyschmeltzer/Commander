@@ -32,12 +32,6 @@ header {
 header h1 {
   margin: 0 0 8px;
   font-size: clamp(2rem, 3vw, 2.6rem);
-  display: inline-block;
-  padding: 10px 18px;
-  border: 1px solid #000000;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #f9fbff 0%, #dce7ff 52%, #c7d8ff 100%);
-  box-shadow: 0 14px 28px rgba(28, 49, 102, 0.12);
 }
 
 header p {
@@ -224,15 +218,6 @@ main {
 
 .card h2 {
   margin-top: 0;
-  display: inline-flex;
-  align-items: center;
-  min-height: 48px;
-  margin-bottom: 14px;
-  padding: 10px 16px;
-  border: 1px solid #000000;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #f8fbff 0%, #dce8ff 48%, #cfddff 100%);
-  box-shadow: 0 12px 24px rgba(37, 59, 118, 0.1);
 }
 
 .field {
