@@ -3624,12 +3624,22 @@ button[type="submit"] {
     left: 0;
     justify-content: flex-start;
     padding-left: 62px;
+    background: rgba(185, 28, 28, 0.08);
   }
 
   .live-tap-gain {
     right: 0;
     justify-content: flex-end;
     padding-right: 90px;
+    background: rgba(22, 163, 74, 0.08);
+  }
+
+  .live-tap-loss:active {
+    background: rgba(185, 28, 28, 0.14);
+  }
+
+  .live-tap-gain:active {
+    background: rgba(22, 163, 74, 0.14);
   }
 
   .live-tap-hint {
@@ -3768,10 +3778,20 @@ button[type="submit"] {
 
   .page-live-game.live-table-mode .live-life-split-loss {
     left: 0;
+    background: rgba(185, 28, 28, 0.08);
   }
 
   .page-live-game.live-table-mode .live-life-split-gain {
     right: 0;
+    background: rgba(22, 163, 74, 0.08);
+  }
+
+  .page-live-game.live-table-mode .live-life-split-loss:active {
+    background: rgba(185, 28, 28, 0.14);
+  }
+
+  .page-live-game.live-table-mode .live-life-split-gain:active {
+    background: rgba(22, 163, 74, 0.14);
   }
 
   .page-live-game.live-table-mode .live-life-split-display {
