@@ -4583,7 +4583,7 @@ button[type="submit"] {
   }
 
   .page-rankings .rankings-main-table td:last-child::before {
-    content: 'Favorite Commander';
+    content: 'Recent Performance';
     white-space: nowrap;
     hyphens: none;
     overflow-wrap: normal;
