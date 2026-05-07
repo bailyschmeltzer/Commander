@@ -11425,7 +11425,7 @@ function renderPodRankings(games) {
     renderStatCardGroup(rankingsSummary, [
       { title: 'No rankings yet', body: 'Save a few games to generate pod standings.' },
     ]);
-    rankingsTableBody.innerHTML = '<tr><td colspan="12">No rankings available yet.</td></tr>';
+    rankingsTableBody.innerHTML = '<tr><td colspan="13">No rankings available yet.</td></tr>';
     return;
   }
 
@@ -11488,6 +11488,20 @@ function renderPodRankings(games) {
     };
   });
 
+  const playerRecentForm = new Map();
+  getGamesSortedByDateAscending(games).forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const player = String(row.player || '').trim();
+      if (!player) return;
+      const place = getGameRowPlace(row, game);
+      if (!playerRecentForm.has(player)) playerRecentForm.set(player, []);
+      playerRecentForm.get(player).push(place === 1 ? 'W' : 'L');
+    });
+  });
+  playerRecentForm.forEach((results, player) => {
+    playerRecentForm.set(player, results.slice(-5));
+  });
+
   rankingRows.sort((a, b) => {
     let result = 0;
     switch (sortState.column) {
@@ -11542,6 +11556,8 @@ function renderPodRankings(games) {
   rankingsTableBody.innerHTML = rankingRows
     .map((row) => {
       const { entry, streakEntry } = row;
+      const form = playerRecentForm.get(entry.name) || [];
+      const formDots = form.map((r) => `<span class="form-dot form-dot--${r === 'W' ? 'win' : 'loss'}" title="${r === 'W' ? 'Win' : 'Loss'}"></span>`).join('');
       return `
       <tr>
         <td>${row.rank}</td>
@@ -11556,6 +11572,7 @@ function renderPodRankings(games) {
         <td>${entry.firstBloods}</td>
         <td>${formatAveragePlace(entry.avgPlace)}</td>
         <td>${entry.favoriteCommander ? buildHistoryFilterLink(entry.favoriteCommander, { commander: entry.favoriteCommander }) : '—'}</td>
+        <td><span class="form-dots">${formDots}</span></td>
       </tr>`;
     })
     .join('');

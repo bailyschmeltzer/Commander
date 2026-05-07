@@ -208,6 +208,12 @@ main {
   border-radius: 18px;
   padding: 20px;
   box-shadow: 0 12px 30px rgba(25, 34, 64, 0.08);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 44px rgba(25, 34, 64, 0.13);
 }
 
 .card h2 {
@@ -869,6 +875,28 @@ button[type="submit"] {
 .page-rankings .rankings-table th:last-child,
 .page-rankings .rankings-table td:last-child {
   white-space: nowrap;
+}
+
+.form-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.form-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.form-dot--win {
+  background: #1d7a43;
+}
+
+.form-dot--loss {
+  background: #c0392b;
 }
 
 .stats-card,
