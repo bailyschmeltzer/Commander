@@ -257,6 +257,8 @@ let syncDecksMutationVersion = 0;
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
+let commanderIdentityPrefetchInFlight = false;
+let commanderIdentityPrefetchRequestId = 0;
 let commanderBuilderIdentity = '';
 let commanderBuilderLoading = false;
 let commanderBuilderRequestId = 0;
@@ -286,6 +288,7 @@ let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
 let rankingsCommanderIdentityLoading = false;
 let rankingsCommanderIdentityRequestId = 0;
+const commanderIdentityAttemptedKeys = new Set();
 const rankingsCommanderIdentityAttemptedKeys = new Set();
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
@@ -1316,7 +1319,7 @@ function buildDeckListLinkOrText(label) {
   if (deckListEntry) {
     const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
     if (linkedDeckId) {
-      return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(displayLabel)}</a>`;
+      return buildCommanderDisplayHtml(displayLabel, `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(displayLabel)}</a>`);
     }
   }
 
@@ -1328,11 +1331,11 @@ function buildDeckListLinkOrText(label) {
       return deckNameKey === nameKey;
     });
     if (matchedDeck) {
-      return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(matchedDeck.id))}">${escapeHtml(displayLabel)}</a>`;
+      return buildCommanderDisplayHtml(displayLabel, `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(matchedDeck.id))}">${escapeHtml(displayLabel)}</a>`);
     }
   }
 
-  return escapeHtml(displayLabel);
+  return buildCommanderDisplayHtml(displayLabel, escapeHtml(displayLabel));
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
@@ -3282,6 +3285,7 @@ function renderLivePlayerGrid() {
     .map((player) => {
       const playerName = escapeHtml(player.name);
       const playerCommander = escapeHtml(player.commander || 'No commander');
+      const playerCommanderMarkup = player.commander ? buildCommanderTextHtml(player.commander) : playerCommander;
       const damageEntries = Object.entries(player.commanderDamageTaken || {}).filter(([, amount]) => amount > 0);
       const damageListMarkup = `<ul class="live-card-damage-list">${damageEntries.map(([sourceId, amount]) => `<li>${escapeHtml(getPlayerNameById(sourceId, activeGameState))}: <strong>${amount}</strong></li>`).join('')}</ul>`;
       const damageMarkup = damageEntries.length
@@ -3309,7 +3313,7 @@ function renderLivePlayerGrid() {
             <div class="live-player-card-header">
               <div>
                 <h3>${playerName}</h3>
-                <p>${playerCommander}</p>
+                <p>${playerCommanderMarkup}</p>
               </div>
               <div class="live-player-header-badges">
                 ${firstPlayerMarkup}
@@ -3341,7 +3345,7 @@ function renderLivePlayerGrid() {
             <div class="live-player-card-topline">
               <div class="live-player-title-block">
                 <h3>${playerName}</h3>
-                <p>${playerCommander}</p>
+                <p>${playerCommanderMarkup}</p>
               </div>
               ${firstPlayerMarkup}
             </div>
@@ -6440,7 +6444,7 @@ function renderDeckLibrary() {
       <tr>
         <td data-label="Deck">${escapeHtml(deck.name)}</td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
-        <td data-label="Commander">${escapeHtml(deck.commander?.name || '—')}</td>
+        <td data-label="Commander">${deck.commander?.name ? buildCommanderTextHtml(deck.commander.name, deck.commander) : '—'}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
@@ -7721,7 +7725,7 @@ function renderDeckBuilderSelection() {
         <article class="deck-card-preview">
           <div class="deck-card-preview-copy">
             <p class="deck-card-preview-kicker">Current Commander</p>
-            <h3>${escapeHtml(commander.name)}</h3>
+            <h3>${buildCommanderDisplayHtml(commander.name, escapeHtml(commander.name), commander)}</h3>
             <p class="deck-card-preview-meta">${escapeHtml(commander.typeLine || 'No type line available')}</p>
             <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(commander.manaCost || '—')}</p>
             ${statLine ? `<p class="deck-card-preview-meta">${escapeHtml(statLine)}</p>` : ''}
@@ -9755,7 +9759,6 @@ function renderDeckSelectorResult(selectedOwners, deck) {
     return;
   }
 
-  const safeCommander = escapeHtml(deck.commander);
   const safeUrl = escapeHtml(deck.url);
   const safeOwner = escapeHtml(deck.owner || 'Unassigned');
   const safePool = escapeHtml(selectedOwners.join(', '));
@@ -9765,7 +9768,7 @@ function renderDeckSelectorResult(selectedOwners, deck) {
   deckSelectorResults.innerHTML = `
     <article class="deck-selector-card">
       <p class="deck-selector-owner">From pool: ${safePool}</p>
-      <h3>${safeCommander}</h3>
+      <h3>${buildCommanderTextHtml(deck.commander)}</h3>
       <p>Owned by ${safeOwner}</p>
       <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
       <a href="${escapeHtml(buildHref)}" class="secondary-button">Build This Deck</a>
@@ -10059,6 +10062,7 @@ function removeBasicLandFromDeck(landName) {
 
 function renderDeckCardRow(card, options = {}) {
   const isReadOnly = Boolean(options.readOnly);
+  const cardNameMarkup = options.isCommander ? buildCommanderDisplayHtml(card.name, escapeHtml(card.name), card) : escapeHtml(card.name);
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
@@ -10138,7 +10142,7 @@ function renderDeckCardRow(card, options = {}) {
       ${imageMarkup}
       <div class="deck-card-row-main">
         <div class="deck-card-row-copy">
-          <p class="deck-card-name">${escapeHtml(card.name)}${Number.isFinite(Number(card.count)) && Number(card.count) > 1 ? `<span class="deck-card-count">×${escapeHtml(String(card.count))}</span>` : ''}</p>
+          <p class="deck-card-name">${cardNameMarkup}${Number.isFinite(Number(card.count)) && Number(card.count) > 1 ? `<span class="deck-card-count">×${escapeHtml(String(card.count))}</span>` : ''}</p>
           <p class="deck-card-meta">${escapeHtml(card.typeLine || card.cardType || 'Unknown')}</p>
           ${isExpanded && card.manaCost ? `<p class="deck-card-meta">Mana cost: ${escapeHtml(card.manaCost)}</p>` : ''}
           ${isExpanded && statLine ? `<p class="deck-card-meta">${escapeHtml(statLine)}</p>` : ''}
@@ -10434,7 +10438,7 @@ function renderCommanderBuilderResultCard(card, identity, totalCards, source) {
       ${imageMarkup}
       <div class="commander-builder-details">
         <p class="commander-builder-tag">${safeIdentity}</p>
-        <h3>${safeName}</h3>
+        <h3>${buildCommanderDisplayHtml(card.name, safeName, card)}</h3>
         <p class="commander-builder-meta">${safeTypeLine}</p>
         <p class="commander-builder-meta">Mana cost: ${safeManaCost}</p>
         <p class="commander-builder-pool">Pulled from ${safePoolSize} eligible commanders.</p>
@@ -10704,7 +10708,7 @@ function renderHistoryGame(game, commanderMap) {
       return `
         <tr>
           <td>${escapeHtml(row.player)}</td>
-          <td>${escapeHtml(commander)}</td>
+          <td>${buildCommanderTextHtml(commander)}</td>
           <td>${row.place || '—'}</td>
           <td>${typeof row.kills === 'number' ? row.kills : 0}</td>
           <td>${escapeHtml(killed)}</td>
@@ -11477,8 +11481,8 @@ function getCachedCommanderCardByName(name) {
   return savedDeckMatch?.commander || null;
 }
 
-function getCommanderIdentitySymbols(name) {
-  const card = getCachedCommanderCardByName(name);
+function getCommanderIdentitySymbols(name, cardOverride = null) {
+  const card = cardOverride || getCachedCommanderCardByName(name);
   if (!card) {
     return null;
   }
@@ -11488,8 +11492,8 @@ function getCommanderIdentitySymbols(name) {
   return orderedIdentity.length ? orderedIdentity : ['C'];
 }
 
-function buildCommanderIdentityPips(name) {
-  const identitySymbols = getCommanderIdentitySymbols(name);
+function buildCommanderIdentityPips(name, cardOverride = null) {
+  const identitySymbols = getCommanderIdentitySymbols(name, cardOverride);
   if (!identitySymbols) {
     return '';
   }
@@ -11497,13 +11501,98 @@ function buildCommanderIdentityPips(name) {
   return `<span class="commander-identity-pips" aria-label="Color identity ${identitySymbols.map((symbol) => COLOR_LETTER_NAMES[symbol] || 'Colorless').join(', ')}">${identitySymbols.map((symbol) => `<span class="commander-identity-pip commander-identity-pip--${symbol.toLowerCase()}" title="${escapeHtml(COLOR_LETTER_NAMES[symbol] || 'Colorless')}">${escapeHtml(symbol)}</span>`).join('')}</span>`;
 }
 
-function buildCommanderDisplayHtml(name, contentHtml) {
+function buildCommanderDisplayHtml(name, contentHtml, cardOverride = null) {
   const displayName = String(name || '').trim();
   if (!displayName) {
     return '—';
   }
 
-  return `<span class="commander-identity-display">${contentHtml}${buildCommanderIdentityPips(displayName)}</span>`;
+  return `<span class="commander-identity-display">${contentHtml}${buildCommanderIdentityPips(displayName, cardOverride)}</span>`;
+}
+
+function buildCommanderTextHtml(name, cardOverride = null) {
+  const displayName = String(name || '').trim();
+  if (!displayName) {
+    return '—';
+  }
+
+  return buildCommanderDisplayHtml(displayName, escapeHtml(displayName), cardOverride);
+}
+
+function collectCommanderDisplayNames(games = []) {
+  const commanderNames = new Set();
+
+  (Array.isArray(games) ? games : []).forEach((game) => {
+    getGameRows(game).forEach((row) => {
+      const commander = String(row?.commander || '').trim();
+      if (commander) {
+        commanderNames.add(commander);
+      }
+    });
+  });
+
+  loadRecords().forEach((record) => {
+    const commander = String(record?.commander || record?.manualCommander || '').trim();
+    if (commander) {
+      commanderNames.add(commander);
+    }
+  });
+
+  loadDeckLists().forEach((entry) => {
+    const commander = String(entry?.commander || '').trim();
+    if (commander) {
+      commanderNames.add(commander);
+    }
+  });
+
+  loadDecks().forEach((deck) => {
+    const primaryCommander = String(deck?.commander?.name || '').trim();
+    const secondCommander = String(deck?.secondCommander?.name || '').trim();
+    if (primaryCommander) {
+      commanderNames.add(primaryCommander);
+    }
+    if (secondCommander) {
+      commanderNames.add(secondCommander);
+    }
+  });
+
+  (activeGameState?.players || []).forEach((player) => {
+    const commander = String(player?.commander || '').trim();
+    if (commander) {
+      commanderNames.add(commander);
+    }
+  });
+
+  return Array.from(commanderNames);
+}
+
+function warmCommanderIdentityDisplayCache(games = []) {
+  if (commanderIdentityPrefetchInFlight) {
+    return;
+  }
+
+  const pendingNames = collectCommanderDisplayNames(games).filter((name) => {
+    const identityKey = getIdentityKey(name);
+    return identityKey && !getCachedCommanderCardByName(name) && !commanderIdentityAttemptedKeys.has(identityKey);
+  });
+
+  if (!pendingNames.length) {
+    return;
+  }
+
+  pendingNames.forEach((name) => commanderIdentityAttemptedKeys.add(getIdentityKey(name)));
+  commanderIdentityPrefetchInFlight = true;
+  const requestId = ++commanderIdentityPrefetchRequestId;
+
+  fetchDeckCardsByNamesBulk(pendingNames)
+    .catch(() => new Map())
+    .finally(() => {
+      if (requestId !== commanderIdentityPrefetchRequestId) {
+        return;
+      }
+      commanderIdentityPrefetchInFlight = false;
+      refresh();
+    });
 }
 
 function collectRankingsCommanderNames(games) {
@@ -11871,7 +11960,7 @@ function renderRecentTrends(games) {
   recentCommanderTrendsBody.innerHTML = (sortedCommanderEntries.length ? sortedCommanderEntries : [])
     .map((entry) => `
       <tr>
-        <td>${buildCommanderDisplayHtml(entry.name, buildDeckListLinkOrText(entry.name))}</td>
+        <td>${buildDeckListLinkOrText(entry.name)}</td>
         <td>${entry.games}</td>
         <td>${entry.points}</td>
         <td>${formatPercent(entry.winRate)}</td>
@@ -12011,7 +12100,7 @@ function renderStreaks(games) {
   commanderStreaksBody.innerHTML = sortedCommanderEntries.length
     ? sortedCommanderEntries.map((entry) => `
         <tr>
-          <td>${buildCommanderDisplayHtml(entry.name, buildDeckListLinkOrText(entry.name))}</td>
+          <td>${buildDeckListLinkOrText(entry.name)}</td>
           <td>${entry.games}</td>
           <td>${entry.currentWinStreak}</td>
           <td>${entry.bestWinStreak}</td>
@@ -12141,6 +12230,9 @@ function renderPlayerStats(games) {
       const killAverage = stat.games ? (stat.kills / stat.games).toFixed(1) : '0.0';
 
       let bestDeck = '—';
+      let bestDeckCommander = '';
+      let bestDeckWinRate = 0;
+      let bestDeckGames = 0;
       Object.entries(stat.commanderStats).forEach(([commander, data]) => {
         if (!data.played) {
           return;
@@ -12149,6 +12241,9 @@ function renderPlayerStats(games) {
         const currentBest = bestDeck === '—' ? null : bestDeck;
         if (currentBest === null) {
           bestDeck = `${commander} (${formatPercent(successRate * 100)} from ${data.played})`;
+          bestDeckCommander = commander;
+          bestDeckWinRate = successRate * 100;
+          bestDeckGames = data.played;
           return;
         }
 
@@ -12156,6 +12251,9 @@ function renderPlayerStats(games) {
         const bestRate = Number(bestRatePart);
         if (successRate * 100 > bestRate || (successRate * 100 === bestRate && data.played > Number(currentBest.match(/from (\d+)/)?.[1] || 0))) {
           bestDeck = `${commander} (${formatPercent(successRate * 100)} from ${data.played})`;
+          bestDeckCommander = commander;
+          bestDeckWinRate = successRate * 100;
+          bestDeckGames = data.played;
         }
       });
 
@@ -12171,6 +12269,9 @@ function renderPlayerStats(games) {
         kills: stat.kills,
         kd: Number.parseFloat(killAverage),
         bestDeck,
+        bestDeckCommander,
+        bestDeckWinRate,
+        bestDeckGames,
       };
     });
 
@@ -12235,7 +12336,7 @@ function renderPlayerStats(games) {
           <td>${row.victim ? escapeHtml(row.victim) : '—'}</td>
           <td>${row.kills}</td>
           <td>${row.kd.toFixed(1)}</td>
-          <td>${row.bestDeck}</td>
+          <td>${row.bestDeckCommander ? `${buildDeckListLinkOrText(row.bestDeckCommander)} (${formatPercent(row.bestDeckWinRate)} from ${row.bestDeckGames})` : row.bestDeck}</td>
         </tr>`;
     })
     .join('');
@@ -12644,8 +12745,8 @@ function renderSummary(games) {
   const bestCommanders = Object.entries(commanderCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([commander, count]) => `${commander} (${count})`)
-    .join(', ');
+    .map(([commander, count]) => `${buildCommanderTextHtml(commander)} (${count})`)
+    .join('<br />');
 
   summaryEl.appendChild(createStatCard('Total games', total));
   summaryEl.appendChild(createStatCard('Most recent game', mostRecent));
@@ -12667,6 +12768,7 @@ function refresh() {
   renderDeckLibrary();
   renderDeckSelector();
   renderCommanderBuilder();
+  warmCommanderIdentityDisplayCache(games);
   renderDeckBuilderPage();
   renderRecords();
   refreshLiveTrackerUi();
