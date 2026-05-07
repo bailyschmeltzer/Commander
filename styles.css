@@ -42,7 +42,7 @@ header p {
 .sync-panel {
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid #d8dff0;
+  border: 1px solid #000000;
   border-radius: 12px;
   background: #f7f9ff;
 }
@@ -86,7 +86,7 @@ header p {
   min-height: 48px;
   padding: 12px 18px;
   border-radius: 16px;
-  border: 1px solid #23438e;
+  border: 1px solid #000000;
   background: linear-gradient(145deg, #2f63d8 0%, #1d3f92 100%);
   color: #ffffff;
   box-shadow: 0 16px 34px rgba(29, 63, 146, 0.28);
@@ -103,7 +103,7 @@ header p {
   overflow-y: auto;
   gap: 18px;
   padding: 20px;
-  border: 1px solid rgba(121, 162, 255, 0.42);
+  border: 1px solid #000000;
   border-radius: 24px;
   background:
     radial-gradient(circle at top left, rgba(133, 183, 255, 0.26), transparent 30%),
@@ -152,7 +152,7 @@ header p {
   align-items: center;
   min-height: 64px;
   padding: 14px 16px;
-  border: 1px solid rgba(154, 186, 255, 0.24);
+  border: 1px solid #000000;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.1);
   color: #f4f7ff;
@@ -204,7 +204,7 @@ main {
 
 .card {
   background: #ffffff;
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   border-radius: 18px;
   padding: 20px;
   box-shadow: 0 12px 30px rgba(25, 34, 64, 0.08);
@@ -245,7 +245,7 @@ label {
 
 .player-table th,
 .player-table td {
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   padding: 10px;
   text-align: left;
   word-break: break-word;
@@ -372,7 +372,7 @@ label {
   padding: 4px 6px;
   font-size: 0.88rem;
   border-radius: 6px;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   background: #f8f9fd;
   text-align: center;
 }
@@ -596,7 +596,7 @@ label {
 .player-table select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   border-radius: 10px;
   padding: 12px;
   background: #f8f9fd;
@@ -636,7 +636,7 @@ label {
   margin-top: 6px;
   background: #eef1ff;
   color: #2c3a72;
-  border: 1px solid #c8d2f0;
+  border: 1px solid #000000;
 }
 
 .remove-row-button {
@@ -665,7 +665,7 @@ textarea {
   min-width: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   background: #f8f9fd;
   font: inherit;
 }
@@ -683,7 +683,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #8ea0ff;
+  border-color: #000000;
   box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12);
 }
 
@@ -716,7 +716,7 @@ textarea:focus {
   padding: 8px 10px;
   margin-left: 4px;
   background-color: #f8f9fd;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
@@ -730,7 +730,7 @@ textarea:focus {
 
 .dropdown-button:hover {
   background-color: #eef0f9;
-  border-color: #b8c5d6;
+  border-color: #000000;
 }
 
 .dropdown-button:active {
@@ -743,7 +743,7 @@ textarea:focus {
   bottom: calc(100% + 4px);
   right: 0;
   background-color: white;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   border-radius: 6px;
   max-height: 200px;
   overflow-y: auto;
@@ -789,7 +789,7 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #8ca0ff;
+  border-color: #000000;
   box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12);
 }
 
@@ -873,7 +873,7 @@ button[type="submit"] {
 
 .stats-card,
 .history-item {
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   border-radius: 14px;
   padding: 16px;
   background: #fbfcff;
@@ -944,7 +944,7 @@ button[type="submit"] {
   gap: 10px;
   margin-bottom: 16px;
   padding: 12px 14px;
-  border: 1px solid #dde4f2;
+  border: 1px solid #000000;
   border-radius: 14px;
   background: #f8faff;
 }
@@ -1001,7 +1001,7 @@ button[type="submit"] {
 
 .history-game-table th,
 .history-game-table td {
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   padding: 10px;
   text-align: left;
 }
@@ -1022,7 +1022,7 @@ button[type="submit"] {
 }
 
 .deck-lookup-result {
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   border-radius: 14px;
   padding: 16px;
   background: #fbfcff;
@@ -1191,7 +1191,7 @@ button[type="submit"] {
   align-items: center;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #e1c48c;
+  border: 1px solid #000000;
   background: #fff6de;
   color: #7b5a00;
   font-size: 0.82rem;
@@ -1218,7 +1218,7 @@ button[type="submit"] {
 
 .deck-builder-discard-button {
   color: #b91c1c;
-  border-color: #b91c1c;
+  border-color: #000000;
 }
 
 .deck-builder-discard-button:hover {
@@ -1230,7 +1230,7 @@ button[type="submit"] {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border: 1px solid #d9e1f3;
+  border: 1px solid #000000;
   border-radius: 999px;
   background: #f7f9ff;
 }
@@ -1324,26 +1324,26 @@ button[type="submit"] {
 .deck-validation-item {
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid #dde3f2;
+  border: 1px solid #000000;
   background: #f8faff;
   color: #33446a;
   font-weight: 600;
 }
 
 .deck-validation-success {
-  border-color: #c9e7d3;
+  border-color: #000000;
   background: #eefaf3;
   color: #1d7a43;
 }
 
 .deck-validation-error {
-  border-color: #f0c8c0;
+  border-color: #000000;
   background: #fff3f1;
   color: #a44033;
 }
 
 .deck-validation-neutral {
-  border-color: #dbe2f1;
+  border-color: #000000;
   background: #f4f7ff;
   color: #35508d;
 }
@@ -1358,7 +1358,7 @@ button[type="submit"] {
   width: 100%;
   text-align: left;
   padding: 12px 14px;
-  border: 1px solid #dde3f2;
+  border: 1px solid #000000;
   border-radius: 14px;
   background: #fbfcff;
   color: #22304f;
@@ -1390,7 +1390,7 @@ button[type="submit"] {
   font-size: 0.8rem;
   line-height: 1.5;
   padding: 10px 12px;
-  border: 1px solid #d0d8f0;
+  border: 1px solid #000000;
   border-radius: 10px;
   background: #f8faff;
   color: #1f2742;
@@ -1400,7 +1400,7 @@ button[type="submit"] {
 
 .deck-builder-text-list:focus {
   outline: none;
-  border-color: #8aa8e0;
+  border-color: #000000;
   background: #fff;
 }
 
@@ -1432,7 +1432,7 @@ button[type="submit"] {
   display: grid;
   gap: 14px;
   padding: 16px;
-  border: 1px solid #dde3f2;
+  border: 1px solid #000000;
   border-radius: 16px;
   background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
 }
@@ -1505,7 +1505,7 @@ button[type="submit"] {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #dde3f2;
+  border: 1px solid #000000;
   border-radius: 16px;
   background: #fbfcff;
 }
@@ -1544,7 +1544,7 @@ button[type="submit"] {
   justify-content: space-between;
   gap: 6px;
   padding: 6px 8px;
-  border: 1px solid #e0e5f2;
+  border: 1px solid #000000;
   border-radius: 10px;
   background: #ffffff;
 }
@@ -1560,17 +1560,17 @@ button[type="submit"] {
 
 .deck-card-row[data-card-name]:hover {
   background-color: #f5f7fc;
-  border-color: #c8d5f0;
+  border-color: #000000;
   box-shadow: 0 4px 12px rgba(24, 36, 68, 0.08);
 }
 
 .deck-card-row.is-banned {
-  border-color: #efc2ba;
+  border-color: #000000;
   background: #fff5f3;
 }
 
 .deck-card-row.is-illegal {
-  border-color: #e8c040;
+  border-color: #000000;
   background: #fffbee;
 }
 
@@ -1581,7 +1581,7 @@ button[type="submit"] {
 .deck-card-row.is-selected {
   align-items: flex-start;
   background-color: #f0f4ff;
-  border-color: #a8bde8;
+  border-color: #000000;
   grid-column: 1 / -1;
 }
 
@@ -1600,7 +1600,7 @@ button[type="submit"] {
   aspect-ratio: 63 / 88;
   object-fit: cover;
   border-radius: 12px;
-  border: 1px solid #d8dfef;
+  border: 1px solid #000000;
   box-shadow: 0 10px 22px rgba(24, 36, 68, 0.12);
 }
 
@@ -1645,7 +1645,7 @@ button[type="submit"] {
   width: 100%;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid #e5eaf6;
+  border-top: 1px solid #000000;
 }
 
 .deck-card-art-status {
@@ -1662,7 +1662,7 @@ button[type="submit"] {
 }
 
 .deck-card-art-option {
-  border: 1px solid #d8dff0;
+  border: 1px solid #000000;
   border-radius: 6px;
   background: #fbfcff;
   width: 108px;
@@ -1692,7 +1692,7 @@ button[type="submit"] {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #d0d8f0;
+  border: 1px solid #000000;
   border-radius: 8px;
   background: #f5f7fc;
   color: #2a3560;
@@ -1706,7 +1706,7 @@ button[type="submit"] {
 .deck-land-minus:hover,
 .deck-land-plus:hover {
   background: #e8eeff;
-  border-color: #a8bde8;
+  border-color: #000000;
 }
 
 .deck-land-count {
@@ -1724,7 +1724,7 @@ button[type="submit"] {
   gap: 8px;
   margin-top: 4px;
   padding-top: 12px;
-  border-top: 1px solid #e8ecf8;
+  border-top: 1px solid #000000;
 }
 
 .deck-land-quick-add-label {
@@ -1847,7 +1847,7 @@ button[type="submit"] {
 
 .deck-breakdown-total td {
   font-weight: 700;
-  border-top: 1px solid #dde0ea;
+  border-top: 1px solid #000000;
   padding-top: 8px;
   margin-top: 4px;
 }
@@ -1927,7 +1927,7 @@ button[type="submit"] {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #dde0ea;
+  border: 1px solid #000000;
   transition: background 0.15s, color 0.15s;
 }
 
@@ -1938,7 +1938,7 @@ button[type="submit"] {
 .keyword-tab.is-active {
   background: #4353ff;
   color: #fff;
-  border-color: #4353ff;
+  border-color: #000000;
 }
 
 .keyword-grid {
@@ -1949,7 +1949,7 @@ button[type="submit"] {
 }
 
 .keyword-card {
-  border: 1px solid #dde0ea;
+  border: 1px solid #000000;
   border-radius: 12px;
   padding: 12px 14px;
   background: #fafbff;
@@ -2039,7 +2039,7 @@ button[type="submit"] {
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid #cdd2e8;
+  border: 1px solid #000000;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(30, 35, 80, 0.12);
   margin: 0;
@@ -2100,7 +2100,7 @@ button[type="submit"] {
 
 .rulings-card-info {
   background: #fafbff;
-  border: 1px solid #dde0ea;
+  border: 1px solid #000000;
   border-radius: 12px;
   padding: 16px 18px;
 }
@@ -2185,7 +2185,7 @@ button[type="submit"] {
 }
 
 .ruling-item {
-  border-top: 1px solid #e8ecf5;
+  border-top: 1px solid #000000;
   padding: 10px 0;
 }
 
@@ -2363,7 +2363,7 @@ button[type="submit"] {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid #dbe2f1;
+  border: 1px solid #000000;
   border-radius: 14px;
   background: #fbfcff;
   cursor: pointer;
@@ -2385,7 +2385,7 @@ button[type="submit"] {
 }
 
 .deck-selector-card {
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   border-radius: 16px;
   padding: 16px;
   background: #fbfcff;
@@ -2426,7 +2426,7 @@ button[type="submit"] {
 .commander-builder-count {
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid #dbe2f1;
+  border: 1px solid #000000;
   border-radius: 999px;
   background: #f7f9ff;
   color: #31415f;
@@ -2451,7 +2451,7 @@ button[type="submit"] {
   gap: 10px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid #dbe2f1;
+  border: 1px solid #000000;
   color: #1f2742;
   background: linear-gradient(160deg, #ffffff 0%, #f7f9ff 100%);
   cursor: pointer;
@@ -2464,7 +2464,7 @@ button[type="submit"] {
 }
 
 .commander-builder-option:has(input:checked) {
-  border-color: #6f88c8;
+  border-color: #000000;
   box-shadow: 0 12px 24px rgba(39, 56, 99, 0.12);
 }
 
@@ -2522,7 +2522,7 @@ button[type="submit"] {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 18px;
   padding: 18px;
-  border: 1px solid #c5cedf;
+  border: 1px solid #000000;
   border-radius: 18px;
   background: linear-gradient(160deg, #ffffff 0%, #f9fbff 100%);
 }
@@ -2540,7 +2540,7 @@ button[type="submit"] {
   aspect-ratio: 63 / 88;
   object-fit: cover;
   border-radius: 18px;
-  border: 1px solid #d8dfef;
+  border: 1px solid #000000;
   box-shadow: 0 16px 28px rgba(24, 36, 68, 0.14);
 }
 
@@ -2582,7 +2582,7 @@ button[type="submit"] {
   display: grid;
   gap: 8px;
   padding: 14px;
-  border: 1px solid #dde4f3;
+  border: 1px solid #000000;
   border-radius: 16px;
   background: rgba(239, 244, 255, 0.72);
 }
@@ -2645,7 +2645,7 @@ button[type="submit"] {
 .live-order-preview {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border: 1px solid #d7deef;
+  border: 1px solid #000000;
   border-radius: 14px;
   background: #fbfcff;
   color: #44507e;
@@ -2746,7 +2746,7 @@ button[type="submit"] {
   padding: 20px;
   border-radius: 18px;
   background: #ffffff;
-  border: 1px solid #dbe3f5;
+  border: 1px solid #000000;
   box-shadow: 0 18px 40px rgba(25, 34, 64, 0.2);
 }
 
@@ -2774,7 +2774,7 @@ button[type="submit"] {
 .live-modal-textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   border-radius: 10px;
   padding: 12px;
   background: #f8f9fd;
@@ -2808,7 +2808,7 @@ button[type="submit"] {
   width: 100%;
   justify-content: flex-start;
   background: #f7f9ff;
-  border: 1px solid #d7deef;
+  border: 1px solid #000000;
   color: #243661;
   font-weight: 700;
 }
@@ -2821,7 +2821,7 @@ button[type="submit"] {
 }
 
 .live-player-card {
-  border: 1px solid #dde3f2;
+  border: 1px solid #000000;
   border-radius: 16px;
   padding: 16px;
   background: linear-gradient(180deg, #fcfdff 0%, #f6f8fe 100%);
@@ -2880,7 +2880,7 @@ button[type="submit"] {
 }
 
 .live-player-damage-panel.has-damage {
-  border-color: #d4dcf0;
+  border-color: #000000;
   background: #f8faff;
 }
 
@@ -2945,7 +2945,7 @@ button[type="submit"] {
   min-height: 0;
   padding: 4px 2px;
   border-radius: 10px;
-  border: 1px solid #d4dcf0;
+  border: 1px solid #000000;
   background: #ffffff;
   color: #243661;
   font-weight: 700;
@@ -2977,7 +2977,7 @@ button[type="submit"] {
 }
 
 .live-player-card.is-current-turn {
-  border-color: #8ca0ff;
+  border-color: #000000;
   box-shadow: 0 0 0 4px rgba(67, 83, 255, 0.12), 0 10px 22px rgba(32, 43, 79, 0.08);
 }
 
@@ -3021,7 +3021,7 @@ button[type="submit"] {
 .live-quick-action {
   padding: 10px 8px;
   border-radius: 10px;
-  border: 1px solid #d4dcf0;
+  border: 1px solid #000000;
   background: #ffffff;
   color: #243661;
   font-weight: 700;
@@ -3029,13 +3029,13 @@ button[type="submit"] {
 
 .live-quick-action.is-negative {
   background: #fff3f1;
-  border-color: #f0c8c0;
+  border-color: #000000;
   color: #a44033;
 }
 
 .live-quick-action.is-positive {
   background: #eefaf3;
-  border-color: #c7e8d3;
+  border-color: #000000;
   color: #1d7a43;
 }
 
@@ -3085,7 +3085,7 @@ button[type="submit"] {
   padding: 12px 14px;
   border-radius: 12px;
   background: #f4f7ff;
-  border: 1px solid #dbe3f5;
+  border: 1px solid #000000;
 }
 
 .live-event-item p,
@@ -3149,7 +3149,7 @@ button[type="submit"] {
 .mobile-sort-select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cfd6e4;
+  border: 1px solid #000000;
   border-radius: 10px;
   padding: 10px 12px;
   background: #f8f9fd;
@@ -3232,7 +3232,7 @@ button[type="submit"] {
     margin: 0;
     border-radius: 999px;
     background: rgba(15, 20, 38, 0.92);
-    border-color: rgba(123, 140, 196, 0.45);
+    border-color: #000000;
     color: #ffffff;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
   }
@@ -3289,7 +3289,7 @@ button[type="submit"] {
     min-height: 52px;
     padding: 6px 14px;
     border-radius: 999px;
-    border: 1px solid rgba(123, 140, 196, 0.45);
+    border: 1px solid #000000;
     background: rgba(15, 20, 38, 0.92);
     color: #ffffff;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
@@ -4206,7 +4206,7 @@ button[type="submit"] {
   .page-decklists .deck-list-table tr,
   .page-history .history-game-table tr {
     width: 100%;
-    border: 1px solid #c5cedf;
+    border: 1px solid #000000;
     border-radius: 14px;
     background: #fbfcff;
     padding: 12px;
@@ -4351,7 +4351,7 @@ button[type="submit"] {
 
   .page-commander-stats .commander-stats-table tr {
     width: 100%;
-    border: 1px solid #c5cedf;
+    border: 1px solid #000000;
     border-radius: 14px;
     background: #fbfcff;
     padding: 12px;
@@ -4425,7 +4425,7 @@ button[type="submit"] {
   .player-table tr,
   .history-game-table tr {
     width: 100%;
-    border: 1px solid #c5cedf;
+    border: 1px solid #000000;
     border-radius: 14px;
     background: #fbfcff;
     padding: 12px;
