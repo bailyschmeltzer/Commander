@@ -13,8 +13,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #dfe6ef;
-  background-image: linear-gradient(180deg, #e6ecf4 0%, #d8e1ec 100%);
+  background-color: #cdd7e6;
+  background-image: linear-gradient(180deg, #d6dff0 0%, #c8d4e5 100%);
 }
 
 /* App shell and shared header layout. */
