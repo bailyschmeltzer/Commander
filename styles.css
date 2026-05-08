@@ -208,12 +208,6 @@ main {
   border-radius: 18px;
   padding: 20px;
   box-shadow: 0 12px 30px rgba(25, 34, 64, 0.08);
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 44px rgba(25, 34, 64, 0.13);
 }
 
 .card h2 {
