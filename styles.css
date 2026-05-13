@@ -1116,6 +1116,19 @@ button[type="submit"] {
   width: 16%;
 }
 
+.deck-library-table td:nth-child(6) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.deck-library-table td:nth-child(6) button {
+  flex: 1;
+  min-width: 90px;
+  white-space: nowrap;
+}
+
 .deck-library-warning-text {
   margin-top: 6px;
   color: #7a3245;

@@ -955,13 +955,31 @@ function getSavedDeckListEntryForCommander(commanderName) {
     .find((entry) => getIdentityKey(entry.commander) === commanderKey) || null;
 }
 
-function buildDeckListLinkOrText(label) {
+function buildDeckListLinkOrText(label, oracleId = '') {
   const normalizedLabel = normalizeIdentityLabel(label);
   if (!normalizedLabel) {
     return '—';
   }
 
-  const deckListEntry = getSavedDeckListEntryForCommander(normalizedLabel);
+  const commanderKey = getCommanderEquivalenceKey({
+    name: normalizedLabel,
+    oracleId: String(oracleId || '').trim(),
+  });
+  if (!commanderKey) {
+    return escapeHtml(normalizedLabel);
+  }
+
+  const deckListEntry = loadDeckLists()
+    .map(normalizeDeckListEntry)
+    .filter(Boolean)
+    .find((entry) => {
+      const entryKey = getCommanderEquivalenceKey({
+        name: entry.commander,
+        oracleId: entry.commanderOracleId,
+      });
+      return entryKey === commanderKey;
+    }) || null;
+
   if (!deckListEntry) {
     return escapeHtml(normalizedLabel);
   }
@@ -5695,7 +5713,17 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
-  const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
+  let requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
+  
+  // Default to logged-in player if no filter is set
+  if (!requestedOwnerFilter && deckLibraryPlayerFilterSelect && syncUserInput) {
+    const loggedInPlayer = normalizeIdentityLabel(syncUserInput.value || '');
+    if (loggedInPlayer && ownerFilterOptions.includes(loggedInPlayer)) {
+      requestedOwnerFilter = loggedInPlayer;
+      deckLibraryPlayerFilterSelect.value = loggedInPlayer;
+    }
+  }
+  
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckLibraryPlayerFilterSelect) {
@@ -8391,18 +8419,18 @@ function renderDeckCardRow(card, options = {}) {
       </div>`
     : '';
   const removeAction = options.isCommander
-    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
-    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`;
-  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
+    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly || !options.isSelected ? ' disabled' : ''}>Remove</button>`
+    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly || !options.isSelected ? ' disabled' : ''}>Remove</button>`;
+  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander) && options.isSelected
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
-  const addToDeckAction = options.fromMaybeboard
+  const addToDeckAction = options.fromMaybeboard && options.isSelected
     ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>`
     : '';
-  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
+  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && options.isSelected
     ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>To Maybeboard</button>`
     : '';
-  const artAction = !options.isBasicLand
+  const artAction = !options.isBasicLand && options.isSelected
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Change Art</button>`
     : '';
   const isArtPickerOpen = Boolean(options.showArtPicker);
@@ -8944,7 +8972,17 @@ function renderDeckLists() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
-  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
+  let requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
+  
+  // Default to logged-in player if no filter is set
+  if (!requestedOwnerFilter && deckListPlayerFilterSelect && syncUserInput) {
+    const loggedInPlayer = normalizeIdentityLabel(syncUserInput.value || '');
+    if (loggedInPlayer && ownerFilterOptions.includes(loggedInPlayer)) {
+      requestedOwnerFilter = loggedInPlayer;
+      deckListPlayerFilterSelect.value = loggedInPlayer;
+    }
+  }
+  
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckListPlayerFilterSelect) {
