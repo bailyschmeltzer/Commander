@@ -985,11 +985,40 @@ function buildDeckListLinkOrText(label, oracleId = '') {
   }
 
   const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
-  if (!linkedDeckId) {
-    return escapeHtml(normalizedLabel);
+  if (linkedDeckId) {
+    return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
   }
 
-  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
+  if (deckListEntry.url) {
+    return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
+  }
+
+  return escapeHtml(normalizedLabel);
+}
+
+function hasRegisteredGamesForDeckIdentity({ commander = '', commanderOracleId = '', owner = '' }) {
+  const commanderKey = getCommanderEquivalenceKey({
+    name: commander,
+    oracleId: commanderOracleId,
+  });
+  if (!commanderKey) {
+    return false;
+  }
+
+  const ownerKey = getIdentityKey(owner || '');
+  return loadGames().some((game) => getGameRows(game).some((row) => {
+    const rowCommanderKey = getCommanderEquivalenceKey({
+      name: row?.commander || '',
+      oracleId: '',
+    });
+    if (rowCommanderKey !== commanderKey) {
+      return false;
+    }
+    if (!ownerKey) {
+      return true;
+    }
+    return getIdentityKey(row?.player || '') === ownerKey;
+  }));
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
@@ -5649,7 +5678,12 @@ function applyDeckBuilderAccessState(deck) {
           return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
         })
       : false;
-    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList;
+    const hasRegisteredGames = hasRegisteredGamesForDeckIdentity({
+      commander: deck?.commander?.name || '',
+      commanderOracleId: deck?.commander?.oracleId || '',
+      owner: deck?.owner || '',
+    });
+    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList || hasRegisteredGames;
   }
 }
 
@@ -5750,14 +5784,11 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const commanderKey = getCommanderEquivalenceKey({ name: deck.commander?.name || '', oracleId: deck.commander?.oracleId || '' });
-    const ownerKey = getIdentityKey(deck.owner || '');
-    const hasGameRecord = commanderKey
-      ? loadDeckLists().some((dl) => {
-          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
-          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
-        })
-      : false;
+    const hasGameRecord = hasRegisteredGamesForDeckIdentity({
+      commander: deck.commander?.name || '',
+      commanderOracleId: deck.commander?.oracleId || '',
+      owner: deck.owner || '',
+    });
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
@@ -5783,6 +5814,15 @@ function renderDeckLibrary() {
 async function deleteDeckRecord(deckId) {
   const deck = loadDecks().find((entry) => entry.id === deckId);
   if (!deck) {
+    return;
+  }
+
+  if (hasRegisteredGamesForDeckIdentity({
+    commander: deck.commander?.name || '',
+    commanderOracleId: deck.commander?.oracleId || '',
+    owner: deck.owner || '',
+  })) {
+    setDeckBuilderSaveStatus('Decks with saved game history cannot be deleted.', 'error');
     return;
   }
 
@@ -8418,9 +8458,11 @@ function renderDeckCardRow(card, options = {}) {
         />
       </div>`
     : '';
-  const removeAction = options.isCommander
-    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly || !options.isSelected ? ' disabled' : ''}>Remove</button>`
-    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly || !options.isSelected ? ' disabled' : ''}>Remove</button>`;
+  const removeAction = options.isSelected
+    ? (options.isCommander
+      ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+      : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
+    : '';
   const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander) && options.isSelected
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
@@ -9013,15 +9055,20 @@ function renderDeckLists() {
       const safeOwner = escapeHtml(entry.owner || '—');
       const safeUrl = escapeHtml(entry.url);
       const linkedDeckId = resolveLinkedDeckIdForDeckList(entry, decks);
+      const hasGameRecord = hasRegisteredGamesForDeckIdentity({
+        commander: entry.commander,
+        commanderOracleId: entry.commanderOracleId,
+        owner: entry.owner,
+      });
       return `
         <tr>
-          <td>${safeCommander}</td>
+          <td>${buildDeckListLinkOrText(entry.commander, entry.commanderOracleId)}</td>
           <td>${safeOwner}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
             ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
             <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
-            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
+            ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>`}
           </td>
         </tr>`;
     })
@@ -9127,6 +9174,14 @@ async function handleDeckListTableAction(event) {
 
   if (button.classList.contains('deck-list-delete')) {
     const entry = loadDeckLists().find((deck) => deck.id === deckId) || null;
+    if (entry && hasRegisteredGamesForDeckIdentity({
+      commander: entry.commander,
+      commanderOracleId: entry.commanderOracleId,
+      owner: entry.owner,
+    })) {
+      setDeckListStatus('Deck lists tied to saved games cannot be deleted.', 'error');
+      return;
+    }
     const description = entry
       ? `Delete the saved deck link for ${entry.commander}${entry.owner ? ` owned by ${entry.owner}` : ''}?`
       : 'Delete this deck list? This removes the saved deck link immediately.';
