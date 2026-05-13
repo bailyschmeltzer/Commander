@@ -961,6 +961,8 @@ function buildDeckListLinkOrText(label, oracleId = '') {
     return '—';
   }
 
+  const normalizedLabelKey = getIdentityKey(normalizedLabel);
+
   const commanderKey = getCommanderEquivalenceKey({
     name: normalizedLabel,
     oracleId: String(oracleId || '').trim(),
@@ -977,7 +979,7 @@ function buildDeckListLinkOrText(label, oracleId = '') {
         name: entry.commander,
         oracleId: entry.commanderOracleId,
       });
-      return entryKey === commanderKey;
+      return entryKey === commanderKey || getIdentityKey(entry.commander) === normalizedLabelKey;
     }) || null;
 
   if (!deckListEntry) {
@@ -996,28 +998,23 @@ function buildDeckListLinkOrText(label, oracleId = '') {
   return escapeHtml(normalizedLabel);
 }
 
-function hasRegisteredGamesForDeckIdentity({ commander = '', commanderOracleId = '', owner = '' }) {
+function hasRegisteredGamesForDeckIdentity({ commander = '', commanderOracleId = '' }) {
   const commanderKey = getCommanderEquivalenceKey({
     name: commander,
     oracleId: commanderOracleId,
   });
+  const commanderNameKey = getIdentityKey(commander || '');
   if (!commanderKey) {
     return false;
   }
 
-  const ownerKey = getIdentityKey(owner || '');
   return loadGames().some((game) => getGameRows(game).some((row) => {
     const rowCommanderKey = getCommanderEquivalenceKey({
       name: row?.commander || '',
       oracleId: '',
     });
-    if (rowCommanderKey !== commanderKey) {
-      return false;
-    }
-    if (!ownerKey) {
-      return true;
-    }
-    return getIdentityKey(row?.player || '') === ownerKey;
+    const rowCommanderNameKey = getIdentityKey(row?.commander || '');
+    return rowCommanderKey === commanderKey || rowCommanderNameKey === commanderNameKey;
   }));
 }
 
@@ -9062,7 +9059,7 @@ function renderDeckLists() {
       });
       return `
         <tr>
-          <td>${buildDeckListLinkOrText(entry.commander, entry.commanderOracleId)}</td>
+          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeCommander}</a></td>
           <td>${safeOwner}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
