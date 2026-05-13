@@ -986,13 +986,13 @@ function buildDeckListLinkOrText(label, oracleId = '') {
     return escapeHtml(normalizedLabel);
   }
 
+  if (deckListEntry.url) {
+    return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
+  }
+
   const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
   if (linkedDeckId) {
     return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
-  }
-
-  if (deckListEntry.url) {
-    return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
   }
 
   return escapeHtml(normalizedLabel);
@@ -1003,18 +1003,29 @@ function hasRegisteredGamesForDeckIdentity({ commander = '', commanderOracleId =
     name: commander,
     oracleId: commanderOracleId,
   });
-  const commanderNameKey = getIdentityKey(commander || '');
-  if (!commanderKey) {
+  const commanderName = normalizeIdentityLabel(commander || '');
+  const commanderNameKey = getIdentityKey(commanderName);
+  if (!commanderKey && !commanderNameKey) {
     return false;
   }
 
+  const gameCommanderNames = loadGames()
+    .flatMap((game) => getGameRows(game).map((row) => normalizeIdentityLabel(row?.commander || '')))
+    .filter(Boolean);
+  const commanderMap = buildCanonicalIdentityMapFromValues([commanderName, ...gameCommanderNames]);
+  const canonicalDeckCommander = canonicalizeIdentityValue(commanderName, commanderMap);
+
   return loadGames().some((game) => getGameRows(game).some((row) => {
-    const rowCommanderKey = getCommanderEquivalenceKey({
-      name: row?.commander || '',
-      oracleId: '',
-    });
-    const rowCommanderNameKey = getIdentityKey(row?.commander || '');
-    return rowCommanderKey === commanderKey || rowCommanderNameKey === commanderNameKey;
+    const rowCommander = normalizeIdentityLabel(row?.commander || '');
+    if (!rowCommander) {
+      return false;
+    }
+    const rowCommanderKey = getCommanderEquivalenceKey({ name: rowCommander, oracleId: '' });
+    const rowCommanderNameKey = getIdentityKey(rowCommander);
+    const canonicalRowCommander = canonicalizeIdentityValue(rowCommander, commanderMap);
+    return rowCommanderKey === commanderKey
+      || rowCommanderNameKey === commanderNameKey
+      || (canonicalDeckCommander && canonicalRowCommander && canonicalRowCommander === canonicalDeckCommander);
   }));
 }
 
