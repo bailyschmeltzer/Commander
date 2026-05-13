@@ -6417,15 +6417,18 @@ function renderDeckLibrary() {
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
   const deckUsageLookup = buildDeckUsageLookup();
+  const commanderPointsLookup = new Map(
+    buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
+  );
 
   if (!sortedDecks.length) {
-    deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks yet. Click Add New Deck to start one.</td></tr>';
+    deckLibraryTableBody.innerHTML = '<tr><td colspan="7">No built decks yet. Click Add New Deck to start one.</td></tr>';
     updateSortableTableIndicators('decks');
     return;
   }
 
   if (!decks.length) {
-    deckLibraryTableBody.innerHTML = '<tr><td colspan="6">No built decks found for that player.</td></tr>';
+    deckLibraryTableBody.innerHTML = '<tr><td colspan="7">No built decks found for that player.</td></tr>';
     updateSortableTableIndicators('decks');
     return;
   }
@@ -6446,6 +6449,7 @@ function renderDeckLibrary() {
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${deck.commander?.name ? buildCommanderTextHtml(deck.commander.name, deck.commander) : '—'}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
+        <td data-label="Avg Pts/Game">${deck.commander?.name ? formatPointsPerGame(commanderPointsLookup.get(getIdentityKey(deck.commander.name)) ?? 0) : '—'}</td>
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>
