@@ -10492,7 +10492,7 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
+        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, points: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
       }
 
       stats[commander].games += 1;
@@ -10509,14 +10509,17 @@ function getCommanderStatsData(games) {
           const playerCount = game.finishOrder.length;
           const placementScore = playerCount > 1 ? 1 - ((place - 1) / (playerCount - 1)) : 1;
           stats[commander].placementScoreTotal += placementScore;
+          stats[commander].points += getPlacementPoints(place);
         }
       }
 
       const kills = typeof row.kills === 'number' && !Number.isNaN(row.kills) ? row.kills : 0;
       stats[commander].kills += kills;
+      stats[commander].points += kills;
 
       if (firstBlood?.actorPlayer === row.player) {
         stats[commander].firstBloods += 1;
+        stats[commander].points += 1;
       }
     });
   });
@@ -10613,6 +10616,7 @@ function renderCommanderStats(games) {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
+      const pointsPerGame = stat.games ? stat.points / stat.games : 0;
       return {
         commander,
         games: stat.games,
@@ -10622,6 +10626,7 @@ function renderCommanderStats(games) {
         firstBloods: stat.firstBloods,
         kd: killsPerGame,
         averagePlacement,
+        pointsPerGame,
         expected: getCommanderExpectedPower(commander),
         actual: typeof actualPowers[commander] === 'number' ? actualPowers[commander] : 0,
         actualCal: typeof calibratedPowers[commander] === 'number' ? calibratedPowers[commander] : 0,
@@ -10667,6 +10672,10 @@ function renderCommanderStats(games) {
         aVal = a.kd;
         bVal = b.kd;
         break;
+      case 'pointsPerGame':
+        aVal = a.pointsPerGame;
+        bVal = b.pointsPerGame;
+        break;
       case 'avgPlace':
         aVal = a.averagePlacement;
         bVal = b.averagePlacement;
@@ -10699,7 +10708,7 @@ function renderCommanderStats(games) {
   });
 
   const rows = entries
-    .map(({ commander, stat, actual, actualCal, expected, delta, confidence }) => {
+    .map(({ commander, stat, actual, actualCal, expected, delta, confidence, pointsPerGame }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
@@ -10725,6 +10734,7 @@ function renderCommanderStats(games) {
           <td>${stat.kills}</td>
           <td>${stat.firstBloods || 0}</td>
           <td>${killsPerGame.toFixed(1)}</td>
+          <td>${formatPointsPerGame(pointsPerGame)}</td>
           <td>${averagePlacement ? averagePlacement.toFixed(2) : '—'}</td>
           <td>
             <input
@@ -10751,7 +10761,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="13">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="14">No commanders match your search.</td></tr>';
   updateSortableTableIndicators('commanderStats');
 }
 
