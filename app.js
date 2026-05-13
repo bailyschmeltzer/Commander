@@ -7872,7 +7872,7 @@ async function importDeckFromText(text) {
 
 async function fetchPreconList() {
   const res = await fetch('https://mtgjson.com/api/v5/DeckList.json');
-  if (!res.ok) throw new Error(Failed to load precon list ());
+  if (!res.ok) throw new Error(`Failed to load precon list (${res.status})`);
   const json = await res.json();
   return (json.data || [])
     .filter(d => d.type === 'Commander Deck')
@@ -7880,19 +7880,19 @@ async function fetchPreconList() {
 }
 
 async function loadPreconDeckText(fileName) {
-  const res = await fetch(https://mtgjson.com/api/v5/decks/.json);
-  if (!res.ok) throw new Error(Failed to load deck ());
+  const res = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(fileName)}.json`);
+  if (!res.ok) throw new Error(`Failed to load deck (${res.status})`);
   const json = await res.json();
   const data = json.data || {};
   const lines = [];
   const commanders = data.commander || [];
   if (commanders.length) {
     lines.push('Commander:');
-    commanders.forEach(c => lines.push(${c.count || 1} ));
+    commanders.forEach(c => lines.push(`${c.count || 1} ${c.name}`));
     lines.push('');
   }
   lines.push('Deck:');
-  (data.mainBoard || []).forEach(c => lines.push(${c.count || 1} ));
+  (data.mainBoard || []).forEach(c => lines.push(`${c.count || 1} ${c.name}`));
   return lines.join('\n');
 }
 function getDeckOwnerGroups() {
@@ -11705,7 +11705,7 @@ if (deckBuilderPreconSelect) {
       decks.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.fileName;
-        opt.textContent = ${d.name} ();
+        opt.textContent = `${d.name} (${d.code})`;
         deckBuilderPreconSelect.appendChild(opt);
       });
     } catch (_err) {
