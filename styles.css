@@ -1220,31 +1220,36 @@ button[type="submit"] {
 
 .deck-library-table th:nth-child(1),
 .deck-library-table td:nth-child(1) {
-  width: 20%;
+  width: 18%;
 }
 
 .deck-library-table th:nth-child(2),
 .deck-library-table td:nth-child(2) {
-  width: 16%;
+  width: 14%;
 }
 
 .deck-library-table th:nth-child(3),
 .deck-library-table td:nth-child(3) {
-  width: 18%;
+  width: 16%;
 }
 
 .deck-library-table th:nth-child(4),
 .deck-library-table td:nth-child(4) {
-  width: 10%;
+  width: 9%;
 }
 
 .deck-library-table th:nth-child(5),
 .deck-library-table td:nth-child(5) {
-  width: 20%;
+  width: 9%;
 }
 
 .deck-library-table th:nth-child(6),
 .deck-library-table td:nth-child(6) {
+  width: 18%;
+}
+
+.deck-library-table th:nth-child(7),
+.deck-library-table td:nth-child(7) {
   width: 16%;
 }
 
