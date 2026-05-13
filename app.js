@@ -955,78 +955,23 @@ function getSavedDeckListEntryForCommander(commanderName) {
     .find((entry) => getIdentityKey(entry.commander) === commanderKey) || null;
 }
 
-function buildDeckListLinkOrText(label, oracleId = '') {
+function buildDeckListLinkOrText(label) {
   const normalizedLabel = normalizeIdentityLabel(label);
   if (!normalizedLabel) {
     return '—';
   }
 
-  const normalizedLabelKey = getIdentityKey(normalizedLabel);
-
-  const commanderKey = getCommanderEquivalenceKey({
-    name: normalizedLabel,
-    oracleId: String(oracleId || '').trim(),
-  });
-  if (!commanderKey) {
-    return escapeHtml(normalizedLabel);
-  }
-
-  const deckListEntry = loadDeckLists()
-    .map(normalizeDeckListEntry)
-    .filter(Boolean)
-    .find((entry) => {
-      const entryKey = getCommanderEquivalenceKey({
-        name: entry.commander,
-        oracleId: entry.commanderOracleId,
-      });
-      return entryKey === commanderKey || getIdentityKey(entry.commander) === normalizedLabelKey;
-    }) || null;
-
+  const deckListEntry = getSavedDeckListEntryForCommander(normalizedLabel);
   if (!deckListEntry) {
     return escapeHtml(normalizedLabel);
   }
 
-  if (deckListEntry.url) {
-    return `<a class="history-drilldown-link" href="${escapeHtml(deckListEntry.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(normalizedLabel)}</a>`;
-  }
-
   const linkedDeckId = resolveLinkedDeckIdForDeckList(deckListEntry);
-  if (linkedDeckId) {
-    return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
+  if (!linkedDeckId) {
+    return escapeHtml(normalizedLabel);
   }
 
-  return escapeHtml(normalizedLabel);
-}
-
-function hasRegisteredGamesForDeckIdentity({ commander = '', commanderOracleId = '' }) {
-  const commanderKey = getCommanderEquivalenceKey({
-    name: commander,
-    oracleId: commanderOracleId,
-  });
-  const commanderName = normalizeIdentityLabel(commander || '');
-  const commanderNameKey = getIdentityKey(commanderName);
-  if (!commanderKey && !commanderNameKey) {
-    return false;
-  }
-
-  const gameCommanderNames = loadGames()
-    .flatMap((game) => getGameRows(game).map((row) => normalizeIdentityLabel(row?.commander || '')))
-    .filter(Boolean);
-  const commanderMap = buildCanonicalIdentityMapFromValues([commanderName, ...gameCommanderNames]);
-  const canonicalDeckCommander = canonicalizeIdentityValue(commanderName, commanderMap);
-
-  return loadGames().some((game) => getGameRows(game).some((row) => {
-    const rowCommander = normalizeIdentityLabel(row?.commander || '');
-    if (!rowCommander) {
-      return false;
-    }
-    const rowCommanderKey = getCommanderEquivalenceKey({ name: rowCommander, oracleId: '' });
-    const rowCommanderNameKey = getIdentityKey(rowCommander);
-    const canonicalRowCommander = canonicalizeIdentityValue(rowCommander, commanderMap);
-    return rowCommanderKey === commanderKey
-      || rowCommanderNameKey === commanderNameKey
-      || (canonicalDeckCommander && canonicalRowCommander && canonicalRowCommander === canonicalDeckCommander);
-  }));
+  return `<a class="history-drilldown-link" href="${escapeHtml(getDeckBuilderHref(linkedDeckId))}">${escapeHtml(normalizedLabel)}</a>`;
 }
 
 function setIdentityRenameStatus(element, message, tone = 'muted') {
@@ -5686,12 +5631,7 @@ function applyDeckBuilderAccessState(deck) {
           return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
         })
       : false;
-    const hasRegisteredGames = hasRegisteredGamesForDeckIdentity({
-      commander: deck?.commander?.name || '',
-      commanderOracleId: deck?.commander?.oracleId || '',
-      owner: deck?.owner || '',
-    });
-    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList || hasRegisteredGames;
+    deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || hasLinkedDeckList;
   }
 }
 
@@ -5755,17 +5695,7 @@ function renderDeckLibrary() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
-  let requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
-  
-  // Default to logged-in player if no filter is set
-  if (!requestedOwnerFilter && deckLibraryPlayerFilterSelect && syncUserInput) {
-    const loggedInPlayer = normalizeIdentityLabel(syncUserInput.value || '');
-    if (loggedInPlayer && ownerFilterOptions.includes(loggedInPlayer)) {
-      requestedOwnerFilter = loggedInPlayer;
-      deckLibraryPlayerFilterSelect.value = loggedInPlayer;
-    }
-  }
-  
+  const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckLibraryPlayerFilterSelect) {
@@ -5792,11 +5722,14 @@ function renderDeckLibrary() {
     const summary = getDeckValidationSummary(deck);
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
-    const hasGameRecord = hasRegisteredGamesForDeckIdentity({
-      commander: deck.commander?.name || '',
-      commanderOracleId: deck.commander?.oracleId || '',
-      owner: deck.owner || '',
-    });
+    const commanderKey = getCommanderEquivalenceKey({ name: deck.commander?.name || '', oracleId: deck.commander?.oracleId || '' });
+    const ownerKey = getIdentityKey(deck.owner || '');
+    const hasGameRecord = commanderKey
+      ? loadDeckLists().some((dl) => {
+          const dlKey = getCommanderEquivalenceKey({ name: dl.commander, oracleId: dl.commanderOracleId });
+          return dlKey === commanderKey && (!ownerKey || getIdentityKey(dl.owner || '') === ownerKey);
+        })
+      : false;
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
@@ -5822,15 +5755,6 @@ function renderDeckLibrary() {
 async function deleteDeckRecord(deckId) {
   const deck = loadDecks().find((entry) => entry.id === deckId);
   if (!deck) {
-    return;
-  }
-
-  if (hasRegisteredGamesForDeckIdentity({
-    commander: deck.commander?.name || '',
-    commanderOracleId: deck.commander?.oracleId || '',
-    owner: deck.owner || '',
-  })) {
-    setDeckBuilderSaveStatus('Decks with saved game history cannot be deleted.', 'error');
     return;
   }
 
@@ -7948,7 +7872,7 @@ async function importDeckFromText(text) {
 
 async function fetchPreconList() {
   const res = await fetch('https://mtgjson.com/api/v5/DeckList.json');
-  if (!res.ok) throw new Error(`Failed to load precon list (${res.status})`);
+  if (!res.ok) throw new Error(Failed to load precon list ());
   const json = await res.json();
   return (json.data || [])
     .filter(d => d.type === 'Commander Deck')
@@ -7956,19 +7880,19 @@ async function fetchPreconList() {
 }
 
 async function loadPreconDeckText(fileName) {
-  const res = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(fileName)}.json`);
-  if (!res.ok) throw new Error(`Failed to load deck (${res.status})`);
+  const res = await fetch(https://mtgjson.com/api/v5/decks/.json);
+  if (!res.ok) throw new Error(Failed to load deck ());
   const json = await res.json();
   const data = json.data || {};
   const lines = [];
   const commanders = data.commander || [];
   if (commanders.length) {
     lines.push('Commander:');
-    commanders.forEach(c => lines.push(`${c.count || 1} ${c.name}`));
+    commanders.forEach(c => lines.push(${c.count || 1} ));
     lines.push('');
   }
   lines.push('Deck:');
-  (data.mainBoard || []).forEach(c => lines.push(`${c.count || 1} ${c.name}`));
+  (data.mainBoard || []).forEach(c => lines.push(${c.count || 1} ));
   return lines.join('\n');
 }
 function getDeckOwnerGroups() {
@@ -8466,21 +8390,19 @@ function renderDeckCardRow(card, options = {}) {
         />
       </div>`
     : '';
-  const removeAction = options.isSelected
-    ? (options.isCommander
-      ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
-      : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
-    : '';
-  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander) && options.isSelected
+  const removeAction = options.isCommander
+    ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
+    : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`;
+  const commanderAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
     ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
     : '';
-  const addToDeckAction = options.fromMaybeboard && options.isSelected
+  const addToDeckAction = options.fromMaybeboard
     ? `<button type="button" class="secondary-button deck-builder-maybe-to-deck" data-add-from-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>`
     : '';
-  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens && options.isSelected
+  const moveToMaybeboardAction = !options.isCommander && !options.fromMaybeboard && !options.fromTokens
     ? `<button type="button" class="secondary-button deck-builder-move-to-maybeboard" data-move-to-maybeboard-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>To Maybeboard</button>`
     : '';
-  const artAction = !options.isBasicLand && options.isSelected
+  const artAction = !options.isBasicLand
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Change Art</button>`
     : '';
   const isArtPickerOpen = Boolean(options.showArtPicker);
@@ -9022,17 +8944,7 @@ function renderDeckLists() {
     });
 
   const ownerFilterOptions = getUniqueValues(sortedDeckLists.map((entry) => normalizeIdentityLabel(entry.owner || '')).filter(Boolean));
-  let requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
-  
-  // Default to logged-in player if no filter is set
-  if (!requestedOwnerFilter && deckListPlayerFilterSelect && syncUserInput) {
-    const loggedInPlayer = normalizeIdentityLabel(syncUserInput.value || '');
-    if (loggedInPlayer && ownerFilterOptions.includes(loggedInPlayer)) {
-      requestedOwnerFilter = loggedInPlayer;
-      deckListPlayerFilterSelect.value = loggedInPlayer;
-    }
-  }
-  
+  const requestedOwnerFilter = normalizeIdentityLabel(deckListPlayerFilterSelect?.value || '');
   const activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
   if (deckListPlayerFilterSelect) {
@@ -9063,20 +8975,15 @@ function renderDeckLists() {
       const safeOwner = escapeHtml(entry.owner || '—');
       const safeUrl = escapeHtml(entry.url);
       const linkedDeckId = resolveLinkedDeckIdForDeckList(entry, decks);
-      const hasGameRecord = hasRegisteredGamesForDeckIdentity({
-        commander: entry.commander,
-        commanderOracleId: entry.commanderOracleId,
-        owner: entry.owner,
-      });
       return `
         <tr>
-          <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeCommander}</a></td>
+          <td>${safeCommander}</td>
           <td>${safeOwner}</td>
           <td><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Open saved deck list for ${safeCommander}">${safeUrl}</a></td>
           <td>
             ${linkedDeckId ? `<button type="button" class="secondary-button deck-list-open" data-id="${escapeHtml(linkedDeckId)}" aria-label="Open built deck for ${safeCommander}">Open Deck</button>` : ''}
             <button type="button" class="secondary-button deck-list-edit" data-id="${escapeHtml(entry.id)}" aria-label="Edit deck list for ${safeCommander}">Edit</button>
-            ${hasGameRecord ? '' : `<button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>`}
+            <button type="button" class="history-delete-button deck-list-delete" data-id="${escapeHtml(entry.id)}" aria-label="Delete deck list for ${safeCommander}">Delete</button>
           </td>
         </tr>`;
     })
@@ -9182,14 +9089,6 @@ async function handleDeckListTableAction(event) {
 
   if (button.classList.contains('deck-list-delete')) {
     const entry = loadDeckLists().find((deck) => deck.id === deckId) || null;
-    if (entry && hasRegisteredGamesForDeckIdentity({
-      commander: entry.commander,
-      commanderOracleId: entry.commanderOracleId,
-      owner: entry.owner,
-    })) {
-      setDeckListStatus('Deck lists tied to saved games cannot be deleted.', 'error');
-      return;
-    }
     const description = entry
       ? `Delete the saved deck link for ${entry.commander}${entry.owner ? ` owned by ${entry.owner}` : ''}?`
       : 'Delete this deck list? This removes the saved deck link immediately.';
@@ -10593,7 +10492,7 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, points: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
+        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
       }
 
       stats[commander].games += 1;
@@ -10610,17 +10509,14 @@ function getCommanderStatsData(games) {
           const playerCount = game.finishOrder.length;
           const placementScore = playerCount > 1 ? 1 - ((place - 1) / (playerCount - 1)) : 1;
           stats[commander].placementScoreTotal += placementScore;
-          stats[commander].points += getPlacementPoints(place);
         }
       }
 
       const kills = typeof row.kills === 'number' && !Number.isNaN(row.kills) ? row.kills : 0;
       stats[commander].kills += kills;
-      stats[commander].points += kills;
 
       if (firstBlood?.actorPlayer === row.player) {
         stats[commander].firstBloods += 1;
-        stats[commander].points += 1;
       }
     });
   });
@@ -10717,7 +10613,6 @@ function renderCommanderStats(games) {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
-      const pointsPerGame = stat.games ? stat.points / stat.games : 0;
       return {
         commander,
         games: stat.games,
@@ -10727,7 +10622,6 @@ function renderCommanderStats(games) {
         firstBloods: stat.firstBloods,
         kd: killsPerGame,
         averagePlacement,
-        pointsPerGame,
         expected: getCommanderExpectedPower(commander),
         actual: typeof actualPowers[commander] === 'number' ? actualPowers[commander] : 0,
         actualCal: typeof calibratedPowers[commander] === 'number' ? calibratedPowers[commander] : 0,
@@ -10773,10 +10667,6 @@ function renderCommanderStats(games) {
         aVal = a.kd;
         bVal = b.kd;
         break;
-      case 'pointsPerGame':
-        aVal = a.pointsPerGame;
-        bVal = b.pointsPerGame;
-        break;
       case 'avgPlace':
         aVal = a.averagePlacement;
         bVal = b.averagePlacement;
@@ -10809,7 +10699,7 @@ function renderCommanderStats(games) {
   });
 
   const rows = entries
-    .map(({ commander, stat, actual, actualCal, expected, delta, confidence, pointsPerGame }) => {
+    .map(({ commander, stat, actual, actualCal, expected, delta, confidence }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
@@ -10835,7 +10725,6 @@ function renderCommanderStats(games) {
           <td>${stat.kills}</td>
           <td>${stat.firstBloods || 0}</td>
           <td>${killsPerGame.toFixed(1)}</td>
-          <td>${formatPointsPerGame(pointsPerGame)}</td>
           <td>${averagePlacement ? averagePlacement.toFixed(2) : '—'}</td>
           <td>
             <input
@@ -10862,7 +10751,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="14">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="13">No commanders match your search.</td></tr>';
   updateSortableTableIndicators('commanderStats');
 }
 
@@ -11806,7 +11695,7 @@ if (deckBuilderPreconSelect) {
       decks.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.fileName;
-        opt.textContent = `${d.name} (${d.code})`;
+        opt.textContent = ${d.name} ();
         deckBuilderPreconSelect.appendChild(opt);
       });
     } catch (_err) {
