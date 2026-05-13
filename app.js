@@ -12380,7 +12380,7 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
+        stats[commander] = { games: 0, wins: 0, points: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
       }
 
       stats[commander].games += 1;
@@ -12391,6 +12391,7 @@ function getCommanderStatsData(games) {
       if (Array.isArray(game.finishOrder) && game.finishOrder.length) {
         const place = game.finishOrder.indexOf(row.player) + 1;
         if (place > 0) {
+          stats[commander].points += getPlacementPoints(place);
           stats[commander].placementTotal += place;
           stats[commander].placementGames += 1;
 
@@ -12499,12 +12500,14 @@ function renderCommanderStats(games) {
     .filter(([commander]) => commander.toLowerCase().includes(searchTerm))
     .map(([commander, stat]) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
+      const pointsPerGame = stat.games ? stat.points / stat.games : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
       return {
         commander,
         games: stat.games,
         wins: stat.wins,
+        pointsPerGame,
         winRate: winRateValue,
         kills: stat.kills,
         firstBloods: stat.firstBloods,
@@ -12538,6 +12541,10 @@ function renderCommanderStats(games) {
       case 'wins':
         aVal = a.wins;
         bVal = b.wins;
+        break;
+      case 'pointsPerGame':
+        aVal = a.pointsPerGame;
+        bVal = b.pointsPerGame;
         break;
       case 'winRate':
         aVal = a.winRate;
@@ -12587,7 +12594,7 @@ function renderCommanderStats(games) {
   });
 
   const rows = entries
-    .map(({ commander, stat, actual, actualCal, expected, delta, confidence }) => {
+    .map(({ commander, stat, pointsPerGame, actual, actualCal, expected, delta, confidence }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
@@ -12609,6 +12616,7 @@ function renderCommanderStats(games) {
           <td>${buildDeckListLinkOrText(commander)}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
+          <td>${formatPointsPerGame(pointsPerGame)}</td>
           <td>${formatPercent(winRateValue)}</td>
           <td>${stat.kills}</td>
           <td>${stat.firstBloods || 0}</td>
@@ -12639,7 +12647,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="13">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="14">No commanders match your search.</td></tr>';
   updateSortableTableIndicators('commanderStats');
 }
 
