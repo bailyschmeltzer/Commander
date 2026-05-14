@@ -1812,6 +1812,30 @@ button[type="submit"] {
   display: none;
 }
 
+.deck-card-art-multi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.deck-card-art-multi-count {
+  font-size: 0.8rem;
+  color: #54607d;
+}
+
+.deck-card-art-option--selected {
+  border-color: #3a56d4;
+  box-shadow: 0 0 0 2px #3a56d4;
+  background: #eef1fc;
+}
+
+.deck-card-art-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .deck-land-minus,
 .deck-land-plus {
   display: inline-flex;

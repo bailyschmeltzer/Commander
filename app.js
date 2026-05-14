@@ -282,7 +282,7 @@ let deckBuilderSelectedCard = null;
 let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
 let deckBuilderArtPickerCardId = '';
-let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
 let deckBuilderCommanderPrefill = '';
 let deckBuilderBasicLandWarmPromise = null;
 let deckBuilderHoldTimerId = null;
@@ -7584,6 +7584,10 @@ async function openDeckBuilderArtPicker(cardId) {
   }
 
   const card = located.card;
+  const isBasicLandCard = isBasicLand(card);
+  const landCount = isBasicLandCard && located?.zone === 'cards'
+    ? (deck.cards || []).filter((c) => getIdentityKey(c.name) === getIdentityKey(card.name) && (c.imageUri || '') === (card.imageUri || '')).length
+    : 0;
   const cacheKey = getDeckBuilderArtCacheKey(card);
   deckBuilderArtPickerCardId = cardId;
 
@@ -7593,6 +7597,9 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options: deckBuilderArtOptionsCache.get(cacheKey),
       message: '',
+      selectedPrintIds: [],
+      isBasicLand: isBasicLandCard,
+      landCount,
     };
     renderDeckBuilderCards(deck);
     return;
@@ -7603,6 +7610,9 @@ async function openDeckBuilderArtPicker(cardId) {
     cardId,
     options: [],
     message: 'Loading art options...',
+    selectedPrintIds: [],
+    isBasicLand: isBasicLandCard,
+    landCount,
   };
   renderDeckBuilderCards(deck);
 
@@ -7616,6 +7626,9 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options,
       message: options.length ? '' : 'No alternate arts found for this card.',
+      selectedPrintIds: deckBuilderArtPickerState.selectedPrintIds,
+      isBasicLand: isBasicLandCard,
+      landCount,
     };
   } catch (error) {
     deckBuilderArtPickerState = {
@@ -7623,6 +7636,9 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options: [],
       message: error instanceof Error ? error.message : 'Unable to load art options right now.',
+      selectedPrintIds: [],
+      isBasicLand: isBasicLandCard,
+      landCount,
     };
   }
 
@@ -7678,6 +7694,58 @@ function applyDeckBuilderCardArt(cardId, print) {
   }
 
   persistDeckBuilderRecord(nextDeck, 'Card art updated.');
+}
+
+function applyBasicLandArtDistribution(sampleId) {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck || !sampleId) {
+    return;
+  }
+
+  const selectedPrints = (deckBuilderArtPickerState.selectedPrintIds || [])
+    .map((id) => (deckBuilderArtPickerState.options || []).find((o) => String(o.id || '') === String(id)))
+    .filter(Boolean);
+
+  if (!selectedPrints.length) {
+    return;
+  }
+
+  const located = findDeckBuilderCardById(deck, sampleId);
+  if (!located?.card) {
+    return;
+  }
+
+  const targetNameKey = getIdentityKey(located.card.name);
+  const originalImageUri = located.card.imageUri || '';
+
+  const groupIndices = [];
+  (deck.cards || []).forEach((card, i) => {
+    if (getIdentityKey(card.name) === targetNameKey && (card.imageUri || '') === originalImageUri) {
+      groupIndices.push(i);
+    }
+  });
+
+  if (!groupIndices.length) {
+    return;
+  }
+
+  const nextCards = [...deck.cards];
+  groupIndices.forEach((idx, i) => {
+    const print = selectedPrints[i % selectedPrints.length];
+    nextCards[idx] = {
+      ...nextCards[idx],
+      imageUri: String(print.imageUri || nextCards[idx].imageUri || '').trim(),
+      imageLargeUri: String(print.imageLargeUri || nextCards[idx].imageLargeUri || '').trim(),
+      cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (nextCards[idx].cardFaces || []),
+      scryfallUri: String(print.scryfallUri || nextCards[idx].scryfallUri || '').trim(),
+    };
+  });
+
+  deckBuilderArtPickerCardId = '';
+  deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
+  deckBuilderSelectedDeckCardId = null;
+
+  persistDeckBuilderRecord({ ...deck, cards: nextCards }, 'Card art updated.');
 }
 
 async function selectDeckCardByName(cardName) {
@@ -9942,25 +10010,34 @@ function renderBasicLandRow(name, cards) {
       </div>`
     : '';
   const artState = isArtPickerOpen ? deckBuilderArtPickerState : null;
+  const selectedPrintIds = artState?.selectedPrintIds || [];
+  const landCount = artState?.landCount || count;
   const artBody = isArtPickerOpen
     ? `<div class="deck-card-art-picker">
         ${artState?.status === 'loading' ? `<p class="deck-card-art-status">${escapeHtml(artState.message || 'Loading art options...')}</p>` : ''}
         ${artState?.status === 'error' ? `<p class="deck-card-art-status status-error">${escapeHtml(artState.message || 'Unable to load art options.')}</p>` : ''}
         ${artState?.status === 'ready' && !(artState.options || []).length ? `<p class="deck-card-art-status status-muted">${escapeHtml(artState.message || 'No alternate arts found for this card.')}</p>` : ''}
         ${artState?.status === 'ready' && (artState.options || []).length ? `
+          <div class="deck-card-art-multi-header">
+            <span class="deck-card-art-multi-count">${escapeHtml(String(selectedPrintIds.length))}/${escapeHtml(String(landCount))} selected</span>
+            <button type="button" class="secondary-button deck-card-art-multi-apply" data-apply-basic-land-arts="${escapeHtml(sampleId)}"${selectedPrintIds.length === 0 || isReadOnly ? ' disabled' : ''}>Apply</button>
+          </div>
           <div class="deck-card-art-grid">
-            ${(artState.options || []).map((print) => `
-              <button
+            ${(artState.options || []).map((print) => {
+              const isSelected = selectedPrintIds.includes(String(print.id || ''));
+              const canSelect = isSelected || selectedPrintIds.length < landCount;
+              return `<button
                 type="button"
-                class="deck-card-art-option"
-                data-apply-art-card-id="${escapeHtml(sampleId)}"
-                data-apply-art-print-id="${escapeHtml(print.id || '')}"
+                class="deck-card-art-option${isSelected ? ' deck-card-art-option--selected' : ''}"
+                data-toggle-art-card-id="${escapeHtml(sampleId)}"
+                data-toggle-art-print-id="${escapeHtml(print.id || '')}"
                 title="${escapeHtml(`${print.setName || print.set || 'Print'} ${print.collectorNumber || ''}`.trim())}"
+                ${!canSelect || isReadOnly ? ' disabled' : ''}
               >
                 ${print.imageUri ? `<img src="${escapeHtml(print.imageUri)}" alt="${escapeHtml(print.name || name)}" loading="lazy" decoding="async" />` : ''}
                 <span>${escapeHtml(`${(print.set || '').toUpperCase()} ${print.collectorNumber || ''}`.trim() || (print.lang || 'Print'))}</span>
-              </button>
-            `).join('')}
+              </button>`;
+            }).join('')}
           </div>` : ''}
       </div>`
     : '';
@@ -13519,7 +13596,7 @@ if (deckBuilderCards) {
 
       if (deckBuilderArtPickerCardId === cardId) {
         deckBuilderArtPickerCardId = '';
-        deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+        deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
         const deck = ensureActiveDeckBuilderRecord();
         if (deck) {
           renderDeckBuilderCards(deck);
@@ -13539,6 +13616,37 @@ if (deckBuilderCards) {
       if (cardId && selectedPrint) {
         applyDeckBuilderCardArt(cardId, selectedPrint);
       }
+      return;
+    }
+
+    const toggleArtButton = event.target.closest('[data-toggle-art-print-id][data-toggle-art-card-id]');
+    if (toggleArtButton) {
+      const printId = String(toggleArtButton.dataset.toggleArtPrintId || '');
+      if (!printId) {
+        return;
+      }
+      const currentSelected = deckBuilderArtPickerState.selectedPrintIds || [];
+      const landCount = deckBuilderArtPickerState.landCount || 1;
+      const isSelected = currentSelected.includes(printId);
+      let nextSelected;
+      if (isSelected) {
+        nextSelected = currentSelected.filter((id) => id !== printId);
+      } else if (currentSelected.length < landCount) {
+        nextSelected = [...currentSelected, printId];
+      } else {
+        return;
+      }
+      deckBuilderArtPickerState = { ...deckBuilderArtPickerState, selectedPrintIds: nextSelected };
+      const deck = ensureActiveDeckBuilderRecord();
+      if (deck) {
+        renderDeckBuilderCards(deck);
+      }
+      return;
+    }
+
+    const applyBasicLandArtsButton = event.target.closest('[data-apply-basic-land-arts]');
+    if (applyBasicLandArtsButton) {
+      applyBasicLandArtDistribution(applyBasicLandArtsButton.dataset.applyBasicLandArts || '');
       return;
     }
 
