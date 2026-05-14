@@ -1798,6 +1798,9 @@ button[type="submit"] {
   display: block;
   text-align: center;
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .deck-card-art-option img {
@@ -1834,6 +1837,56 @@ button[type="submit"] {
 .deck-card-art-option:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.deck-card-art-option:active,
+.deck-card-art-option:active:disabled {
+  background: #dfe8f8;
+  border-color: #3a56d4;
+}
+
+@media (max-width: 640px) {
+  .deck-card-art-picker {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .deck-card-art-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .deck-card-art-option {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 63 / 88;
+  }
+
+  .deck-card-art-option img {
+    aspect-ratio: 63 / 88;
+  }
+
+  .deck-card-art-multi-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .deck-card-art-multi-count {
+    text-align: center;
+  }
+
+  .deck-card-art-multi-apply {
+  width: 100%;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+}
+
+@media (max-width: 480px) {
+  .deck-card-art-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .deck-land-minus,
