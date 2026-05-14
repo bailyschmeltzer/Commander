@@ -1877,10 +1877,10 @@ button[type="submit"] {
   }
 
   .deck-card-art-multi-apply {
-  width: 100%;
-  min-height: 44px;
-  touch-action: manipulation;
-}
+    width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
 }
 
 @media (max-width: 480px) {
