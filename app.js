@@ -7637,7 +7637,10 @@ function applyDeckBuilderCardArt(cardId, print) {
 
   const located = findDeckBuilderCardById(deck, cardId);
   const targetNameKey = getIdentityKey(located?.card?.name || '');
+  const originalImageUri = located?.card?.imageUri || '';
   const shouldApplyToSameNameCopies = located?.zone === 'cards' && Boolean(targetNameKey) && allowsMultipleCopies(located.card);
+  // For basic lands, only apply to copies with the same art so different art groups are preserved.
+  const basicLandArtGroupOnly = shouldApplyToSameNameCopies && isBasicLand(located?.card);
 
   const applyPrint = (card) => ({
     ...card,
@@ -7653,7 +7656,8 @@ function applyDeckBuilderCardArt(cardId, print) {
 
   const updateList = (list) => (list || []).map((card) => {
     const matchesById = card.id === cardId;
-    const matchesSameNameCopy = shouldApplyToSameNameCopies && getIdentityKey(card.name) === targetNameKey;
+    const matchesSameNameCopy = shouldApplyToSameNameCopies && getIdentityKey(card.name) === targetNameKey
+      && (!basicLandArtGroupOnly || (card.imageUri || '') === originalImageUri);
     if (!matchesById && !matchesSameNameCopy) {
       return card;
     }
@@ -8084,11 +8088,11 @@ function renderDeckBuilderCards(deck) {
   const groupMarkup = groups.map((group) => {
     // For the Land group, split into basic (stacked) and non-basic (normal rows)
     if (group.type === 'Land') {
-      const basicGroups = new Map(); // name -> [card, ...]
+      const basicGroups = new Map(); // name|imageUri -> { name, cards[] }
       const nonBasics = [];
       group.cards.forEach((card) => {
         if (basicLandKeySet.has(getIdentityKey(card.name))) {
-          const key = getIdentityKey(card.name);
+          const key = getIdentityKey(card.name) + '|' + (card.imageUri || '');
           if (!basicGroups.has(key)) basicGroups.set(key, { name: card.name, cards: [] });
           basicGroups.get(key).cards.push(card);
         } else {
@@ -9924,23 +9928,57 @@ function renderUnlimitedCopyCardRow(name, cards) {
 function renderBasicLandRow(name, cards) {
   const count = cards.length;
   const sampleId = cards[0]?.id || '';
+  const sampleCard = cards[0];
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
-  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || deckBuilderArtPickerCardId === sampleId);
+  const isArtPickerOpen = Boolean(sampleId && deckBuilderArtPickerCardId === sampleId);
+  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || isArtPickerOpen);
   const artButton = sampleId && isExpanded
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
     : '';
+  const imageMarkup = isExpanded && sampleCard && (sampleCard.imageLargeUri || sampleCard.imageUri)
+    ? `<div class="deck-card-row-media">
+        <img class="deck-card-row-image" src="${escapeHtml(sampleCard.imageLargeUri || sampleCard.imageUri)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" />
+      </div>`
+    : '';
+  const artState = isArtPickerOpen ? deckBuilderArtPickerState : null;
+  const artBody = isArtPickerOpen
+    ? `<div class="deck-card-art-picker">
+        ${artState?.status === 'loading' ? `<p class="deck-card-art-status">${escapeHtml(artState.message || 'Loading art options...')}</p>` : ''}
+        ${artState?.status === 'error' ? `<p class="deck-card-art-status status-error">${escapeHtml(artState.message || 'Unable to load art options.')}</p>` : ''}
+        ${artState?.status === 'ready' && !(artState.options || []).length ? `<p class="deck-card-art-status status-muted">${escapeHtml(artState.message || 'No alternate arts found for this card.')}</p>` : ''}
+        ${artState?.status === 'ready' && (artState.options || []).length ? `
+          <div class="deck-card-art-grid">
+            ${(artState.options || []).map((print) => `
+              <button
+                type="button"
+                class="deck-card-art-option"
+                data-apply-art-card-id="${escapeHtml(sampleId)}"
+                data-apply-art-print-id="${escapeHtml(print.id || '')}"
+                title="${escapeHtml(`${print.setName || print.set || 'Print'} ${print.collectorNumber || ''}`.trim())}"
+              >
+                ${print.imageUri ? `<img src="${escapeHtml(print.imageUri)}" alt="${escapeHtml(print.name || name)}" loading="lazy" decoding="async" />` : ''}
+                <span>${escapeHtml(`${(print.set || '').toUpperCase()} ${print.collectorNumber || ''}`.trim() || (print.lang || 'Print'))}</span>
+              </button>
+            `).join('')}
+          </div>` : ''}
+      </div>`
+    : '';
   return `
     <div class="deck-card-row deck-card-row-basic-land${isExpanded ? ' is-selected' : ''}" data-basic-land-name="${escapeHtml(name)}" data-card-id="${escapeHtml(sampleId)}" data-card-name="${escapeHtml(name)}">
-      <div class="deck-card-row-copy">
-        <p class="deck-card-name">${escapeHtml(name)}</p>
-        <p class="deck-card-meta">Basic Land</p>
-      </div>
-      <div class="deck-card-row-actions deck-card-row-actions-land">
-        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
-        <span class="deck-land-count">×${escapeHtml(String(count))}</span>
-        <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
-        ${artButton}
+      ${imageMarkup}
+      <div class="deck-card-row-main">
+        <div class="deck-card-row-copy">
+          <p class="deck-card-name">${escapeHtml(name)}</p>
+          <p class="deck-card-meta">Basic Land</p>
+        </div>
+        <div class="deck-card-row-actions deck-card-row-actions-land">
+          <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+          <span class="deck-land-count">×${escapeHtml(String(count))}</span>
+          <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+          ${artButton}
+        </div>
+        ${artBody}
       </div>
     </div>`;
 }
