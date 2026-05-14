@@ -6416,6 +6416,9 @@ function renderDeckLibrary() {
   const decks = activeOwnerFilter
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
+  const commanderPointsPerGameByIdentity = new Map(
+    buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
+  );
   const deckUsageLookup = buildDeckUsageLookup();
   const commanderPointsLookup = new Map(
     buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
@@ -6442,6 +6445,7 @@ function renderDeckLibrary() {
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
     ].filter(Boolean).join(', ') || '—';
+    const commanderPointsPerGame = commanderPointsPerGameByIdentity.get(getIdentityKey(deck.commander?.name || ''));
 
     return `
       <tr>
@@ -6449,7 +6453,7 @@ function renderDeckLibrary() {
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${deck.commander?.name ? buildCommanderTextHtml(deck.commander.name, deck.commander) : '—'}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
-        <td data-label="Avg Pts/Game">${deck.commander?.name ? formatPointsPerGame(commanderPointsLookup.get(getIdentityKey(deck.commander.name)) ?? 0) : '—'}</td>
+        <td data-label="Avg Points/Game">${deck.commander?.name ? formatPointsPerGame(commanderPointsPerGame ?? 0) : '—'}</td>
         <td data-label="Status">${escapeHtml(getDeckSummaryLabel(deck, summary))}${warnings !== '—' ? `<div class="deck-library-warning-text">${escapeHtml(warnings)}</div>` : ''}</td>
         <td data-label="Actions">
           <button type="button" class="secondary-button deck-library-open" data-id="${escapeHtml(deck.id)}">Open</button>

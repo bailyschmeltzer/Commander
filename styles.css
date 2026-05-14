@@ -317,6 +317,7 @@ label {
 .commander-stats-table {
   font-size: 0.92rem;
   table-layout: auto;
+  min-width: 1240px;
 }
 
 .commander-stats-table th,
@@ -335,36 +336,32 @@ label {
 .commander-stats-table td:nth-child(2),
 .commander-stats-table th:nth-child(3),
 .commander-stats-table td:nth-child(3),
-.commander-stats-table th:nth-child(8),
-.commander-stats-table td:nth-child(8),
-.commander-stats-table th:nth-child(9),
-.commander-stats-table td:nth-child(9),
-.commander-stats-table th:nth-child(10),
-.commander-stats-table td:nth-child(10) {
-  width: 6%;
+.commander-stats-table th:nth-child(6),
+.commander-stats-table td:nth-child(6),
+.commander-stats-table th:nth-child(7),
+.commander-stats-table td:nth-child(7) {
+  width: 5.5%;
 }
 
 .commander-stats-table th:nth-child(4),
 .commander-stats-table td:nth-child(4),
 .commander-stats-table th:nth-child(5),
 .commander-stats-table td:nth-child(5),
-.commander-stats-table th:nth-child(6),
-.commander-stats-table td:nth-child(6),
-.commander-stats-table th:nth-child(7),
-.commander-stats-table td:nth-child(7),
-.commander-stats-table th:nth-child(11),
-.commander-stats-table td:nth-child(11) {
-  width: 8%;
-}
-
 .commander-stats-table th:nth-child(8),
-.commander-stats-table td:nth-child(8) {
-  width: 12%;
-}
-
+.commander-stats-table td:nth-child(8),
+.commander-stats-table th:nth-child(9),
+.commander-stats-table td:nth-child(9),
+.commander-stats-table th:nth-child(10),
+.commander-stats-table td:nth-child(10),
+.commander-stats-table th:nth-child(11),
+.commander-stats-table td:nth-child(11),
 .commander-stats-table th:nth-child(12),
-.commander-stats-table td:nth-child(12) {
-  width: 11%;
+.commander-stats-table td:nth-child(12),
+.commander-stats-table th:nth-child(13),
+.commander-stats-table td:nth-child(13),
+.commander-stats-table th:nth-child(14),
+.commander-stats-table td:nth-child(14) {
+  width: 7%;
 }
 
 .commander-expected-input {
@@ -4472,6 +4469,11 @@ button[type="submit"] {
 
   .page-commander-stats .commander-expected-input {
     width: 56px;
+  }
+
+  .page-commander-stats .commander-stats-table {
+    min-width: 0;
+    width: 100%;
   }
 
   .page-commander-stats .commander-stats-table tbody {
