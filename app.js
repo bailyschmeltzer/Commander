@@ -166,6 +166,11 @@ const liveModalError = document.getElementById('live-modal-error');
 const liveModalCancelButton = document.getElementById('live-modal-cancel');
 const liveModalConfirmButton = document.getElementById('live-modal-confirm');
 
+const cardImageModal = document.getElementById('card-image-modal');
+const cardImageModalImg = document.getElementById('card-image-modal-img');
+const cardImageModalOverlay = document.querySelector('.card-image-modal-overlay');
+const cardImageModalCloseButton = document.querySelector('.card-image-modal-close');
+
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
 const syncConnectButton = document.getElementById('sync-connect');
@@ -13955,6 +13960,43 @@ window.addEventListener('focus', () => {
   checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
 });
 
+function setupCardImageModal() {
+  if (!cardImageModal || !cardImageModalImg || !cardImageModalOverlay || !cardImageModalCloseButton) {
+    return;
+  }
+
+  function closeModal() {
+    cardImageModal.setAttribute('hidden', '');
+  }
+
+  function openModal(imgSrc, imgAlt) {
+    cardImageModalImg.src = imgSrc;
+    cardImageModalImg.alt = imgAlt;
+    cardImageModal.removeAttribute('hidden');
+  }
+
+  // Click on card images to open modal
+  document.addEventListener('click', (e) => {
+    const cardImg = e.target.closest('.rulings-card-image, .deck-card-row-image');
+    if (cardImg && cardImg.src) {
+      openModal(cardImg.src, cardImg.alt);
+    }
+  });
+
+  // Close button
+  cardImageModalCloseButton.addEventListener('click', closeModal);
+
+  // Close on overlay click
+  cardImageModalOverlay.addEventListener('click', closeModal);
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !cardImageModal.hasAttribute('hidden')) {
+      closeModal();
+    }
+  });
+}
+
 function setupSyncUi() {
   if (!syncUserInput || !syncTokenInput) {
     return;
@@ -14077,6 +14119,7 @@ async function initializeApp() {
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
   setupSyncUi();
+  setupCardImageModal();
 
   // Capture before refresh() or replaceState can strip URL params.
   // Do NOT set deckBuilderCommanderPrefill yet — pullCloudState() overwrites appState
