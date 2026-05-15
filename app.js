@@ -9997,6 +9997,7 @@ function renderBasicLandRow(name, cards) {
   const count = cards.length;
   const sampleId = cards[0]?.id || '';
   const sampleCard = cards[0];
+  const sampleImageUri = String(sampleCard?.imageUri || '').trim();
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
   const isArtPickerOpen = Boolean(sampleId && deckBuilderArtPickerCardId === sampleId);
@@ -10050,9 +10051,9 @@ function renderBasicLandRow(name, cards) {
           <p class="deck-card-meta">Basic Land</p>
         </div>
         <div class="deck-card-row-actions deck-card-row-actions-land">
-          <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+          <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" data-source-card-id="${escapeHtml(sampleId)}" data-source-image-uri="${escapeHtml(sampleImageUri)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
           <span class="deck-land-count">×${escapeHtml(String(count))}</span>
-          <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+          <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" data-source-card-id="${escapeHtml(sampleId)}" data-source-image-uri="${escapeHtml(sampleImageUri)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
           ${artButton}
         </div>
         ${artBody}
@@ -10078,16 +10079,18 @@ function getDeckBuilderBasicLandHoldAction(target) {
   }
 
   const addBasicName = String(button.dataset.addBasic || '').trim();
+  const sourceCardId = String(button.dataset.sourceCardId || '').trim();
+  const sourceImageUri = String(button.dataset.sourceImageUri || '').trim();
   if (addBasicName) {
     return () => {
-      void addBasicLandToDeck(addBasicName);
+      void addBasicLandToDeck(addBasicName, { sourceCardId, sourceImageUri });
     };
   }
 
   const removeBasicName = String(button.dataset.removeBasic || '').trim();
   if (removeBasicName) {
     return () => {
-      removeBasicLandFromDeck(removeBasicName);
+      removeBasicLandFromDeck(removeBasicName, { sourceCardId, sourceImageUri });
     };
   }
 
@@ -10142,11 +10145,54 @@ async function addUnlimitedCopyCardToDeck(cardName) {
   });
 }
 
-async function addBasicLandToDeck(landName) {
+async function addBasicLandToDeck(landName, { sourceCardId = '', sourceImageUri = '' } = {}) {
   return queueDeckBuilderMutation(async () => {
     const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
     if (!deck) return;
-    let card = deckBuilderCardCache.get(landName.toLowerCase());
+
+    const normalizedSourceCardId = String(sourceCardId || '').trim();
+    const normalizedSourceImageUri = String(sourceImageUri || '').trim();
+    const targetNameKey = getIdentityKey(landName);
+    let card = normalizedSourceCardId
+      ? (deck.cards || []).find((entry) => String(entry?.id || '') === normalizedSourceCardId)
+      : null;
+
+    if (!card && normalizedSourceImageUri) {
+      card = (deck.cards || []).find((entry) => (
+        getIdentityKey(entry?.name) === targetNameKey && String(entry?.imageUri || '').trim() === normalizedSourceImageUri
+      ));
+    }
+
+    if (!card && !normalizedSourceCardId && !normalizedSourceImageUri) {
+      // Quick-add (no explicit source) should keep art distribution stable by reusing
+      // the most common existing art variant for this basic land in the current deck.
+      const matchingBasics = (deck.cards || []).filter((entry) => getIdentityKey(entry?.name) === targetNameKey);
+      if (matchingBasics.length) {
+        const groups = new Map();
+        matchingBasics.forEach((entry) => {
+          const key = String(entry?.imageUri || '').trim();
+          const existing = groups.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            groups.set(key, { count: 1, card: entry });
+          }
+        });
+
+        let selected = null;
+        groups.forEach((value) => {
+          if (!selected || value.count > selected.count) {
+            selected = value;
+          }
+        });
+
+        card = selected?.card || null;
+      }
+    }
+
+    if (!card) {
+      card = deckBuilderCardCache.get(landName.toLowerCase());
+    }
     if (!card) {
       await warmDeckBuilderBasicLandCache();
       card = deckBuilderCardCache.get(landName.toLowerCase());
@@ -10172,14 +10218,31 @@ async function addBasicLandToDeck(landName) {
   });
 }
 
-function removeBasicLandFromDeck(landName) {
+function removeBasicLandFromDeck(landName, { sourceCardId = '', sourceImageUri = '' } = {}) {
   return queueDeckBuilderMutation(() => {
     const deck = ensureActiveDeckBuilderRecord();
     if (!deck) {
       return;
     }
 
-    const match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === getIdentityKey(landName));
+    const normalizedSourceCardId = String(sourceCardId || '').trim();
+    const normalizedSourceImageUri = String(sourceImageUri || '').trim();
+    const targetNameKey = getIdentityKey(landName);
+
+    let match = normalizedSourceCardId
+      ? (deck.cards || []).find((card) => String(card?.id || '') === normalizedSourceCardId)
+      : null;
+
+    if (!match && normalizedSourceImageUri) {
+      match = (deck.cards || []).find((card) => (
+        getIdentityKey(card?.name) === targetNameKey && String(card?.imageUri || '').trim() === normalizedSourceImageUri
+      ));
+    }
+
+    if (!match) {
+      match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === targetNameKey);
+    }
+
     if (!match?.id) {
       return;
     }
@@ -13693,7 +13756,10 @@ if (deckBuilderCards) {
         return;
       }
 
-      removeBasicLandFromDeck(removeBasicButton.dataset.removeBasic || '');
+      removeBasicLandFromDeck(removeBasicButton.dataset.removeBasic || '', {
+        sourceCardId: removeBasicButton.dataset.sourceCardId || '',
+        sourceImageUri: removeBasicButton.dataset.sourceImageUri || '',
+      });
       return;
     }
 
@@ -13710,7 +13776,10 @@ if (deckBuilderCards) {
         return;
       }
 
-      await addBasicLandToDeck(addBasicButton.dataset.addBasic || '');
+      await addBasicLandToDeck(addBasicButton.dataset.addBasic || '', {
+        sourceCardId: addBasicButton.dataset.sourceCardId || '',
+        sourceImageUri: addBasicButton.dataset.sourceImageUri || '',
+      });
       return;
     }
 
