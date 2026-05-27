@@ -296,6 +296,8 @@ let deckBuilderMutationQueue = Promise.resolve();
 let deckBuilderSecretLairBundlesCache = null;
 let deckBuilderSecretLairBundlesPromise = null;
 let deckBuilderSecretLairListLoaded = false;
+let deckBuilderSecretLairDeckListIndexCache = null;
+let deckBuilderSecretLairDeckListIndexPromise = null;
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
@@ -9831,35 +9833,29 @@ function buildSecretLairBundleCardLines(bundle, cardsByUuid) {
     .map((entry) => `${entry.count} ${entry.label}`);
 }
 
-function buildSecretLairCardLinesFromDeckDeck(deckEntry) {
-  const lines = [];
-  const appendLine = (count, name, setCode, collectorNumber) => {
-    const normalizedName = String(name || '').trim();
-    if (!normalizedName) {
-      return;
-    }
+function getSecretLairNameAliases(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return [];
+  }
 
-    const normalizedSetCode = String(setCode || 'sld').trim().toLowerCase();
-    const normalizedCollectorNumber = String(collectorNumber || '').trim();
-    lines.push(normalizedCollectorNumber
-      ? `${Math.max(1, Number.isFinite(Number(count)) ? Number(count) : 1)} ${normalizedName} (${normalizedSetCode}) ${normalizedCollectorNumber}`
-      : `${Math.max(1, Number.isFinite(Number(count)) ? Number(count) : 1)} ${normalizedName}`);
+  const aliases = new Set();
+  const pushAlias = (candidate) => {
+    const key = getIdentityKey(candidate);
+    if (key) {
+      aliases.add(key);
+    }
   };
 
-  (Array.isArray(deckEntry?.commander) ? deckEntry.commander : []).forEach((entry) => {
-    appendLine(entry?.count || 1, entry?.name, entry?.set || 'sld', entry?.number || '');
-  });
-  (Array.isArray(deckEntry?.displayCommander) ? deckEntry.displayCommander : []).forEach((entry) => {
-    appendLine(entry?.count || 1, entry?.name, entry?.set || 'sld', entry?.number || '');
-  });
-  (Array.isArray(deckEntry?.mainBoard) ? deckEntry.mainBoard : []).forEach((entry) => {
-    appendLine(entry?.count || 1, entry?.name, entry?.set || 'sld', entry?.number || '');
-  });
-  (Array.isArray(deckEntry?.sideBoard) ? deckEntry.sideBoard : []).forEach((entry) => {
-    appendLine(entry?.count || 1, entry?.name, entry?.set || 'sld', entry?.number || '');
-  });
+  pushAlias(raw);
+  pushAlias(raw.replace(/^secret\s+lair\s+commander\s+deck\s*/i, ''));
+  pushAlias(raw.replace(/^secret\s+lair\s*/i, ''));
 
-  return lines;
+  return [...aliases];
+}
+
+function buildSecretLairCardLinesFromDeckDeck(deckEntry, cardsByUuid) {
+  return buildSecretLairBundleCardLines(deckEntry, cardsByUuid);
 }
 
 function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProductMap, deckMap, seen = new Set()) {
@@ -9886,8 +9882,31 @@ function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProduct
     lines.push(line);
   };
 
-  buildSecretLairCardLinesFromDeckDeck(deckMap.get(productKey)).forEach((line) => {
-    lines.push(line);
+  getSecretLairNameAliases(productName).forEach((aliasKey) => {
+    const deckEntry = deckMap.get(aliasKey);
+    if (!deckEntry) {
+      return;
+    }
+    buildSecretLairCardLinesFromDeckDeck(deckEntry, cardsByUuid).forEach((line) => {
+      lines.push(line);
+    });
+  });
+
+  (Array.isArray(product?.contents?.deck) ? product.contents.deck : []).forEach((entry) => {
+    const deckName = String(entry?.name || '').trim();
+    if (!deckName) {
+      return;
+    }
+
+    getSecretLairNameAliases(deckName).forEach((aliasKey) => {
+      const nestedDeck = deckMap.get(aliasKey);
+      if (!nestedDeck) {
+        return;
+      }
+      buildSecretLairCardLinesFromDeckDeck(nestedDeck, cardsByUuid).forEach((line) => {
+        lines.push(line);
+      });
+    });
   });
 
   (Array.isArray(product?.contents?.card) ? product.contents.card : []).forEach((entry) => {
@@ -9908,7 +9927,7 @@ function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProduct
     const nestedLines = nestedProduct
       ? buildSecretLairCardLinesFromProduct(nestedProduct, cardsByUuid, sealedProductMap, deckMap, seen)
       : nestedDeck
-        ? buildSecretLairCardLinesFromDeckDeck(nestedDeck)
+        ? buildSecretLairCardLinesFromDeckDeck(nestedDeck, cardsByUuid)
         : [];
     nestedLines.forEach((line) => {
       lines.push(line);
@@ -9921,7 +9940,10 @@ function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProduct
     if (!normalizedLine) {
       return;
     }
-    const label = normalizedLine.replace(/^\d+\s+/, '').trim();
+
+    const countMatch = normalizedLine.match(/^(\d+)\s+(.+)$/);
+    const parsedCount = countMatch ? Math.max(1, Number.parseInt(countMatch[1], 10) || 1) : 1;
+    const label = countMatch ? String(countMatch[2] || '').trim() : normalizedLine.replace(/^\d+\s+/, '').trim();
     const key = getIdentityKey(label);
     if (!key) {
       return;
@@ -9929,7 +9951,7 @@ function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProduct
     if (!deduped.has(key)) {
       deduped.set(key, { count: 0, label });
     }
-    deduped.get(key).count += 1;
+    deduped.get(key).count += parsedCount;
   });
 
   return [...deduped.values()]
@@ -9945,6 +9967,105 @@ function buildSecretLairBundleImportText(bundleName, cardLines) {
   ];
 
   return lines.join('\n');
+}
+
+async function fetchSecretLairDeckListIndex() {
+  if (deckBuilderSecretLairDeckListIndexCache) {
+    return deckBuilderSecretLairDeckListIndexCache;
+  }
+
+  if (deckBuilderSecretLairDeckListIndexPromise) {
+    return deckBuilderSecretLairDeckListIndexPromise;
+  }
+
+  deckBuilderSecretLairDeckListIndexPromise = (async () => {
+    const response = await fetch('https://mtgjson.com/api/v5/DeckList.json', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to load deck index (${response.status}).`);
+    }
+
+    const payload = await response.json();
+    const entries = Array.isArray(payload?.data) ? payload.data : [];
+    const byAlias = new Map();
+
+    entries
+      .filter((entry) => String(entry?.type || '').toLowerCase() === 'commander deck')
+      .forEach((entry) => {
+        const name = String(entry?.name || '').trim();
+        const fileName = String(entry?.fileName || '').trim();
+        if (!name || !fileName) {
+          return;
+        }
+
+        getSecretLairNameAliases(name).forEach((aliasKey) => {
+          if (!byAlias.has(aliasKey)) {
+            byAlias.set(aliasKey, fileName);
+          }
+        });
+      });
+
+    deckBuilderSecretLairDeckListIndexCache = byAlias;
+    return byAlias;
+  })();
+
+  try {
+    return await deckBuilderSecretLairDeckListIndexPromise;
+  } finally {
+    deckBuilderSecretLairDeckListIndexPromise = null;
+  }
+}
+
+async function loadSecretLairDeckListTextFromMtgjson(bundleName) {
+  const aliases = getSecretLairNameAliases(bundleName);
+  if (!aliases.length) {
+    return '';
+  }
+
+  const deckIndex = await fetchSecretLairDeckListIndex();
+  let fileName = '';
+  for (let i = 0; i < aliases.length; i += 1) {
+    const candidate = String(deckIndex.get(aliases[i]) || '').trim();
+    if (candidate) {
+      fileName = candidate;
+      break;
+    }
+  }
+
+  if (!fileName) {
+    return '';
+  }
+
+  const response = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(fileName)}.json`, { cache: 'no-store' });
+  if (!response.ok) {
+    return '';
+  }
+
+  const payload = await response.json();
+  const data = payload?.data;
+  const lines = [];
+  const appendEntries = (entries) => {
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+      const name = String(entry?.name || '').trim();
+      if (!name) {
+        return;
+      }
+
+      const count = Math.max(1, Number.isFinite(Number(entry?.count)) ? Number(entry.count) : 1);
+      const setCode = String(entry?.setCode || entry?.set || '').trim().toLowerCase();
+      lines.push(setCode ? `${count} ${name} (${setCode})` : `${count} ${name}`);
+    });
+  };
+
+  appendEntries(data?.commander);
+  appendEntries(data?.displayCommander);
+  appendEntries(data?.mainBoard);
+  appendEntries(data?.sideBoard);
+
+  if (!lines.length) {
+    return '';
+  }
+
+  return buildSecretLairBundleImportText(bundleName, lines);
 }
 
 function renderSecretLairProductOptions(filterText = '') {
@@ -10029,7 +10150,11 @@ async function fetchSecretLairBundleCatalog() {
       if (!name) {
         return;
       }
-      deckMap.set(getIdentityKey(name), bundle);
+      getSecretLairNameAliases(name).forEach((aliasKey) => {
+        if (!deckMap.has(aliasKey)) {
+          deckMap.set(aliasKey, bundle);
+        }
+      });
     });
 
     sealedProducts.forEach((product) => {
@@ -10054,7 +10179,8 @@ async function fetchSecretLairBundleCatalog() {
 
       const entry = {
         name,
-        cardCount: Math.max(Number(bundle?.cardCount || 0), cardLines.length),
+        cardCount: cardLines.length,
+        expectedCardCount: Number.isFinite(Number(bundle?.cardCount)) ? Math.max(0, Number(bundle.cardCount)) : 0,
         text: buildSecretLairBundleImportText(name, cardLines.length ? cardLines : [`1 ${name}`]),
       };
 
@@ -10079,6 +10205,18 @@ async function fetchSecretLairBundleCatalog() {
 }
 
 async function loadSecretLairBundleText(bundleName) {
+  const isCompleteBundleEntry = (entry) => {
+    const lineCount = Number.isFinite(Number(entry?.cardCount)) ? Math.max(0, Number(entry.cardCount)) : 0;
+    const expected = Number.isFinite(Number(entry?.expectedCardCount)) ? Math.max(0, Number(entry.expectedCardCount)) : 0;
+    if (!entry?.text || lineCount <= 0) {
+      return false;
+    }
+    if (!expected) {
+      return true;
+    }
+    return lineCount >= expected;
+  };
+
   const normalizedName = String(bundleName || '').trim();
   if (!normalizedName) {
     throw new Error('Select a Secret Lair bundle first.');
@@ -10087,17 +10225,17 @@ async function loadSecretLairBundleText(bundleName) {
   const catalog = await fetchSecretLairBundleCatalog();
   const normalizedKey = normalizedName.toLowerCase();
   const bundle = catalog.find((entry) => String(entry?.name || '').trim().toLowerCase() === normalizedKey);
-  if (bundle?.text && Number(bundle?.cardCount || 0) > 1) {
+  if (isCompleteBundleEntry(bundle)) {
     return bundle.text;
   }
 
   const containsMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().includes(normalizedKey));
-  if (containsMatches.length === 1 && containsMatches[0]?.text && Number(containsMatches[0]?.cardCount || 0) > 1) {
+  if (containsMatches.length === 1 && isCompleteBundleEntry(containsMatches[0])) {
     return containsMatches[0].text;
   }
 
   const startsWithMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().startsWith(normalizedKey));
-  if (startsWithMatches.length === 1 && startsWithMatches[0]?.text && Number(startsWithMatches[0]?.cardCount || 0) > 1) {
+  if (startsWithMatches.length === 1 && isCompleteBundleEntry(startsWithMatches[0])) {
     return startsWithMatches[0].text;
   }
 
@@ -10110,8 +10248,13 @@ async function loadSecretLairBundleText(bundleName) {
   }
 
   const corrected = catalog.find((entry) => getIdentityKey(entry?.name || '') === getIdentityKey(normalizedName));
-  if (corrected?.text && Number(corrected?.cardCount || 0) > 1) {
+  if (isCompleteBundleEntry(corrected)) {
     return corrected.text;
+  }
+
+  const mtgjsonDeckText = await loadSecretLairDeckListTextFromMtgjson(normalizedName);
+  if (mtgjsonDeckText) {
+    return mtgjsonDeckText;
   }
 
   const sourceResponse = await fetch(`${SECRET_LAIR_LIST_ENDPOINT}?name=${encodeURIComponent(normalizedName)}`, {
