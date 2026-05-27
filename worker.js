@@ -395,6 +395,97 @@ async function fetchDeckCardPrints({ oracleId = '', name = '' }, requestOrigin) 
   return prints;
 }
 
+function normalizeSecretLairSearchName(value) {
+  return getTextValue(value)
+    .replace(/^secret lair commander deck\s*/i, '')
+    .replace(/^secret lair\s*/i, '')
+    .replace(/\s+foil edition\s*$/i, '')
+    .replace(/[,:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function decodeBingRedirectUrl(value) {
+  const match = String(value || '').match(/u=a1(?<payload>[A-Za-z0-9_-]+)/i);
+  const payload = match?.groups?.payload;
+  if (!payload) {
+    return '';
+  }
+
+  let normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+  while (normalized.length % 4) {
+    normalized += '=';
+  }
+
+  try {
+    return atob(normalized);
+  } catch (_error) {
+    return '';
+  }
+}
+
+async function fetchSecretLairBundleSourceText(bundleName) {
+  const searchName = normalizeSecretLairSearchName(bundleName);
+  if (!searchName) {
+    throw new Error('A Secret Lair bundle name is required.');
+  }
+
+  const searchQueries = [
+    `site:mtggoldfish.com/deck/ "${searchName}" decklist`,
+    `"${searchName}" decklist mtggoldfish`,
+    `"${searchName}" mtggoldfish`,
+  ];
+
+  let deckUrl = '';
+  for (const query of searchQueries) {
+    const searchUrl = new URL('https://www.bing.com/search');
+    searchUrl.searchParams.set('q', query);
+
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+      },
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const html = await response.text();
+    const candidateUrls = [];
+    for (const match of html.matchAll(/u=a1(?<payload>[A-Za-z0-9_-]+)/g)) {
+      const decodedUrl = decodeBingRedirectUrl(`u=a1${match.groups.payload}`);
+      if (decodedUrl && /mtggoldfish\.com\/deck\/\d+/i.test(decodedUrl) && !candidateUrls.includes(decodedUrl)) {
+        candidateUrls.push(decodedUrl);
+      }
+    }
+
+    deckUrl = candidateUrls[0] || '';
+    if (deckUrl) {
+      break;
+    }
+  }
+
+  const deckIdMatch = deckUrl.match(/\/deck\/(\d+)/i);
+  const deckId = deckIdMatch?.[1] || '';
+  if (!deckId) {
+    throw new Error(`Could not find a public decklist for ${bundleName}.`);
+  }
+
+  const downloadUrl = `https://www.mtggoldfish.com/deck/download/${deckId}?output=mtggoldfish&type=tabletop`;
+  const downloadResponse = await fetch(downloadUrl, {
+    headers: {
+      'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+    },
+  });
+
+  if (!downloadResponse.ok) {
+    throw new Error(`Failed to load the decklist source (${downloadResponse.status}).`);
+  }
+
+  return await downloadResponse.text();
+}
+
 async function fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin) {
   const normalizedSetCode = getTextValue(setCode).toLowerCase();
   const normalizedCollectorNumber = getTextValue(collectorNumber);
@@ -1028,6 +1119,38 @@ export default {
       }
     }
 
+    if (url.pathname === '/api/secret-lair-list') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const name = getTextValue(url.searchParams.get('name'));
+      if (!name) {
+        return jsonResponse({ error: 'A Secret Lair bundle name is required.' }, 400);
+      }
+
+      try {
+        const cfCache = caches.default;
+        const cacheKey = new Request(request.url, { method: 'GET' });
+        const cachedResponse = await cfCache.match(cacheKey);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        const text = await fetchSecretLairBundleSourceText(name);
+        const response = jsonResponse({ text }, 200, {
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        });
+        await cfCache.put(cacheKey, response.clone());
+        return response;
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load that Secret Lair bundle right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
     if (url.pathname === '/api/deck-card') {
       if (request.method !== 'GET') {
         return jsonResponse({ error: 'Method not allowed.' }, 405);
@@ -1049,9 +1172,19 @@ export default {
       }
 
       try {
-        const card = hasPrintSelector
-          ? await fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin)
-          : await fetchDeckCardByName(name, requestOrigin);
+        let card;
+        if (hasPrintSelector) {
+          card = await fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin);
+        } else if (setCode) {
+          const prints = await fetchDeckCardPrints({ name }, requestOrigin);
+          const exactPrint = prints.find((print) => getTextValue(print?.set).toLowerCase() === setCode) || prints[0];
+          if (!exactPrint?.collectorNumber) {
+            throw new Error(`Could not find a print of "${name}" in set ${setCode.toUpperCase()}.`);
+          }
+          card = await fetchDeckCardByPrint(getTextValue(exactPrint.set).toLowerCase(), exactPrint.collectorNumber, requestOrigin);
+        } else {
+          card = await fetchDeckCardByName(name, requestOrigin);
+        }
         const response = jsonResponse({ card }, 200, {
           'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });

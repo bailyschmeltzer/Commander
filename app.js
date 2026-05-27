@@ -19,6 +19,7 @@ const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const SECRET_LAIR_SET_ENDPOINT = 'https://mtgjson.com/api/v5/SLD.json';
+const SECRET_LAIR_LIST_ENDPOINT = '/api/secret-lair-list';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
@@ -9145,6 +9146,8 @@ function getDeckImportLineEntry(value) {
   const printPatterns = [
     /\(([A-Za-z0-9]{2,6})\)\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
     /\[([A-Za-z0-9]{2,6})\]\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
+    /\(([A-Za-z0-9]{2,6})\)\s*$/i,
+    /\[([A-Za-z0-9]{2,6})\]\s*$/i,
     /\b([A-Za-z0-9]{2,6})\s*[:#]\s*([0-9][0-9A-Za-z]*)\s*$/i,
     /\b([A-Za-z0-9]{2,6})\s+([0-9][0-9A-Za-z]*)\s*$/i,
   ];
@@ -10084,17 +10087,17 @@ async function loadSecretLairBundleText(bundleName) {
   const catalog = await fetchSecretLairBundleCatalog();
   const normalizedKey = normalizedName.toLowerCase();
   const bundle = catalog.find((entry) => String(entry?.name || '').trim().toLowerCase() === normalizedKey);
-  if (bundle?.text) {
+  if (bundle?.text && Number(bundle?.cardCount || 0) > 1) {
     return bundle.text;
   }
 
   const containsMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().includes(normalizedKey));
-  if (containsMatches.length === 1 && containsMatches[0]?.text) {
+  if (containsMatches.length === 1 && containsMatches[0]?.text && Number(containsMatches[0]?.cardCount || 0) > 1) {
     return containsMatches[0].text;
   }
 
   const startsWithMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().startsWith(normalizedKey));
-  if (startsWithMatches.length === 1 && startsWithMatches[0]?.text) {
+  if (startsWithMatches.length === 1 && startsWithMatches[0]?.text && Number(startsWithMatches[0]?.cardCount || 0) > 1) {
     return startsWithMatches[0].text;
   }
 
@@ -10107,11 +10110,33 @@ async function loadSecretLairBundleText(bundleName) {
   }
 
   const corrected = catalog.find((entry) => getIdentityKey(entry?.name || '') === getIdentityKey(normalizedName));
-  if (corrected?.text) {
+  if (corrected?.text && Number(corrected?.cardCount || 0) > 1) {
     return corrected.text;
   }
 
-  throw new Error('Could not find that Secret Lair bundle.');
+  const sourceResponse = await fetch(`${SECRET_LAIR_LIST_ENDPOINT}?name=${encodeURIComponent(normalizedName)}`, {
+    cache: 'no-store',
+  });
+  if (!sourceResponse.ok) {
+    throw new Error('Could not find that Secret Lair bundle.');
+  }
+
+  const sourcePayload = await sourceResponse.json();
+  const rawText = String(sourcePayload?.text || '').trim();
+  if (!rawText) {
+    throw new Error('Could not find that Secret Lair bundle.');
+  }
+
+  const cardLines = rawText
+    .split(/\r?\n/)
+    .map((line) => String(line || '').trim())
+    .filter((line) => /^\d+\s+/.test(line));
+
+  if (!cardLines.length) {
+    throw new Error('Could not find that Secret Lair bundle.');
+  }
+
+  return buildSecretLairBundleImportText(normalizedName, cardLines);
 }
 
 function getDeckOwnerGroups() {
@@ -14517,9 +14542,9 @@ if (deckBuilderSecretLairSelect) {
     defaultOpt.disabled = true;
 
     try {
-      const bundles = await fetchSecretLairBundleCatalog();
+      await fetchSecretLairBundleCatalog();
       deckBuilderSecretLairListLoaded = true;
-      renderSecretLairProductOptions(deckBuilderSecretLairFilterInput?.value || '');
+      renderSecretLairProductOptions();
       defaultOpt.textContent = 'Load a Secret Lair product...';
       defaultOpt.disabled = false;
     } catch (_err) {
@@ -14536,16 +14561,6 @@ if (deckBuilderSecretLairSelect) {
     if (deckBuilderSecretLairLoadButton) {
       deckBuilderSecretLairLoadButton.disabled = !String(deckBuilderSecretLairSelect.value || '').trim();
     }
-  });
-}
-
-if (deckBuilderSecretLairFilterInput) {
-  deckBuilderSecretLairFilterInput.addEventListener('input', async () => {
-    if (!deckBuilderSecretLairListLoaded && deckBuilderSecretLairSelect) {
-      await fetchSecretLairBundleCatalog();
-      deckBuilderSecretLairListLoaded = true;
-    }
-    renderSecretLairProductOptions(deckBuilderSecretLairFilterInput.value);
   });
 }
 
