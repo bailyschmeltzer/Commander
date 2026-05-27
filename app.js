@@ -16,7 +16,6 @@ const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
-const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
@@ -109,6 +108,7 @@ const deckBuilderCards = document.getElementById('deck-builder-cards');
 const deckBuilderBreakdown = document.getElementById('deck-builder-breakdown');
 const deckBuilderTextList = document.getElementById('deck-builder-text-list');
 const deckBuilderExportButton = document.getElementById('deck-builder-export');
+const deckBuilderExportIncludePrintCheckbox = document.getElementById('deck-builder-export-include-print');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
@@ -854,6 +854,12 @@ function normalizeDeckCardEntry(card) {
     id: String(card.id || generateId()).trim(),
     oracleId: String(card.oracleId || '').trim(),
     name,
+    set: String(card.set || '').trim().toLowerCase(),
+    setName: String(card.setName || '').trim(),
+    collectorNumber: String(card.collectorNumber || '').trim(),
+    lang: String(card.lang || '').trim(),
+    artist: String(card.artist || '').trim(),
+    releasedAt: String(card.releasedAt || '').trim(),
     manaCost: String(card.manaCost || '').trim(),
     typeLine,
     oracleText: String(card.oracleText || '').trim(),
@@ -7375,21 +7381,37 @@ async function fetchDeckSearchResultsList(query) {
   return results;
 }
 
-async function fetchDeckCardByName(name) {
+async function fetchDeckCardByName(name, options = {}) {
   const normalizedName = String(name || '').trim().toLowerCase();
+  const normalizedSetCode = String(options?.setCode || '').trim().toLowerCase();
+  const normalizedCollectorNumber = String(options?.collectorNumber || '').trim();
+  const hasPrintPreference = Boolean(normalizedSetCode && normalizedCollectorNumber);
+  const cacheKey = hasPrintPreference
+    ? `${normalizedName}::${normalizedSetCode}#${normalizedCollectorNumber}`
+    : normalizedName;
+
   if (!normalizedName) {
     return null;
   }
 
-  if (deckBuilderCardCache.has(normalizedName)) {
-    const cached = deckBuilderCardCache.get(normalizedName);
+  if (deckBuilderCardCache.has(cacheKey)) {
+    const cached = deckBuilderCardCache.get(cacheKey);
     if (cached.manaCost || cached.cardFaces?.length) {
       return cached;
     }
-    deckBuilderCardCache.delete(normalizedName);
+    deckBuilderCardCache.delete(cacheKey);
   }
 
-  const response = await fetch(`${DECK_CARD_ENDPOINT}&name=${encodeURIComponent(name)}`, {
+  const params = new URLSearchParams({
+    v: '2',
+    name,
+  });
+  if (hasPrintPreference) {
+    params.set('set', normalizedSetCode);
+    params.set('collector', normalizedCollectorNumber);
+  }
+
+  const response = await fetch(`/api/deck-card?${params.toString()}`, {
     cache: 'no-store',
   });
 
@@ -7411,7 +7433,10 @@ async function fetchDeckCardByName(name) {
   const payload = await response.json();
   const card = normalizeDeckCardEntry(payload?.card);
   if (card) {
-    deckBuilderCardCache.set(normalizedName, card);
+    deckBuilderCardCache.set(cacheKey, card);
+    if (!hasPrintPreference) {
+      deckBuilderCardCache.set(normalizedName, card);
+    }
   }
   return card;
 }
@@ -7660,6 +7685,12 @@ function applyDeckBuilderCardArt(cardId, print) {
 
   const applyPrint = (card) => ({
     ...card,
+    set: String(print.set || card.set || '').trim().toLowerCase(),
+    setName: String(print.setName || card.setName || '').trim(),
+    collectorNumber: String(print.collectorNumber || card.collectorNumber || '').trim(),
+    lang: String(print.lang || card.lang || '').trim(),
+    artist: String(print.artist || card.artist || '').trim(),
+    releasedAt: String(print.releasedAt || card.releasedAt || '').trim(),
     imageUri: String(print.imageUri || card.imageUri || '').trim(),
     imageLargeUri: String(print.imageLargeUri || card.imageLargeUri || '').trim(),
     cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (card.cardFaces || []),
@@ -7734,6 +7765,12 @@ function applyBasicLandArtDistribution(sampleId) {
     const print = selectedPrints[i % selectedPrints.length];
     nextCards[idx] = {
       ...nextCards[idx],
+      set: String(print.set || nextCards[idx].set || '').trim().toLowerCase(),
+      setName: String(print.setName || nextCards[idx].setName || '').trim(),
+      collectorNumber: String(print.collectorNumber || nextCards[idx].collectorNumber || '').trim(),
+      lang: String(print.lang || nextCards[idx].lang || '').trim(),
+      artist: String(print.artist || nextCards[idx].artist || '').trim(),
+      releasedAt: String(print.releasedAt || nextCards[idx].releasedAt || '').trim(),
       imageUri: String(print.imageUri || nextCards[idx].imageUri || '').trim(),
       imageLargeUri: String(print.imageLargeUri || nextCards[idx].imageLargeUri || '').trim(),
       cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (nextCards[idx].cardFaces || []),
@@ -8853,32 +8890,100 @@ function setDeckBuilderImportStatus(message, tone = 'muted') {
   deckBuilderImportStatus.className = `deck-builder-import-status status-${tone}`;
 }
 
-function exportDeckAsText(deck) {
+function formatDeckExportCardName(card, includePrints = false) {
+  const name = String(card?.name || '').trim();
+  if (!name) {
+    return '';
+  }
+
+  if (!includePrints) {
+    return name;
+  }
+
+  const setCode = String(card?.set || '').trim().toLowerCase();
+  const collectorNumber = String(card?.collectorNumber || '').trim();
+  if (!setCode || !collectorNumber) {
+    return name;
+  }
+
+  return `${name} (${setCode}) ${collectorNumber}`;
+}
+
+function getDeckExportAggregationKey(card, includePrints = false) {
+  const nameKey = getIdentityKey(card?.name || '');
+  if (!nameKey) {
+    return '';
+  }
+
+  if (!includePrints) {
+    return nameKey;
+  }
+
+  const setCode = String(card?.set || '').trim().toLowerCase();
+  const collectorNumber = String(card?.collectorNumber || '').trim();
+  return setCode && collectorNumber
+    ? `${nameKey}::${setCode}#${collectorNumber}`
+    : nameKey;
+}
+
+function exportDeckAsText(deck, options = {}) {
+  const includePrints = Boolean(options?.includePrints);
   const lines = [];
   if (deck.commander) {
     lines.push('// Commander');
-    lines.push(`1 ${deck.commander.name}`);
+    lines.push(`1 ${formatDeckExportCardName(deck.commander, includePrints)}`);
     lines.push('');
     lines.push('// Deck');
   }
-  // Aggregate cards by name, preserve alpha order
+  // Aggregate cards by name (or by name+print), preserve alpha order.
   const counts = new Map();
   deck.cards.forEach((card) => {
-    const key = card.name;
-    counts.set(key, (counts.get(key) || 0) + 1);
+    const key = getDeckExportAggregationKey(card, includePrints);
+    if (!key) {
+      return;
+    }
+
+    if (!counts.has(key)) {
+      counts.set(key, {
+        count: 0,
+        label: formatDeckExportCardName(card, includePrints),
+      });
+    }
+
+    const bucket = counts.get(key);
+    bucket.count += 1;
   });
-  [...counts.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .forEach(([name, count]) => lines.push(`${count} ${name}`));
+  [...counts.values()]
+    .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
+    .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
 
   // Tokens section
   const tokens = Array.isArray(deck.tokens) ? deck.tokens : [];
   if (tokens.length > 0) {
     lines.push('');
     lines.push('// Tokens');
-    [...tokens]
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-      .forEach((token) => lines.push(`${token.count || 1} ${token.name}`));
+    const tokenGroups = new Map();
+    tokens.forEach((token) => {
+      const key = getDeckExportAggregationKey(token, includePrints);
+      if (!key) {
+        return;
+      }
+
+      if (!tokenGroups.has(key)) {
+        tokenGroups.set(key, {
+          count: 0,
+          label: formatDeckExportCardName(token, includePrints),
+        });
+      }
+
+      const bucket = tokenGroups.get(key);
+      const tokenCount = Number.isFinite(Number(token?.count)) ? Math.max(1, Number(token.count)) : 1;
+      bucket.count += tokenCount;
+    });
+
+    [...tokenGroups.values()]
+      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
+      .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
   }
 
   // Maybeboard section
@@ -8886,9 +8991,26 @@ function exportDeckAsText(deck) {
   if (maybeboard.length > 0) {
     lines.push('');
     lines.push('// Maybeboard');
-    [...maybeboard]
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-      .forEach((card) => lines.push(`1 ${card.name}`));
+    const maybeboardGroups = new Map();
+    maybeboard.forEach((card) => {
+      const key = getDeckExportAggregationKey(card, includePrints);
+      if (!key) {
+        return;
+      }
+
+      if (!maybeboardGroups.has(key)) {
+        maybeboardGroups.set(key, {
+          count: 0,
+          label: formatDeckExportCardName(card, includePrints),
+        });
+      }
+
+      maybeboardGroups.get(key).count += 1;
+    });
+
+    [...maybeboardGroups.values()]
+      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
+      .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
   }
 
   return lines.join('\n');
@@ -8976,6 +9098,8 @@ function getDeckImportLineEntry(value) {
 
   let count = 1;
   let name = '';
+  let preferredSetCode = '';
+  let preferredCollectorNumber = '';
 
   const csvLeadingCount = working.match(/^(\d+)\s*,\s*(.+)$/);
   const leadingCount = working.match(/^(\d+)\s*x?\s+(.+)$/i);
@@ -9002,6 +9126,36 @@ function getDeckImportLineEntry(value) {
     return null;
   }
 
+  // Capture print selectors before stripping export clutter so Secret Lair bundle
+  // formats like "Name (SLD) 1234 *F*" still preserve exact art.
+  let parsedName = name
+    .replace(/\s*\*[^*]+\*\s*/g, ' ')
+    .replace(/\s+#.*$/, '')
+    .replace(/^"|"$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const printPatterns = [
+    /\(([A-Za-z0-9]{2,6})\)\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
+    /\[([A-Za-z0-9]{2,6})\]\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
+    /\b([A-Za-z0-9]{2,6})\s*[:#]\s*([0-9][0-9A-Za-z]*)\s*$/i,
+    /\b([A-Za-z0-9]{2,6})\s+([0-9][0-9A-Za-z]*)\s*$/i,
+  ];
+
+  for (let i = 0; i < printPatterns.length; i += 1) {
+    const match = parsedName.match(printPatterns[i]);
+    if (!match) {
+      continue;
+    }
+
+    preferredSetCode = String(match[1] || '').trim().toLowerCase();
+    preferredCollectorNumber = String(match[2] || '').trim();
+    parsedName = parsedName.slice(0, match.index).trim();
+    break;
+  }
+
+  name = parsedName;
+
   // Common export clutter: set/collector tags, star tags, and inline comments.
   name = name
     .replace(/\s*\[[^\]]*\]\s*/g, ' ')
@@ -9017,29 +9171,57 @@ function getDeckImportLineEntry(value) {
     return null;
   }
 
-  return { name, count, section };
+  return {
+    name,
+    count,
+    section,
+    preferredSetCode,
+    preferredCollectorNumber,
+  };
 }
 
 function parseDeckTextList(text) {
-  let commanderName = null;
+  let commanderEntry = null;
   let currentSection = 'deck';
   let hasMaybeboardSection = false;
   let hasTokenSection = false;
   const deckCounts = new Map();
   const deckNames = new Map();
+  const deckPrintPreferences = new Map();
   const maybeboardCounts = new Map();
   const maybeboardNames = new Map();
+  const maybeboardPrintPreferences = new Map();
   const tokenCounts = new Map();
   const tokenNames = new Map();
+  const tokenPrintPreferences = new Map();
 
-  const addEntry = (countsMap, namesMap, name, count) => {
+  const getEntryKey = (name, preferredSetCode, preferredCollectorNumber) => {
     const key = getIdentityKey(name);
+    if (!key) {
+      return '';
+    }
+
+    const setCode = String(preferredSetCode || '').trim().toLowerCase();
+    const collectorNumber = String(preferredCollectorNumber || '').trim();
+    return setCode && collectorNumber
+      ? `${key}::${setCode}#${collectorNumber}`
+      : key;
+  };
+
+  const addEntry = (countsMap, namesMap, printPreferencesMap, name, count, preferredSetCode = '', preferredCollectorNumber = '') => {
+    const key = getEntryKey(name, preferredSetCode, preferredCollectorNumber);
     if (!key) {
       return;
     }
     countsMap.set(key, (countsMap.get(key) || 0) + Math.max(1, count));
     if (!namesMap.has(key)) {
       namesMap.set(key, name);
+    }
+    if (!printPreferencesMap.has(key)) {
+      printPreferencesMap.set(key, {
+        preferredSetCode: String(preferredSetCode || '').trim().toLowerCase(),
+        preferredCollectorNumber: String(preferredCollectorNumber || '').trim(),
+      });
     }
   };
 
@@ -9082,39 +9264,85 @@ function parseDeckTextList(text) {
     }
 
     const entrySection = parsed.section || currentSection;
-    if (entrySection === 'commander' && !commanderName) {
-      commanderName = parsed.name;
+    if (entrySection === 'commander' && !commanderEntry) {
+      commanderEntry = {
+        name: parsed.name,
+        preferredSetCode: String(parsed.preferredSetCode || '').trim().toLowerCase(),
+        preferredCollectorNumber: String(parsed.preferredCollectorNumber || '').trim(),
+      };
       return;
     }
 
     if (entrySection === 'maybeboard') {
       hasMaybeboardSection = true;
-      addEntry(maybeboardCounts, maybeboardNames, parsed.name, parsed.count);
+      addEntry(
+        maybeboardCounts,
+        maybeboardNames,
+        maybeboardPrintPreferences,
+        parsed.name,
+        parsed.count,
+        parsed.preferredSetCode,
+        parsed.preferredCollectorNumber,
+      );
       return;
     }
 
     if (entrySection === 'tokens') {
       hasTokenSection = true;
-      addEntry(tokenCounts, tokenNames, parsed.name, parsed.count);
+      addEntry(
+        tokenCounts,
+        tokenNames,
+        tokenPrintPreferences,
+        parsed.name,
+        parsed.count,
+        parsed.preferredSetCode,
+        parsed.preferredCollectorNumber,
+      );
       return;
     }
 
-    addEntry(deckCounts, deckNames, parsed.name, parsed.count);
+    addEntry(
+      deckCounts,
+      deckNames,
+      deckPrintPreferences,
+      parsed.name,
+      parsed.count,
+      parsed.preferredSetCode,
+      parsed.preferredCollectorNumber,
+    );
   });
 
-  const toEntries = (countsMap, namesMap) => [...countsMap.entries()].map(([key, count]) => ({
+  const toEntries = (countsMap, namesMap, printPreferencesMap) => [...countsMap.entries()].map(([key, count]) => ({
     name: namesMap.get(key) || key,
     count,
+    preferredSetCode: String(printPreferencesMap.get(key)?.preferredSetCode || '').trim().toLowerCase(),
+    preferredCollectorNumber: String(printPreferencesMap.get(key)?.preferredCollectorNumber || '').trim(),
   }));
 
   return {
-    commanderName,
-    entries: toEntries(deckCounts, deckNames),
-    maybeboardEntries: toEntries(maybeboardCounts, maybeboardNames),
-    tokenEntries: toEntries(tokenCounts, tokenNames),
+    commanderEntry,
+    entries: toEntries(deckCounts, deckNames, deckPrintPreferences),
+    maybeboardEntries: toEntries(maybeboardCounts, maybeboardNames, maybeboardPrintPreferences),
+    tokenEntries: toEntries(tokenCounts, tokenNames, tokenPrintPreferences),
     hasMaybeboardSection,
     hasTokenSection,
   };
+}
+
+function hasDeckImportPrintPreference(entry) {
+  const setCode = String(entry?.preferredSetCode || '').trim();
+  const collectorNumber = String(entry?.preferredCollectorNumber || '').trim();
+  return Boolean(setCode && collectorNumber);
+}
+
+function formatDeckImportEntryLabel(entry) {
+  const name = String(entry?.name || entry || '').trim();
+  const setCode = String(entry?.preferredSetCode || '').trim().toLowerCase();
+  const collectorNumber = String(entry?.preferredCollectorNumber || '').trim();
+  if (name && setCode && collectorNumber) {
+    return `${name} (${setCode}) ${collectorNumber}`;
+  }
+  return name;
 }
 
 function getDeckImportNameVariants(name) {
@@ -9168,7 +9396,11 @@ function getBulkResolvedImportCard(entryName, bulkCardsByQuery) {
   return null;
 }
 
-async function fetchDeckCardForImport(name) {
+async function fetchDeckCardForImport(entry) {
+  const name = String(entry?.name || entry || '').trim();
+  const preferredSetCode = String(entry?.preferredSetCode || '').trim().toLowerCase();
+  const preferredCollectorNumber = String(entry?.preferredCollectorNumber || '').trim();
+  const hasPrintPreference = Boolean(preferredSetCode && preferredCollectorNumber);
   const candidates = getDeckImportNameVariants(name);
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -9176,7 +9408,12 @@ async function fetchDeckCardForImport(name) {
     const candidate = candidates[i];
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const card = await fetchDeckCardByName(candidate);
+        const card = hasPrintPreference
+          ? await fetchDeckCardByName(candidate, {
+            setCode: preferredSetCode,
+            collectorNumber: preferredCollectorNumber,
+          })
+          : await fetchDeckCardByName(candidate);
         if (card) {
           return card;
         }
@@ -9194,6 +9431,30 @@ async function fetchDeckCardForImport(name) {
     }
   }
 
+  if (hasPrintPreference) {
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const card = await fetchDeckCardByName(candidate);
+          if (card) {
+            return card;
+          }
+          break;
+        } catch (error) {
+          const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+          const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
+          if (!mayBeTransient || attempt === 1) {
+            break;
+          }
+
+          // Keep retries short during import so the UI does not appear stuck.
+          await wait(350);
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -9205,7 +9466,7 @@ async function importDeckFromText(text) {
     entries,
     maybeboardEntries,
     tokenEntries,
-    commanderName,
+    commanderEntry,
     hasMaybeboardSection,
     hasTokenSection,
   } = parseDeckTextList(text);
@@ -9214,20 +9475,24 @@ async function importDeckFromText(text) {
     ...maybeboardEntries.map((entry) => ({ ...entry, target: 'maybeboard' })),
     ...tokenEntries.map((entry) => ({ ...entry, target: 'tokens' })),
   ];
-  if (!allEntries.length && !commanderName) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
+  if (!allEntries.length && !commanderEntry) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
 
-  const totalUnique = allEntries.length + (commanderName ? 1 : 0);
+  const totalUnique = allEntries.length + (commanderEntry ? 1 : 0);
   setDeckBuilderImportStatus(`Importing 0 / ${totalUnique}...`, 'neutral');
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
 
   const bulkLookupNames = [];
   const seenBulkNameKeys = new Set();
-  const lookupEntries = commanderName
-    ? [{ name: commanderName, count: 1 }, ...allEntries]
+  const lookupEntries = commanderEntry
+    ? [{ ...commanderEntry, count: 1 }, ...allEntries]
     : allEntries;
 
   lookupEntries.forEach((entry) => {
+    if (hasDeckImportPrintPreference(entry)) {
+      return;
+    }
+
     const variants = getDeckImportNameVariants(getPrimaryDeckImportLookupName(entry.name));
     variants.forEach((variant) => {
       const key = getIdentityKey(variant);
@@ -9256,27 +9521,32 @@ async function importDeckFromText(text) {
   let newCommander = null;
   const failed = [];
 
-  if (commanderName) {
+  if (commanderEntry) {
     try {
-      const bulkCard = getBulkResolvedImportCard(commanderName, bulkCardsByQuery);
-      const commanderCard = bulkCard || await fetchDeckCardForImport(commanderName);
+      const bulkCard = hasDeckImportPrintPreference(commanderEntry)
+        ? null
+        : getBulkResolvedImportCard(commanderEntry.name, bulkCardsByQuery);
+      const commanderCard = bulkCard || await fetchDeckCardForImport(commanderEntry);
       if (commanderCard) {
         newCommander = commanderCard;
       } else {
-        failed.push(commanderName);
+        failed.push(formatDeckImportEntryLabel(commanderEntry));
       }
     } catch (error) {
-      failed.push(commanderName);
+      failed.push(formatDeckImportEntryLabel(commanderEntry));
     }
   }
 
   for (let i = 0; i < allEntries.length; i++) {
-    const { count, name, target } = allEntries[i];
+    const entry = allEntries[i];
+    const { count, name, target } = entry;
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
-      const bulkCard = getBulkResolvedImportCard(name, bulkCardsByQuery);
-      const card = bulkCard || await fetchDeckCardForImport(name);
-      if (!card) { failed.push(name); continue; }
+      const bulkCard = hasDeckImportPrintPreference(entry)
+        ? null
+        : getBulkResolvedImportCard(name, bulkCardsByQuery);
+      const card = bulkCard || await fetchDeckCardForImport(entry);
+      if (!card) { failed.push(formatDeckImportEntryLabel(entry)); continue; }
 
       // Token cards always route to token pool, regardless of source section.
       if (card.isToken || target === 'tokens') {
@@ -9289,7 +9559,7 @@ async function importDeckFromText(text) {
         }
       }
     } catch (e) {
-      failed.push(name);
+      failed.push(formatDeckImportEntryLabel(entry));
     }
 
     // Small pacing delay helps avoid Scryfall burst throttling on large imports.
@@ -13829,10 +14099,13 @@ if (deckBuilderExportButton) {
   deckBuilderExportButton.addEventListener('click', () => {
     const deck = ensureActiveDeckBuilderRecord();
     if (!deck) { setDeckBuilderImportStatus('No active deck to export.', 'error'); return; }
+    const includePrints = Boolean(deckBuilderExportIncludePrintCheckbox?.checked);
     if (deckBuilderTextList) {
-      deckBuilderTextList.value = exportDeckAsText(deck);
+      deckBuilderTextList.value = exportDeckAsText(deck, { includePrints });
     }
-    setDeckBuilderImportStatus('Deck exported to text above.', 'success');
+    setDeckBuilderImportStatus(includePrints
+      ? 'Deck exported with set and collector numbers.'
+      : 'Deck exported to text above.', 'success');
   });
 }
 

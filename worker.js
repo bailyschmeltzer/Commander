@@ -92,6 +92,12 @@ function mapDeckCard(card, requestOrigin) {
     id: getTextValue(card?.id),
     oracleId: getTextValue(card?.oracle_id),
     name: getTextValue(card?.name),
+    set: getTextValue(card?.set),
+    setName: getTextValue(card?.set_name),
+    collectorNumber: getTextValue(card?.collector_number),
+    lang: getTextValue(card?.lang),
+    artist: getTextValue(card?.artist),
+    releasedAt: getTextValue(card?.released_at),
     manaCost: getTextValue(card?.mana_cost),
     typeLine: getTextValue(card?.type_line),
     oracleText: getTextValue(card?.oracle_text),
@@ -387,6 +393,38 @@ async function fetchDeckCardPrints({ oracleId = '', name = '' }, requestOrigin) 
   }
 
   return prints;
+}
+
+async function fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin) {
+  const normalizedSetCode = getTextValue(setCode).toLowerCase();
+  const normalizedCollectorNumber = getTextValue(collectorNumber);
+  const cacheKey = `print:${normalizedSetCode}:${normalizedCollectorNumber}`;
+  const cachedCard = getCachedValue(scryfallCardCache, cacheKey, SCRYFALL_CARD_CACHE_TTL_MS);
+  if (cachedCard) {
+    return mapDeckCard(cachedCard, requestOrigin);
+  }
+
+  const printUrl = new URL(`https://api.scryfall.com/cards/${encodeURIComponent(normalizedSetCode)}/${encodeURIComponent(normalizedCollectorNumber)}`);
+  const response = await fetch(printUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      const fallbackCard = getStaleCachedValue(scryfallCardCache, cacheKey);
+      if (fallbackCard) {
+        return mapDeckCard(fallbackCard, requestOrigin);
+      }
+      throw new Error(`Scryfall card lookup is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+    }
+
+    const detail = await response.text();
+    throw new Error(`Scryfall card lookup failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  setCachedValue(scryfallCardCache, cacheKey, payload);
+  return mapDeckCard(payload, requestOrigin);
 }
 
 async function fetchDeckCardByName(name, requestOrigin) {
@@ -996,8 +1034,11 @@ export default {
       }
 
       const name = getTextValue(url.searchParams.get('name'));
-      if (!name) {
-        return jsonResponse({ error: 'A card name is required.' }, 400);
+      const setCode = getTextValue(url.searchParams.get('set')).toLowerCase();
+      const collectorNumber = getTextValue(url.searchParams.get('collector'));
+      const hasPrintSelector = Boolean(setCode && collectorNumber);
+      if (!name && !hasPrintSelector) {
+        return jsonResponse({ error: 'A card name or set+collector is required.' }, 400);
       }
 
       const cfCache = caches.default;
@@ -1008,7 +1049,9 @@ export default {
       }
 
       try {
-        const card = await fetchDeckCardByName(name, requestOrigin);
+        const card = hasPrintSelector
+          ? await fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin)
+          : await fetchDeckCardByName(name, requestOrigin);
         const response = jsonResponse({ card }, 200, {
           'Cache-Control': 'public, max-age=86400, s-maxage=86400',
         });

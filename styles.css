@@ -1545,7 +1545,21 @@ button[type="submit"] {
 .deck-builder-import-export-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
+}
+
+.deck-builder-export-print-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  margin: 0 0 8px;
+  color: #3e4f73;
+}
+
+.deck-builder-export-print-option input {
+  margin: 0;
 }
 
 .deck-builder-import-status {
