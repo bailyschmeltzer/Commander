@@ -115,10 +115,10 @@ const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
-const deckBuilderPreconOptionsList = document.getElementById('deck-builder-precon-options');
+const deckBuilderPreconMenu = document.getElementById('deck-builder-precon-menu');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
 const deckBuilderSecretLairSelect = document.getElementById('deck-builder-secret-lair');
-const deckBuilderSecretLairOptionsList = document.getElementById('deck-builder-secret-lair-options');
+const deckBuilderSecretLairMenu = document.getElementById('deck-builder-secret-lair-menu');
 const deckBuilderSecretLairLoadButton = document.getElementById('deck-builder-secret-lair-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
@@ -10097,8 +10097,56 @@ async function loadSecretLairDeckListTextFromMtgjson(bundleName) {
   return buildSecretLairBundleImportText(bundleName, deckLines, { commanderLines });
 }
 
+function renderPreconOptions(filterText = '') {
+  if (!deckBuilderPreconMenu) {
+    return;
+  }
+
+  const query = String(filterText || '').trim().toLowerCase();
+  const filteredEntries = deckBuilderPreconEntriesCache.filter((entry) => {
+    if (!query) {
+      return true;
+    }
+
+    const name = String(entry?.name || '').toLowerCase();
+    const code = String(entry?.code || '').toLowerCase();
+    const label = `${name} (${code})`;
+    return name.includes(query) || code.includes(query) || label.includes(query);
+  });
+
+  const labels = filteredEntries.map((entry) => `${entry.name} (${entry.code})`);
+  buildDropdownMenu(deckBuilderPreconMenu, labels);
+}
+
+function resolvePreconFileName(typedValue) {
+  const typed = String(typedValue || '').trim();
+  if (!typed) {
+    return '';
+  }
+
+  const directMatch = deckBuilderPreconEntriesByLabel.get(typed);
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const normalizedTyped = normalizeSecretLairName(typed);
+  const candidates = deckBuilderPreconEntriesCache.filter((entry) => {
+    const name = String(entry?.name || '').trim();
+    const code = String(entry?.code || '').trim();
+    const label = `${name} (${code})`;
+    const normalizedName = normalizeSecretLairName(name);
+    const normalizedLabel = normalizeSecretLairName(label);
+    const normalizedCode = normalizeSecretLairName(code);
+    return normalizedName.includes(normalizedTyped)
+      || normalizedLabel.includes(normalizedTyped)
+      || normalizedCode.includes(normalizedTyped);
+  });
+
+  return candidates.length === 1 ? String(candidates[0]?.fileName || '').trim() : '';
+}
+
 function renderSecretLairProductOptions(filterText = '') {
-  if (!deckBuilderSecretLairSelect || !deckBuilderSecretLairOptionsList) {
+  if (!deckBuilderSecretLairSelect || !deckBuilderSecretLairMenu) {
     return;
   }
 
@@ -10113,17 +10161,7 @@ function renderSecretLairProductOptions(filterText = '') {
     const name = String(entry?.name || '').toLowerCase();
     return name.includes(query);
   });
-  deckBuilderSecretLairOptionsList.innerHTML = '';
-  filteredCatalog.forEach((entry) => {
-    const option = document.createElement('option');
-    option.value = entry.name;
-    const displayCount = Math.max(
-      Number.isFinite(Number(entry?.cardCount)) ? Number(entry.cardCount) : 0,
-      Number.isFinite(Number(entry?.expectedCardCount)) ? Number(entry.expectedCardCount) : 0,
-    );
-    option.label = `${entry.name} (${displayCount} card${displayCount === 1 ? '' : 's'})`;
-    deckBuilderSecretLairOptionsList.appendChild(option);
-  });
+  buildDropdownMenu(deckBuilderSecretLairMenu, filteredCatalog.map((entry) => String(entry?.name || '').trim()).filter(Boolean));
 
   const hasCurrentMatch = filteredCatalog.some((entry) => String(entry?.name || '').trim() === currentValue);
   if (!hasCurrentMatch && query && filteredCatalog.length === 1 && filteredCatalog[0]?.name) {
@@ -10132,8 +10170,7 @@ function renderSecretLairProductOptions(filterText = '') {
 
   if (deckBuilderSecretLairLoadButton) {
     const typedValue = String(deckBuilderSecretLairSelect.value || '').trim();
-    const hasMatch = filteredCatalog.some((entry) => String(entry?.name || '').trim() === typedValue);
-    deckBuilderSecretLairLoadButton.disabled = !hasMatch;
+    deckBuilderSecretLairLoadButton.disabled = !typedValue;
   }
 }
 
@@ -14710,20 +14747,12 @@ if (deckBuilderPreconSelect) {
         code: String(deck?.code || '').trim(),
       })).filter((entry) => entry.fileName && entry.name);
       deckBuilderPreconEntriesByLabel = new Map();
-      if (deckBuilderPreconOptionsList) {
-        deckBuilderPreconOptionsList.innerHTML = '';
-      }
       deckBuilderPreconEntriesCache.forEach((entry) => {
         const label = `${entry.name} (${entry.code})`;
         deckBuilderPreconEntriesByLabel.set(label, entry.fileName);
         deckBuilderPreconEntriesByLabel.set(entry.name, entry.fileName);
-        if (deckBuilderPreconOptionsList) {
-          const option = document.createElement('option');
-          option.value = label;
-          option.label = label;
-          deckBuilderPreconOptionsList.appendChild(option);
-        }
       });
+      renderPreconOptions();
       deckBuilderPreconSelect.placeholder = 'Load a precon deck...';
       deckBuilderPreconSelect.disabled = false;
       deckBuilderPreconSelect.dispatchEvent(new Event('input'));
@@ -14733,9 +14762,12 @@ if (deckBuilderPreconSelect) {
     }
   });
   deckBuilderPreconSelect.addEventListener('input', () => {
+    if (preconListLoaded) {
+      renderPreconOptions(deckBuilderPreconSelect.value);
+    }
     if (deckBuilderPreconLoadButton) {
       const typed = String(deckBuilderPreconSelect.value || '').trim();
-      const hasMatch = deckBuilderPreconEntriesByLabel.has(typed);
+      const hasMatch = Boolean(resolvePreconFileName(typed));
       deckBuilderPreconLoadButton.disabled = !hasMatch;
     }
   });
@@ -14744,7 +14776,7 @@ if (deckBuilderPreconSelect) {
 if (deckBuilderPreconLoadButton) {
   deckBuilderPreconLoadButton.addEventListener('click', async () => {
     const typed = String(deckBuilderPreconSelect?.value || '').trim();
-    const fileName = deckBuilderPreconEntriesByLabel.get(typed) || '';
+    const fileName = resolvePreconFileName(typed);
     if (!fileName) return;
     deckBuilderPreconLoadButton.disabled = true;
     setDeckBuilderImportStatus('Loading precon...', 'muted');
@@ -14792,7 +14824,7 @@ if (deckBuilderSecretLairSelect) {
       return;
     }
     if (deckBuilderSecretLairLoadButton) {
-      deckBuilderSecretLairLoadButton.disabled = true;
+      deckBuilderSecretLairLoadButton.disabled = !String(deckBuilderSecretLairSelect.value || '').trim();
     }
   });
 }
@@ -14800,12 +14832,6 @@ if (deckBuilderSecretLairSelect) {
 if (deckBuilderSecretLairLoadButton) {
   deckBuilderSecretLairLoadButton.addEventListener('click', async () => {
     const bundleName = String(deckBuilderSecretLairSelect?.value || '').trim();
-    const catalog = Array.isArray(deckBuilderSecretLairBundlesCache) ? deckBuilderSecretLairBundlesCache : [];
-    const hasMatch = catalog.some((entry) => String(entry?.name || '').trim() === bundleName);
-    if (!hasMatch) {
-      setDeckBuilderImportStatus('Choose a Secret Lair product from the list first.', 'error');
-      return;
-    }
     if (!bundleName) return;
     deckBuilderSecretLairLoadButton.disabled = true;
     setDeckBuilderImportStatus('Loading Secret Lair bundle...', 'muted');

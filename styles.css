@@ -1542,6 +1542,27 @@ button[type="submit"] {
   min-width: 0;
 }
 
+.deck-builder-lookup-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-builder-lookup-wrapper .dropdown-menu {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+
+@media (max-width: 720px) {
+  .deck-builder-precon-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .deck-builder-precon-row .secondary-button {
+    width: 100%;
+  }
+}
+
 .deck-builder-import-export-actions {
   display: flex;
   gap: 8px;
