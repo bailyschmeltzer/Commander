@@ -116,6 +116,7 @@ const deckBuilderImportStatus = document.getElementById('deck-builder-import-sta
 const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
 const deckBuilderSecretLairSelect = document.getElementById('deck-builder-secret-lair');
+const deckBuilderSecretLairDatalist = document.getElementById('deck-builder-secret-lair-list');
 const deckBuilderSecretLairLoadButton = document.getElementById('deck-builder-secret-lair-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
@@ -9903,12 +9904,36 @@ async function loadSecretLairBundleText(bundleName) {
   }
 
   const catalog = await fetchSecretLairBundleCatalog();
-  const bundle = catalog.find((entry) => entry.name === normalizedName);
-  if (!bundle?.text) {
-    throw new Error('Could not find that Secret Lair bundle.');
+  const normalizedKey = normalizedName.toLowerCase();
+  const bundle = catalog.find((entry) => String(entry?.name || '').trim().toLowerCase() === normalizedKey);
+  if (bundle?.text) {
+    return bundle.text;
   }
 
-  return bundle.text;
+  const containsMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().includes(normalizedKey));
+  if (containsMatches.length === 1 && containsMatches[0]?.text) {
+    return containsMatches[0].text;
+  }
+
+  const startsWithMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().startsWith(normalizedKey));
+  if (startsWithMatches.length === 1 && startsWithMatches[0]?.text) {
+    return startsWithMatches[0].text;
+  }
+
+  if (containsMatches.length > 1 || startsWithMatches.length > 1) {
+    const suggestions = (startsWithMatches.length ? startsWithMatches : containsMatches)
+      .slice(0, 3)
+      .map((entry) => entry.name)
+      .join('; ');
+    throw new Error(`Multiple Secret Lair bundles match "${normalizedName}". Try a more specific name (${suggestions}${(startsWithMatches.length || containsMatches.length) > 3 ? '; ...' : ''}).`);
+  }
+
+  const corrected = catalog.find((entry) => getIdentityKey(entry?.name || '') === getIdentityKey(normalizedName));
+  if (corrected?.text) {
+    return corrected.text;
+  }
+
+  throw new Error('Could not find that Secret Lair bundle.');
 }
 
 function getDeckOwnerGroups() {
@@ -14305,37 +14330,58 @@ if (deckBuilderPreconLoadButton) {
 
 if (deckBuilderSecretLairSelect) {
   let secretLairListLoaded = false;
-  deckBuilderSecretLairSelect.addEventListener('focus', async () => {
-    if (secretLairListLoaded) return;
-    const defaultOpt = deckBuilderSecretLairSelect.options[0];
-    defaultOpt.textContent = 'Loading Secret Lair bundles...';
-    defaultOpt.disabled = true;
+
+  const ensureSecretLairListLoaded = async () => {
+    if (secretLairListLoaded) {
+      return;
+    }
+
+    if (deckBuilderSecretLairSelect instanceof HTMLInputElement) {
+      deckBuilderSecretLairSelect.placeholder = 'Loading Secret Lair bundles...';
+    }
+
     try {
       const bundles = await fetchSecretLairBundleCatalog();
       secretLairListLoaded = true;
-      defaultOpt.textContent = 'Select a Secret Lair bundle...';
-      defaultOpt.disabled = false;
-      bundles.forEach((bundle) => {
-        const opt = document.createElement('option');
-        opt.value = bundle.name;
-        opt.textContent = `${bundle.name} (${bundle.cardCount} card lines)`;
-        deckBuilderSecretLairSelect.appendChild(opt);
-      });
+      if (deckBuilderSecretLairDatalist) {
+        deckBuilderSecretLairDatalist.innerHTML = '';
+        bundles.forEach((bundle) => {
+          const option = document.createElement('option');
+          option.value = bundle.name;
+          deckBuilderSecretLairDatalist.appendChild(option);
+        });
+      }
+      if (deckBuilderSecretLairSelect instanceof HTMLInputElement) {
+        deckBuilderSecretLairSelect.placeholder = 'Type a Secret Lair bundle...';
+      }
     } catch (_err) {
-      defaultOpt.textContent = 'Failed to load Secret Lair bundles';
-      defaultOpt.disabled = false;
+      if (deckBuilderSecretLairSelect instanceof HTMLInputElement) {
+        deckBuilderSecretLairSelect.placeholder = 'Failed to load Secret Lair bundles';
+      }
+    }
+  };
+
+  deckBuilderSecretLairSelect.addEventListener('focus', () => {
+    ensureSecretLairListLoaded();
+  });
+
+  deckBuilderSecretLairSelect.addEventListener('input', () => {
+    if (deckBuilderSecretLairLoadButton) {
+      deckBuilderSecretLairLoadButton.disabled = !String(deckBuilderSecretLairSelect.value || '').trim();
     }
   });
-  deckBuilderSecretLairSelect.addEventListener('change', () => {
-    if (deckBuilderSecretLairLoadButton) {
-      deckBuilderSecretLairLoadButton.disabled = !deckBuilderSecretLairSelect.value;
+
+  deckBuilderSecretLairSelect.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && deckBuilderSecretLairLoadButton && !deckBuilderSecretLairLoadButton.disabled) {
+      event.preventDefault();
+      deckBuilderSecretLairLoadButton.click();
     }
   });
 }
 
 if (deckBuilderSecretLairLoadButton) {
   deckBuilderSecretLairLoadButton.addEventListener('click', async () => {
-    const bundleName = deckBuilderSecretLairSelect?.value;
+    const bundleName = String(deckBuilderSecretLairSelect?.value || '').trim();
     if (!bundleName) return;
     deckBuilderSecretLairLoadButton.disabled = true;
     setDeckBuilderImportStatus('Loading Secret Lair bundle...', 'muted');
