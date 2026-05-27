@@ -405,6 +405,76 @@ function normalizeSecretLairSearchName(value) {
     .trim();
 }
 
+function getSecretLairSearchAliases(value) {
+  const normalized = normalizeSecretLairSearchName(value);
+  if (!normalized) {
+    return [];
+  }
+
+  const aliases = new Set();
+  const pushAlias = (candidate) => {
+    const key = getDeckLookupKey(candidate);
+    if (key) {
+      aliases.add(key);
+    }
+  };
+
+  pushAlias(normalized);
+  pushAlias(normalized.replace(/^secret\s+lair\s+commander\s+deck\s*/i, ''));
+  pushAlias(normalized.replace(/^secret\s+lair\s*/i, ''));
+
+  return [...aliases];
+}
+
+function buildDeckImportTextFromMtgjsonDeck(deckData) {
+  const data = deckData && typeof deckData === 'object' ? deckData : {};
+  const lines = [];
+  const appendEntries = (entries) => {
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+      const name = getTextValue(entry?.name);
+      if (!name) {
+        return;
+      }
+
+      const count = Math.max(1, Number.isFinite(Number(entry?.count)) ? Number(entry.count) : 1);
+      const setCode = getTextValue(entry?.setCode || entry?.set).toLowerCase();
+      lines.push(setCode ? `${count} ${name} (${setCode})` : `${count} ${name}`);
+    });
+  };
+
+  const commanderLines = [];
+  const deckLines = [];
+  const pushCommander = (entries) => {
+    const bufferStart = lines.length;
+    appendEntries(entries);
+    const added = lines.slice(bufferStart);
+    commanderLines.push(...added);
+    lines.length = bufferStart;
+  };
+  const pushDeck = (entries) => {
+    const bufferStart = lines.length;
+    appendEntries(entries);
+    const added = lines.slice(bufferStart);
+    deckLines.push(...added);
+    lines.length = bufferStart;
+  };
+
+  pushCommander(data?.commander);
+  pushCommander(data?.displayCommander);
+  pushDeck(data?.mainBoard);
+  pushDeck(data?.sideBoard);
+
+  const output = [];
+  if (commanderLines.length) {
+    output.push('Commander:');
+    output.push(...commanderLines);
+    output.push('');
+  }
+  output.push('Deck:');
+  output.push(...deckLines);
+  return output.join('\n');
+}
+
 function decodeBingRedirectUrl(value) {
   const match = String(value || '').match(/u=a1(?<payload>[A-Za-z0-9_-]+)/i);
   const payload = match?.groups?.payload;
@@ -428,6 +498,42 @@ async function fetchSecretLairBundleSourceText(bundleName) {
   const searchName = normalizeSecretLairSearchName(bundleName);
   if (!searchName) {
     throw new Error('A Secret Lair bundle name is required.');
+  }
+
+  const aliases = getSecretLairSearchAliases(bundleName);
+  if (aliases.length) {
+    try {
+      const deckListResponse = await fetch('https://mtgjson.com/api/v5/DeckList.json', {
+        headers: {
+          'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+        },
+      });
+
+      if (deckListResponse.ok) {
+        const deckListPayload = await deckListResponse.json();
+        const entries = Array.isArray(deckListPayload?.data) ? deckListPayload.data : [];
+        const commanderEntries = entries.filter((entry) => getTextValue(entry?.type).toLowerCase() === 'commander deck');
+        const matchedEntry = commanderEntries.find((entry) => aliases.includes(getDeckLookupKey(entry?.name)));
+        const matchedFileName = getTextValue(matchedEntry?.fileName);
+        if (matchedFileName) {
+          const deckResponse = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(matchedFileName)}.json`, {
+            headers: {
+              'User-Agent': 'CommanderTracker/1.0 (+https://github.com/bailyschmeltzer/Commander)',
+            },
+          });
+
+          if (deckResponse.ok) {
+            const deckPayload = await deckResponse.json();
+            const text = buildDeckImportTextFromMtgjsonDeck(deckPayload?.data);
+            if (text.trim()) {
+              return text;
+            }
+          }
+        }
+      }
+    } catch (_error) {
+      // Fall through to search-based fallback.
+    }
   }
 
   const searchQueries = [
