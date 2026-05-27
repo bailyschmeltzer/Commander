@@ -296,6 +296,7 @@ let deckBuilderHoldIntervalId = null;
 let deckBuilderMutationQueue = Promise.resolve();
 let deckBuilderSecretLairBundlesCache = null;
 let deckBuilderSecretLairBundlesPromise = null;
+let deckBuilderSecretLairCatalogSource = null;
 let deckBuilderSecretLairListLoaded = false;
 let deckBuilderSecretLairDeckListIndexCache = null;
 let deckBuilderSecretLairDeckListIndexPromise = null;
@@ -10265,6 +10266,13 @@ async function fetchSecretLairBundleCatalog() {
       sealedProductMap.set(getIdentityKey(name), product);
     });
 
+    deckBuilderSecretLairCatalogSource = {
+      cardsByUuid,
+      sealedProductMap,
+      deckMap,
+      productCardLinesMap,
+    };
+
     const catalogMap = new Map();
 
     sealedProducts.forEach((product) => {
@@ -10273,13 +10281,11 @@ async function fetchSecretLairBundleCatalog() {
         return;
       }
 
-      const cardLines = buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProductMap, deckMap, productCardLinesMap);
-
       const entry = {
         name,
-        cardCount: cardLines.length,
+        cardCount: 0,
         expectedCardCount: Number.isFinite(Number(product?.cardCount)) ? Math.max(0, Number(product.cardCount)) : 0,
-        text: buildSecretLairBundleImportText(name, cardLines.length ? cardLines : [`1 ${name}`]),
+        text: '',
       };
 
       const key = getIdentityKey(name);
@@ -10300,6 +10306,38 @@ async function fetchSecretLairBundleCatalog() {
   } finally {
     deckBuilderSecretLairBundlesPromise = null;
   }
+}
+
+function buildSecretLairTextForCatalogEntry(entry) {
+  if (!entry || entry.text) {
+    return String(entry?.text || '');
+  }
+
+  const source = deckBuilderSecretLairCatalogSource;
+  if (!source?.sealedProductMap || !source?.cardsByUuid || !source?.deckMap || !source?.productCardLinesMap) {
+    return '';
+  }
+
+  const product = source.sealedProductMap.get(getIdentityKey(entry.name || ''));
+  if (!product) {
+    return '';
+  }
+
+  const cardLines = buildSecretLairCardLinesFromProduct(
+    product,
+    source.cardsByUuid,
+    source.sealedProductMap,
+    source.deckMap,
+    source.productCardLinesMap,
+  );
+
+  if (!cardLines.length) {
+    return '';
+  }
+
+  entry.cardCount = cardLines.length;
+  entry.text = buildSecretLairBundleImportText(entry.name, cardLines);
+  return entry.text;
 }
 
 function resolveSecretLairCatalogEntry(bundleName, catalog) {
@@ -10380,6 +10418,10 @@ async function loadSecretLairBundleText(bundleName) {
   const corrected = resolveSecretLairCatalogEntry(normalizedName, catalog);
   const resolvedName = String(corrected?.name || normalizedName).trim();
 
+  if (corrected && !corrected.text) {
+    buildSecretLairTextForCatalogEntry(corrected);
+  }
+
   if (isCompleteBundleEntry(corrected)) {
     return corrected.text;
   }
@@ -10418,6 +10460,11 @@ async function loadSecretLairBundleText(bundleName) {
   }
 
   if (corrected?.text) {
+    const expected = Number.isFinite(Number(corrected?.expectedCardCount)) ? Math.max(0, Number(corrected.expectedCardCount)) : 0;
+    const actual = Number.isFinite(Number(corrected?.cardCount)) ? Math.max(0, Number(corrected.cardCount)) : 0;
+    if (expected && actual && actual < expected) {
+      return `${corrected.text}\n\n// Note: Only ${actual} of ${expected} cards are currently available from public data sources for this product.`;
+    }
     return corrected.text;
   }
 
