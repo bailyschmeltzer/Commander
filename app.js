@@ -10302,6 +10302,54 @@ async function fetchSecretLairBundleCatalog() {
   }
 }
 
+function resolveSecretLairCatalogEntry(bundleName, catalog) {
+  const normalizedName = String(bundleName || '').trim();
+  const entries = Array.isArray(catalog) ? catalog : [];
+  if (!normalizedName || !entries.length) {
+    return null;
+  }
+
+  const lowerName = normalizedName.toLowerCase();
+  const identityKey = getIdentityKey(normalizedName);
+  const typedAliases = new Set(getSecretLairNameAliases(normalizedName));
+
+  const exactLower = entries.find((entry) => String(entry?.name || '').trim().toLowerCase() === lowerName);
+  if (exactLower) {
+    return exactLower;
+  }
+
+  const exactIdentity = entries.find((entry) => getIdentityKey(entry?.name || '') === identityKey);
+  if (exactIdentity) {
+    return exactIdentity;
+  }
+
+  const aliasMatches = entries.filter((entry) => {
+    const entryAliases = getSecretLairNameAliases(String(entry?.name || ''));
+    return entryAliases.some((alias) => typedAliases.has(alias));
+  });
+  if (aliasMatches.length === 1) {
+    return aliasMatches[0];
+  }
+
+  const containsMatches = entries.filter((entry) => {
+    const entryName = String(entry?.name || '').toLowerCase();
+    return entryName.includes(lowerName);
+  });
+  if (containsMatches.length === 1) {
+    return containsMatches[0];
+  }
+
+  const reverseContainsMatches = entries.filter((entry) => {
+    const entryName = String(entry?.name || '').toLowerCase();
+    return lowerName.includes(entryName);
+  });
+  if (reverseContainsMatches.length === 1) {
+    return reverseContainsMatches[0];
+  }
+
+  return null;
+}
+
 async function loadSecretLairBundleText(bundleName) {
   const isCompleteBundleEntry = (entry) => {
     const lineCount = Number.isFinite(Number(entry?.cardCount)) ? Math.max(0, Number(entry.cardCount)) : 0;
@@ -10329,63 +10377,51 @@ async function loadSecretLairBundleText(bundleName) {
   }
 
   const catalog = await fetchSecretLairBundleCatalog();
-  const normalizedKey = normalizedName.toLowerCase();
-  const bundle = catalog.find((entry) => String(entry?.name || '').trim().toLowerCase() === normalizedKey);
-  if (isCompleteBundleEntry(bundle)) {
-    return bundle.text;
-  }
+  const corrected = resolveSecretLairCatalogEntry(normalizedName, catalog);
+  const resolvedName = String(corrected?.name || normalizedName).trim();
 
-  const containsMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().includes(normalizedKey));
-  if (containsMatches.length === 1 && isCompleteBundleEntry(containsMatches[0])) {
-    return containsMatches[0].text;
-  }
-
-  const startsWithMatches = catalog.filter((entry) => String(entry?.name || '').toLowerCase().startsWith(normalizedKey));
-  if (startsWithMatches.length === 1 && isCompleteBundleEntry(startsWithMatches[0])) {
-    return startsWithMatches[0].text;
-  }
-
-  if (containsMatches.length > 1 || startsWithMatches.length > 1) {
-    const suggestions = (startsWithMatches.length ? startsWithMatches : containsMatches)
-      .slice(0, 3)
-      .map((entry) => entry.name)
-      .join('; ');
-    throw new Error(`Multiple Secret Lair bundles match "${normalizedName}". Try a more specific name (${suggestions}${(startsWithMatches.length || containsMatches.length) > 3 ? '; ...' : ''}).`);
-  }
-
-  const corrected = catalog.find((entry) => getIdentityKey(entry?.name || '') === getIdentityKey(normalizedName));
   if (isCompleteBundleEntry(corrected)) {
     return corrected.text;
   }
 
-  const mtgjsonDeckText = await loadSecretLairDeckListTextFromMtgjson(normalizedName);
-  if (mtgjsonDeckText) {
-    return mtgjsonDeckText;
+  const lookupNames = [...new Set([resolvedName, normalizedName].filter(Boolean))];
+
+  for (let i = 0; i < lookupNames.length; i += 1) {
+    const mtgjsonDeckText = await loadSecretLairDeckListTextFromMtgjson(lookupNames[i]);
+    if (mtgjsonDeckText) {
+      return mtgjsonDeckText;
+    }
   }
 
-  const sourceResponse = await fetch(`${SECRET_LAIR_LIST_ENDPOINT}?name=${encodeURIComponent(normalizedName)}`, {
-    cache: 'no-store',
-  });
-  if (!sourceResponse.ok) {
-    throw new Error('Could not find that Secret Lair bundle.');
+  for (let i = 0; i < lookupNames.length; i += 1) {
+    const sourceResponse = await fetch(`${SECRET_LAIR_LIST_ENDPOINT}?name=${encodeURIComponent(lookupNames[i])}`, {
+      cache: 'no-store',
+    });
+    if (!sourceResponse.ok) {
+      continue;
+    }
+
+    const sourcePayload = await sourceResponse.json();
+    const rawText = String(sourcePayload?.text || '').trim();
+    if (!rawText) {
+      continue;
+    }
+
+    const cardLines = rawText
+      .split(/\r?\n/)
+      .map((line) => String(line || '').trim())
+      .filter((line) => /^\d+\s+/.test(line));
+
+    if (cardLines.length) {
+      return buildSecretLairBundleImportText(resolvedName, cardLines);
+    }
   }
 
-  const sourcePayload = await sourceResponse.json();
-  const rawText = String(sourcePayload?.text || '').trim();
-  if (!rawText) {
-    throw new Error('Could not find that Secret Lair bundle.');
+  if (corrected?.text) {
+    return corrected.text;
   }
 
-  const cardLines = rawText
-    .split(/\r?\n/)
-    .map((line) => String(line || '').trim())
-    .filter((line) => /^\d+\s+/.test(line));
-
-  if (!cardLines.length) {
-    throw new Error('Could not find that Secret Lair bundle.');
-  }
-
-  return buildSecretLairBundleImportText(normalizedName, cardLines);
+  throw new Error('Could not find that Secret Lair bundle.');
 }
 
 function getDeckOwnerGroups() {
