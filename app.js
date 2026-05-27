@@ -18,6 +18,7 @@ const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
+const SECRET_LAIR_SET_ENDPOINT = 'https://mtgjson.com/api/v5/SLD.json';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
@@ -114,6 +115,8 @@ const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
+const deckBuilderSecretLairSelect = document.getElementById('deck-builder-secret-lair');
+const deckBuilderSecretLairLoadButton = document.getElementById('deck-builder-secret-lair-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
 const deckBuilderBackToDecksLink = document.querySelector('.page-deckbuilder .page-action-link[href="decklists.html"], .page-deck-builder .page-action-link[href="decklists.html"]');
@@ -288,6 +291,8 @@ let deckBuilderBasicLandWarmPromise = null;
 let deckBuilderHoldTimerId = null;
 let deckBuilderHoldIntervalId = null;
 let deckBuilderMutationQueue = Promise.resolve();
+let deckBuilderSecretLairBundlesCache = null;
+let deckBuilderSecretLairBundlesPromise = null;
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
@@ -6890,13 +6895,13 @@ function canSetCardAsCommanderForDeck(deck, card) {
 
 // For cards already in the deck list, "Set as Commander" should only appear when:
 //   • the card is selected/expanded
-//   • the existing commander has Partner (generic or "Partner with")
-//   • the card itself also has Partner (generic or "Partner with")
-// This is intentionally stricter than canSetCardAsCommanderForDeck, which is used
-// for the search-panel button where you set the initial commander.
+//   • if no commander is set yet: any commander-eligible card can show it
+//   • if a commander exists: keep the stricter partner/pairing gating
+// This remains intentionally stricter than canSetCardAsCommanderForDeck, which is
+// used for the search-panel button where you set the initial commander.
 function deckCardShowPartnerCommanderButton(deck, card) {
   if (!isCommanderEligibleCard(card)) return false;
-  if (!deck?.commander) return false;
+  if (!deck?.commander) return true;
   if (!cardHasPairingMechanic(deck.commander)) return false;
   if (!cardHasPairingMechanic(card)) return false;
   return true;
@@ -9773,6 +9778,137 @@ async function loadPreconDeckText(fileName) {
   lines.push('Deck:');
   (data.mainBoard || []).forEach(c => lines.push(`${c.count || 1} ${c.name}`));
   return lines.join('\n');
+}
+
+function buildSecretLairBundleCardLines(bundle, cardsByUuid) {
+  const countsByKey = new Map();
+
+  const addEntries = (entries) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+
+    entries.forEach((entry) => {
+      const uuid = String(entry?.uuid || '').trim();
+      if (!uuid) {
+        return;
+      }
+
+      const card = cardsByUuid.get(uuid);
+      const name = String(card?.name || '').trim();
+      if (!name) {
+        return;
+      }
+
+      const setCode = String(card?.setCode || 'sld').trim().toLowerCase();
+      const collectorNumber = String(card?.number || '').trim();
+      const count = Number.isFinite(Number(entry?.count)) ? Math.max(1, Number(entry.count)) : 1;
+      const key = `${getIdentityKey(name)}::${setCode}#${collectorNumber}`;
+      const label = collectorNumber
+        ? `${name} (${setCode}) ${collectorNumber}`
+        : name;
+
+      if (!countsByKey.has(key)) {
+        countsByKey.set(key, { count: 0, label });
+      }
+
+      countsByKey.get(key).count += count;
+    });
+  };
+
+  addEntries(bundle?.commander);
+  addEntries(bundle?.displayCommander);
+  addEntries(bundle?.mainBoard);
+  addEntries(bundle?.sideBoard);
+
+  return [...countsByKey.values()]
+    .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
+    .map((entry) => `${entry.count} ${entry.label}`);
+}
+
+function buildSecretLairBundleImportText(bundleName, cardLines) {
+  const lines = [
+    `// Secret Lair: ${bundleName}`,
+    '// Deck',
+    ...cardLines,
+  ];
+
+  return lines.join('\n');
+}
+
+async function fetchSecretLairBundleCatalog() {
+  if (Array.isArray(deckBuilderSecretLairBundlesCache)) {
+    return deckBuilderSecretLairBundlesCache;
+  }
+
+  if (deckBuilderSecretLairBundlesPromise) {
+    return deckBuilderSecretLairBundlesPromise;
+  }
+
+  deckBuilderSecretLairBundlesPromise = (async () => {
+    const response = await fetch(SECRET_LAIR_SET_ENDPOINT, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to load Secret Lair bundles (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const cards = Array.isArray(payload?.data?.cards) ? payload.data.cards : [];
+    const bundles = Array.isArray(payload?.data?.decks) ? payload.data.decks : [];
+    const cardsByUuid = new Map();
+
+    cards.forEach((card) => {
+      const uuid = String(card?.uuid || '').trim();
+      if (!uuid) {
+        return;
+      }
+      cardsByUuid.set(uuid, card);
+    });
+
+    const catalog = bundles
+      .map((bundle) => {
+        const name = String(bundle?.name || '').trim();
+        if (!name) {
+          return null;
+        }
+
+        const cardLines = buildSecretLairBundleCardLines(bundle, cardsByUuid);
+        if (!cardLines.length) {
+          return null;
+        }
+
+        return {
+          name,
+          cardCount: cardLines.length,
+          text: buildSecretLairBundleImportText(name, cardLines),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    deckBuilderSecretLairBundlesCache = catalog;
+    return catalog;
+  })();
+
+  try {
+    return await deckBuilderSecretLairBundlesPromise;
+  } finally {
+    deckBuilderSecretLairBundlesPromise = null;
+  }
+}
+
+async function loadSecretLairBundleText(bundleName) {
+  const normalizedName = String(bundleName || '').trim();
+  if (!normalizedName) {
+    throw new Error('Select a Secret Lair bundle first.');
+  }
+
+  const catalog = await fetchSecretLairBundleCatalog();
+  const bundle = catalog.find((entry) => entry.name === normalizedName);
+  if (!bundle?.text) {
+    throw new Error('Could not find that Secret Lair bundle.');
+  }
+
+  return bundle.text;
 }
 
 function getDeckOwnerGroups() {
@@ -14163,6 +14299,54 @@ if (deckBuilderPreconLoadButton) {
       setDeckBuilderImportStatus(err instanceof Error ? err.message : 'Failed to load precon.', 'error');
     } finally {
       deckBuilderPreconLoadButton.disabled = false;
+    }
+  });
+}
+
+if (deckBuilderSecretLairSelect) {
+  let secretLairListLoaded = false;
+  deckBuilderSecretLairSelect.addEventListener('focus', async () => {
+    if (secretLairListLoaded) return;
+    const defaultOpt = deckBuilderSecretLairSelect.options[0];
+    defaultOpt.textContent = 'Loading Secret Lair bundles...';
+    defaultOpt.disabled = true;
+    try {
+      const bundles = await fetchSecretLairBundleCatalog();
+      secretLairListLoaded = true;
+      defaultOpt.textContent = 'Select a Secret Lair bundle...';
+      defaultOpt.disabled = false;
+      bundles.forEach((bundle) => {
+        const opt = document.createElement('option');
+        opt.value = bundle.name;
+        opt.textContent = `${bundle.name} (${bundle.cardCount} card lines)`;
+        deckBuilderSecretLairSelect.appendChild(opt);
+      });
+    } catch (_err) {
+      defaultOpt.textContent = 'Failed to load Secret Lair bundles';
+      defaultOpt.disabled = false;
+    }
+  });
+  deckBuilderSecretLairSelect.addEventListener('change', () => {
+    if (deckBuilderSecretLairLoadButton) {
+      deckBuilderSecretLairLoadButton.disabled = !deckBuilderSecretLairSelect.value;
+    }
+  });
+}
+
+if (deckBuilderSecretLairLoadButton) {
+  deckBuilderSecretLairLoadButton.addEventListener('click', async () => {
+    const bundleName = deckBuilderSecretLairSelect?.value;
+    if (!bundleName) return;
+    deckBuilderSecretLairLoadButton.disabled = true;
+    setDeckBuilderImportStatus('Loading Secret Lair bundle...', 'muted');
+    try {
+      const text = await loadSecretLairBundleText(bundleName);
+      if (deckBuilderTextList) deckBuilderTextList.value = text;
+      setDeckBuilderImportStatus('Secret Lair bundle loaded into import text.', 'success');
+    } catch (err) {
+      setDeckBuilderImportStatus(err instanceof Error ? err.message : 'Failed to load Secret Lair bundle.', 'error');
+    } finally {
+      deckBuilderSecretLairLoadButton.disabled = false;
     }
   });
 }
