@@ -6862,8 +6862,14 @@ function cardHasPartnerAbility(card) {
   return cardHasPairingMechanic(card);
 }
 
+const UNSET_SET_CODES = new Set(['ugl', 'unh', 'ust', 'und', 'unf']);
+
+function isUnsetCard(card) {
+  return UNSET_SET_CODES.has(String(card?.set || '').toLowerCase());
+}
+
 function isCommanderEligibleCard(card) {
-  if (!card || card.isBanned || !card.isCommanderLegal) {
+  if (!card || card.isBanned) {
     return false;
   }
 
@@ -6878,6 +6884,15 @@ function isCommanderEligibleCard(card) {
 
   const isLegendaryCreature = /\blegendary\b/.test(typeText) && /\bcreature\b/.test(typeText);
   const hasCommanderTextOverride = /can be your commander/.test(rulesText);
+
+  // Unset legendary creatures are allowed as commanders even without official Commander legality.
+  if (isUnsetCard(card) && isLegendaryCreature) {
+    return true;
+  }
+
+  if (!card.isCommanderLegal) {
+    return false;
+  }
 
   return isLegendaryCreature || hasCommanderTextOverride;
 }
