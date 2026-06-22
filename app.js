@@ -1771,6 +1771,7 @@ function getSyncStatusSnapshot() {
 function refreshSyncStatus() {
   const snapshot = getSyncStatusSnapshot();
   setSyncStatus(snapshot.message, snapshot.tone);
+  updateAdminLogsShortcutVisibility();
 }
 
 function setSyncStatus(message, tone = 'neutral') {
@@ -3781,6 +3782,30 @@ function initializePrimaryMenu() {
   pageSwitchPanel.addEventListener('click', (event) => {
     if (event.target.closest('.page-link')) {
       closePrimaryMenu();
+    }
+  });
+
+  updateAdminLogsShortcutVisibility();
+}
+
+function updateAdminLogsShortcutVisibility() {
+  if (!pageSwitchPanel) {
+    return;
+  }
+
+  const adminLinks = Array.from(pageSwitchPanel.querySelectorAll('.page-link[href="admin-logs.html"]'));
+  if (!adminLinks.length) {
+    return;
+  }
+
+  const canViewShortcut = hasSyncCredentials() && isCurrentSyncUserAdmin();
+  adminLinks.forEach((link) => {
+    link.hidden = !canViewShortcut;
+    link.setAttribute('aria-hidden', canViewShortcut ? 'false' : 'true');
+    if (canViewShortcut) {
+      link.removeAttribute('tabindex');
+    } else {
+      link.setAttribute('tabindex', '-1');
     }
   });
 }
@@ -14554,14 +14579,14 @@ async function initializeApp() {
   // cannot overwrite appState and wipe the newly created deck.
   if (pendingDeckCommanderPrefill) {
     deckBuilderCommanderPrefill = pendingDeckCommanderPrefill;
-
-      // Force audit logs to load on admin-logs page
-      if (document.body.classList.contains('page-admin-logs')) {
-        setTimeout(() => {
-          void refreshAuthAuditLogs();
-        }, 100);
-      }
     renderDeckBuilderPage();
+  }
+
+  // Force audit logs to load on admin-logs page.
+  if (document.body.classList.contains('page-admin-logs')) {
+    setTimeout(() => {
+      void refreshAuthAuditLogs({ force: true });
+    }, 100);
   }
 }
 
