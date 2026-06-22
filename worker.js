@@ -1001,12 +1001,18 @@ async function hasValidAuth(request, env) {
     const normalizedUser = normalizeMemberKey(user);
     const member = configuredMembers.find((entry) => entry.token === token && entry.matchKeys.has(normalizedUser));
     if (member) {
+      const role = (
+        getTextValue(member?.role).toLowerCase() === 'admin'
+        || isBuiltInAdminUser(user)
+        || isBuiltInAdminUser(normalizedUser)
+      ) ? 'admin' : 'member';
+
       return {
         ok: true,
         user: member.displayName,
         userId: member.userId,
         displayName: member.displayName,
-        role: member.role,
+        role,
         authMode: 'member',
       };
     }

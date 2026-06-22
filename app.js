@@ -20,6 +20,7 @@ const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const AUTH_AUDIT_ENDPOINT = '/api/auth-logs';
+const BUILTIN_ADMIN_USER_KEY = 'baily';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
@@ -446,6 +447,14 @@ function normalizeIdentityLabel(value) {
 function getIdentityKey(value) {
   const normalizedValue = normalizeIdentityLabel(value);
   return normalizedValue ? normalizedValue.toLocaleLowerCase() : '';
+}
+
+function normalizeSyncUserKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '');
 }
 
 function getIdentityDisplayScore(value) {
@@ -1633,7 +1642,17 @@ function getCurrentSyncDisplayName() {
 }
 
 function isCurrentSyncUserAdmin() {
-  return syncAuthenticatedRole === 'admin';
+  if (syncAuthenticatedRole === 'admin') {
+    return true;
+  }
+
+  const candidates = [
+    syncAuthenticatedUserId,
+    syncAuthenticatedDisplayName,
+    getSyncCredentials().user,
+  ];
+
+  return candidates.some((value) => normalizeSyncUserKey(value) === BUILTIN_ADMIN_USER_KEY);
 }
 
 function clearSyncConflict() {
@@ -5687,9 +5706,10 @@ async function refreshAuthAuditLogs({ force = false } = {}) {
     renderAuthAuditLogs();
   } catch (error) {
     if (error?.status === 403) {
-      authAuditSection.hidden = true;
+      authAuditSection.hidden = false;
       authAuditLogs = [];
-      setAuthAuditStatus('Authentication audit logs are only visible to admins.', 'muted');
+      renderAuthAuditLogs();
+      setAuthAuditStatus('Connected as non-admin on the server. Sign in as Baily with the matching pod credentials, then refresh logs.', 'error');
       return;
     }
 
