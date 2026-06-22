@@ -1031,6 +1031,7 @@ function getRegisteredPlayersFromState(state) {
 
 function buildRegisteredAccounts(configuredMembers, state) {
   const accountsByUserId = new Map();
+  const aliasToConfiguredUserId = new Map();
 
   (Array.isArray(configuredMembers) ? configuredMembers : []).forEach((member) => {
     const userId = getTextValue(member?.userId).toLowerCase();
@@ -1045,23 +1046,33 @@ function buildRegisteredAccounts(configuredMembers, state) {
       fromConfiguredMembers: true,
       fromGameHistory: false,
     });
+
+    if (member?.matchKeys && typeof member.matchKeys.forEach === 'function') {
+      member.matchKeys.forEach((key) => {
+        const normalizedKey = getTextValue(key).toLowerCase();
+        if (normalizedKey) {
+          aliasToConfiguredUserId.set(normalizedKey, userId);
+        }
+      });
+    }
   });
 
   const registeredPlayers = getRegisteredPlayersFromState(state);
   registeredPlayers.forEach((displayName, userId) => {
-    const existing = accountsByUserId.get(userId);
+    const canonicalUserId = aliasToConfiguredUserId.get(userId) || userId;
+    const existing = accountsByUserId.get(canonicalUserId);
     if (existing) {
       existing.fromGameHistory = true;
-      if (!existing.displayName) {
-        existing.displayName = getTextValue(displayName || userId);
+      if (!existing.displayName || normalizeMemberKey(existing.displayName) === existing.userId) {
+        existing.displayName = getTextValue(displayName || canonicalUserId);
       }
       return;
     }
 
-    accountsByUserId.set(userId, {
-      userId,
-      displayName: getTextValue(displayName || userId),
-      role: isBuiltInAdminUser(userId) ? 'admin' : 'member',
+    accountsByUserId.set(canonicalUserId, {
+      userId: canonicalUserId,
+      displayName: getTextValue(displayName || canonicalUserId),
+      role: isBuiltInAdminUser(canonicalUserId) ? 'admin' : 'member',
       fromConfiguredMembers: false,
       fromGameHistory: true,
     });
@@ -1118,28 +1129,25 @@ async function hasValidAuth(request, env) {
     // Configured member credentials path.
     const member = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
     if (member) {
-      if (token !== member.token) {
-        return { ok: false, reason: `Incorrect pod access code for "${user}".` };
+      if (token === member.token) {
+        const role = (
+          getTextValue(member?.role).toLowerCase() === 'admin'
+          || isBuiltInAdminUser(user)
+          || isBuiltInAdminUser(normalizedUser)
+        ) ? 'admin' : 'member';
+
+        return {
+          ok: true,
+          user: member.displayName,
+          userId: member.userId,
+          displayName: member.displayName,
+          role,
+          authMode: 'member',
+        };
       }
-
-      const role = (
-        getTextValue(member?.role).toLowerCase() === 'admin'
-        || isBuiltInAdminUser(user)
-        || isBuiltInAdminUser(normalizedUser)
-      ) ? 'admin' : 'member';
-
-      return {
-        ok: true,
-        user: member.displayName,
-        userId: member.userId,
-        displayName: member.displayName,
-        role,
-        authMode: 'member',
-      };
     }
 
     // Auto-provisioned path for registered game-history players.
-    const autoProvisioned = buildAutoProvisionedAuth(user);
     if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
       if (registeredPlayerKeys.has(autoProvisioned.userId)) {
         return autoProvisioned;
@@ -1162,6 +1170,11 @@ async function hasValidAuth(request, env) {
         role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
         authMode: 'legacy',
       };
+    }
+
+    // If user is a configured member, keep a specific invalid-code message.
+    if (member) {
+      return { ok: false, reason: `Incorrect pod access code for "${user}".` };
     }
 
     if (registeredPlayerKeys.has(normalizedUser)) {
