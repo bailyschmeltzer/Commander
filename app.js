@@ -14276,10 +14276,22 @@ window.addEventListener('storage', (event) => {
 
 function applyHistoryPageViewMode() {
   const historySection = document.querySelector('.page-history main > section:first-child');
+  const pageTitle = document.getElementById('page-title');
+  const pageDescription = document.getElementById('page-description');
   const isViewingAdminLogs = window.location.hash === '#auth-audit-section';
   
   if (historySection) {
     historySection.hidden = isViewingAdminLogs;
+  }
+
+  if (pageTitle && pageDescription) {
+    if (isViewingAdminLogs) {
+      pageTitle.textContent = 'Authentication Audit';
+      pageDescription.textContent = 'Login attempts and authentication events for your pod.';
+    } else {
+      pageTitle.textContent = 'Full Game History';
+      pageDescription.textContent = 'All entered games for your shared pod.';
+    }
   }
 }
 
