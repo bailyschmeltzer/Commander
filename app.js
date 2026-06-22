@@ -16,14 +16,15 @@ const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
 const COMMANDER_BUILDER_ENDPOINT = '/api/commanders';
 const DECK_SEARCH_ENDPOINT = '/api/deck-search';
 const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
+const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
-const SECRET_LAIR_SET_ENDPOINT = 'https://mtgjson.com/api/v5/SLD.json';
-const SECRET_LAIR_LIST_ENDPOINT = '/api/secret-lair-list';
+const AUTH_AUDIT_ENDPOINT = '/api/auth-logs';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
 const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 0;
+const AUTH_AUDIT_REFRESH_INTERVAL_MS = 60 * 1000;
 
 // Cached DOM references used across all pages.
 const form = document.getElementById('game-form');
@@ -63,6 +64,17 @@ const historyFilterDateFrom = document.getElementById('history-filter-date-from'
 const historyFilterDateTo = document.getElementById('history-filter-date-to');
 const historyResetFiltersButton = document.getElementById('history-reset-filters');
 const historyActiveFilters = document.getElementById('history-active-filters');
+const authAuditSection = document.getElementById('auth-audit-section');
+const authAuditStatus = document.getElementById('auth-audit-status');
+const authAuditList = document.getElementById('auth-audit-list');
+const authAuditRefreshButton = document.getElementById('auth-audit-refresh');
+const authAuditExportJsonButton = document.getElementById('auth-audit-export-json');
+const authAuditExportCsvButton = document.getElementById('auth-audit-export-csv');
+const authAuditFilterResultSelect = document.getElementById('auth-audit-filter-result');
+const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user');
+const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
+const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
+const authAuditFilterClearButton = document.getElementById('auth-audit-filter-clear');
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const commanderRenameForm = document.getElementById('commander-rename-form');
@@ -110,16 +122,11 @@ const deckBuilderCards = document.getElementById('deck-builder-cards');
 const deckBuilderBreakdown = document.getElementById('deck-builder-breakdown');
 const deckBuilderTextList = document.getElementById('deck-builder-text-list');
 const deckBuilderExportButton = document.getElementById('deck-builder-export');
-const deckBuilderExportIncludePrintCheckbox = document.getElementById('deck-builder-export-include-print');
 const deckBuilderImportButton = document.getElementById('deck-builder-import');
 const deckBuilderEdhplButton = document.getElementById('deck-builder-edhpl');
 const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
 const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
-const deckBuilderPreconMenu = document.getElementById('deck-builder-precon-menu');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
-const deckBuilderSecretLairSelect = document.getElementById('deck-builder-secret-lair');
-const deckBuilderSecretLairMenu = document.getElementById('deck-builder-secret-lair-menu');
-const deckBuilderSecretLairLoadButton = document.getElementById('deck-builder-secret-lair-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
 const deckBuilderBackToDecksLink = document.querySelector('.page-deckbuilder .page-action-link[href="decklists.html"], .page-deck-builder .page-action-link[href="decklists.html"]');
@@ -171,11 +178,6 @@ const liveModalTextarea = document.getElementById('live-modal-textarea');
 const liveModalError = document.getElementById('live-modal-error');
 const liveModalCancelButton = document.getElementById('live-modal-cancel');
 const liveModalConfirmButton = document.getElementById('live-modal-confirm');
-
-const cardImageModal = document.getElementById('card-image-modal');
-const cardImageModalImg = document.getElementById('card-image-modal-img');
-const cardImageModalOverlay = document.querySelector('.card-image-modal-overlay');
-const cardImageModalCloseButton = document.querySelector('.card-image-modal-close');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -260,6 +262,16 @@ let syncCloudUpdatedBy = '';
 let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
 let syncAuthenticatedRole = '';
+let authAuditLogs = [];
+let authAuditLoading = false;
+let authAuditLastLoadedAt = 0;
+let authAuditLoadedForUserId = '';
+let authAuditFilterState = {
+  result: 'all',
+  user: '',
+  from: '',
+  to: '',
+};
 let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
@@ -288,20 +300,12 @@ let deckBuilderSelectedCard = null;
 let deckBuilderSelectedDeckCardId = null;
 let deckBuilderSaveTimer = null;
 let deckBuilderArtPickerCardId = '';
-let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
+let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
 let deckBuilderCommanderPrefill = '';
 let deckBuilderBasicLandWarmPromise = null;
 let deckBuilderHoldTimerId = null;
 let deckBuilderHoldIntervalId = null;
 let deckBuilderMutationQueue = Promise.resolve();
-let deckBuilderSecretLairBundlesCache = null;
-let deckBuilderSecretLairBundlesPromise = null;
-let deckBuilderSecretLairCatalogSource = null;
-let deckBuilderSecretLairListLoaded = false;
-let deckBuilderSecretLairDeckListIndexCache = null;
-let deckBuilderSecretLairDeckListIndexPromise = null;
-let deckBuilderPreconEntriesCache = [];
-let deckBuilderPreconEntriesByLabel = new Map();
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
@@ -868,12 +872,6 @@ function normalizeDeckCardEntry(card) {
     id: String(card.id || generateId()).trim(),
     oracleId: String(card.oracleId || '').trim(),
     name,
-    set: String(card.set || '').trim().toLowerCase(),
-    setName: String(card.setName || '').trim(),
-    collectorNumber: String(card.collectorNumber || '').trim(),
-    lang: String(card.lang || '').trim(),
-    artist: String(card.artist || '').trim(),
-    releasedAt: String(card.releasedAt || '').trim(),
     manaCost: String(card.manaCost || '').trim(),
     typeLine,
     oracleText: String(card.oracleText || '').trim(),
@@ -1618,6 +1616,10 @@ function updateSyncAuthenticatedUser(auth = null) {
 
 function clearSyncAuthenticatedUser() {
   updateSyncAuthenticatedUser(null);
+  authAuditLogs = [];
+  authAuditLoading = false;
+  authAuditLastLoadedAt = 0;
+  authAuditLoadedForUserId = '';
   deckLibraryPlayerFilterDefaulted = false;
   historyPlayerFilterDefaulted = false;
 }
@@ -4808,6 +4810,8 @@ function ensurePlayerStats(stats, player) {
       wins: 0,
       kills: 0,
       firstBloods: 0,
+      winTurnTotal: 0,
+      winTurnCount: 0,
       commanders: {},
       commanderStats: {},
       killerCounts: {},
@@ -5388,6 +5392,311 @@ function renderHistoryActiveFilters(totalCount, filteredCount) {
     <div class="history-active-filter-list" aria-label="Active history filters">
       ${activeFilters.map((label) => `<span class="history-active-filter-chip">${escapeHtml(label)}</span>`).join('')}
     </div>`;
+}
+
+function setAuthAuditStatus(message, tone = 'muted') {
+  if (!authAuditStatus) {
+    return;
+  }
+
+  authAuditStatus.textContent = message;
+  authAuditStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
+  authAuditStatus.classList.add(`status-${tone}`);
+}
+
+function formatAuthAuditTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown time';
+  }
+
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function normalizeAuditDateInputValue(value) {
+  const normalized = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
+}
+
+function updateAuthAuditFilterStateFromInputs() {
+  authAuditFilterState = {
+    result: authAuditFilterResultSelect?.value || 'all',
+    user: String(authAuditFilterUserInput?.value || '').trim().toLowerCase(),
+    from: normalizeAuditDateInputValue(authAuditFilterFromInput?.value || ''),
+    to: normalizeAuditDateInputValue(authAuditFilterToInput?.value || ''),
+  };
+}
+
+function resetAuthAuditFilters() {
+  if (authAuditFilterResultSelect) {
+    authAuditFilterResultSelect.value = 'all';
+  }
+  if (authAuditFilterUserInput) {
+    authAuditFilterUserInput.value = '';
+  }
+  if (authAuditFilterFromInput) {
+    authAuditFilterFromInput.value = '';
+  }
+  if (authAuditFilterToInput) {
+    authAuditFilterToInput.value = '';
+  }
+  updateAuthAuditFilterStateFromInputs();
+}
+
+function getFilteredAuthAuditLogs(logs) {
+  if (!Array.isArray(logs) || !logs.length) {
+    return [];
+  }
+
+  const { result, user, from, to } = authAuditFilterState;
+  return logs.filter((entry) => {
+    const isSuccess = Boolean(entry?.success);
+    if (result === 'failed' && isSuccess) {
+      return false;
+    }
+    if (result === 'success' && !isSuccess) {
+      return false;
+    }
+
+    if (user) {
+      const haystack = [
+        String(entry?.auth?.displayName || ''),
+        String(entry?.auth?.userId || ''),
+        String(entry?.user || ''),
+        String(entry?.normalizedUser || ''),
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(user)) {
+        return false;
+      }
+    }
+
+    const isoDate = String(entry?.timestamp || '').slice(0, 10);
+    if (from && (!isoDate || isoDate < from)) {
+      return false;
+    }
+    if (to && (!isoDate || isoDate > to)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function getAuthAuditStatusSummary() {
+  const visibleCount = getFilteredAuthAuditLogs(authAuditLogs).length;
+  return `Showing ${visibleCount} of ${authAuditLogs.length} recent authentication events.`;
+}
+
+function updateAuthAuditStatusSummary(tone = 'neutral') {
+  if (!authAuditSection || authAuditSection.hidden) {
+    return;
+  }
+
+  setAuthAuditStatus(getAuthAuditStatusSummary(), tone);
+}
+
+function buildAuthAuditExportBaseName() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `auth-audit-${y}${m}${d}-${hh}${mm}${ss}`;
+}
+
+function triggerFileDownload(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
+}
+
+function buildCsvCell(value) {
+  const text = String(value ?? '');
+  const escaped = text.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+function exportFilteredAuthAuditAsJson() {
+  const logs = getFilteredAuthAuditLogs(authAuditLogs);
+  if (!logs.length) {
+    updateAuthAuditStatusSummary('muted');
+    return;
+  }
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    filters: { ...authAuditFilterState },
+    count: logs.length,
+    totalAvailable: authAuditLogs.length,
+    logs,
+  };
+  triggerFileDownload(`${buildAuthAuditExportBaseName()}.json`, 'application/json;charset=utf-8', `${JSON.stringify(payload, null, 2)}\n`);
+  setAuthAuditStatus(`Exported ${logs.length} authentication events to JSON.`, 'success');
+}
+
+function exportFilteredAuthAuditAsCsv() {
+  const logs = getFilteredAuthAuditLogs(authAuditLogs);
+  if (!logs.length) {
+    updateAuthAuditStatusSummary('muted');
+    return;
+  }
+
+  const header = [
+    'timestamp',
+    'result',
+    'reason',
+    'statusCode',
+    'method',
+    'path',
+    'displayName',
+    'userId',
+    'rawUser',
+    'normalizedUser',
+    'ip',
+    'tokenHint',
+    'authMode',
+    'userAgent',
+  ];
+  const lines = [header.map((value) => buildCsvCell(value)).join(',')];
+
+  logs.forEach((entry) => {
+    const row = [
+      entry?.timestamp || '',
+      entry?.success ? 'success' : 'failed',
+      entry?.reason || '',
+      Number.isFinite(Number(entry?.status)) ? Number(entry.status) : '',
+      entry?.method || '',
+      entry?.path || '',
+      entry?.auth?.displayName || '',
+      entry?.auth?.userId || '',
+      entry?.user || '',
+      entry?.normalizedUser || '',
+      entry?.ip || '',
+      entry?.tokenHint || '',
+      entry?.auth?.mode || '',
+      entry?.userAgent || '',
+    ];
+    lines.push(row.map((value) => buildCsvCell(value)).join(','));
+  });
+
+  triggerFileDownload(`${buildAuthAuditExportBaseName()}.csv`, 'text/csv;charset=utf-8', `${lines.join('\n')}\n`);
+  setAuthAuditStatus(`Exported ${logs.length} authentication events to CSV.`, 'success');
+}
+
+function renderAuthAuditLogs() {
+  if (!authAuditSection || !authAuditList) {
+    return;
+  }
+
+  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
+    authAuditSection.hidden = true;
+    authAuditList.innerHTML = '';
+    return;
+  }
+
+  authAuditSection.hidden = false;
+
+  const visibleLogs = getFilteredAuthAuditLogs(authAuditLogs);
+
+  if (!visibleLogs.length) {
+    authAuditList.innerHTML = '<p class="history-empty-state">No login attempts logged yet.</p>';
+    return;
+  }
+
+  authAuditList.innerHTML = visibleLogs.map((entry) => {
+    const status = entry?.success ? 'success' : 'failed';
+    const reason = entry?.reason || (entry?.success ? 'Authenticated.' : 'Authentication failed.');
+    const who = entry?.auth?.displayName || entry?.user || 'Unknown user';
+    const userId = entry?.auth?.userId || entry?.normalizedUser || '';
+    const ip = entry?.ip || 'Unknown IP';
+    const method = entry?.method || 'UNKNOWN';
+    const path = entry?.path || '/api/state';
+    const statusCode = Number.isFinite(Number(entry?.status)) ? Number(entry.status) : 0;
+    const tokenHint = entry?.tokenHint || '';
+
+    return `
+      <article class="auth-audit-item auth-audit-item--${entry?.success ? 'success' : 'failed'}">
+        <div class="auth-audit-item-topline">
+          <strong>${escapeHtml(status.toUpperCase())}</strong>
+          <span>${escapeHtml(formatAuthAuditTimestamp(entry?.timestamp))}</span>
+        </div>
+        <p class="auth-audit-item-reason">${escapeHtml(reason)}</p>
+        <div class="auth-audit-item-meta">
+          <span class="history-item-fact">User: ${escapeHtml(who)}</span>
+          ${userId ? `<span class="history-item-fact">ID: ${escapeHtml(userId)}</span>` : ''}
+          <span class="history-item-fact">HTTP: ${escapeHtml(method)} ${escapeHtml(path)}</span>
+          ${statusCode ? `<span class="history-item-fact">Status: ${escapeHtml(String(statusCode))}</span>` : ''}
+          <span class="history-item-fact">IP: ${escapeHtml(ip)}</span>
+          ${tokenHint ? `<span class="history-item-fact">Token: ${escapeHtml(tokenHint)}</span>` : ''}
+        </div>
+      </article>`;
+  }).join('');
+}
+
+async function refreshAuthAuditLogs({ force = false } = {}) {
+  if (!authAuditSection || !authAuditList || !authAuditStatus) {
+    return;
+  }
+
+  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
+    authAuditSection.hidden = true;
+    authAuditLogs = [];
+    authAuditLoadedForUserId = '';
+    authAuditLastLoadedAt = 0;
+    setAuthAuditStatus('Authentication audit logs are only visible to admins.', 'muted');
+    renderAuthAuditLogs();
+    return;
+  }
+
+  const currentUserId = getCurrentSyncUserId();
+  const now = Date.now();
+  const shouldRefresh = force
+    || authAuditLoadedForUserId !== currentUserId
+    || !authAuditLogs.length
+    || now - authAuditLastLoadedAt >= AUTH_AUDIT_REFRESH_INTERVAL_MS;
+
+  authAuditSection.hidden = false;
+  renderAuthAuditLogs();
+  if (!shouldRefresh || authAuditLoading) {
+    return;
+  }
+
+  authAuditLoading = true;
+  setAuthAuditStatus('Loading authentication logs...', 'neutral');
+
+  try {
+    const payload = await cloudRequest(`${AUTH_AUDIT_ENDPOINT}?limit=120`, { method: 'GET' });
+    authAuditLogs = Array.isArray(payload?.logs) ? payload.logs : [];
+    authAuditLoadedForUserId = currentUserId;
+    authAuditLastLoadedAt = Date.now();
+    updateAuthAuditStatusSummary('success');
+    renderAuthAuditLogs();
+  } catch (error) {
+    if (error?.status === 403) {
+      authAuditSection.hidden = true;
+      authAuditLogs = [];
+      setAuthAuditStatus('Authentication audit logs are only visible to admins.', 'muted');
+      return;
+    }
+
+    setAuthAuditStatus(`Unable to load authentication logs: ${error.message}`, 'error');
+  } finally {
+    authAuditLoading = false;
+  }
 }
 
 function resetHistoryFilters() {
@@ -6862,14 +7171,8 @@ function cardHasPartnerAbility(card) {
   return cardHasPairingMechanic(card);
 }
 
-const UNSET_SET_CODES = new Set(['ugl', 'unh', 'ust', 'und', 'unf']);
-
-function isUnsetCard(card) {
-  return UNSET_SET_CODES.has(String(card?.set || '').toLowerCase());
-}
-
 function isCommanderEligibleCard(card) {
-  if (!card || card.isBanned) {
+  if (!card || card.isBanned || !card.isCommanderLegal) {
     return false;
   }
 
@@ -6884,15 +7187,6 @@ function isCommanderEligibleCard(card) {
 
   const isLegendaryCreature = /\blegendary\b/.test(typeText) && /\bcreature\b/.test(typeText);
   const hasCommanderTextOverride = /can be your commander/.test(rulesText);
-
-  // Unset legendary creatures are allowed as commanders even without official Commander legality.
-  if (isUnsetCard(card) && isLegendaryCreature) {
-    return true;
-  }
-
-  if (!card.isCommanderLegal) {
-    return false;
-  }
 
   return isLegendaryCreature || hasCommanderTextOverride;
 }
@@ -6919,13 +7213,13 @@ function canSetCardAsCommanderForDeck(deck, card) {
 
 // For cards already in the deck list, "Set as Commander" should only appear when:
 //   • the card is selected/expanded
-//   • if no commander is set yet: any commander-eligible card can show it
-//   • if a commander exists: keep the stricter partner/pairing gating
-// This remains intentionally stricter than canSetCardAsCommanderForDeck, which is
-// used for the search-panel button where you set the initial commander.
+//   • the existing commander has Partner (generic or "Partner with")
+//   • the card itself also has Partner (generic or "Partner with")
+// This is intentionally stricter than canSetCardAsCommanderForDeck, which is used
+// for the search-panel button where you set the initial commander.
 function deckCardShowPartnerCommanderButton(deck, card) {
   if (!isCommanderEligibleCard(card)) return false;
-  if (!deck?.commander) return true;
+  if (!deck?.commander) return false;
   if (!cardHasPairingMechanic(deck.commander)) return false;
   if (!cardHasPairingMechanic(card)) return false;
   return true;
@@ -7410,37 +7704,21 @@ async function fetchDeckSearchResultsList(query) {
   return results;
 }
 
-async function fetchDeckCardByName(name, options = {}) {
+async function fetchDeckCardByName(name) {
   const normalizedName = String(name || '').trim().toLowerCase();
-  const normalizedSetCode = String(options?.setCode || '').trim().toLowerCase();
-  const normalizedCollectorNumber = String(options?.collectorNumber || '').trim();
-  const hasPrintPreference = Boolean(normalizedSetCode && normalizedCollectorNumber);
-  const cacheKey = hasPrintPreference
-    ? `${normalizedName}::${normalizedSetCode}#${normalizedCollectorNumber}`
-    : normalizedName;
-
   if (!normalizedName) {
     return null;
   }
 
-  if (deckBuilderCardCache.has(cacheKey)) {
-    const cached = deckBuilderCardCache.get(cacheKey);
+  if (deckBuilderCardCache.has(normalizedName)) {
+    const cached = deckBuilderCardCache.get(normalizedName);
     if (cached.manaCost || cached.cardFaces?.length) {
       return cached;
     }
-    deckBuilderCardCache.delete(cacheKey);
+    deckBuilderCardCache.delete(normalizedName);
   }
 
-  const params = new URLSearchParams({
-    v: '2',
-    name,
-  });
-  if (hasPrintPreference) {
-    params.set('set', normalizedSetCode);
-    params.set('collector', normalizedCollectorNumber);
-  }
-
-  const response = await fetch(`/api/deck-card?${params.toString()}`, {
+  const response = await fetch(`${DECK_CARD_ENDPOINT}&name=${encodeURIComponent(name)}`, {
     cache: 'no-store',
   });
 
@@ -7462,10 +7740,7 @@ async function fetchDeckCardByName(name, options = {}) {
   const payload = await response.json();
   const card = normalizeDeckCardEntry(payload?.card);
   if (card) {
-    deckBuilderCardCache.set(cacheKey, card);
-    if (!hasPrintPreference) {
-      deckBuilderCardCache.set(normalizedName, card);
-    }
+    deckBuilderCardCache.set(normalizedName, card);
   }
   return card;
 }
@@ -7638,10 +7913,6 @@ async function openDeckBuilderArtPicker(cardId) {
   }
 
   const card = located.card;
-  const isBasicLandCard = isBasicLand(card);
-  const landCount = isBasicLandCard && located?.zone === 'cards'
-    ? (deck.cards || []).filter((c) => getIdentityKey(c.name) === getIdentityKey(card.name) && (c.imageUri || '') === (card.imageUri || '')).length
-    : 0;
   const cacheKey = getDeckBuilderArtCacheKey(card);
   deckBuilderArtPickerCardId = cardId;
 
@@ -7651,9 +7922,6 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options: deckBuilderArtOptionsCache.get(cacheKey),
       message: '',
-      selectedPrintIds: [],
-      isBasicLand: isBasicLandCard,
-      landCount,
     };
     renderDeckBuilderCards(deck);
     return;
@@ -7664,9 +7932,6 @@ async function openDeckBuilderArtPicker(cardId) {
     cardId,
     options: [],
     message: 'Loading art options...',
-    selectedPrintIds: [],
-    isBasicLand: isBasicLandCard,
-    landCount,
   };
   renderDeckBuilderCards(deck);
 
@@ -7680,9 +7945,6 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options,
       message: options.length ? '' : 'No alternate arts found for this card.',
-      selectedPrintIds: deckBuilderArtPickerState.selectedPrintIds,
-      isBasicLand: isBasicLandCard,
-      landCount,
     };
   } catch (error) {
     deckBuilderArtPickerState = {
@@ -7690,9 +7952,6 @@ async function openDeckBuilderArtPicker(cardId) {
       cardId,
       options: [],
       message: error instanceof Error ? error.message : 'Unable to load art options right now.',
-      selectedPrintIds: [],
-      isBasicLand: isBasicLandCard,
-      landCount,
     };
   }
 
@@ -7707,19 +7966,10 @@ function applyDeckBuilderCardArt(cardId, print) {
 
   const located = findDeckBuilderCardById(deck, cardId);
   const targetNameKey = getIdentityKey(located?.card?.name || '');
-  const originalImageUri = located?.card?.imageUri || '';
   const shouldApplyToSameNameCopies = located?.zone === 'cards' && Boolean(targetNameKey) && allowsMultipleCopies(located.card);
-  // For basic lands, only apply to copies with the same art so different art groups are preserved.
-  const basicLandArtGroupOnly = shouldApplyToSameNameCopies && isBasicLand(located?.card);
 
   const applyPrint = (card) => ({
     ...card,
-    set: String(print.set || card.set || '').trim().toLowerCase(),
-    setName: String(print.setName || card.setName || '').trim(),
-    collectorNumber: String(print.collectorNumber || card.collectorNumber || '').trim(),
-    lang: String(print.lang || card.lang || '').trim(),
-    artist: String(print.artist || card.artist || '').trim(),
-    releasedAt: String(print.releasedAt || card.releasedAt || '').trim(),
     imageUri: String(print.imageUri || card.imageUri || '').trim(),
     imageLargeUri: String(print.imageLargeUri || card.imageLargeUri || '').trim(),
     cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (card.cardFaces || []),
@@ -7732,8 +7982,7 @@ function applyDeckBuilderCardArt(cardId, print) {
 
   const updateList = (list) => (list || []).map((card) => {
     const matchesById = card.id === cardId;
-    const matchesSameNameCopy = shouldApplyToSameNameCopies && getIdentityKey(card.name) === targetNameKey
-      && (!basicLandArtGroupOnly || (card.imageUri || '') === originalImageUri);
+    const matchesSameNameCopy = shouldApplyToSameNameCopies && getIdentityKey(card.name) === targetNameKey;
     if (!matchesById && !matchesSameNameCopy) {
       return card;
     }
@@ -7754,64 +8003,6 @@ function applyDeckBuilderCardArt(cardId, print) {
   }
 
   persistDeckBuilderRecord(nextDeck, 'Card art updated.');
-}
-
-function applyBasicLandArtDistribution(sampleId) {
-  const deck = ensureActiveDeckBuilderRecord();
-  if (!deck || !sampleId) {
-    return;
-  }
-
-  const selectedPrints = (deckBuilderArtPickerState.selectedPrintIds || [])
-    .map((id) => (deckBuilderArtPickerState.options || []).find((o) => String(o.id || '') === String(id)))
-    .filter(Boolean);
-
-  if (!selectedPrints.length) {
-    return;
-  }
-
-  const located = findDeckBuilderCardById(deck, sampleId);
-  if (!located?.card) {
-    return;
-  }
-
-  const targetNameKey = getIdentityKey(located.card.name);
-  const originalImageUri = located.card.imageUri || '';
-
-  const groupIndices = [];
-  (deck.cards || []).forEach((card, i) => {
-    if (getIdentityKey(card.name) === targetNameKey && (card.imageUri || '') === originalImageUri) {
-      groupIndices.push(i);
-    }
-  });
-
-  if (!groupIndices.length) {
-    return;
-  }
-
-  const nextCards = [...deck.cards];
-  groupIndices.forEach((idx, i) => {
-    const print = selectedPrints[i % selectedPrints.length];
-    nextCards[idx] = {
-      ...nextCards[idx],
-      set: String(print.set || nextCards[idx].set || '').trim().toLowerCase(),
-      setName: String(print.setName || nextCards[idx].setName || '').trim(),
-      collectorNumber: String(print.collectorNumber || nextCards[idx].collectorNumber || '').trim(),
-      lang: String(print.lang || nextCards[idx].lang || '').trim(),
-      artist: String(print.artist || nextCards[idx].artist || '').trim(),
-      releasedAt: String(print.releasedAt || nextCards[idx].releasedAt || '').trim(),
-      imageUri: String(print.imageUri || nextCards[idx].imageUri || '').trim(),
-      imageLargeUri: String(print.imageLargeUri || nextCards[idx].imageLargeUri || '').trim(),
-      cardFaces: Array.isArray(print.cardFaces) && print.cardFaces.length ? print.cardFaces : (nextCards[idx].cardFaces || []),
-      scryfallUri: String(print.scryfallUri || nextCards[idx].scryfallUri || '').trim(),
-    };
-  });
-
-  deckBuilderArtPickerCardId = '';
-  deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
-  deckBuilderSelectedDeckCardId = null;
-
-  persistDeckBuilderRecord({ ...deck, cards: nextCards }, 'Card art updated.');
 }
 
 async function selectDeckCardByName(cardName) {
@@ -8222,11 +8413,11 @@ function renderDeckBuilderCards(deck) {
   const groupMarkup = groups.map((group) => {
     // For the Land group, split into basic (stacked) and non-basic (normal rows)
     if (group.type === 'Land') {
-      const basicGroups = new Map(); // name|imageUri -> { name, cards[] }
+      const basicGroups = new Map(); // name -> [card, ...]
       const nonBasics = [];
       group.cards.forEach((card) => {
         if (basicLandKeySet.has(getIdentityKey(card.name))) {
-          const key = getIdentityKey(card.name) + '|' + (card.imageUri || '');
+          const key = getIdentityKey(card.name);
           if (!basicGroups.has(key)) basicGroups.set(key, { name: card.name, cards: [] });
           basicGroups.get(key).cards.push(card);
         } else {
@@ -8919,100 +9110,32 @@ function setDeckBuilderImportStatus(message, tone = 'muted') {
   deckBuilderImportStatus.className = `deck-builder-import-status status-${tone}`;
 }
 
-function formatDeckExportCardName(card, includePrints = false) {
-  const name = String(card?.name || '').trim();
-  if (!name) {
-    return '';
-  }
-
-  if (!includePrints) {
-    return name;
-  }
-
-  const setCode = String(card?.set || '').trim().toLowerCase();
-  const collectorNumber = String(card?.collectorNumber || '').trim();
-  if (!setCode || !collectorNumber) {
-    return name;
-  }
-
-  return `${name} (${setCode}) ${collectorNumber}`;
-}
-
-function getDeckExportAggregationKey(card, includePrints = false) {
-  const nameKey = getIdentityKey(card?.name || '');
-  if (!nameKey) {
-    return '';
-  }
-
-  if (!includePrints) {
-    return nameKey;
-  }
-
-  const setCode = String(card?.set || '').trim().toLowerCase();
-  const collectorNumber = String(card?.collectorNumber || '').trim();
-  return setCode && collectorNumber
-    ? `${nameKey}::${setCode}#${collectorNumber}`
-    : nameKey;
-}
-
-function exportDeckAsText(deck, options = {}) {
-  const includePrints = Boolean(options?.includePrints);
+function exportDeckAsText(deck) {
   const lines = [];
   if (deck.commander) {
     lines.push('// Commander');
-    lines.push(`1 ${formatDeckExportCardName(deck.commander, includePrints)}`);
+    lines.push(`1 ${deck.commander.name}`);
     lines.push('');
     lines.push('// Deck');
   }
-  // Aggregate cards by name (or by name+print), preserve alpha order.
+  // Aggregate cards by name, preserve alpha order
   const counts = new Map();
   deck.cards.forEach((card) => {
-    const key = getDeckExportAggregationKey(card, includePrints);
-    if (!key) {
-      return;
-    }
-
-    if (!counts.has(key)) {
-      counts.set(key, {
-        count: 0,
-        label: formatDeckExportCardName(card, includePrints),
-      });
-    }
-
-    const bucket = counts.get(key);
-    bucket.count += 1;
+    const key = card.name;
+    counts.set(key, (counts.get(key) || 0) + 1);
   });
-  [...counts.values()]
-    .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-    .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
+  [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([name, count]) => lines.push(`${count} ${name}`));
 
   // Tokens section
   const tokens = Array.isArray(deck.tokens) ? deck.tokens : [];
   if (tokens.length > 0) {
     lines.push('');
     lines.push('// Tokens');
-    const tokenGroups = new Map();
-    tokens.forEach((token) => {
-      const key = getDeckExportAggregationKey(token, includePrints);
-      if (!key) {
-        return;
-      }
-
-      if (!tokenGroups.has(key)) {
-        tokenGroups.set(key, {
-          count: 0,
-          label: formatDeckExportCardName(token, includePrints),
-        });
-      }
-
-      const bucket = tokenGroups.get(key);
-      const tokenCount = Number.isFinite(Number(token?.count)) ? Math.max(1, Number(token.count)) : 1;
-      bucket.count += tokenCount;
-    });
-
-    [...tokenGroups.values()]
-      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-      .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
+    [...tokens]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .forEach((token) => lines.push(`${token.count || 1} ${token.name}`));
   }
 
   // Maybeboard section
@@ -9020,26 +9143,9 @@ function exportDeckAsText(deck, options = {}) {
   if (maybeboard.length > 0) {
     lines.push('');
     lines.push('// Maybeboard');
-    const maybeboardGroups = new Map();
-    maybeboard.forEach((card) => {
-      const key = getDeckExportAggregationKey(card, includePrints);
-      if (!key) {
-        return;
-      }
-
-      if (!maybeboardGroups.has(key)) {
-        maybeboardGroups.set(key, {
-          count: 0,
-          label: formatDeckExportCardName(card, includePrints),
-        });
-      }
-
-      maybeboardGroups.get(key).count += 1;
-    });
-
-    [...maybeboardGroups.values()]
-      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-      .forEach((entry) => lines.push(`${entry.count} ${entry.label}`));
+    [...maybeboard]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .forEach((card) => lines.push(`1 ${card.name}`));
   }
 
   return lines.join('\n');
@@ -9127,8 +9233,6 @@ function getDeckImportLineEntry(value) {
 
   let count = 1;
   let name = '';
-  let preferredSetCode = '';
-  let preferredCollectorNumber = '';
 
   const csvLeadingCount = working.match(/^(\d+)\s*,\s*(.+)$/);
   const leadingCount = working.match(/^(\d+)\s*x?\s+(.+)$/i);
@@ -9155,38 +9259,6 @@ function getDeckImportLineEntry(value) {
     return null;
   }
 
-  // Capture print selectors before stripping export clutter so Secret Lair bundle
-  // formats like "Name (SLD) 1234 *F*" still preserve exact art.
-  let parsedName = name
-    .replace(/\s*\*[^*]+\*\s*/g, ' ')
-    .replace(/\s+#.*$/, '')
-    .replace(/^"|"$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const printPatterns = [
-    /\(([A-Za-z0-9]{2,6})\)\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
-    /\[([A-Za-z0-9]{2,6})\]\s*#?\s*([0-9][0-9A-Za-z]*)\s*$/i,
-    /\(([A-Za-z0-9]{2,6})\)\s*$/i,
-    /\[([A-Za-z0-9]{2,6})\]\s*$/i,
-    /\b([A-Za-z0-9]{2,6})\s*[:#]\s*([0-9][0-9A-Za-z]*)\s*$/i,
-    /\b([A-Za-z0-9]{2,6})\s+([0-9][0-9A-Za-z]*)\s*$/i,
-  ];
-
-  for (let i = 0; i < printPatterns.length; i += 1) {
-    const match = parsedName.match(printPatterns[i]);
-    if (!match) {
-      continue;
-    }
-
-    preferredSetCode = String(match[1] || '').trim().toLowerCase();
-    preferredCollectorNumber = String(match[2] || '').trim();
-    parsedName = parsedName.slice(0, match.index).trim();
-    break;
-  }
-
-  name = parsedName;
-
   // Common export clutter: set/collector tags, star tags, and inline comments.
   name = name
     .replace(/\s*\[[^\]]*\]\s*/g, ' ')
@@ -9202,57 +9274,29 @@ function getDeckImportLineEntry(value) {
     return null;
   }
 
-  return {
-    name,
-    count,
-    section,
-    preferredSetCode,
-    preferredCollectorNumber,
-  };
+  return { name, count, section };
 }
 
 function parseDeckTextList(text) {
-  let commanderEntry = null;
+  let commanderName = null;
   let currentSection = 'deck';
   let hasMaybeboardSection = false;
   let hasTokenSection = false;
   const deckCounts = new Map();
   const deckNames = new Map();
-  const deckPrintPreferences = new Map();
   const maybeboardCounts = new Map();
   const maybeboardNames = new Map();
-  const maybeboardPrintPreferences = new Map();
   const tokenCounts = new Map();
   const tokenNames = new Map();
-  const tokenPrintPreferences = new Map();
 
-  const getEntryKey = (name, preferredSetCode, preferredCollectorNumber) => {
+  const addEntry = (countsMap, namesMap, name, count) => {
     const key = getIdentityKey(name);
-    if (!key) {
-      return '';
-    }
-
-    const setCode = String(preferredSetCode || '').trim().toLowerCase();
-    const collectorNumber = String(preferredCollectorNumber || '').trim();
-    return setCode && collectorNumber
-      ? `${key}::${setCode}#${collectorNumber}`
-      : key;
-  };
-
-  const addEntry = (countsMap, namesMap, printPreferencesMap, name, count, preferredSetCode = '', preferredCollectorNumber = '') => {
-    const key = getEntryKey(name, preferredSetCode, preferredCollectorNumber);
     if (!key) {
       return;
     }
     countsMap.set(key, (countsMap.get(key) || 0) + Math.max(1, count));
     if (!namesMap.has(key)) {
       namesMap.set(key, name);
-    }
-    if (!printPreferencesMap.has(key)) {
-      printPreferencesMap.set(key, {
-        preferredSetCode: String(preferredSetCode || '').trim().toLowerCase(),
-        preferredCollectorNumber: String(preferredCollectorNumber || '').trim(),
-      });
     }
   };
 
@@ -9295,85 +9339,39 @@ function parseDeckTextList(text) {
     }
 
     const entrySection = parsed.section || currentSection;
-    if (entrySection === 'commander' && !commanderEntry) {
-      commanderEntry = {
-        name: parsed.name,
-        preferredSetCode: String(parsed.preferredSetCode || '').trim().toLowerCase(),
-        preferredCollectorNumber: String(parsed.preferredCollectorNumber || '').trim(),
-      };
+    if (entrySection === 'commander' && !commanderName) {
+      commanderName = parsed.name;
       return;
     }
 
     if (entrySection === 'maybeboard') {
       hasMaybeboardSection = true;
-      addEntry(
-        maybeboardCounts,
-        maybeboardNames,
-        maybeboardPrintPreferences,
-        parsed.name,
-        parsed.count,
-        parsed.preferredSetCode,
-        parsed.preferredCollectorNumber,
-      );
+      addEntry(maybeboardCounts, maybeboardNames, parsed.name, parsed.count);
       return;
     }
 
     if (entrySection === 'tokens') {
       hasTokenSection = true;
-      addEntry(
-        tokenCounts,
-        tokenNames,
-        tokenPrintPreferences,
-        parsed.name,
-        parsed.count,
-        parsed.preferredSetCode,
-        parsed.preferredCollectorNumber,
-      );
+      addEntry(tokenCounts, tokenNames, parsed.name, parsed.count);
       return;
     }
 
-    addEntry(
-      deckCounts,
-      deckNames,
-      deckPrintPreferences,
-      parsed.name,
-      parsed.count,
-      parsed.preferredSetCode,
-      parsed.preferredCollectorNumber,
-    );
+    addEntry(deckCounts, deckNames, parsed.name, parsed.count);
   });
 
-  const toEntries = (countsMap, namesMap, printPreferencesMap) => [...countsMap.entries()].map(([key, count]) => ({
+  const toEntries = (countsMap, namesMap) => [...countsMap.entries()].map(([key, count]) => ({
     name: namesMap.get(key) || key,
     count,
-    preferredSetCode: String(printPreferencesMap.get(key)?.preferredSetCode || '').trim().toLowerCase(),
-    preferredCollectorNumber: String(printPreferencesMap.get(key)?.preferredCollectorNumber || '').trim(),
   }));
 
   return {
-    commanderEntry,
-    entries: toEntries(deckCounts, deckNames, deckPrintPreferences),
-    maybeboardEntries: toEntries(maybeboardCounts, maybeboardNames, maybeboardPrintPreferences),
-    tokenEntries: toEntries(tokenCounts, tokenNames, tokenPrintPreferences),
+    commanderName,
+    entries: toEntries(deckCounts, deckNames),
+    maybeboardEntries: toEntries(maybeboardCounts, maybeboardNames),
+    tokenEntries: toEntries(tokenCounts, tokenNames),
     hasMaybeboardSection,
     hasTokenSection,
   };
-}
-
-function hasDeckImportPrintPreference(entry) {
-  const setCode = String(entry?.preferredSetCode || '').trim();
-  const collectorNumber = String(entry?.preferredCollectorNumber || '').trim();
-  return Boolean(setCode && collectorNumber);
-}
-
-function formatDeckImportEntryLabel(entry) {
-  const name = String(entry?.name || entry || '').trim();
-  const setCode = String(entry?.preferredSetCode || '').trim().toLowerCase();
-  const collectorNumber = String(entry?.preferredCollectorNumber || '').trim();
-  if (name && setCode && collectorNumber) {
-    return `${name} (${setCode}) ${collectorNumber}`;
-  }
-  return name;
 }
 
 function getDeckImportNameVariants(name) {
@@ -9427,11 +9425,7 @@ function getBulkResolvedImportCard(entryName, bulkCardsByQuery) {
   return null;
 }
 
-async function fetchDeckCardForImport(entry) {
-  const name = String(entry?.name || entry || '').trim();
-  const preferredSetCode = String(entry?.preferredSetCode || '').trim().toLowerCase();
-  const preferredCollectorNumber = String(entry?.preferredCollectorNumber || '').trim();
-  const hasPrintPreference = Boolean(preferredSetCode && preferredCollectorNumber);
+async function fetchDeckCardForImport(name) {
   const candidates = getDeckImportNameVariants(name);
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -9439,12 +9433,7 @@ async function fetchDeckCardForImport(entry) {
     const candidate = candidates[i];
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const card = hasPrintPreference
-          ? await fetchDeckCardByName(candidate, {
-            setCode: preferredSetCode,
-            collectorNumber: preferredCollectorNumber,
-          })
-          : await fetchDeckCardByName(candidate);
+        const card = await fetchDeckCardByName(candidate);
         if (card) {
           return card;
         }
@@ -9462,30 +9451,6 @@ async function fetchDeckCardForImport(entry) {
     }
   }
 
-  if (hasPrintPreference) {
-    for (let i = 0; i < candidates.length; i += 1) {
-      const candidate = candidates[i];
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          const card = await fetchDeckCardByName(candidate);
-          if (card) {
-            return card;
-          }
-          break;
-        } catch (error) {
-          const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
-          const mayBeTransient = message.includes('rate-limit') || message.includes('temporarily') || message.includes('request failed (5');
-          if (!mayBeTransient || attempt === 1) {
-            break;
-          }
-
-          // Keep retries short during import so the UI does not appear stuck.
-          await wait(350);
-        }
-      }
-    }
-  }
-
   return null;
 }
 
@@ -9497,7 +9462,7 @@ async function importDeckFromText(text) {
     entries,
     maybeboardEntries,
     tokenEntries,
-    commanderEntry,
+    commanderName,
     hasMaybeboardSection,
     hasTokenSection,
   } = parseDeckTextList(text);
@@ -9506,24 +9471,20 @@ async function importDeckFromText(text) {
     ...maybeboardEntries.map((entry) => ({ ...entry, target: 'maybeboard' })),
     ...tokenEntries.map((entry) => ({ ...entry, target: 'tokens' })),
   ];
-  if (!allEntries.length && !commanderEntry) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
+  if (!allEntries.length && !commanderName) { setDeckBuilderImportStatus('No cards found in the import text.', 'error'); return; }
 
-  const totalUnique = allEntries.length + (commanderEntry ? 1 : 0);
+  const totalUnique = allEntries.length + (commanderName ? 1 : 0);
   setDeckBuilderImportStatus(`Importing 0 / ${totalUnique}...`, 'neutral');
 
   if (deckBuilderImportButton) deckBuilderImportButton.disabled = true;
 
   const bulkLookupNames = [];
   const seenBulkNameKeys = new Set();
-  const lookupEntries = commanderEntry
-    ? [{ ...commanderEntry, count: 1 }, ...allEntries]
+  const lookupEntries = commanderName
+    ? [{ name: commanderName, count: 1 }, ...allEntries]
     : allEntries;
 
   lookupEntries.forEach((entry) => {
-    if (hasDeckImportPrintPreference(entry)) {
-      return;
-    }
-
     const variants = getDeckImportNameVariants(getPrimaryDeckImportLookupName(entry.name));
     variants.forEach((variant) => {
       const key = getIdentityKey(variant);
@@ -9552,32 +9513,27 @@ async function importDeckFromText(text) {
   let newCommander = null;
   const failed = [];
 
-  if (commanderEntry) {
+  if (commanderName) {
     try {
-      const bulkCard = hasDeckImportPrintPreference(commanderEntry)
-        ? null
-        : getBulkResolvedImportCard(commanderEntry.name, bulkCardsByQuery);
-      const commanderCard = bulkCard || await fetchDeckCardForImport(commanderEntry);
+      const bulkCard = getBulkResolvedImportCard(commanderName, bulkCardsByQuery);
+      const commanderCard = bulkCard || await fetchDeckCardForImport(commanderName);
       if (commanderCard) {
         newCommander = commanderCard;
       } else {
-        failed.push(formatDeckImportEntryLabel(commanderEntry));
+        failed.push(commanderName);
       }
     } catch (error) {
-      failed.push(formatDeckImportEntryLabel(commanderEntry));
+      failed.push(commanderName);
     }
   }
 
   for (let i = 0; i < allEntries.length; i++) {
-    const entry = allEntries[i];
-    const { count, name, target } = entry;
+    const { count, name, target } = allEntries[i];
     setDeckBuilderImportStatus(`Importing ${i + 1} / ${totalUnique} — ${name}`, 'neutral');
     try {
-      const bulkCard = hasDeckImportPrintPreference(entry)
-        ? null
-        : getBulkResolvedImportCard(name, bulkCardsByQuery);
-      const card = bulkCard || await fetchDeckCardForImport(entry);
-      if (!card) { failed.push(formatDeckImportEntryLabel(entry)); continue; }
+      const bulkCard = getBulkResolvedImportCard(name, bulkCardsByQuery);
+      const card = bulkCard || await fetchDeckCardForImport(name);
+      if (!card) { failed.push(name); continue; }
 
       // Token cards always route to token pool, regardless of source section.
       if (card.isToken || target === 'tokens') {
@@ -9590,7 +9546,7 @@ async function importDeckFromText(text) {
         }
       }
     } catch (e) {
-      failed.push(formatDeckImportEntryLabel(entry));
+      failed.push(name);
     }
 
     // Small pacing delay helps avoid Scryfall burst throttling on large imports.
@@ -9804,686 +9760,6 @@ async function loadPreconDeckText(fileName) {
   lines.push('Deck:');
   (data.mainBoard || []).forEach(c => lines.push(`${c.count || 1} ${c.name}`));
   return lines.join('\n');
-}
-
-function buildSecretLairBundleCardLines(bundle, cardsByUuid) {
-  const countsByKey = new Map();
-
-  const addEntries = (entries) => {
-    if (!Array.isArray(entries)) {
-      return;
-    }
-
-    entries.forEach((entry) => {
-      const uuid = String(entry?.uuid || '').trim();
-      if (!uuid) {
-        return;
-      }
-
-      const card = cardsByUuid.get(uuid);
-      const name = String(card?.name || '').trim();
-      if (!name) {
-        return;
-      }
-
-      const setCode = String(card?.setCode || 'sld').trim().toLowerCase();
-      const collectorNumber = String(card?.number || '').trim();
-      const count = Number.isFinite(Number(entry?.count)) ? Math.max(1, Number(entry.count)) : 1;
-      const key = `${getIdentityKey(name)}::${setCode}#${collectorNumber}`;
-      const label = collectorNumber
-        ? `${name} (${setCode}) ${collectorNumber}`
-        : name;
-
-      if (!countsByKey.has(key)) {
-        countsByKey.set(key, { count: 0, label });
-      }
-
-      countsByKey.get(key).count += count;
-    });
-  };
-
-  addEntries(bundle?.commander);
-  addEntries(bundle?.displayCommander);
-  addEntries(bundle?.mainBoard);
-  addEntries(bundle?.sideBoard);
-
-  return [...countsByKey.values()]
-    .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-    .map((entry) => `${entry.count} ${entry.label}`);
-}
-
-function getSecretLairNameAliases(value) {
-  const raw = String(value || '').trim();
-  if (!raw) {
-    return [];
-  }
-
-  const aliases = new Set();
-  const pushAlias = (candidate) => {
-    const key = getIdentityKey(candidate);
-    if (key) {
-      aliases.add(key);
-    }
-  };
-
-  pushAlias(raw);
-  pushAlias(raw.replace(/^secret\s+lair\s+commander\s+deck\s*/i, ''));
-  pushAlias(raw.replace(/^secret\s+lair\s*/i, ''));
-
-  return [...aliases];
-}
-
-function buildSecretLairCardLinesFromDeckDeck(deckEntry, cardsByUuid) {
-  return buildSecretLairBundleCardLines(deckEntry, cardsByUuid);
-}
-
-function buildSecretLairCardLinesFromProduct(product, cardsByUuid, sealedProductMap, deckMap, productCardLinesMap, seen = new Set()) {
-  const productName = String(product?.name || '').trim();
-  const productKey = getIdentityKey(productName);
-  if (!productKey || seen.has(productKey)) {
-    return [];
-  }
-
-  seen.add(productKey);
-
-  const lines = [];
-  const appendLine = (count, name, setCode, collectorNumber) => {
-    const normalizedName = String(name || '').trim();
-    if (!normalizedName) {
-      return;
-    }
-
-    const normalizedSetCode = String(setCode || 'sld').trim().toLowerCase();
-    const normalizedCollectorNumber = String(collectorNumber || '').trim();
-    const line = normalizedCollectorNumber
-      ? `${Math.max(1, Number.isFinite(Number(count)) ? Number(count) : 1)} ${normalizedName} (${normalizedSetCode}) ${normalizedCollectorNumber}`
-      : `${Math.max(1, Number.isFinite(Number(count)) ? Number(count) : 1)} ${normalizedName}`;
-    lines.push(line);
-  };
-
-  getSecretLairNameAliases(productName).forEach((aliasKey) => {
-    const deckEntry = deckMap.get(aliasKey);
-    if (!deckEntry) {
-      return;
-    }
-    buildSecretLairCardLinesFromDeckDeck(deckEntry, cardsByUuid).forEach((line) => {
-      lines.push(line);
-    });
-  });
-
-  const productUuid = String(product?.uuid || '').trim();
-  (Array.isArray(productCardLinesMap?.get(productUuid)) ? productCardLinesMap.get(productUuid) : []).forEach((line) => {
-    lines.push(line);
-  });
-
-  (Array.isArray(product?.contents?.deck) ? product.contents.deck : []).forEach((entry) => {
-    const deckName = String(entry?.name || '').trim();
-    if (!deckName) {
-      return;
-    }
-
-    getSecretLairNameAliases(deckName).forEach((aliasKey) => {
-      const nestedDeck = deckMap.get(aliasKey);
-      if (!nestedDeck) {
-        return;
-      }
-      buildSecretLairCardLinesFromDeckDeck(nestedDeck, cardsByUuid).forEach((line) => {
-        lines.push(line);
-      });
-    });
-  });
-
-  (Array.isArray(product?.contents?.card) ? product.contents.card : []).forEach((entry) => {
-    const uuid = String(entry?.uuid || '').trim();
-    if (!uuid) {
-      return;
-    }
-
-    const card = cardsByUuid.get(uuid);
-    appendLine(entry?.count || 1, card?.name, card?.setCode || 'sld', card?.number || '');
-  });
-
-  (Array.isArray(product?.contents?.sealed) ? product.contents.sealed : []).forEach((entry) => {
-    const nestedName = String(entry?.name || '').trim();
-    const nestedKey = getIdentityKey(nestedName);
-    const nestedProduct = sealedProductMap.get(nestedKey);
-    const nestedDeck = deckMap.get(nestedKey);
-    const nestedLines = nestedProduct
-      ? buildSecretLairCardLinesFromProduct(nestedProduct, cardsByUuid, sealedProductMap, deckMap, productCardLinesMap, seen)
-      : nestedDeck
-        ? buildSecretLairCardLinesFromDeckDeck(nestedDeck, cardsByUuid)
-        : [];
-    nestedLines.forEach((line) => {
-      lines.push(line);
-    });
-  });
-
-  const deduped = new Map();
-  lines.forEach((line) => {
-    const normalizedLine = String(line || '').trim();
-    if (!normalizedLine) {
-      return;
-    }
-
-    const countMatch = normalizedLine.match(/^(\d+)\s+(.+)$/);
-    const parsedCount = countMatch ? Math.max(1, Number.parseInt(countMatch[1], 10) || 1) : 1;
-    const label = countMatch ? String(countMatch[2] || '').trim() : normalizedLine.replace(/^\d+\s+/, '').trim();
-    const key = getIdentityKey(label);
-    if (!key) {
-      return;
-    }
-    if (!deduped.has(key)) {
-      deduped.set(key, { count: 0, label });
-    }
-    deduped.get(key).count += parsedCount;
-  });
-
-  return [...deduped.values()]
-    .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-    .map((entry) => `${entry.count} ${entry.label}`);
-}
-
-function buildSecretLairBundleImportText(bundleName, cardLines, options = {}) {
-  const commanderLines = Array.isArray(options?.commanderLines) ? options.commanderLines.filter(Boolean) : [];
-  const deckLines = Array.isArray(cardLines) ? cardLines.filter(Boolean) : [];
-  const lines = [
-    `// Secret Lair: ${bundleName}`,
-  ];
-
-  if (commanderLines.length) {
-    lines.push('// Commander');
-    lines.push(...commanderLines);
-    lines.push('');
-  }
-
-  lines.push('// Deck');
-  lines.push(...deckLines);
-
-  return lines.join('\n');
-}
-
-async function fetchSecretLairDeckListIndex() {
-  if (deckBuilderSecretLairDeckListIndexCache) {
-    return deckBuilderSecretLairDeckListIndexCache;
-  }
-
-  if (deckBuilderSecretLairDeckListIndexPromise) {
-    return deckBuilderSecretLairDeckListIndexPromise;
-  }
-
-  deckBuilderSecretLairDeckListIndexPromise = (async () => {
-    const response = await fetch('https://mtgjson.com/api/v5/DeckList.json', { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Failed to load deck index (${response.status}).`);
-    }
-
-    const payload = await response.json();
-    const entries = Array.isArray(payload?.data) ? payload.data : [];
-    const byAlias = new Map();
-
-    entries
-      .filter((entry) => String(entry?.type || '').toLowerCase() === 'commander deck')
-      .forEach((entry) => {
-        const name = String(entry?.name || '').trim();
-        const fileName = String(entry?.fileName || '').trim();
-        if (!name || !fileName) {
-          return;
-        }
-
-        getSecretLairNameAliases(name).forEach((aliasKey) => {
-          if (!byAlias.has(aliasKey)) {
-            byAlias.set(aliasKey, fileName);
-          }
-        });
-      });
-
-    deckBuilderSecretLairDeckListIndexCache = byAlias;
-    return byAlias;
-  })();
-
-  try {
-    return await deckBuilderSecretLairDeckListIndexPromise;
-  } finally {
-    deckBuilderSecretLairDeckListIndexPromise = null;
-  }
-}
-
-async function loadSecretLairDeckListTextFromMtgjson(bundleName) {
-  const aliases = getSecretLairNameAliases(bundleName);
-  if (!aliases.length) {
-    return '';
-  }
-
-  const deckIndex = await fetchSecretLairDeckListIndex();
-  let fileName = '';
-  for (let i = 0; i < aliases.length; i += 1) {
-    const candidate = String(deckIndex.get(aliases[i]) || '').trim();
-    if (candidate) {
-      fileName = candidate;
-      break;
-    }
-  }
-
-  if (!fileName) {
-    return '';
-  }
-
-  const response = await fetch(`https://mtgjson.com/api/v5/decks/${encodeURIComponent(fileName)}.json`, { cache: 'no-store' });
-  if (!response.ok) {
-    return '';
-  }
-
-  const payload = await response.json();
-  const data = payload?.data;
-  const commanderLines = [];
-  const deckLines = [];
-  const appendCommanderEntries = (entries) => {
-    (Array.isArray(entries) ? entries : []).forEach((entry) => {
-      const name = String(entry?.name || '').trim();
-      if (!name) {
-        return;
-      }
-
-      const count = Math.max(1, Number.isFinite(Number(entry?.count)) ? Number(entry.count) : 1);
-      const setCode = String(entry?.setCode || entry?.set || '').trim().toLowerCase();
-      commanderLines.push(setCode ? `${count} ${name} (${setCode})` : `${count} ${name}`);
-    });
-  };
-  const appendEntries = (entries) => {
-    (Array.isArray(entries) ? entries : []).forEach((entry) => {
-      const name = String(entry?.name || '').trim();
-      if (!name) {
-        return;
-      }
-
-      const count = Math.max(1, Number.isFinite(Number(entry?.count)) ? Number(entry.count) : 1);
-      const setCode = String(entry?.setCode || entry?.set || '').trim().toLowerCase();
-      deckLines.push(setCode ? `${count} ${name} (${setCode})` : `${count} ${name}`);
-    });
-  };
-
-  appendCommanderEntries(data?.commander);
-  appendEntries(data?.mainBoard);
-  appendEntries(data?.sideBoard);
-
-  if (!commanderLines.length && !deckLines.length) {
-    return '';
-  }
-
-  return buildSecretLairBundleImportText(bundleName, deckLines, { commanderLines });
-}
-
-function renderPreconOptions(filterText = '') {
-  if (!deckBuilderPreconMenu) {
-    return;
-  }
-
-  const query = String(filterText || '').trim().toLowerCase();
-  const filteredEntries = deckBuilderPreconEntriesCache.filter((entry) => {
-    if (!query) {
-      return true;
-    }
-
-    const name = String(entry?.name || '').toLowerCase();
-    const code = String(entry?.code || '').toLowerCase();
-    const label = `${name} (${code})`;
-    return name.includes(query) || code.includes(query) || label.includes(query);
-  });
-
-  const labels = filteredEntries.map((entry) => `${entry.name} (${entry.code})`);
-  buildDropdownMenu(deckBuilderPreconMenu, labels);
-}
-
-function resolvePreconFileName(typedValue) {
-  const typed = String(typedValue || '').trim();
-  if (!typed) {
-    return '';
-  }
-
-  const directMatch = deckBuilderPreconEntriesByLabel.get(typed);
-  if (directMatch) {
-    return directMatch;
-  }
-
-  const normalizedTyped = normalizeSecretLairName(typed);
-  const candidates = deckBuilderPreconEntriesCache.filter((entry) => {
-    const name = String(entry?.name || '').trim();
-    const code = String(entry?.code || '').trim();
-    const label = `${name} (${code})`;
-    const normalizedName = normalizeSecretLairName(name);
-    const normalizedLabel = normalizeSecretLairName(label);
-    const normalizedCode = normalizeSecretLairName(code);
-    return normalizedName.includes(normalizedTyped)
-      || normalizedLabel.includes(normalizedTyped)
-      || normalizedCode.includes(normalizedTyped);
-  });
-
-  return candidates.length === 1 ? String(candidates[0]?.fileName || '').trim() : '';
-}
-
-function renderSecretLairProductOptions(filterText = '') {
-  if (!deckBuilderSecretLairSelect || !deckBuilderSecretLairMenu) {
-    return;
-  }
-
-  const query = String(filterText || '').trim().toLowerCase();
-  const catalog = Array.isArray(deckBuilderSecretLairBundlesCache) ? deckBuilderSecretLairBundlesCache : [];
-  const currentValue = String(deckBuilderSecretLairSelect.value || '').trim();
-  const filteredCatalog = catalog.filter((entry) => {
-    if (!query) {
-      return true;
-    }
-
-    const name = String(entry?.name || '').toLowerCase();
-    return name.includes(query);
-  });
-  buildDropdownMenu(deckBuilderSecretLairMenu, filteredCatalog.map((entry) => String(entry?.name || '').trim()).filter(Boolean));
-
-  const hasCurrentMatch = filteredCatalog.some((entry) => String(entry?.name || '').trim() === currentValue);
-  if (!hasCurrentMatch && query && filteredCatalog.length === 1 && filteredCatalog[0]?.name) {
-    deckBuilderSecretLairSelect.value = filteredCatalog[0].name;
-  }
-
-  if (deckBuilderSecretLairLoadButton) {
-    const typedValue = String(deckBuilderSecretLairSelect.value || '').trim();
-    deckBuilderSecretLairLoadButton.disabled = !typedValue;
-  }
-}
-
-async function fetchSecretLairBundleCatalog() {
-  if (Array.isArray(deckBuilderSecretLairBundlesCache)) {
-    return deckBuilderSecretLairBundlesCache;
-  }
-
-  if (deckBuilderSecretLairBundlesPromise) {
-    return deckBuilderSecretLairBundlesPromise;
-  }
-
-  deckBuilderSecretLairBundlesPromise = (async () => {
-    const response = await fetch(SECRET_LAIR_SET_ENDPOINT, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Failed to load Secret Lair bundles (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const cards = Array.isArray(payload?.data?.cards) ? payload.data.cards : [];
-    const bundles = Array.isArray(payload?.data?.decks) ? payload.data.decks : [];
-    const sealedProducts = Array.isArray(payload?.data?.sealedProduct) ? payload.data.sealedProduct : [];
-    const cardsByUuid = new Map();
-    const sealedProductMap = new Map();
-    const deckMap = new Map();
-    const productCardCountsByKey = new Map();
-    const productCardLinesMap = new Map();
-
-    cards.forEach((card) => {
-      const uuid = String(card?.uuid || '').trim();
-      if (!uuid) {
-        return;
-      }
-      cardsByUuid.set(uuid, card);
-
-      const name = String(card?.name || '').trim();
-      const setCode = String(card?.setCode || 'sld').trim().toLowerCase();
-      const collectorNumber = String(card?.number || '').trim();
-      const lineLabel = collectorNumber ? `${name} (${setCode}) ${collectorNumber}` : name;
-      if (!name) {
-        return;
-      }
-
-      const sourceProducts = card?.sourceProducts || {};
-      const productUuids = [
-        ...(Array.isArray(sourceProducts?.foil) ? sourceProducts.foil : []),
-        ...(Array.isArray(sourceProducts?.nonfoil) ? sourceProducts.nonfoil : []),
-      ];
-
-      productUuids.forEach((productUuid) => {
-        const normalizedProductUuid = String(productUuid || '').trim();
-        if (!normalizedProductUuid) {
-          return;
-        }
-
-        if (!productCardCountsByKey.has(normalizedProductUuid)) {
-          productCardCountsByKey.set(normalizedProductUuid, new Map());
-        }
-        const countsByKey = productCardCountsByKey.get(normalizedProductUuid);
-        const countKey = `${getIdentityKey(name)}::${setCode}#${collectorNumber}`;
-        if (!countsByKey.has(countKey)) {
-          countsByKey.set(countKey, { count: 0, label: lineLabel });
-        }
-        countsByKey.get(countKey).count += 1;
-      });
-    });
-
-    productCardCountsByKey.forEach((countsByKey, productUuid) => {
-      const lines = [...countsByKey.values()]
-        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')))
-        .map((entry) => `${entry.count} ${entry.label}`);
-      productCardLinesMap.set(productUuid, lines);
-    });
-
-    bundles.forEach((bundle) => {
-      const name = String(bundle?.name || '').trim();
-      if (!name) {
-        return;
-      }
-      getSecretLairNameAliases(name).forEach((aliasKey) => {
-        if (!deckMap.has(aliasKey)) {
-          deckMap.set(aliasKey, bundle);
-        }
-      });
-    });
-
-    sealedProducts.forEach((product) => {
-      const name = String(product?.name || '').trim();
-      if (!name) {
-        return;
-      }
-      sealedProductMap.set(getIdentityKey(name), product);
-    });
-
-    deckBuilderSecretLairCatalogSource = {
-      cardsByUuid,
-      sealedProductMap,
-      deckMap,
-      productCardLinesMap,
-    };
-
-    const catalogMap = new Map();
-
-    sealedProducts.forEach((product) => {
-      const name = String(product?.name || '').trim();
-      if (!name) {
-        return;
-      }
-
-      const entry = {
-        name,
-        cardCount: 0,
-        expectedCardCount: Number.isFinite(Number(product?.cardCount)) ? Math.max(0, Number(product.cardCount)) : 0,
-        text: '',
-      };
-
-      const key = getIdentityKey(name);
-      const existing = catalogMap.get(key);
-      if (!existing || entry.cardCount > existing.cardCount) {
-        catalogMap.set(key, entry);
-      }
-    });
-
-    const catalog = [...catalogMap.values()].sort((a, b) => a.name.localeCompare(b.name));
-
-    deckBuilderSecretLairBundlesCache = catalog;
-    return catalog;
-  })();
-
-  try {
-    return await deckBuilderSecretLairBundlesPromise;
-  } finally {
-    deckBuilderSecretLairBundlesPromise = null;
-  }
-}
-
-function buildSecretLairTextForCatalogEntry(entry) {
-  if (!entry || entry.text) {
-    return String(entry?.text || '');
-  }
-
-  const source = deckBuilderSecretLairCatalogSource;
-  if (!source?.sealedProductMap || !source?.cardsByUuid || !source?.deckMap || !source?.productCardLinesMap) {
-    return '';
-  }
-
-  const product = source.sealedProductMap.get(getIdentityKey(entry.name || ''));
-  if (!product) {
-    return '';
-  }
-
-  const cardLines = buildSecretLairCardLinesFromProduct(
-    product,
-    source.cardsByUuid,
-    source.sealedProductMap,
-    source.deckMap,
-    source.productCardLinesMap,
-  );
-
-  if (!cardLines.length) {
-    return '';
-  }
-
-  entry.cardCount = cardLines.length;
-  entry.text = buildSecretLairBundleImportText(entry.name, cardLines);
-  return entry.text;
-}
-
-function resolveSecretLairCatalogEntry(bundleName, catalog) {
-  const normalizedName = String(bundleName || '').trim();
-  const entries = Array.isArray(catalog) ? catalog : [];
-  if (!normalizedName || !entries.length) {
-    return null;
-  }
-
-  const lowerName = normalizedName.toLowerCase();
-  const identityKey = getIdentityKey(normalizedName);
-  const typedAliases = new Set(getSecretLairNameAliases(normalizedName));
-
-  const exactLower = entries.find((entry) => String(entry?.name || '').trim().toLowerCase() === lowerName);
-  if (exactLower) {
-    return exactLower;
-  }
-
-  const exactIdentity = entries.find((entry) => getIdentityKey(entry?.name || '') === identityKey);
-  if (exactIdentity) {
-    return exactIdentity;
-  }
-
-  const aliasMatches = entries.filter((entry) => {
-    const entryAliases = getSecretLairNameAliases(String(entry?.name || ''));
-    return entryAliases.some((alias) => typedAliases.has(alias));
-  });
-  if (aliasMatches.length === 1) {
-    return aliasMatches[0];
-  }
-
-  const containsMatches = entries.filter((entry) => {
-    const entryName = String(entry?.name || '').toLowerCase();
-    return entryName.includes(lowerName);
-  });
-  if (containsMatches.length === 1) {
-    return containsMatches[0];
-  }
-
-  const reverseContainsMatches = entries.filter((entry) => {
-    const entryName = String(entry?.name || '').toLowerCase();
-    return lowerName.includes(entryName);
-  });
-  if (reverseContainsMatches.length === 1) {
-    return reverseContainsMatches[0];
-  }
-
-  return null;
-}
-
-async function loadSecretLairBundleText(bundleName) {
-  const isCompleteBundleEntry = (entry) => {
-    const lineCount = Number.isFinite(Number(entry?.cardCount)) ? Math.max(0, Number(entry.cardCount)) : 0;
-    const expected = Number.isFinite(Number(entry?.expectedCardCount)) ? Math.max(0, Number(entry.expectedCardCount)) : 0;
-    if (!entry?.text || lineCount <= 0) {
-      return false;
-    }
-    if (!expected) {
-      return true;
-    }
-    return lineCount >= expected;
-  };
-
-  const normalizedName = String(bundleName || '').trim();
-  if (!normalizedName) {
-    throw new Error('Select a Secret Lair bundle first.');
-  }
-
-  const isCommanderDeckRequest = /secret\s+lair\s+commander\s+deck/i.test(normalizedName);
-  if (isCommanderDeckRequest) {
-    const mtgjsonDeckText = await loadSecretLairDeckListTextFromMtgjson(normalizedName);
-    if (mtgjsonDeckText) {
-      return mtgjsonDeckText;
-    }
-  }
-
-  const catalog = await fetchSecretLairBundleCatalog();
-  const corrected = resolveSecretLairCatalogEntry(normalizedName, catalog);
-  const resolvedName = String(corrected?.name || normalizedName).trim();
-
-  if (corrected && !corrected.text) {
-    buildSecretLairTextForCatalogEntry(corrected);
-  }
-
-  if (isCompleteBundleEntry(corrected)) {
-    return corrected.text;
-  }
-
-  const lookupNames = [...new Set([resolvedName, normalizedName].filter(Boolean))];
-
-  for (let i = 0; i < lookupNames.length; i += 1) {
-    const mtgjsonDeckText = await loadSecretLairDeckListTextFromMtgjson(lookupNames[i]);
-    if (mtgjsonDeckText) {
-      return mtgjsonDeckText;
-    }
-  }
-
-  for (let i = 0; i < lookupNames.length; i += 1) {
-    const sourceResponse = await fetch(`${SECRET_LAIR_LIST_ENDPOINT}?name=${encodeURIComponent(lookupNames[i])}`, {
-      cache: 'no-store',
-    });
-    if (!sourceResponse.ok) {
-      continue;
-    }
-
-    const sourcePayload = await sourceResponse.json();
-    const rawText = String(sourcePayload?.text || '').trim();
-    if (!rawText) {
-      continue;
-    }
-
-    const cardLines = rawText
-      .split(/\r?\n/)
-      .map((line) => String(line || '').trim())
-      .filter((line) => /^\d+\s+/.test(line));
-
-    if (cardLines.length) {
-      return buildSecretLairBundleImportText(resolvedName, cardLines);
-    }
-  }
-
-  if (corrected?.text) {
-    const expected = Number.isFinite(Number(corrected?.expectedCardCount)) ? Math.max(0, Number(corrected.expectedCardCount)) : 0;
-    const actual = Number.isFinite(Number(corrected?.cardCount)) ? Math.max(0, Number(corrected.cardCount)) : 0;
-    if (expected && actual && actual < expected) {
-      return `${corrected.text}\n\n// Note: Only ${actual} of ${expected} cards are currently available from public data sources for this product.`;
-    }
-    return corrected.text;
-  }
-
-  throw new Error('Could not find that Secret Lair bundle.');
 }
 
 function getDeckOwnerGroups() {
@@ -10977,67 +10253,23 @@ function renderUnlimitedCopyCardRow(name, cards) {
 function renderBasicLandRow(name, cards) {
   const count = cards.length;
   const sampleId = cards[0]?.id || '';
-  const sampleCard = cards[0];
-  const sampleImageUri = String(sampleCard?.imageUri || '').trim();
   const deck = ensureActiveDeckBuilderRecord();
   const isReadOnly = deck ? !canCurrentUserEditDeck(deck) : false;
-  const isArtPickerOpen = Boolean(sampleId && deckBuilderArtPickerCardId === sampleId);
-  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || isArtPickerOpen);
+  const isExpanded = sampleId && (deckBuilderSelectedDeckCardId === sampleId || deckBuilderArtPickerCardId === sampleId);
   const artButton = sampleId && isExpanded
     ? `<button type="button" class="secondary-button deck-builder-change-art" data-change-art-id="${escapeHtml(sampleId)}" aria-label="Change art for ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>Art</button>`
     : '';
-  const imageMarkup = isExpanded && sampleCard && (sampleCard.imageLargeUri || sampleCard.imageUri)
-    ? `<div class="deck-card-row-media">
-        <img class="deck-card-row-image" src="${escapeHtml(sampleCard.imageLargeUri || sampleCard.imageUri)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" />
-      </div>`
-    : '';
-  const artState = isArtPickerOpen ? deckBuilderArtPickerState : null;
-  const selectedPrintIds = artState?.selectedPrintIds || [];
-  const landCount = artState?.landCount || count;
-  const artBody = isArtPickerOpen
-    ? `<div class="deck-card-art-picker">
-        ${artState?.status === 'loading' ? `<p class="deck-card-art-status">${escapeHtml(artState.message || 'Loading art options...')}</p>` : ''}
-        ${artState?.status === 'error' ? `<p class="deck-card-art-status status-error">${escapeHtml(artState.message || 'Unable to load art options.')}</p>` : ''}
-        ${artState?.status === 'ready' && !(artState.options || []).length ? `<p class="deck-card-art-status status-muted">${escapeHtml(artState.message || 'No alternate arts found for this card.')}</p>` : ''}
-        ${artState?.status === 'ready' && (artState.options || []).length ? `
-          <div class="deck-card-art-multi-header">
-            <span class="deck-card-art-multi-count">${escapeHtml(String(selectedPrintIds.length))}/${escapeHtml(String(landCount))} selected</span>
-            <button type="button" class="secondary-button deck-card-art-multi-apply" data-apply-basic-land-arts="${escapeHtml(sampleId)}"${selectedPrintIds.length === 0 || isReadOnly ? ' disabled' : ''}>Apply</button>
-          </div>
-          <div class="deck-card-art-grid">
-            ${(artState.options || []).map((print) => {
-              const isSelected = selectedPrintIds.includes(String(print.id || ''));
-              const canSelect = isSelected || selectedPrintIds.length < landCount;
-              return `<button
-                type="button"
-                class="deck-card-art-option${isSelected ? ' deck-card-art-option--selected' : ''}"
-                data-toggle-art-card-id="${escapeHtml(sampleId)}"
-                data-toggle-art-print-id="${escapeHtml(print.id || '')}"
-                title="${escapeHtml(`${print.setName || print.set || 'Print'} ${print.collectorNumber || ''}`.trim())}"
-                ${!canSelect || isReadOnly ? ' disabled' : ''}
-              >
-                ${print.imageUri ? `<img src="${escapeHtml(print.imageUri)}" alt="${escapeHtml(print.name || name)}" loading="lazy" decoding="async" />` : ''}
-                <span>${escapeHtml(`${(print.set || '').toUpperCase()} ${print.collectorNumber || ''}`.trim() || (print.lang || 'Print'))}</span>
-              </button>`;
-            }).join('')}
-          </div>` : ''}
-      </div>`
-    : '';
   return `
     <div class="deck-card-row deck-card-row-basic-land${isExpanded ? ' is-selected' : ''}" data-basic-land-name="${escapeHtml(name)}" data-card-id="${escapeHtml(sampleId)}" data-card-name="${escapeHtml(name)}">
-      ${imageMarkup}
-      <div class="deck-card-row-main">
-        <div class="deck-card-row-copy">
-          <p class="deck-card-name">${escapeHtml(name)}</p>
-          <p class="deck-card-meta">Basic Land</p>
-        </div>
-        <div class="deck-card-row-actions deck-card-row-actions-land">
-          <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" data-source-card-id="${escapeHtml(sampleId)}" data-source-image-uri="${escapeHtml(sampleImageUri)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
-          <span class="deck-land-count">×${escapeHtml(String(count))}</span>
-          <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" data-source-card-id="${escapeHtml(sampleId)}" data-source-image-uri="${escapeHtml(sampleImageUri)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
-          ${artButton}
-        </div>
-        ${artBody}
+      <div class="deck-card-row-copy">
+        <p class="deck-card-name">${escapeHtml(name)}</p>
+        <p class="deck-card-meta">Basic Land</p>
+      </div>
+      <div class="deck-card-row-actions deck-card-row-actions-land">
+        <button type="button" class="deck-land-minus deck-builder-remove-card" data-card-id="${escapeHtml(sampleId)}" data-remove-basic="${escapeHtml(name)}" aria-label="Remove one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>−</button>
+        <span class="deck-land-count">×${escapeHtml(String(count))}</span>
+        <button type="button" class="deck-land-plus" data-add-basic="${escapeHtml(name)}" aria-label="Add one ${escapeHtml(name)}"${isReadOnly ? ' disabled' : ''}>+</button>
+        ${artButton}
       </div>
     </div>`;
 }
@@ -11060,18 +10292,16 @@ function getDeckBuilderBasicLandHoldAction(target) {
   }
 
   const addBasicName = String(button.dataset.addBasic || '').trim();
-  const sourceCardId = String(button.dataset.sourceCardId || '').trim();
-  const sourceImageUri = String(button.dataset.sourceImageUri || '').trim();
   if (addBasicName) {
     return () => {
-      void addBasicLandToDeck(addBasicName, { sourceCardId, sourceImageUri });
+      void addBasicLandToDeck(addBasicName);
     };
   }
 
   const removeBasicName = String(button.dataset.removeBasic || '').trim();
   if (removeBasicName) {
     return () => {
-      removeBasicLandFromDeck(removeBasicName, { sourceCardId, sourceImageUri });
+      removeBasicLandFromDeck(removeBasicName);
     };
   }
 
@@ -11126,54 +10356,11 @@ async function addUnlimitedCopyCardToDeck(cardName) {
   });
 }
 
-async function addBasicLandToDeck(landName, { sourceCardId = '', sourceImageUri = '' } = {}) {
+async function addBasicLandToDeck(landName) {
   return queueDeckBuilderMutation(async () => {
     const deck = ensureActiveDeckBuilderRecord({ createIfMissing: true });
     if (!deck) return;
-
-    const normalizedSourceCardId = String(sourceCardId || '').trim();
-    const normalizedSourceImageUri = String(sourceImageUri || '').trim();
-    const targetNameKey = getIdentityKey(landName);
-    let card = normalizedSourceCardId
-      ? (deck.cards || []).find((entry) => String(entry?.id || '') === normalizedSourceCardId)
-      : null;
-
-    if (!card && normalizedSourceImageUri) {
-      card = (deck.cards || []).find((entry) => (
-        getIdentityKey(entry?.name) === targetNameKey && String(entry?.imageUri || '').trim() === normalizedSourceImageUri
-      ));
-    }
-
-    if (!card && !normalizedSourceCardId && !normalizedSourceImageUri) {
-      // Quick-add (no explicit source) should keep art distribution stable by reusing
-      // the most common existing art variant for this basic land in the current deck.
-      const matchingBasics = (deck.cards || []).filter((entry) => getIdentityKey(entry?.name) === targetNameKey);
-      if (matchingBasics.length) {
-        const groups = new Map();
-        matchingBasics.forEach((entry) => {
-          const key = String(entry?.imageUri || '').trim();
-          const existing = groups.get(key);
-          if (existing) {
-            existing.count += 1;
-          } else {
-            groups.set(key, { count: 1, card: entry });
-          }
-        });
-
-        let selected = null;
-        groups.forEach((value) => {
-          if (!selected || value.count > selected.count) {
-            selected = value;
-          }
-        });
-
-        card = selected?.card || null;
-      }
-    }
-
-    if (!card) {
-      card = deckBuilderCardCache.get(landName.toLowerCase());
-    }
+    let card = deckBuilderCardCache.get(landName.toLowerCase());
     if (!card) {
       await warmDeckBuilderBasicLandCache();
       card = deckBuilderCardCache.get(landName.toLowerCase());
@@ -11199,31 +10386,14 @@ async function addBasicLandToDeck(landName, { sourceCardId = '', sourceImageUri 
   });
 }
 
-function removeBasicLandFromDeck(landName, { sourceCardId = '', sourceImageUri = '' } = {}) {
+function removeBasicLandFromDeck(landName) {
   return queueDeckBuilderMutation(() => {
     const deck = ensureActiveDeckBuilderRecord();
     if (!deck) {
       return;
     }
 
-    const normalizedSourceCardId = String(sourceCardId || '').trim();
-    const normalizedSourceImageUri = String(sourceImageUri || '').trim();
-    const targetNameKey = getIdentityKey(landName);
-
-    let match = normalizedSourceCardId
-      ? (deck.cards || []).find((card) => String(card?.id || '') === normalizedSourceCardId)
-      : null;
-
-    if (!match && normalizedSourceImageUri) {
-      match = (deck.cards || []).find((card) => (
-        getIdentityKey(card?.name) === targetNameKey && String(card?.imageUri || '').trim() === normalizedSourceImageUri
-      ));
-    }
-
-    if (!match) {
-      match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === targetNameKey);
-    }
-
+    const match = (deck.cards || []).find((card) => getIdentityKey(card?.name) === getIdentityKey(landName));
     if (!match?.id) {
       return;
     }
@@ -13325,6 +12495,7 @@ function getPlayerStatsData(games) {
   games.forEach((game) => {
     const rows = getGameRows(game);
     const winner = Array.isArray(game.finishOrder) && game.finishOrder.length ? game.finishOrder[0] : null;
+    const winningTurn = parseOptionalPositiveInteger(game?.liveSummary?.turnNumber);
     const firstBlood = getGameFirstBloodInfo(game);
 
     if (firstBlood?.actorPlayer) {
@@ -13342,6 +12513,10 @@ function getPlayerStatsData(games) {
       playerStat.games += 1;
       if (winner === player) {
         playerStat.wins += 1;
+        if (winningTurn) {
+          playerStat.winTurnTotal += winningTurn;
+          playerStat.winTurnCount += 1;
+        }
       }
 
       const commander = canonicalizeIdentityValue((row.commander || '').trim(), commanderMap);
@@ -13388,7 +12563,7 @@ function renderPlayerStats(games) {
   const players = Object.keys(stats);
 
   if (!players.length) {
-    playerStatsTableBody.innerHTML = '<tr><td colspan="11">No player stats available.</td></tr>';
+    playerStatsTableBody.innerHTML = '<tr><td colspan="12">No player stats available.</td></tr>';
     return;
   }
 
@@ -13400,6 +12575,7 @@ function renderPlayerStats(games) {
       const nemesis = getMaxCountKey(stat.killerCounts);
       const victim = getMaxCountKey(stat.victimCounts);
       const killAverage = stat.games ? (stat.kills / stat.games).toFixed(1) : '0.0';
+      const avgWinTurn = stat.winTurnCount ? (stat.winTurnTotal / stat.winTurnCount) : 0;
 
       let bestDeck = '—';
       let bestDeckCommander = '';
@@ -13440,6 +12616,7 @@ function renderPlayerStats(games) {
         victim: victim || '',
         kills: stat.kills,
         kd: Number.parseFloat(killAverage),
+        avgWinTurn,
         bestDeck,
         bestDeckCommander,
         bestDeckWinRate,
@@ -13480,6 +12657,9 @@ function renderPlayerStats(games) {
       case 'kd':
         result = compareNumberValues(a.kd, b.kd);
         break;
+      case 'avgWinTurn':
+        result = compareNumberValues(a.avgWinTurn, b.avgWinTurn);
+        break;
       case 'bestDeck':
         result = compareTextValues(a.bestDeck, b.bestDeck);
         break;
@@ -13508,6 +12688,7 @@ function renderPlayerStats(games) {
           <td>${row.victim ? escapeHtml(row.victim) : '—'}</td>
           <td>${row.kills}</td>
           <td>${row.kd.toFixed(1)}</td>
+          <td>${row.avgWinTurn ? row.avgWinTurn.toFixed(2) : '—'}</td>
           <td>${row.bestDeckCommander ? `${buildDeckListLinkOrText(row.bestDeckCommander)} (${formatPercent(row.bestDeckWinRate)} from ${row.bestDeckGames})` : row.bestDeck}</td>
         </tr>`;
     })
@@ -13548,12 +12729,28 @@ function getCommanderStatsData(games) {
       }
 
       if (!stats[commander]) {
-        stats[commander] = { games: 0, wins: 0, points: 0, kills: 0, firstBloods: 0, placementTotal: 0, placementScoreTotal: 0, placementGames: 0 };
+        stats[commander] = {
+          games: 0,
+          wins: 0,
+          points: 0,
+          kills: 0,
+          firstBloods: 0,
+          placementTotal: 0,
+          placementScoreTotal: 0,
+          placementGames: 0,
+          winTurnTotal: 0,
+          winTurnCount: 0,
+        };
       }
 
       stats[commander].games += 1;
       if (Array.isArray(game.finishOrder) && game.finishOrder[0] === row.player) {
         stats[commander].wins += 1;
+        const winningTurn = parseOptionalPositiveInteger(game?.liveSummary?.turnNumber);
+        if (winningTurn) {
+          stats[commander].winTurnTotal += winningTurn;
+          stats[commander].winTurnCount += 1;
+        }
       }
 
       if (Array.isArray(game.finishOrder) && game.finishOrder.length) {
@@ -13671,10 +12868,12 @@ function renderCommanderStats(games) {
       const pointsPerGame = stat.games ? stat.points / stat.games : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
+      const avgWinTurn = stat.winTurnCount ? (stat.winTurnTotal / stat.winTurnCount) : 0;
       return {
         commander,
         games: stat.games,
         wins: stat.wins,
+        avgWinTurn,
         pointsPerGame,
         winRate: winRateValue,
         kills: stat.kills,
@@ -13709,6 +12908,10 @@ function renderCommanderStats(games) {
       case 'wins':
         aVal = a.wins;
         bVal = b.wins;
+        break;
+      case 'avgWinTurn':
+        aVal = a.avgWinTurn;
+        bVal = b.avgWinTurn;
         break;
       case 'pointsPerGame':
         aVal = a.pointsPerGame;
@@ -13762,7 +12965,7 @@ function renderCommanderStats(games) {
   });
 
   const rows = entries
-    .map(({ commander, stat, pointsPerGame, actual, actualCal, expected, delta, confidence }) => {
+    .map(({ commander, stat, avgWinTurn, pointsPerGame, actual, actualCal, expected, delta, confidence }) => {
       const winRateValue = stat.games ? (stat.wins / stat.games) * 100 : 0;
       const killsPerGame = stat.games ? stat.kills / stat.games : 0;
       const averagePlacement = stat.placementGames ? stat.placementTotal / stat.placementGames : 0;
@@ -13784,6 +12987,7 @@ function renderCommanderStats(games) {
           <td>${buildDeckListLinkOrText(commander)}</td>
           <td>${stat.games}</td>
           <td>${stat.wins}</td>
+          <td>${avgWinTurn ? avgWinTurn.toFixed(2) : '—'}</td>
           <td>${formatPointsPerGame(pointsPerGame)}</td>
           <td>${formatPercent(winRateValue)}</td>
           <td>${stat.kills}</td>
@@ -13815,7 +13019,7 @@ function renderCommanderStats(games) {
     })
     .join('');
 
-  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="14">No commanders match your search.</td></tr>';
+  commanderStatsTableBody.innerHTML = rows || '<tr><td colspan="15">No commanders match your search.</td></tr>';
   updateSortableTableIndicators('commanderStats');
 }
 
@@ -13954,6 +13158,7 @@ function refresh() {
   refreshLiveTrackerUi();
   initializeMobileSortControls();
   applyResponsiveTableLabels();
+  void refreshAuthAuditLogs();
   void backfillDeckListCommanderOracleIds();
 }
 
@@ -14640,7 +13845,7 @@ if (deckBuilderCards) {
 
       if (deckBuilderArtPickerCardId === cardId) {
         deckBuilderArtPickerCardId = '';
-        deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '', selectedPrintIds: [], isBasicLand: false, landCount: 0 };
+        deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
         const deck = ensureActiveDeckBuilderRecord();
         if (deck) {
           renderDeckBuilderCards(deck);
@@ -14660,37 +13865,6 @@ if (deckBuilderCards) {
       if (cardId && selectedPrint) {
         applyDeckBuilderCardArt(cardId, selectedPrint);
       }
-      return;
-    }
-
-    const toggleArtButton = event.target.closest('[data-toggle-art-print-id][data-toggle-art-card-id]');
-    if (toggleArtButton) {
-      const printId = String(toggleArtButton.dataset.toggleArtPrintId || '');
-      if (!printId) {
-        return;
-      }
-      const currentSelected = deckBuilderArtPickerState.selectedPrintIds || [];
-      const landCount = deckBuilderArtPickerState.landCount || 1;
-      const isSelected = currentSelected.includes(printId);
-      let nextSelected;
-      if (isSelected) {
-        nextSelected = currentSelected.filter((id) => id !== printId);
-      } else if (currentSelected.length < landCount) {
-        nextSelected = [...currentSelected, printId];
-      } else {
-        return;
-      }
-      deckBuilderArtPickerState = { ...deckBuilderArtPickerState, selectedPrintIds: nextSelected };
-      const deck = ensureActiveDeckBuilderRecord();
-      if (deck) {
-        renderDeckBuilderCards(deck);
-      }
-      return;
-    }
-
-    const applyBasicLandArtsButton = event.target.closest('[data-apply-basic-land-arts]');
-    if (applyBasicLandArtsButton) {
-      applyBasicLandArtDistribution(applyBasicLandArtsButton.dataset.applyBasicLandArts || '');
       return;
     }
 
@@ -14737,10 +13911,7 @@ if (deckBuilderCards) {
         return;
       }
 
-      removeBasicLandFromDeck(removeBasicButton.dataset.removeBasic || '', {
-        sourceCardId: removeBasicButton.dataset.sourceCardId || '',
-        sourceImageUri: removeBasicButton.dataset.sourceImageUri || '',
-      });
+      removeBasicLandFromDeck(removeBasicButton.dataset.removeBasic || '');
       return;
     }
 
@@ -14757,10 +13928,7 @@ if (deckBuilderCards) {
         return;
       }
 
-      await addBasicLandToDeck(addBasicButton.dataset.addBasic || '', {
-        sourceCardId: addBasicButton.dataset.sourceCardId || '',
-        sourceImageUri: addBasicButton.dataset.sourceImageUri || '',
-      });
+      await addBasicLandToDeck(addBasicButton.dataset.addBasic || '');
       return;
     }
 
@@ -14810,13 +13978,10 @@ if (deckBuilderExportButton) {
   deckBuilderExportButton.addEventListener('click', () => {
     const deck = ensureActiveDeckBuilderRecord();
     if (!deck) { setDeckBuilderImportStatus('No active deck to export.', 'error'); return; }
-    const includePrints = Boolean(deckBuilderExportIncludePrintCheckbox?.checked);
     if (deckBuilderTextList) {
-      deckBuilderTextList.value = exportDeckAsText(deck, { includePrints });
+      deckBuilderTextList.value = exportDeckAsText(deck);
     }
-    setDeckBuilderImportStatus(includePrints
-      ? 'Deck exported with set and collector numbers.'
-      : 'Deck exported to text above.', 'success');
+    setDeckBuilderImportStatus('Deck exported to text above.', 'success');
   });
 }
 
@@ -14834,47 +13999,35 @@ if (deckBuilderPreconSelect) {
   let preconListLoaded = false;
   deckBuilderPreconSelect.addEventListener('focus', async () => {
     if (preconListLoaded) return;
-    deckBuilderPreconSelect.placeholder = 'Loading precons...';
-    deckBuilderPreconSelect.disabled = true;
+    const defaultOpt = deckBuilderPreconSelect.options[0];
+    defaultOpt.textContent = 'Loading precons...';
+    defaultOpt.disabled = true;
     try {
       const decks = await fetchPreconList();
       preconListLoaded = true;
-      deckBuilderPreconEntriesCache = decks.map((deck) => ({
-        fileName: String(deck?.fileName || '').trim(),
-        name: String(deck?.name || '').trim(),
-        code: String(deck?.code || '').trim(),
-      })).filter((entry) => entry.fileName && entry.name);
-      deckBuilderPreconEntriesByLabel = new Map();
-      deckBuilderPreconEntriesCache.forEach((entry) => {
-        const label = `${entry.name} (${entry.code})`;
-        deckBuilderPreconEntriesByLabel.set(label, entry.fileName);
-        deckBuilderPreconEntriesByLabel.set(entry.name, entry.fileName);
+      defaultOpt.textContent = 'Select a precon...';
+      defaultOpt.disabled = false;
+      decks.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.fileName;
+        opt.textContent = `${d.name} (${d.code})`;
+        deckBuilderPreconSelect.appendChild(opt);
       });
-      renderPreconOptions();
-      deckBuilderPreconSelect.placeholder = 'Load a precon deck...';
-      deckBuilderPreconSelect.disabled = false;
-      deckBuilderPreconSelect.dispatchEvent(new Event('input'));
     } catch (_err) {
-      deckBuilderPreconSelect.placeholder = 'Failed to load precons';
-      deckBuilderPreconSelect.disabled = false;
+      defaultOpt.textContent = 'Failed to load precons';
+      defaultOpt.disabled = false;
     }
   });
-  deckBuilderPreconSelect.addEventListener('input', () => {
-    if (preconListLoaded) {
-      renderPreconOptions(deckBuilderPreconSelect.value);
-    }
+  deckBuilderPreconSelect.addEventListener('change', () => {
     if (deckBuilderPreconLoadButton) {
-      const typed = String(deckBuilderPreconSelect.value || '').trim();
-      const hasMatch = Boolean(resolvePreconFileName(typed));
-      deckBuilderPreconLoadButton.disabled = !hasMatch;
+      deckBuilderPreconLoadButton.disabled = !deckBuilderPreconSelect.value;
     }
   });
 }
 
 if (deckBuilderPreconLoadButton) {
   deckBuilderPreconLoadButton.addEventListener('click', async () => {
-    const typed = String(deckBuilderPreconSelect?.value || '').trim();
-    const fileName = resolvePreconFileName(typed);
+    const fileName = deckBuilderPreconSelect?.value;
     if (!fileName) return;
     deckBuilderPreconLoadButton.disabled = true;
     setDeckBuilderImportStatus('Loading precon...', 'muted');
@@ -14886,61 +14039,6 @@ if (deckBuilderPreconLoadButton) {
       setDeckBuilderImportStatus(err instanceof Error ? err.message : 'Failed to load precon.', 'error');
     } finally {
       deckBuilderPreconLoadButton.disabled = false;
-    }
-  });
-}
-
-if (deckBuilderSecretLairSelect) {
-  const ensureSecretLairListLoaded = async () => {
-    if (deckBuilderSecretLairListLoaded) {
-      return;
-    }
-
-    deckBuilderSecretLairSelect.placeholder = 'Loading Secret Lair products...';
-    deckBuilderSecretLairSelect.disabled = true;
-
-    try {
-      await fetchSecretLairBundleCatalog();
-      deckBuilderSecretLairListLoaded = true;
-      renderSecretLairProductOptions();
-      deckBuilderSecretLairSelect.placeholder = 'Load a Secret Lair product...';
-      deckBuilderSecretLairSelect.disabled = false;
-      deckBuilderSecretLairSelect.dispatchEvent(new Event('input'));
-    } catch (_err) {
-      deckBuilderSecretLairSelect.placeholder = 'Failed to load Secret Lair products';
-      deckBuilderSecretLairSelect.disabled = false;
-    }
-  };
-
-  deckBuilderSecretLairSelect.addEventListener('focus', () => {
-    ensureSecretLairListLoaded();
-  });
-
-  deckBuilderSecretLairSelect.addEventListener('input', () => {
-    if (deckBuilderSecretLairListLoaded) {
-      renderSecretLairProductOptions(deckBuilderSecretLairSelect.value);
-      return;
-    }
-    if (deckBuilderSecretLairLoadButton) {
-      deckBuilderSecretLairLoadButton.disabled = !String(deckBuilderSecretLairSelect.value || '').trim();
-    }
-  });
-}
-
-if (deckBuilderSecretLairLoadButton) {
-  deckBuilderSecretLairLoadButton.addEventListener('click', async () => {
-    const bundleName = String(deckBuilderSecretLairSelect?.value || '').trim();
-    if (!bundleName) return;
-    deckBuilderSecretLairLoadButton.disabled = true;
-    setDeckBuilderImportStatus('Loading Secret Lair bundle...', 'muted');
-    try {
-      const text = await loadSecretLairBundleText(bundleName);
-      if (deckBuilderTextList) deckBuilderTextList.value = text;
-      setDeckBuilderImportStatus('Secret Lair bundle loaded into import text.', 'success');
-    } catch (err) {
-      setDeckBuilderImportStatus(err instanceof Error ? err.message : 'Failed to load Secret Lair bundle.', 'error');
-    } finally {
-      deckBuilderSecretLairLoadButton.disabled = false;
     }
   });
 }
@@ -15226,43 +14324,6 @@ window.addEventListener('focus', () => {
   checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
 });
 
-function setupCardImageModal() {
-  if (!cardImageModal || !cardImageModalImg || !cardImageModalOverlay || !cardImageModalCloseButton) {
-    return;
-  }
-
-  function closeModal() {
-    cardImageModal.setAttribute('hidden', '');
-  }
-
-  function openModal(imgSrc, imgAlt) {
-    cardImageModalImg.src = imgSrc;
-    cardImageModalImg.alt = imgAlt;
-    cardImageModal.removeAttribute('hidden');
-  }
-
-  // Click on card images to open modal
-  document.addEventListener('click', (e) => {
-    const cardImg = e.target.closest('.rulings-card-image, .deck-card-row-image');
-    if (cardImg && cardImg.src) {
-      openModal(cardImg.src, cardImg.alt);
-    }
-  });
-
-  // Close button
-  cardImageModalCloseButton.addEventListener('click', closeModal);
-
-  // Close on overlay click
-  cardImageModalOverlay.addEventListener('click', closeModal);
-
-  // Close on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !cardImageModal.hasAttribute('hidden')) {
-      closeModal();
-    }
-  });
-}
-
 function setupSyncUi() {
   if (!syncUserInput || !syncTokenInput) {
     return;
@@ -15320,6 +14381,45 @@ function setupSyncUi() {
 
   if (syncConnectButton) {
     syncConnectButton.addEventListener('click', handleSyncConnect);
+  }
+
+  if (authAuditRefreshButton) {
+    authAuditRefreshButton.addEventListener('click', () => {
+      void refreshAuthAuditLogs({ force: true });
+    });
+  }
+
+  if (authAuditExportJsonButton) {
+    authAuditExportJsonButton.addEventListener('click', () => {
+      exportFilteredAuthAuditAsJson();
+    });
+  }
+
+  if (authAuditExportCsvButton) {
+    authAuditExportCsvButton.addEventListener('click', () => {
+      exportFilteredAuthAuditAsCsv();
+    });
+  }
+
+  [authAuditFilterResultSelect, authAuditFilterUserInput, authAuditFilterFromInput, authAuditFilterToInput].forEach((input) => {
+    input?.addEventListener('input', () => {
+      updateAuthAuditFilterStateFromInputs();
+      updateAuthAuditStatusSummary('neutral');
+      renderAuthAuditLogs();
+    });
+    input?.addEventListener('change', () => {
+      updateAuthAuditFilterStateFromInputs();
+      updateAuthAuditStatusSummary('neutral');
+      renderAuthAuditLogs();
+    });
+  });
+
+  if (authAuditFilterClearButton) {
+    authAuditFilterClearButton.addEventListener('click', () => {
+      resetAuthAuditFilters();
+      updateAuthAuditStatusSummary('neutral');
+      renderAuthAuditLogs();
+    });
   }
 
   [syncUserInput, syncTokenInput].forEach((input) => {
@@ -15385,7 +14485,6 @@ async function initializeApp() {
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
   setupSyncUi();
-  setupCardImageModal();
 
   // Capture before refresh() or replaceState can strip URL params.
   // Do NOT set deckBuilderCommanderPrefill yet — pullCloudState() overwrites appState

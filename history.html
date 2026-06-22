@@ -104,6 +104,44 @@
           </div>
         </section>
 
+        <section id="auth-audit-section" class="card" hidden>
+          <div class="history-controls">
+            <h2>Authentication Audit</h2>
+            <div class="auth-audit-actions">
+              <button type="button" id="auth-audit-export-json" class="secondary-button">Export JSON</button>
+              <button type="button" id="auth-audit-export-csv" class="secondary-button">Export CSV</button>
+              <button type="button" id="auth-audit-refresh" class="secondary-button">Refresh logs</button>
+            </div>
+          </div>
+          <div class="history-controls auth-audit-controls">
+            <div class="field">
+              <label for="auth-audit-filter-result">Result</label>
+              <select id="auth-audit-filter-result">
+                <option value="all">All</option>
+                <option value="failed">Failed only</option>
+                <option value="success">Success only</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="auth-audit-filter-user">User contains</label>
+              <input id="auth-audit-filter-user" type="text" placeholder="Name or ID" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="auth-audit-filter-from">From date</label>
+              <input id="auth-audit-filter-from" type="date" />
+            </div>
+            <div class="field">
+              <label for="auth-audit-filter-to">To date</label>
+              <input id="auth-audit-filter-to" type="date" />
+            </div>
+            <button type="button" id="auth-audit-filter-clear" class="secondary-button">Clear filters</button>
+          </div>
+          <p id="auth-audit-status" class="sync-status status-muted">Authentication audit logs are only visible to admins.</p>
+          <div id="auth-audit-list">
+            <p class="history-empty-state">No login attempts logged yet.</p>
+          </div>
+        </section>
+
         <!-- Shared confirmation modal used by app.js prompts. -->
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
           <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">

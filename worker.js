@@ -7,6 +7,8 @@ const CORS_HEADERS = {
 
 const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
+const AUTH_AUDIT_LOG_LIMIT = 500;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
 
@@ -160,6 +162,12 @@ function normalizeMemberKey(value) {
     .replace(/[^a-z0-9]+/g, '');
 }
 
+const BUILTIN_ADMIN_USER_KEY = normalizeMemberKey('Baily');
+
+function isBuiltInAdminUser(value) {
+  return normalizeMemberKey(value) === BUILTIN_ADMIN_USER_KEY;
+}
+
 function getConfiguredMembers(env) {
   const raw = getTextValue(env.POD_MEMBERS_JSON);
   if (!raw) {
@@ -177,7 +185,11 @@ function getConfiguredMembers(env) {
         const userId = getTextValue(member?.userId || member?.id);
         const displayName = getTextValue(member?.displayName || member?.user || userId);
         const token = getTextValue(member?.token || member?.accessCode);
-        const role = getTextValue(member?.role).toLowerCase() === 'admin' ? 'admin' : 'member';
+        const role = (
+          getTextValue(member?.role).toLowerCase() === 'admin'
+          || isBuiltInAdminUser(userId)
+          || isBuiltInAdminUser(displayName)
+        ) ? 'admin' : 'member';
         if (!userId || !displayName || !token) {
           return null;
         }
@@ -858,18 +870,84 @@ function getRequestToken(request) {
   return (request.headers.get('X-Pod-Token') || '').trim();
 }
 
+function maskToken(token) {
+  const value = getTextValue(token);
+  if (!value) {
+    return '';
+  }
+
+  if (value.length <= 4) {
+    return '*'.repeat(value.length);
+  }
+
+  return `${'*'.repeat(value.length - 4)}${value.slice(-4)}`;
+}
+
+function getRequestIp(request) {
+  const cfConnectingIp = getTextValue(request.headers.get('CF-Connecting-IP'));
+  if (cfConnectingIp) {
+    return cfConnectingIp;
+  }
+
+  const forwardedFor = getTextValue(request.headers.get('X-Forwarded-For'));
+  return forwardedFor.split(',')[0]?.trim() || '';
+}
+
+function buildAuthAuditEntry({ request, url, auth = null, success = false, reason = '', status = 0 }) {
+  const requestUser = getRequestUser(request);
+  const normalizedUser = normalizeMemberKey(requestUser);
+
+  return {
+    id: crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+    timestamp: new Date().toISOString(),
+    success: Boolean(success),
+    status: Number.isFinite(Number(status)) ? Number(status) : 0,
+    reason: getTextValue(reason || (success ? 'Authenticated.' : 'Authentication failed.')),
+    method: getTextValue(request.method).toUpperCase(),
+    path: `${url.pathname}${url.search}`,
+    user: getTextValue(requestUser),
+    normalizedUser,
+    tokenHint: maskToken(getRequestToken(request)),
+    ip: getRequestIp(request),
+    userAgent: getTextValue(request.headers.get('User-Agent')).slice(0, 180),
+    auth: success ? buildAuthPayload(auth) : null,
+  };
+}
+
+async function appendAuthAuditEntry(env, entry) {
+  if (!env.POD_STATE || !entry || typeof entry !== 'object') {
+    return;
+  }
+
+  try {
+    const raw = await env.POD_STATE.get(AUTH_AUDIT_LOG_KEY, 'json');
+    const existingLogs = Array.isArray(raw?.logs)
+      ? raw.logs
+      : (Array.isArray(raw) ? raw : []);
+    const nextLogs = [entry, ...existingLogs].slice(0, AUTH_AUDIT_LOG_LIMIT);
+    await env.POD_STATE.put(AUTH_AUDIT_LOG_KEY, JSON.stringify({
+      logs: nextLogs,
+      updatedAt: new Date().toISOString(),
+    }));
+  } catch (error) {
+    // Do not block requests if audit logging fails.
+  }
+}
+
 function buildAutoProvisionedAuth(user) {
   const normalizedUser = normalizeMemberKey(user);
   if (!normalizedUser) {
     return null;
   }
 
+  const role = isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member';
+
   return {
     ok: true,
     user: getTextValue(user),
     userId: normalizedUser,
     displayName: getTextValue(user),
-    role: 'member',
+    role,
     authMode: 'auto-provisioned',
   };
 }
@@ -973,7 +1051,7 @@ async function hasValidAuth(request, env) {
     user,
     userId: normalizedUser,
     displayName: user,
-    role: 'member',
+    role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
     authMode: 'legacy',
   };
 }
@@ -1337,9 +1415,31 @@ export default {
     }
 
     if (url.pathname === '/api/state') {
+      const shouldAuditStateAuth = request.method === 'GET';
       const auth = await hasValidAuth(request, env);
       if (!auth.ok) {
+        if (shouldAuditStateAuth) {
+          await appendAuthAuditEntry(env, buildAuthAuditEntry({
+            request,
+            url,
+            auth,
+            success: false,
+            reason: auth.reason,
+            status: 401,
+          }));
+        }
         return jsonResponse({ error: auth.reason }, 401);
+      }
+
+      if (shouldAuditStateAuth) {
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request,
+          url,
+          auth,
+          success: true,
+          reason: 'Authenticated.',
+          status: 200,
+        }));
       }
 
       const stateKey = 'pod:default:state';
@@ -1441,6 +1541,53 @@ export default {
       }
 
       return jsonResponse({ error: 'Method not allowed.' }, 405);
+    }
+
+    if (url.pathname === '/api/auth-logs') {
+      const auth = await hasValidAuth(request, env);
+      if (!auth.ok) {
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request,
+          url,
+          auth,
+          success: false,
+          reason: auth.reason,
+          status: 401,
+        }));
+        return jsonResponse({ error: auth.reason }, 401);
+      }
+
+      if (getTextValue(auth?.role).toLowerCase() !== 'admin') {
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request,
+          url,
+          auth,
+          success: false,
+          reason: 'Only admins can view authentication logs.',
+          status: 403,
+        }));
+        return jsonResponse({ error: 'Only admins can view authentication logs.' }, 403);
+      }
+
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const requestedLimit = Number.parseInt(getTextValue(url.searchParams.get('limit')), 10);
+      const limit = Number.isFinite(requestedLimit)
+        ? Math.min(200, Math.max(1, requestedLimit))
+        : 120;
+      const raw = env.POD_STATE ? await env.POD_STATE.get(AUTH_AUDIT_LOG_KEY, 'json') : null;
+      const logs = Array.isArray(raw?.logs)
+        ? raw.logs
+        : (Array.isArray(raw) ? raw : []);
+
+      return jsonResponse({
+        logs: logs.slice(0, limit),
+        total: logs.length,
+      }, 200, {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      });
     }
 
     if (url.pathname === '/api/card-rulings') {
