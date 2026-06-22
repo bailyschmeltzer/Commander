@@ -1153,7 +1153,7 @@ async function hasValidAuth(request, env) {
     // Configured member credentials path.
     const member = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
     if (member) {
-      if (token === member.token) {
+      if (token === member.token || (configuredToken && token === configuredToken)) {
         const role = (
           getTextValue(member?.role).toLowerCase() === 'admin'
           || isBuiltInAdminUser(user)
@@ -1166,7 +1166,7 @@ async function hasValidAuth(request, env) {
           userId: member.userId,
           displayName: member.displayName,
           role,
-          authMode: 'member',
+          authMode: token === member.token ? 'member' : 'legacy',
         };
       }
     }
