@@ -97,6 +97,32 @@
           </div>
         </section>
 
+        <section id="sync-debug-section" class="card">
+          <div class="history-controls">
+            <h2>Sync Debug Log</h2>
+            <div class="auth-audit-actions">
+              <button type="button" id="sync-debug-clear" class="secondary-button">Clear log</button>
+            </div>
+          </div>
+          <p id="sync-debug-status" class="sync-status status-muted">No sync events yet.</p>
+          <div class="player-table-wrapper">
+            <table class="player-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event</th>
+                  <th>Decks</th>
+                  <th>Lists</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody id="sync-debug-list">
+                <tr><td colspan="5" class="history-empty-state">No sync events yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section id="registered-accounts-section" class="card" hidden>
           <h2>Registered Accounts</h2>
           <p id="registered-accounts-status" class="sync-status status-muted">Registered accounts are only visible to admins.</p>

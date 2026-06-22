@@ -78,6 +78,10 @@ const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user
 const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
 const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
 const authAuditFilterClearButton = document.getElementById('auth-audit-filter-clear');
+const syncDebugSection = document.getElementById('sync-debug-section');
+const syncDebugStatus = document.getElementById('sync-debug-status');
+const syncDebugList = document.getElementById('sync-debug-list');
+const syncDebugClearButton = document.getElementById('sync-debug-clear');
 const registeredAccountsSection = document.getElementById('registered-accounts-section');
 const registeredAccountsStatus = document.getElementById('registered-accounts-status');
 const registeredAccountsBody = document.getElementById('registered-accounts-body');
@@ -269,6 +273,7 @@ let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
 let syncAuthenticatedRole = '';
 let authAuditLogs = [];
+let syncDebugLogs = [];
 let authAuditLoading = false;
 let authAuditLastLoadedAt = 0;
 let authAuditLoadedForUserId = '';
@@ -1937,16 +1942,14 @@ async function pullCloudState() {
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
     refresh();
-    authAuditLogs.unshift({
+    syncDebugLogs.unshift({
       timestamp: new Date().toISOString(),
-      success: true,
-      reason: `Cloud state synced: ${decks.length} decks, ${deckLists.length} deck lists`,
-      user: 'System',
-      ip: 'local',
-      method: 'SYNC',
-      path: '/api/state',
-      status: 200,
+      event: 'Cloud sync',
+      decks: decks.length,
+      lists: deckLists.length,
+      user: getCurrentSyncUserId() || 'Unknown',
     });
+    renderSyncDebugLog();
   } catch (error) {
     syncConnectionState = hasSyncCredentials() ? 'configured' : 'local';
     throw error;
@@ -5675,6 +5678,39 @@ async function refreshRegisteredAccounts({ force = false } = {}) {
   } finally {
     registeredAccountsLoading = false;
   }
+}
+
+function renderSyncDebugLog() {
+  if (!syncDebugList || !syncDebugStatus) {
+    return;
+  }
+
+  if (!syncDebugLogs.length) {
+    syncDebugStatus.textContent = 'No sync events yet.';
+    syncDebugStatus.className = 'sync-status status-muted';
+    syncDebugList.innerHTML = '<tr><td colspan="5" class="history-empty-state">No sync events yet.</td></tr>';
+    return;
+  }
+
+  syncDebugStatus.textContent = `Last sync: ${syncDebugLogs[0]?.timestamp || 'unknown'}`;
+  syncDebugStatus.className = 'sync-status status-success';
+  syncDebugList.innerHTML = syncDebugLogs.map((entry) => {
+    const timestamp = entry?.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown';
+    const event = entry?.event || 'Unknown event';
+    const decks = entry?.decks ?? '-';
+    const lists = entry?.lists ?? '-';
+    const user = entry?.user || 'Unknown';
+    return `
+      <tr>
+        <td>${escapeHtml(timestamp)}</td>
+        <td>${escapeHtml(event)}</td>
+        <td>${escapeHtml(String(decks))}</td>
+        <td>${escapeHtml(String(lists))}</td>
+        <td>${escapeHtml(user)}</td>
+      </tr>`;
+  }).join('');
+
+  applyResponsiveTableLabels();
 }
 
 function buildAuthAuditExportBaseName() {
@@ -14622,6 +14658,13 @@ function setupSyncUi() {
       resetAuthAuditFilters();
       updateAuthAuditStatusSummary('neutral');
       renderAuthAuditLogs();
+    });
+  }
+
+  if (syncDebugClearButton) {
+    syncDebugClearButton.addEventListener('click', () => {
+      syncDebugLogs = [];
+      renderSyncDebugLog();
     });
   }
 
