@@ -14274,10 +14274,24 @@ window.addEventListener('storage', (event) => {
   }
 });
 
+function applyHistoryPageViewMode() {
+  const historySection = document.querySelector('.page-history main > section:first-child');
+  const isViewingAdminLogs = window.location.hash === '#auth-audit-section';
+  
+  if (historySection) {
+    historySection.hidden = isViewingAdminLogs;
+  }
+}
+
 window.addEventListener('popstate', () => {
   historyQueryFiltersApplied = false;
   applyHistoryQueryFilters();
   renderHistory(loadGames());
+  applyHistoryPageViewMode();
+});
+
+window.addEventListener('hashchange', () => {
+  applyHistoryPageViewMode();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -14559,3 +14573,10 @@ async function initializeApp() {
 }
 
 initializeApp();
+
+// Apply history page view mode (hide history section if viewing admin logs via hash)
+if (document.body.classList.contains('page-history')) {
+  setTimeout(() => {
+    applyHistoryPageViewMode();
+  }, 100);
+}
