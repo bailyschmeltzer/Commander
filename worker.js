@@ -182,9 +182,17 @@ function getConfiguredMembers(env) {
 
     return parsed
       .map((member) => {
-        const userId = getTextValue(member?.userId || member?.id);
-        const displayName = getTextValue(member?.displayName || member?.user || userId);
-        const token = getTextValue(member?.token || member?.accessCode);
+        const explicitUserId = getTextValue(member?.userId || member?.id || member?.username);
+        const displayName = getTextValue(member?.displayName || member?.user || member?.name || explicitUserId);
+        const userId = getTextValue(explicitUserId || displayName);
+        const token = getTextValue(
+          member?.token
+          || member?.accessCode
+          || member?.podAccessCode
+          || member?.passcode
+          || member?.password
+          || member?.code
+        );
         const role = (
           getTextValue(member?.role).toLowerCase() === 'admin'
           || isBuiltInAdminUser(userId)

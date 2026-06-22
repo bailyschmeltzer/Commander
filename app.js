@@ -14400,11 +14400,13 @@ function setupSyncUi() {
     syncPendingChanges = false;
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
+    clearSyncAuthenticatedUser();
     updateSyncMetadata();
     clearSyncConflict();
     syncConnectionState = 'connecting';
     if (!writeLocalStorageValue(SYNC_USER_STORAGE_KEY, user) || !writeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY, token)) {
       syncConnectionState = 'local';
+      clearSyncAuthenticatedUser();
       updateSyncControls();
       refreshSyncStatus();
       return;
@@ -14419,6 +14421,7 @@ function setupSyncUi() {
       setSyncUiCollapsed(true);
     } catch (error) {
       syncConnectionState = 'configured';
+      clearSyncAuthenticatedUser();
       syncLastErrorMessage = error.message;
       refreshSyncStatus();
     } finally {
