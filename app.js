@@ -1937,6 +1937,8 @@ async function pullCloudState() {
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
     refresh();
+    const debugMsg = `DEBUG: Pulled ${decks.length} decks, ${deckLists.length} lists, user=${getCurrentSyncUserId()}`;
+    setSyncStatus(debugMsg, 'neutral');
   } catch (error) {
     syncConnectionState = hasSyncCredentials() ? 'configured' : 'local';
     throw error;
