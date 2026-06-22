@@ -65,7 +65,8 @@ const historyFilterDateFrom = document.getElementById('history-filter-date-from'
 const historyFilterDateTo = document.getElementById('history-filter-date-to');
 const historyResetFiltersButton = document.getElementById('history-reset-filters');
 const historyActiveFilters = document.getElementById('history-active-filters');
-const authAuditSection = document.getElementById('auth-audit-section');
+const authAuditSection = document.getElementById('auth-audit-section')
+  || document.querySelector('.page-admin-logs main .card');
 const authAuditStatus = document.getElementById('auth-audit-status');
 const authAuditList = document.getElementById('auth-audit-list');
 const authAuditRefreshButton = document.getElementById('auth-audit-refresh');
