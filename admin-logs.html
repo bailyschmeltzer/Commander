@@ -97,6 +97,28 @@
           </div>
         </section>
 
+        <section id="registered-accounts-section" class="card" hidden>
+          <h2>Registered Accounts</h2>
+          <p id="registered-accounts-status" class="sync-status status-muted">Registered accounts are only visible to admins.</p>
+          <div class="player-table-wrapper">
+            <table class="player-table">
+              <thead>
+                <tr>
+                  <th>Display Name</th>
+                  <th>User ID</th>
+                  <th>Role</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody id="registered-accounts-body">
+                <tr>
+                  <td colspan="4">No registered accounts found yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- Shared confirmation modal used by app.js prompts. -->
         <div id="live-modal-prompt" class="live-source-prompt" hidden>
           <div class="live-source-dialog live-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" aria-describedby="live-modal-copy">

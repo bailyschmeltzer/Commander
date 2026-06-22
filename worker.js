@@ -992,6 +992,105 @@ function getRegisteredPlayerKeysFromState(state) {
   return registeredKeys;
 }
 
+function getRegisteredPlayersFromState(state) {
+  const registeredPlayersById = new Map();
+  const games = Array.isArray(state?.games) ? state.games : [];
+
+  const addPlayerValue = (value) => {
+    const displayName = getTextValue(value);
+    const normalized = normalizeMemberKey(displayName);
+    if (!normalized) {
+      return;
+    }
+
+    if (!registeredPlayersById.has(normalized)) {
+      registeredPlayersById.set(normalized, displayName || normalized);
+    }
+  };
+
+  games.forEach((game) => {
+    (Array.isArray(game?.players) ? game.players : []).forEach((player) => {
+      addPlayerValue(player);
+    });
+
+    (Array.isArray(game?.finishOrder) ? game.finishOrder : []).forEach((player) => {
+      addPlayerValue(player);
+    });
+
+    (Array.isArray(game?.playerRows) ? game.playerRows : []).forEach((row) => {
+      addPlayerValue(row?.player);
+    });
+
+    (Array.isArray(game?.playerCommanders) ? game.playerCommanders : []).forEach((entry) => {
+      addPlayerValue(entry?.player);
+    });
+  });
+
+  return registeredPlayersById;
+}
+
+function buildRegisteredAccounts(configuredMembers, state) {
+  const accountsByUserId = new Map();
+
+  (Array.isArray(configuredMembers) ? configuredMembers : []).forEach((member) => {
+    const userId = getTextValue(member?.userId).toLowerCase();
+    if (!userId) {
+      return;
+    }
+
+    accountsByUserId.set(userId, {
+      userId,
+      displayName: getTextValue(member?.displayName || userId),
+      role: getTextValue(member?.role || (isBuiltInAdminUser(userId) ? 'admin' : 'member')).toLowerCase(),
+      fromConfiguredMembers: true,
+      fromGameHistory: false,
+    });
+  });
+
+  const registeredPlayers = getRegisteredPlayersFromState(state);
+  registeredPlayers.forEach((displayName, userId) => {
+    const existing = accountsByUserId.get(userId);
+    if (existing) {
+      existing.fromGameHistory = true;
+      if (!existing.displayName) {
+        existing.displayName = getTextValue(displayName || userId);
+      }
+      return;
+    }
+
+    accountsByUserId.set(userId, {
+      userId,
+      displayName: getTextValue(displayName || userId),
+      role: isBuiltInAdminUser(userId) ? 'admin' : 'member',
+      fromConfiguredMembers: false,
+      fromGameHistory: true,
+    });
+  });
+
+  return Array.from(accountsByUserId.values())
+    .map((entry) => ({
+      userId: entry.userId,
+      displayName: entry.displayName,
+      role: entry.role,
+      source: entry.fromConfiguredMembers && entry.fromGameHistory
+        ? 'Configured + history'
+        : (entry.fromConfiguredMembers ? 'Configured member' : 'Game history'),
+    }))
+    .sort((a, b) => {
+      const displayCompare = String(a.displayName || '').localeCompare(String(b.displayName || ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (displayCompare !== 0) {
+        return displayCompare;
+      }
+      return String(a.userId || '').localeCompare(String(b.userId || ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    });
+}
+
 async function hasValidAuth(request, env) {
   const user = getRequestUser(request);
   const token = getRequestToken(request);
@@ -1617,6 +1716,50 @@ export default {
       return jsonResponse({
         logs: logs.slice(0, limit),
         total: logs.length,
+      }, 200, {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      });
+    }
+
+    if (url.pathname === '/api/accounts') {
+      const auth = await hasValidAuth(request, env);
+      if (!auth.ok) {
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request,
+          url,
+          auth,
+          success: false,
+          reason: auth.reason,
+          status: 401,
+        }));
+        return jsonResponse({ error: auth.reason }, 401);
+      }
+
+      if (getTextValue(auth?.role).toLowerCase() !== 'admin') {
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request,
+          url,
+          auth,
+          success: false,
+          reason: 'Only admins can view registered accounts.',
+          status: 403,
+        }));
+        return jsonResponse({ error: 'Only admins can view registered accounts.' }, 403);
+      }
+
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const stateKey = 'pod:default:state';
+      const rawState = await env.POD_STATE.get(stateKey, 'json');
+      const state = rawState && typeof rawState === 'object' ? rawState : null;
+      const configuredMembers = getConfiguredMembers(env);
+      const accounts = buildRegisteredAccounts(configuredMembers, state);
+
+      return jsonResponse({
+        accounts,
+        total: accounts.length,
       }, 200, {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
       });

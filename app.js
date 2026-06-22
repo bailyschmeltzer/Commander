@@ -20,6 +20,7 @@ const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
 const AUTH_AUDIT_ENDPOINT = '/api/auth-logs';
+const REGISTERED_ACCOUNTS_ENDPOINT = '/api/accounts';
 const BUILTIN_ADMIN_USER_KEY = 'baily';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
@@ -77,6 +78,9 @@ const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user
 const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
 const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
 const authAuditFilterClearButton = document.getElementById('auth-audit-filter-clear');
+const registeredAccountsSection = document.getElementById('registered-accounts-section');
+const registeredAccountsStatus = document.getElementById('registered-accounts-status');
+const registeredAccountsBody = document.getElementById('registered-accounts-body');
 const commanderSearch = document.getElementById('commander-search');
 const commanderStatsTableBody = document.getElementById('commander-stats-body');
 const commanderRenameForm = document.getElementById('commander-rename-form');
@@ -274,6 +278,10 @@ let authAuditFilterState = {
   from: '',
   to: '',
 };
+let registeredAccounts = [];
+let registeredAccountsLoading = false;
+let registeredAccountsLastLoadedAt = 0;
+let registeredAccountsLoadedForUserId = '';
 let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
@@ -1630,6 +1638,10 @@ function clearSyncAuthenticatedUser() {
   authAuditLoading = false;
   authAuditLastLoadedAt = 0;
   authAuditLoadedForUserId = '';
+  registeredAccounts = [];
+  registeredAccountsLoading = false;
+  registeredAccountsLastLoadedAt = 0;
+  registeredAccountsLoadedForUserId = '';
   deckLibraryPlayerFilterDefaulted = false;
   historyPlayerFilterDefaulted = false;
 }
@@ -5549,6 +5561,104 @@ function updateAuthAuditStatusSummary(tone = 'neutral') {
   }
 
   setAuthAuditStatus(getAuthAuditStatusSummary(), tone);
+}
+
+function setRegisteredAccountsStatus(message, tone = 'muted') {
+  if (!registeredAccountsStatus) {
+    return;
+  }
+
+  registeredAccountsStatus.textContent = message;
+  registeredAccountsStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
+  registeredAccountsStatus.classList.add(`status-${tone}`);
+}
+
+function renderRegisteredAccounts() {
+  if (!registeredAccountsSection || !registeredAccountsBody) {
+    return;
+  }
+
+  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
+    registeredAccountsSection.hidden = true;
+    registeredAccountsBody.innerHTML = '';
+    return;
+  }
+
+  registeredAccountsSection.hidden = false;
+
+  if (!registeredAccounts.length) {
+    registeredAccountsBody.innerHTML = '<tr><td colspan="4">No registered accounts found yet.</td></tr>';
+    applyResponsiveTableLabels();
+    return;
+  }
+
+  registeredAccountsBody.innerHTML = registeredAccounts.map((entry) => {
+    const displayName = entry?.displayName || 'Unknown';
+    const userId = entry?.userId || '';
+    const role = entry?.role || 'member';
+    const source = entry?.source || 'unknown';
+    return `
+      <tr>
+        <td>${escapeHtml(displayName)}</td>
+        <td>${escapeHtml(userId)}</td>
+        <td>${escapeHtml(role)}</td>
+        <td>${escapeHtml(source)}</td>
+      </tr>`;
+  }).join('');
+
+  applyResponsiveTableLabels();
+}
+
+async function refreshRegisteredAccounts({ force = false } = {}) {
+  if (!registeredAccountsSection || !registeredAccountsBody || !registeredAccountsStatus) {
+    return;
+  }
+
+  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
+    registeredAccountsSection.hidden = true;
+    registeredAccounts = [];
+    registeredAccountsLoadedForUserId = '';
+    registeredAccountsLastLoadedAt = 0;
+    setRegisteredAccountsStatus('Registered accounts are only visible to admins.', 'muted');
+    renderRegisteredAccounts();
+    return;
+  }
+
+  const currentUserId = getCurrentSyncUserId();
+  const now = Date.now();
+  const shouldRefresh = force
+    || registeredAccountsLoadedForUserId !== currentUserId
+    || !registeredAccounts.length
+    || now - registeredAccountsLastLoadedAt >= AUTH_AUDIT_REFRESH_INTERVAL_MS;
+
+  registeredAccountsSection.hidden = false;
+  renderRegisteredAccounts();
+  if (!shouldRefresh || registeredAccountsLoading) {
+    return;
+  }
+
+  registeredAccountsLoading = true;
+  setRegisteredAccountsStatus('Loading registered accounts...', 'neutral');
+
+  try {
+    const payload = await cloudRequest(REGISTERED_ACCOUNTS_ENDPOINT, { method: 'GET' });
+    registeredAccounts = Array.isArray(payload?.accounts) ? payload.accounts : [];
+    registeredAccountsLoadedForUserId = currentUserId;
+    registeredAccountsLastLoadedAt = Date.now();
+    setRegisteredAccountsStatus(`Showing ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? '' : 's'}.`, 'success');
+    renderRegisteredAccounts();
+  } catch (error) {
+    if (error?.status === 403) {
+      registeredAccounts = [];
+      renderRegisteredAccounts();
+      setRegisteredAccountsStatus('Connected as non-admin on the server. Sign in as Baily to view registered accounts.', 'error');
+      return;
+    }
+
+    setRegisteredAccountsStatus(`Unable to load registered accounts: ${error.message}`, 'error');
+  } finally {
+    registeredAccountsLoading = false;
+  }
 }
 
 function buildAuthAuditExportBaseName() {
@@ -13210,6 +13320,7 @@ function refresh() {
   initializeMobileSortControls();
   applyResponsiveTableLabels();
   void refreshAuthAuditLogs();
+  void refreshRegisteredAccounts();
   void backfillDeckListCommanderOracleIds();
 }
 
@@ -14440,6 +14551,7 @@ function setupSyncUi() {
   if (authAuditRefreshButton) {
     authAuditRefreshButton.addEventListener('click', () => {
       void refreshAuthAuditLogs({ force: true });
+      void refreshRegisteredAccounts({ force: true });
     });
   }
 
