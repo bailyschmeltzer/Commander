@@ -5376,9 +5376,8 @@ function syncHistoryFilterQuery() {
     return;
   }
 
-  const currentHash = window.location.hash || '';
-  const href = `${buildHistoryFilterHref(getCurrentHistoryFilters())}${currentHash}`;
-  const currentPath = `${window.location.pathname.split('/').pop() || 'history.html'}${window.location.search}${currentHash}`;
+  const href = buildHistoryFilterHref(getCurrentHistoryFilters());
+  const currentPath = `${window.location.pathname.split('/').pop() || 'history.html'}${window.location.search}`;
   if (currentPath !== href) {
     window.history.replaceState({}, '', href);
   }
@@ -14274,36 +14273,10 @@ window.addEventListener('storage', (event) => {
   }
 });
 
-function applyHistoryPageViewMode() {
-  const historySection = document.querySelector('.page-history main > section:first-child');
-  const pageTitle = document.getElementById('page-title');
-  const pageDescription = document.getElementById('page-description');
-  const isViewingAdminLogs = window.location.hash === '#auth-audit-section';
-  
-  if (historySection) {
-    historySection.hidden = isViewingAdminLogs;
-  }
-
-  if (pageTitle && pageDescription) {
-    if (isViewingAdminLogs) {
-      pageTitle.textContent = 'Authentication Audit';
-      pageDescription.textContent = 'Login attempts and authentication events for your pod.';
-    } else {
-      pageTitle.textContent = 'Full Game History';
-      pageDescription.textContent = 'All entered games for your shared pod.';
-    }
-  }
-}
-
 window.addEventListener('popstate', () => {
   historyQueryFiltersApplied = false;
   applyHistoryQueryFilters();
   renderHistory(loadGames());
-  applyHistoryPageViewMode();
-});
-
-window.addEventListener('hashchange', () => {
-  applyHistoryPageViewMode();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -14585,10 +14558,3 @@ async function initializeApp() {
 }
 
 initializeApp();
-
-// Apply history page view mode (hide history section if viewing admin logs via hash)
-if (document.body.classList.contains('page-history')) {
-  setTimeout(() => {
-    applyHistoryPageViewMode();
-  }, 100);
-}
