@@ -1784,6 +1784,9 @@ function getSyncStatusSnapshot() {
 function refreshSyncStatus() {
   const snapshot = getSyncStatusSnapshot();
   setSyncStatus(snapshot.message, snapshot.tone);
+  if (syncConnectionState === 'connected') {
+    setSyncUiCollapsed(true);
+  }
   updateAdminLogsShortcutVisibility();
 }
 
@@ -1913,16 +1916,19 @@ async function pullCloudState() {
 
   try {
     const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
-    const games = Array.isArray(payload.games) ? payload.games : [];
-    const powerLevels = payload.powerLevels && typeof payload.powerLevels === 'object' ? payload.powerLevels : {};
-    const deckLists = Array.isArray(payload.deckLists) ? payload.deckLists : [];
-    const decks = Array.isArray(payload.decks) ? payload.decks : [];
-    const records = Array.isArray(payload.records) ? payload.records : [];
-    updateSyncAuthenticatedUser(payload.auth || null);
+    const statePayload = payload?.state && typeof payload.state === 'object'
+      ? payload.state
+      : payload;
+    const games = Array.isArray(statePayload?.games) ? statePayload.games : [];
+    const powerLevels = statePayload?.powerLevels && typeof statePayload.powerLevels === 'object' ? statePayload.powerLevels : {};
+    const deckLists = Array.isArray(statePayload?.deckLists) ? statePayload.deckLists : [];
+    const decks = Array.isArray(statePayload?.decks) ? statePayload.decks : [];
+    const records = Array.isArray(statePayload?.records) ? statePayload.records : [];
+    updateSyncAuthenticatedUser(payload?.auth || statePayload?.auth || null);
     updateSyncMetadata({
-      revision: payload.revision,
-      updatedAt: payload.updatedAt,
-      updatedBy: payload.updatedBy,
+      revision: payload?.revision ?? statePayload?.revision,
+      updatedAt: payload?.updatedAt ?? statePayload?.updatedAt,
+      updatedBy: payload?.updatedBy ?? statePayload?.updatedBy,
     });
     clearSyncConflict();
     appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
