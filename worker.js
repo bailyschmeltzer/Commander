@@ -1103,26 +1103,25 @@ async function hasValidAuth(request, env) {
 
   const rawState = await env.POD_STATE.get(stateKey, 'json');
   const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
+  const normalizedUser = normalizeMemberKey(user);
+  const autoProvisioned = buildAutoProvisionedAuth(user);
+  const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
+
+  if (!user) {
+    return { ok: false, reason: 'Display name is required.' };
+  }
+  if (!token) {
+    return { ok: false, reason: 'Pod access code is required.' };
+  }
 
   if (configuredMembers.length) {
-    const normalizedUser = normalizeMemberKey(user);
-    
-    if (!user) {
-      return { ok: false, reason: 'Display name is required.' };
-    }
-    if (!token) {
-      return { ok: false, reason: 'Pod access code is required.' };
-    }
-
-    // Check if user exists as a member
-    const userMember = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
-    if (!userMember) {
-      return { ok: false, reason: `Username "${user}" not found in pod members.` };
-    }
-
-    // User exists, check if token is correct
-    const member = configuredMembers.find((entry) => entry.token === token && entry.matchKeys.has(normalizedUser));
+    // Configured member credentials path.
+    const member = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
     if (member) {
+      if (token !== member.token) {
+        return { ok: false, reason: `Incorrect pod access code for "${user}".` };
+      }
+
       const role = (
         getTextValue(member?.role).toLowerCase() === 'admin'
         || isBuiltInAdminUser(user)
@@ -1139,10 +1138,7 @@ async function hasValidAuth(request, env) {
       };
     }
 
-    // Token mismatch for this user
-    return { ok: false, reason: `Incorrect pod access code for "${user}".` };
-    
-    // Fallback to auto-provisioned for unregistered users trying with commander-{id} token
+    // Auto-provisioned path for registered game-history players.
     const autoProvisioned = buildAutoProvisionedAuth(user);
     if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
       if (registeredPlayerKeys.has(autoProvisioned.userId)) {
@@ -1151,21 +1147,41 @@ async function hasValidAuth(request, env) {
 
       return { ok: false, reason: `Player "${user}" is not registered in game history.` };
     }
-    
-    return { ok: false, reason: `Invalid credentials for "${user}".` };
+
+    // Legacy pod token path for registered game-history players.
+    if (configuredToken && token === configuredToken) {
+      if (!registeredPlayerKeys.has(normalizedUser)) {
+        return { ok: false, reason: `Player "${user}" is not registered in game history.` };
+      }
+
+      return {
+        ok: true,
+        user,
+        userId: normalizedUser,
+        displayName: user,
+        role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
+        authMode: 'legacy',
+      };
+    }
+
+    if (registeredPlayerKeys.has(normalizedUser)) {
+      return { ok: false, reason: `Incorrect pod access code for "${user}".` };
+    }
+
+    return { ok: false, reason: `Username "${user}" not found in pod members and is not registered in game history.` };
   }
 
-  const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
+  // Auto-provisioned path with no configured member list.
+  if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
+    if (registeredPlayerKeys.has(autoProvisioned.userId)) {
+      return autoProvisioned;
+    }
+
+    return { ok: false, reason: `Player "${user}" is not registered in game history.` };
+  }
 
   if (!configuredToken) {
     return { ok: false, reason: 'Server missing POD_ACCESS_TOKEN.' };
-  }
-
-  if (!user) {
-    return { ok: false, reason: 'Display name is required.' };
-  }
-  if (!token) {
-    return { ok: false, reason: 'Pod access code is required.' };
   }
 
   if (token !== configuredToken) {
