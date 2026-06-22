@@ -1188,7 +1188,6 @@ async function hasValidAuth(request, env) {
     return { ok: false, reason: `Incorrect pod access code. (Tried: "${user}")` };
   }
 
-  const normalizedUser = normalizeMemberKey(user);
   if (!registeredPlayerKeys.has(normalizedUser)) {
     return { ok: false, reason: `Player "${user}" is not registered in game history.` };
   }
