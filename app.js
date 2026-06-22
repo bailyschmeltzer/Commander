@@ -6896,21 +6896,28 @@ function renderDeckLibrary() {
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
-  if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
-    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
-    if (displayName && ownerFilterOptions.includes(displayName)) {
-      activeOwnerFilter = displayName;
-      deckLibraryPlayerFilterDefaulted = true;
-    }
+
+  // Keep Deck Lists on an explicit "All players" default to avoid hiding all rows
+  // when user identity/display name changes between sync sessions.
+  if (!activeOwnerFilter) {
+    deckLibraryPlayerFilterDefaulted = false;
   }
 
   if (deckLibraryPlayerFilterSelect) {
     buildSelectOptions(deckLibraryPlayerFilterSelect, ownerFilterOptions, activeOwnerFilter, 'All players');
   }
 
-  const decks = activeOwnerFilter
+  let decks = activeOwnerFilter
     ? sortedDecks.filter((deck) => normalizeIdentityLabel(deck.owner || '') === activeOwnerFilter)
     : sortedDecks;
+
+  if (activeOwnerFilter && !decks.length) {
+    activeOwnerFilter = '';
+    if (deckLibraryPlayerFilterSelect) {
+      buildSelectOptions(deckLibraryPlayerFilterSelect, ownerFilterOptions, '', 'All players');
+    }
+    decks = sortedDecks;
+  }
   const commanderPointsPerGameByIdentity = new Map(
     buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
   );
