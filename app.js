@@ -5376,8 +5376,9 @@ function syncHistoryFilterQuery() {
     return;
   }
 
-  const href = buildHistoryFilterHref(getCurrentHistoryFilters());
-  const currentPath = `${window.location.pathname.split('/').pop() || 'history.html'}${window.location.search}`;
+  const currentHash = window.location.hash || '';
+  const href = `${buildHistoryFilterHref(getCurrentHistoryFilters())}${currentHash}`;
+  const currentPath = `${window.location.pathname.split('/').pop() || 'history.html'}${window.location.search}${currentHash}`;
   if (currentPath !== href) {
     window.history.replaceState({}, '', href);
   }
