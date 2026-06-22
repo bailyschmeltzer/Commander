@@ -3794,13 +3794,17 @@ function updateAdminLogsShortcutVisibility() {
     return;
   }
 
-  const adminLinks = Array.from(pageSwitchPanel.querySelectorAll('.page-link[href="admin-logs.html"]'));
+  const adminLinks = Array.from(pageSwitchPanel.querySelectorAll('.page-link')).filter((link) => {
+    const rawHref = String(link.getAttribute('href') || '').trim().toLowerCase();
+    return rawHref === 'admin-logs.html' || rawHref.endsWith('/admin-logs.html');
+  });
   if (!adminLinks.length) {
     return;
   }
 
   const canViewShortcut = hasSyncCredentials() && isCurrentSyncUserAdmin();
   adminLinks.forEach((link) => {
+    link.classList.toggle('admin-link-visible', canViewShortcut);
     link.hidden = !canViewShortcut;
     link.setAttribute('aria-hidden', canViewShortcut ? 'false' : 'true');
     if (canViewShortcut) {

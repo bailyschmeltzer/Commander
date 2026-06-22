@@ -162,6 +162,15 @@ header p {
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
+/* Admin Logs is hidden by default and only shown after verified admin auth. */
+.page-link[href$="admin-logs.html"] {
+  display: none;
+}
+
+.page-link[href$="admin-logs.html"].admin-link-visible {
+  display: flex;
+}
+
 .page-link:hover {
   transform: translateY(-1px);
   background: rgba(129, 168, 255, 0.2);
