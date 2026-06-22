@@ -6897,10 +6897,13 @@ function renderDeckLibrary() {
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
-  // Keep Deck Lists on an explicit "All players" default to avoid hiding all rows
-  // when user identity/display name changes between sync sessions.
-  if (!activeOwnerFilter) {
-    deckLibraryPlayerFilterDefaulted = false;
+  // Default the filter to the logged-in user's display name once per session.
+  if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
+    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+    if (displayName && ownerFilterOptions.includes(displayName)) {
+      activeOwnerFilter = displayName;
+      deckLibraryPlayerFilterDefaulted = true;
+    }
   }
 
   if (deckLibraryPlayerFilterSelect) {
