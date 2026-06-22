@@ -1106,6 +1106,11 @@ async function hasValidAuth(request, env) {
   const user = getRequestUser(request);
   const token = getRequestToken(request);
   const configuredMembers = getConfiguredMembers(env);
+  const configuredMemberTokens = new Set(
+    configuredMembers
+      .map((entry) => getTextValue(entry?.token))
+      .filter(Boolean),
+  );
   const stateKey = 'pod:default:state';
 
   if (!env.POD_STATE) {
@@ -1158,6 +1163,22 @@ async function hasValidAuth(request, env) {
 
     // Legacy pod token path for registered game-history players.
     if (configuredToken && token === configuredToken) {
+      if (!registeredPlayerKeys.has(normalizedUser)) {
+        return { ok: false, reason: `Player "${user}" is not registered in game history.` };
+      }
+
+      return {
+        ok: true,
+        user,
+        userId: normalizedUser,
+        displayName: user,
+        role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
+        authMode: 'legacy',
+      };
+    }
+
+    // Shared configured-member token path for registered game-history players.
+    if (configuredMemberTokens.has(token)) {
       if (!registeredPlayerKeys.has(normalizedUser)) {
         return { ok: false, reason: `Player "${user}" is not registered in game history.` };
       }

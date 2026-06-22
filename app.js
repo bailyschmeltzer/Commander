@@ -14533,7 +14533,7 @@ function setupSyncUi() {
     try {
       await pullCloudState();
       refreshSyncStatus();
-      setSyncUiCollapsed(true);
+      setSyncUiCollapsed(false);
     } catch (error) {
       syncConnectionState = 'configured';
       clearSyncAuthenticatedUser();
@@ -14685,7 +14685,7 @@ async function initializeApp() {
   if (hasSyncCredentials()) {
     try {
       await pullCloudState();
-      setSyncUiCollapsed(true);
+      setSyncUiCollapsed(false);
       refreshSyncStatus();
     } catch (error) {
       syncConnectionState = 'configured';
