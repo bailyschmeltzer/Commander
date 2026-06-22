@@ -999,6 +999,21 @@ async function hasValidAuth(request, env) {
 
   if (configuredMembers.length) {
     const normalizedUser = normalizeMemberKey(user);
+    
+    if (!user) {
+      return { ok: false, reason: 'Display name is required.' };
+    }
+    if (!token) {
+      return { ok: false, reason: 'Pod access code is required.' };
+    }
+
+    // Check if user exists as a member
+    const userMember = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
+    if (!userMember) {
+      return { ok: false, reason: `Username "${user}" not found in pod members.` };
+    }
+
+    // User exists, check if token is correct
     const member = configuredMembers.find((entry) => entry.token === token && entry.matchKeys.has(normalizedUser));
     if (member) {
       const role = (
@@ -1017,20 +1032,20 @@ async function hasValidAuth(request, env) {
       };
     }
 
+    // Token mismatch for this user
+    return { ok: false, reason: `Incorrect pod access code for "${user}".` };
+    
+    // Fallback to auto-provisioned for unregistered users trying with commander-{id} token
     const autoProvisioned = buildAutoProvisionedAuth(user);
     if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
       if (registeredPlayerKeys.has(autoProvisioned.userId)) {
         return autoProvisioned;
       }
 
-      return { ok: false, reason: 'Player is not registered in game history.' };
+      return { ok: false, reason: `Player "${user}" is not registered in game history.` };
     }
-
-    if (!user || !token) {
-      return { ok: false, reason: 'Missing credentials.' };
-    }
-
-    return { ok: false, reason: 'Invalid member credentials.' };
+    
+    return { ok: false, reason: `Invalid credentials for "${user}".` };
   }
 
   const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
@@ -1039,17 +1054,20 @@ async function hasValidAuth(request, env) {
     return { ok: false, reason: 'Server missing POD_ACCESS_TOKEN.' };
   }
 
-  if (!user || !token) {
-    return { ok: false, reason: 'Missing credentials.' };
+  if (!user) {
+    return { ok: false, reason: 'Display name is required.' };
+  }
+  if (!token) {
+    return { ok: false, reason: 'Pod access code is required.' };
   }
 
   if (token !== configuredToken) {
-    return { ok: false, reason: 'Invalid pod access code.' };
+    return { ok: false, reason: `Incorrect pod access code. (Tried: "${user}")` };
   }
 
   const normalizedUser = normalizeMemberKey(user);
   if (!registeredPlayerKeys.has(normalizedUser)) {
-    return { ok: false, reason: 'Player is not registered in game history.' };
+    return { ok: false, reason: `Player "${user}" is not registered in game history.` };
   }
 
   return {

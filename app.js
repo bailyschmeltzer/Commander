@@ -14553,6 +14553,13 @@ async function initializeApp() {
   // cannot overwrite appState and wipe the newly created deck.
   if (pendingDeckCommanderPrefill) {
     deckBuilderCommanderPrefill = pendingDeckCommanderPrefill;
+
+      // Force audit logs to load on admin-logs page
+      if (document.body.classList.contains('page-admin-logs')) {
+        setTimeout(() => {
+          void refreshAuthAuditLogs();
+        }, 100);
+      }
     renderDeckBuilderPage();
   }
 }
