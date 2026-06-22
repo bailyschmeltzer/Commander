@@ -1647,10 +1647,11 @@ function isCurrentSyncUserAdmin() {
     return true;
   }
 
+  // Only trust server-authenticated identity signals for admin detection.
+  // Do not trust the locally typed credential username.
   const candidates = [
     syncAuthenticatedUserId,
     syncAuthenticatedDisplayName,
-    getSyncCredentials().user,
   ];
 
   return candidates.some((value) => normalizeSyncUserKey(value) === BUILTIN_ADMIN_USER_KEY);
