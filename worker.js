@@ -992,6 +992,24 @@ function getRegisteredPlayerKeysFromState(state) {
   return registeredKeys;
 }
 
+function resolveRegisteredPlayerKey(normalizedUser, registeredPlayerKeys) {
+  const candidate = normalizeMemberKey(normalizedUser);
+  if (!candidate || !(registeredPlayerKeys instanceof Set)) {
+    return '';
+  }
+
+  if (registeredPlayerKeys.has(candidate)) {
+    return candidate;
+  }
+
+  const closeMatches = [...registeredPlayerKeys].filter((key) => key.startsWith(candidate) || candidate.startsWith(key));
+  if (closeMatches.length === 1) {
+    return closeMatches[0];
+  }
+
+  return '';
+}
+
 function getRegisteredPlayersFromState(state) {
   const registeredPlayersById = new Map();
   const games = Array.isArray(state?.games) ? state.games : [];
@@ -1120,6 +1138,7 @@ async function hasValidAuth(request, env) {
   const rawState = await env.POD_STATE.get(stateKey, 'json');
   const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
   const normalizedUser = normalizeMemberKey(user);
+  const resolvedRegisteredUserId = resolveRegisteredPlayerKey(normalizedUser, registeredPlayerKeys);
   const autoProvisioned = buildAutoProvisionedAuth(user);
   const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
 
@@ -1153,42 +1172,45 @@ async function hasValidAuth(request, env) {
     }
 
     // Auto-provisioned path for registered game-history players.
-    if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
-      if (registeredPlayerKeys.has(autoProvisioned.userId)) {
-        return autoProvisioned;
-      }
-
-      return { ok: false, reason: `Player "${user}" is not registered in game history.` };
+    if (autoProvisioned && resolvedRegisteredUserId && token === `commander-${resolvedRegisteredUserId}`) {
+      return {
+        ok: true,
+        user: getTextValue(user),
+        userId: resolvedRegisteredUserId,
+        displayName: getTextValue(user),
+        role: isBuiltInAdminUser(resolvedRegisteredUserId) ? 'admin' : 'member',
+        authMode: 'auto-provisioned',
+      };
     }
 
     // Legacy pod token path for registered game-history players.
     if (configuredToken && token === configuredToken) {
-      if (!registeredPlayerKeys.has(normalizedUser)) {
+      if (!resolvedRegisteredUserId) {
         return { ok: false, reason: `Player "${user}" is not registered in game history.` };
       }
 
       return {
         ok: true,
         user,
-        userId: normalizedUser,
+        userId: resolvedRegisteredUserId,
         displayName: user,
-        role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
+        role: isBuiltInAdminUser(resolvedRegisteredUserId) ? 'admin' : 'member',
         authMode: 'legacy',
       };
     }
 
     // Shared configured-member token path for registered game-history players.
     if (configuredMemberTokens.has(token)) {
-      if (!registeredPlayerKeys.has(normalizedUser)) {
+      if (!resolvedRegisteredUserId) {
         return { ok: false, reason: `Player "${user}" is not registered in game history.` };
       }
 
       return {
         ok: true,
         user,
-        userId: normalizedUser,
+        userId: resolvedRegisteredUserId,
         displayName: user,
-        role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
+        role: isBuiltInAdminUser(resolvedRegisteredUserId) ? 'admin' : 'member',
         authMode: 'legacy',
       };
     }
@@ -1198,7 +1220,7 @@ async function hasValidAuth(request, env) {
       return { ok: false, reason: `Incorrect pod access code for "${user}".` };
     }
 
-    if (registeredPlayerKeys.has(normalizedUser)) {
+    if (resolvedRegisteredUserId) {
       return { ok: false, reason: `Incorrect pod access code for "${user}".` };
     }
 
@@ -1206,12 +1228,15 @@ async function hasValidAuth(request, env) {
   }
 
   // Auto-provisioned path with no configured member list.
-  if (autoProvisioned && token === `commander-${autoProvisioned.userId}`) {
-    if (registeredPlayerKeys.has(autoProvisioned.userId)) {
-      return autoProvisioned;
-    }
-
-    return { ok: false, reason: `Player "${user}" is not registered in game history.` };
+  if (autoProvisioned && resolvedRegisteredUserId && token === `commander-${resolvedRegisteredUserId}`) {
+    return {
+      ok: true,
+      user: getTextValue(user),
+      userId: resolvedRegisteredUserId,
+      displayName: getTextValue(user),
+      role: isBuiltInAdminUser(resolvedRegisteredUserId) ? 'admin' : 'member',
+      authMode: 'auto-provisioned',
+    };
   }
 
   if (!configuredToken) {
@@ -1222,16 +1247,16 @@ async function hasValidAuth(request, env) {
     return { ok: false, reason: `Incorrect pod access code. (Tried: "${user}")` };
   }
 
-  if (!registeredPlayerKeys.has(normalizedUser)) {
+  if (!resolvedRegisteredUserId) {
     return { ok: false, reason: `Player "${user}" is not registered in game history.` };
   }
 
   return {
     ok: true,
     user,
-    userId: normalizedUser,
+    userId: resolvedRegisteredUserId,
     displayName: user,
-    role: isBuiltInAdminUser(normalizedUser) ? 'admin' : 'member',
+    role: isBuiltInAdminUser(resolvedRegisteredUserId) ? 'admin' : 'member',
     authMode: 'legacy',
   };
 }
