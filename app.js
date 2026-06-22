@@ -262,6 +262,7 @@ let syncPendingChanges = false;
 let syncLastSuccessAt = null;
 let syncConnectionState = 'local';
 let syncLastErrorMessage = '';
+let syncDebugMessage = '';
 let syncCloudRevision = 0;
 let syncCloudUpdatedAt = '';
 let syncCloudUpdatedBy = '';
@@ -1765,13 +1766,15 @@ function getSyncStatusSnapshot() {
 
   if (syncConnectionState === 'connected') {
     const connectedAs = getCurrentSyncDisplayName() || credentials.user;
+    const baseMessage = credentialAgeDays !== null && credentialAgeDays >= 7
+      ? `Cloud sync is still connected as ${connectedAs}. Shared device? Disconnect when you're done.`
+      : (lastSyncedText
+        ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
+        : `Cloud sync connected as ${connectedAs}.`);
+    const fullMessage = syncDebugMessage ? `${baseMessage} [${syncDebugMessage}]` : baseMessage;
     return {
       tone: credentialAgeDays !== null && credentialAgeDays >= 7 ? 'neutral' : 'success',
-      message: credentialAgeDays !== null && credentialAgeDays >= 7
-        ? `Cloud sync is still connected as ${connectedAs}. Shared device? Disconnect when you're done.`
-        : (lastSyncedText
-          ? `Cloud sync connected. Last synced at ${lastSyncedText}.`
-          : `Cloud sync connected as ${connectedAs}.`),
+      message: fullMessage,
     };
   }
 
@@ -1936,9 +1939,8 @@ async function pullCloudState() {
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
+    syncDebugMessage = `Loaded ${decks.length} decks, ${deckLists.length} lists`;
     refresh();
-    const debugMsg = `DEBUG: Pulled ${decks.length} decks, ${deckLists.length} lists, user=${getCurrentSyncUserId()}`;
-    setSyncStatus(debugMsg, 'neutral');
   } catch (error) {
     syncConnectionState = hasSyncCredentials() ? 'configured' : 'local';
     throw error;
