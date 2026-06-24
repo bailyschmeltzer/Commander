@@ -10078,19 +10078,47 @@ async function loadPreconDeckText(fileName) {
 }
 
 function getDeckOwnerGroups() {
-  const deckMapById = new Map(
-    loadDecks()
-      .map((deck) => [String(deck?.id || '').trim(), deck])
-      .filter(([deckId]) => deckId),
-  );
+  const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
+  const deckListByDeckId = new Map();
+  const deckListByOwnerCommander = new Map();
 
-  return getSortedDeckLists().reduce((groups, entry) => {
-    const linkedDeckId = String(entry?.deckId || '').trim();
-    const linkedDeck = linkedDeckId ? deckMapById.get(linkedDeckId) : null;
-    if (linkedDeck && linkedDeck.inRotation === false) {
-      return groups;
+  deckLists.forEach((entry) => {
+    const deckId = String(entry.deckId || '').trim();
+    const ownerKey = getIdentityKey(entry.owner || '');
+    const commanderKey = getIdentityKey(entry.commander || '');
+
+    if (deckId && !deckListByDeckId.has(deckId)) {
+      deckListByDeckId.set(deckId, entry);
     }
 
+    if (ownerKey && commanderKey) {
+      const compositeKey = `${ownerKey}::${commanderKey}`;
+      if (!deckListByOwnerCommander.has(compositeKey)) {
+        deckListByOwnerCommander.set(compositeKey, entry);
+      }
+    }
+  });
+
+  const selectorDecks = loadDecks()
+    .map(normalizeDeckRecord)
+    .filter((deck) => Boolean(deck?.commander?.name && deck?.owner))
+    .filter((deck) => deck.inRotation !== false)
+    .map((deck) => {
+      const ownerKey = getIdentityKey(deck.owner || '');
+      const commanderKey = getIdentityKey(deck.commander?.name || '');
+      const linkedDeckList = deckListByDeckId.get(deck.id)
+        || (ownerKey && commanderKey ? deckListByOwnerCommander.get(`${ownerKey}::${commanderKey}`) : null);
+
+      return {
+        id: deck.id,
+        deckId: deck.id,
+        owner: deck.owner,
+        commander: deck.commander.name,
+        url: String(linkedDeckList?.url || '').trim(),
+      };
+    });
+
+  return selectorDecks.reduce((groups, entry) => {
     const owner = (entry.owner || '').trim();
     if (!owner) {
       return groups;
@@ -10366,9 +10394,9 @@ function renderDeckSelector() {
   const defaultOwner = owners.includes(currentDisplayName) ? currentDisplayName : '';
 
   if (!owners.length) {
-    deckSelectorOwnerList.innerHTML = '<p class="status-muted">Add deck lists with owners to use the selector.</p>';
-    deckSelectorResults.innerHTML = '<p>Add owned deck lists first.</p>';
-    deckSelectorWheelStatus.textContent = 'No owned decks available yet.';
+    deckSelectorOwnerList.innerHTML = '<p class="status-muted">Add in-rotation decks with owners to use the selector.</p>';
+    deckSelectorResults.innerHTML = '<p>Add in-rotation decks first.</p>';
+    deckSelectorWheelStatus.textContent = 'No in-rotation decks available yet.';
     renderDeckSelectorWheel([], 'No Decks');
     return;
   }
@@ -10393,7 +10421,7 @@ function renderDeckSelector() {
 
   const pooledDecks = getDeckSelectorPool(selectedOwners);
   if (!pooledDecks.length) {
-    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    deckSelectorResults.innerHTML = '<p>No in-rotation decks were found for the selected players.</p>';
     deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
     renderDeckSelectorWheel([], 'No Decks');
     return;
@@ -10434,14 +10462,20 @@ function renderDeckSelectorResult(selectedOwners, deck) {
   const safeOwner = escapeHtml(deck.owner || 'Unassigned');
   const safePool = escapeHtml(selectedOwners.join(', '));
 
-  const buildHref = `deckbuilder.html?der=${encodeURIComponent(deck.commander)}`;
+  const buildHref = deck.deckId
+    ? `deckbuilder.html?deckId=${encodeURIComponent(deck.deckId)}`
+    : `deckbuilder.html?der=${encodeURIComponent(deck.commander)}`;
+
+  const deckUrlMarkup = deck.url
+    ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>`
+    : '<p class="status-muted">No deck URL saved for this deck yet.</p>';
 
   deckSelectorResults.innerHTML = `
     <article class="deck-selector-card">
       <p class="deck-selector-owner">From pool: ${safePool}</p>
       <h3>${buildCommanderTextHtml(deck.commander)}</h3>
       <p>Owned by ${safeOwner}</p>
-      <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open deck list</a>
+      ${deckUrlMarkup}
       <a href="${escapeHtml(buildHref)}" class="secondary-button">Build This Deck</a>
     </article>`;
 }
@@ -10468,7 +10502,7 @@ function renderDeckSelectorAssignments(selectedOwners) {
   const pooledDecks = getDeckSelectorPool(selectedOwners);
 
   if (!pooledDecks.length) {
-    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    deckSelectorResults.innerHTML = '<p>No in-rotation decks were found for the selected players.</p>';
     if (deckSelectorWheelStatus) {
       deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
     }
@@ -10479,7 +10513,7 @@ function renderDeckSelectorAssignments(selectedOwners) {
   const winningIndex = Math.floor(Math.random() * pooledDecks.length);
   const deck = pooledDecks[winningIndex];
   if (!deck) {
-    deckSelectorResults.innerHTML = '<p>No owned decks were found for the selected players.</p>';
+    deckSelectorResults.innerHTML = '<p>No in-rotation decks were found for the selected players.</p>';
     if (deckSelectorWheelStatus) {
       deckSelectorWheelStatus.textContent = 'No eligible decks found in the selected pool.';
     }
