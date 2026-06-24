@@ -14790,4 +14790,9 @@ async function initializeApp() {
   }
 }
 
+<<<<<<< HEAD
 initializeApp();
+=======
+initializeApp();
+ 
+>>>>>>> e944124 (Add average win turn to deck list views)
