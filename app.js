@@ -7072,6 +7072,8 @@ function renderDeckLibrary() {
     const powerLevel = Number.isFinite(deck.powerLevel) ? deck.powerLevel.toFixed(1).replace(/\.0$/, '') : '—';
     const canEditDeck = canCurrentUserEditDeck(deck);
     const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
+    const isInRotation = deck.inRotation !== false;
+    const rotationLabel = isInRotation ? 'In rotation' : 'Out of rotation';
     const warnings = [
       deck.ownerUserId && !canEditDeck ? 'locked' : '',
       summary.bannedCards.length ? `${summary.bannedCards.length} banned` : '',
@@ -7080,7 +7082,12 @@ function renderDeckLibrary() {
 
     return `
       <tr>
-        <td data-label="Deck">${escapeHtml(deck.name)}</td>
+        <td data-label="Deck">
+          <span class="deck-library-name-cell">
+            ${escapeHtml(deck.name)}
+            <span class="deck-rotation-indicator ${isInRotation ? 'is-in' : 'is-out'}" role="img" aria-label="${escapeHtml(rotationLabel)}" title="${escapeHtml(rotationLabel)}"></span>
+          </span>
+        </td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>
         <td data-label="Commander">${deck.commander?.name ? buildCommanderTextHtml(deck.commander.name, deck.commander) : '—'}</td>
         <td data-label="Power Level">${escapeHtml(String(powerLevel))}</td>
@@ -10354,7 +10361,9 @@ function renderDeckSelector() {
   const ownerGroups = getDeckOwnerGroups();
   const owners = Object.keys(ownerGroups).sort(compareTextValues);
   const previouslySelected = new Set(getSelectedDeckSelectorOwners());
-  const shouldSelectAllByDefault = !previouslySelected.size;
+  const shouldDefaultSelection = !previouslySelected.size;
+  const currentDisplayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+  const defaultOwner = owners.includes(currentDisplayName) ? currentDisplayName : '';
 
   if (!owners.length) {
     deckSelectorOwnerList.innerHTML = '<p class="status-muted">Add deck lists with owners to use the selector.</p>';
@@ -10365,7 +10374,7 @@ function renderDeckSelector() {
   }
 
   deckSelectorOwnerList.innerHTML = owners.map((owner) => {
-    const checked = shouldSelectAllByDefault || previouslySelected.has(owner) ? ' checked' : '';
+    const checked = previouslySelected.has(owner) || (shouldDefaultSelection && defaultOwner && owner === defaultOwner) ? ' checked' : '';
     const count = ownerGroups[owner]?.length || 0;
     return `
       <label class="deck-selector-option">
