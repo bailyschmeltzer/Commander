@@ -350,6 +350,7 @@ const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
 let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
+let pageExitFlushStamp = 0;
 const derivedGamesCache = new WeakMap();
 
 const DEFAULT_RECORD_DEFINITIONS = [
@@ -2546,7 +2547,7 @@ function saveDecks(decks, options = {}) {
   }, delay);
 }
 
-function flushQueuedDeckPersist({ force = false } = {}) {
+function flushQueuedDeckPersist({ force = false, queueSync = true } = {}) {
   if (!decksPersistTimer && !force) {
     return;
   }
@@ -2556,7 +2557,19 @@ function flushQueuedDeckPersist({ force = false } = {}) {
   }
   decksPersistTimer = null;
   persistLocalState(appState);
-  queueCloudSync(0);
+
+  if (queueSync) {
+    queueCloudSync(0);
+    return;
+  }
+
+  // During page transitions, avoid a blocking full sync call.
+  // Keepalive upload handles best-effort cloud flush.
+  if (hasSyncCredentials()) {
+    syncPendingChanges = true;
+    syncLastErrorMessage = '';
+    refreshSyncStatus();
+  }
 }
 
 function normalizeList(value) {
@@ -14652,6 +14665,18 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+function flushStateForPageExit() {
+  const now = Date.now();
+  if (now - pageExitFlushStamp < 250) {
+    return;
+  }
+
+  pageExitFlushStamp = now;
+  pushCloudStateKeepalive();
+  flushQueuedActiveGamePersist();
+  flushQueuedDeckPersist({ queueSync: false });
+}
+
 window.addEventListener('resize', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
@@ -14693,9 +14718,7 @@ window.addEventListener('offline', () => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    flushQueuedActiveGamePersist();
-    flushQueuedDeckPersist();
-    pushCloudStateKeepalive();
+    flushStateForPageExit();
   }
 
   if (document.visibilityState === 'visible') {
@@ -14704,9 +14727,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('pagehide', () => {
-  flushQueuedActiveGamePersist();
-  flushQueuedDeckPersist();
-  pushCloudStateKeepalive();
+  flushStateForPageExit();
 });
 
 window.addEventListener('focus', () => {
