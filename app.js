@@ -116,6 +116,7 @@ const deckBuilderAccessBadge = document.getElementById('deck-builder-access-badg
 const deckBuilderNameInput = document.getElementById('deck-builder-name');
 const deckBuilderOwnerInput = document.getElementById('deck-builder-owner');
 const deckBuilderPowerInput = document.getElementById('deck-builder-power-level');
+const deckBuilderInRotationInput = document.getElementById('deck-builder-in-rotation');
 const deckBuilderOwnerMenu = document.getElementById('deck-builder-owner-menu');
 const deckBuilderCardCount = document.getElementById('deck-builder-card-count');
 const deckBuilderSaveStatus = document.getElementById('deck-builder-save-status');
@@ -996,6 +997,7 @@ function normalizeDeckRecord(entry) {
     cards,
     maybeboard,
     tokens,
+    inRotation: entry.inRotation !== false,
     powerLevel: normalizeDeckPowerLevel(entry.powerLevel),
     createdAt: String(entry.createdAt || new Date().toISOString()).trim(),
     updatedAt: String(entry.updatedAt || entry.createdAt || new Date().toISOString()).trim(),
@@ -6656,6 +6658,7 @@ function createEmptyDeckRecord() {
     cards: [],
     maybeboard: [],
     tokens: [],
+    inRotation: true,
     powerLevel: null,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -6819,6 +6822,9 @@ function applyDeckBuilderAccessState(deck) {
   }
   if (deckBuilderPowerInput) {
     deckBuilderPowerInput.disabled = isReadOnly;
+  }
+  if (deckBuilderInRotationInput) {
+    deckBuilderInRotationInput.disabled = isReadOnly;
   }
   if (deckBuilderSearchInput) {
     deckBuilderSearchInput.disabled = isReadOnly;
@@ -7340,12 +7346,14 @@ function applyDeckBuilderDraftMeta(deck) {
   const nextOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || deck.owner || '');
   const powerInputValue = String(deckBuilderPowerInput?.value || '').trim();
   const nextPowerLevel = powerInputValue ? normalizeDeckPowerLevel(powerInputValue) : normalizeDeckPowerLevel(deck.powerLevel);
+  const nextInRotation = deckBuilderInRotationInput ? deckBuilderInRotationInput.checked : (deck.inRotation !== false);
 
   return {
     ...deck,
     name: nextName,
     owner: nextOwner,
     powerLevel: nextPowerLevel,
+    inRotation: nextInRotation,
   };
 }
 
@@ -9084,6 +9092,12 @@ function renderDeckBuilderPage() {
       deckBuilderPowerInput.value = nextValue;
     }
   }
+  if (deckBuilderInRotationInput && document.activeElement !== deckBuilderInRotationInput) {
+    const nextInRotationValue = deck.inRotation !== false;
+    if (deckBuilderInRotationInput.checked !== nextInRotationValue) {
+      deckBuilderInRotationInput.checked = nextInRotationValue;
+    }
+  }
 
   applyDeckBuilderAccessState(deck);
   if (!canCurrentUserEditDeck(deck)) {
@@ -9180,6 +9194,7 @@ function queueDeckBuilderMetaSave() {
   const capturedName = String(deckBuilderNameInput?.value || '').trim() || 'Untitled Deck';
   const capturedOwner = normalizeIdentityLabel(deckBuilderOwnerInput?.value || '');
   const capturedPower = normalizeDeckPowerLevel(deckBuilderPowerInput?.value);
+  const capturedInRotation = deckBuilderInRotationInput ? deckBuilderInRotationInput.checked : (deck.inRotation !== false);
 
   // Keep the performance panel in sync while typing, rather than waiting
   // for the debounced persistence cycle to complete.
@@ -9188,6 +9203,7 @@ function queueDeckBuilderMetaSave() {
     name: capturedName,
     owner: capturedOwner,
     powerLevel: capturedPower,
+    inRotation: capturedInRotation,
   });
 
   if (deckBuilderSaveTimer) {
@@ -9204,6 +9220,7 @@ function queueDeckBuilderMetaSave() {
       owner: capturedOwner,
       ownerUserId: deck.ownerUserId || '',
       powerLevel: capturedPower,
+      inRotation: capturedInRotation,
     }, 'Deck details saved.');
   }, 220);
 }
@@ -10054,7 +10071,19 @@ async function loadPreconDeckText(fileName) {
 }
 
 function getDeckOwnerGroups() {
+  const deckMapById = new Map(
+    loadDecks()
+      .map((deck) => [String(deck?.id || '').trim(), deck])
+      .filter(([deckId]) => deckId),
+  );
+
   return getSortedDeckLists().reduce((groups, entry) => {
+    const linkedDeckId = String(entry?.deckId || '').trim();
+    const linkedDeck = linkedDeckId ? deckMapById.get(linkedDeckId) : null;
+    if (linkedDeck && linkedDeck.inRotation === false) {
+      return groups;
+    }
+
     const owner = (entry.owner || '').trim();
     if (!owner) {
       return groups;
@@ -13993,6 +14022,12 @@ if (deckBuilderOwnerInput) {
 
 if (deckBuilderPowerInput) {
   deckBuilderPowerInput.addEventListener('input', () => {
+    queueDeckBuilderMetaSave();
+  });
+}
+
+if (deckBuilderInRotationInput) {
+  deckBuilderInRotationInput.addEventListener('change', () => {
     queueDeckBuilderMetaSave();
   });
 }

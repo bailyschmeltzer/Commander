@@ -1424,6 +1424,20 @@ button[type="submit"] {
   grid-column: 1 / -1;
 }
 
+.deck-builder-rotation-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #2f3a57;
+  margin-top: 6px;
+}
+
+.deck-builder-rotation-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
 .deck-builder-title-row {
   display: flex;
   align-items: center;
