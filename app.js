@@ -269,6 +269,7 @@ let syncLastErrorMessage = '';
 let syncCloudRevision = 0;
 let syncCloudUpdatedAt = '';
 let syncCloudUpdatedBy = '';
+let syncHasLoadedCloudState = false;
 let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
 let syncAuthenticatedRole = '';
@@ -1761,6 +1762,13 @@ function getSyncStatusSnapshot() {
     };
   }
 
+  if (hasSyncCredentials() && !syncHasLoadedCloudState) {
+    return {
+      tone: 'neutral',
+      message: 'Cloud sync is connected but waiting to load latest cloud state before sending edits.',
+    };
+  }
+
   if (syncPendingChanges) {
     return {
       tone: 'neutral',
@@ -1938,6 +1946,7 @@ async function pullCloudState() {
     clearSyncConflict();
     appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
     persistLocalState(appState);
+    syncHasLoadedCloudState = true;
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
@@ -1956,6 +1965,38 @@ async function pullCloudState() {
   } finally {
     updateSyncControls();
   }
+}
+
+function pushCloudStateKeepalive() {
+  if (!hasSyncCredentials() || !navigator.onLine || syncConflictInfo || !syncHasLoadedCloudState) {
+    return;
+  }
+
+  if (!syncPendingChanges && !decksPersistTimer) {
+    return;
+  }
+
+  const credentials = getSyncCredentials();
+  const headers = new Headers();
+  headers.set('Content-Type', 'application/json');
+  headers.set('X-User-Name', credentials.user);
+  headers.set('X-Pod-Token', credentials.token);
+  headers.set('X-State-Revision', String(syncCloudRevision));
+
+  fetch(CLOUD_SYNC_ENDPOINT, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      games: appState.games,
+      powerLevels: appState.powerLevels,
+      deckLists: appState.deckLists,
+      decks: appState.decks,
+      records: appState.records,
+    }),
+    keepalive: true,
+  }).catch(() => {
+    // Best-effort unload flush; normal retries still run after navigation.
+  });
 }
 
 async function fetchCloudStateMetadata() {
@@ -2044,6 +2085,17 @@ async function pushCloudState() {
     return;
   }
 
+  if (!syncHasLoadedCloudState) {
+    try {
+      await pullCloudState();
+    } catch (error) {
+      syncPendingChanges = true;
+      syncLastErrorMessage = `${error.message}. Sync is blocked until latest cloud state loads.`;
+      refreshSyncStatus();
+      return;
+    }
+  }
+
   const requestDeckMutationVersion = syncDecksMutationVersion;
   let shouldQueueFollowUpSync = false;
   syncInFlight = true;
@@ -2127,6 +2179,11 @@ function queueCloudSync(delay = 500) {
   }
 
   clearSyncRetryTimer();
+
+  if (Number(delay) <= 0) {
+    pushCloudState();
+    return;
+  }
 
   syncQueueTimer = setTimeout(() => {
     syncQueueTimer = null;
@@ -2443,7 +2500,7 @@ function saveDeckLists(deckLists) {
     deckLists: Array.isArray(deckLists) ? deckLists : [],
   });
   persistLocalState(appState);
-  queueCloudSync();
+  queueCloudSync(0);
 }
 
 function saveDecks(decks, options = {}) {
@@ -2461,7 +2518,7 @@ function saveDecks(decks, options = {}) {
     }
 
     persistLocalState(appState);
-    queueCloudSync();
+    queueCloudSync(0);
     return;
   }
 
@@ -7196,7 +7253,7 @@ async function undoDeckBuilderChange() {
 function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', tone = 'success', {
   skipUndo = false,
   skipFullRefresh = false,
-  persistDelayMs = null,
+  persistDelayMs = DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
 } = {}) {
   const ownedDeck = applyDeckOwnership(nextDeck);
   if (!ownedDeck) {
@@ -7225,7 +7282,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
 
   saveDecks(nextDecks, {
     deferPersist: true,
-    delay: Number.isFinite(Number(persistDelayMs)) ? Number(persistDelayMs) : DECKS_PERSIST_DEBOUNCE_MS,
+    delay: Number.isFinite(Number(persistDelayMs)) ? Number(persistDelayMs) : DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
   });
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
@@ -14461,10 +14518,21 @@ document.querySelectorAll('[data-sort-table]').forEach((table) => {
 updateHistorySortOrderLabel();
 
 window.addEventListener('storage', (event) => {
+  const isStateStorageKey = (
+    event.key === STORAGE_KEY
+    || event.key === EXPECTED_POWER_STORAGE_KEY
+    || event.key === DECK_LIST_STORAGE_KEY
+    || event.key === DECKS_STORAGE_KEY
+    || event.key === RECORDS_STORAGE_KEY
+  );
+
+  const shouldIgnoreStateStorageReload = isStateStorageKey && hasSyncCredentials() && syncHasLoadedCloudState;
+
   if (
     event.key === STORAGE_KEY
     || event.key === EXPECTED_POWER_STORAGE_KEY
     || event.key === DECK_LIST_STORAGE_KEY
+    || event.key === DECKS_STORAGE_KEY
     || event.key === RECORDS_STORAGE_KEY
     || event.key === ACTIVE_GAME_STORAGE_KEY
     || event.key === ACTIVE_GAME_UNDO_STORAGE_KEY
@@ -14472,7 +14540,9 @@ window.addEventListener('storage', (event) => {
     || event.key === SYNC_TOKEN_STORAGE_KEY
     || event.key === SYNC_CREDENTIAL_SET_AT_STORAGE_KEY
   ) {
-    appState = loadLocalState();
+    if (!shouldIgnoreStateStorageReload) {
+      appState = loadLocalState();
+    }
     activeGameState = loadActiveGameState();
     activeGameUndoState = loadActiveGameUndoState();
     const credentials = getSyncCredentials();
@@ -14485,6 +14555,10 @@ window.addEventListener('storage', (event) => {
     historyQueryFiltersApplied = false;
     applyHistoryQueryFilters();
     refresh();
+
+    if (shouldIgnoreStateStorageReload) {
+      checkCloudStateFreshness({ autoPull: true, force: true });
+    }
   }
 });
 
@@ -14543,6 +14617,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushQueuedActiveGamePersist();
     flushQueuedDeckPersist();
+    pushCloudStateKeepalive();
   }
 
   if (document.visibilityState === 'visible') {
@@ -14553,6 +14628,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
   flushQueuedActiveGamePersist();
   flushQueuedDeckPersist();
+  pushCloudStateKeepalive();
 });
 
 window.addEventListener('focus', () => {
@@ -14568,6 +14644,7 @@ function setupSyncUi() {
   syncUserInput.value = credentials.user;
   syncTokenInput.value = credentials.token;
   syncConnectionState = credentials.user && credentials.token ? 'configured' : 'local';
+  syncHasLoadedCloudState = false;
   updateSyncControls();
   refreshSyncStatus();
 
@@ -14588,6 +14665,7 @@ function setupSyncUi() {
     syncPendingChanges = false;
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
+    syncHasLoadedCloudState = false;
     clearSyncAuthenticatedUser();
     updateSyncMetadata();
     clearSyncConflict();
@@ -14687,6 +14765,7 @@ function setupSyncUi() {
       syncRetryCount = 0;
       syncLastSuccessAt = null;
       syncLastErrorMessage = '';
+      syncHasLoadedCloudState = false;
       updateSyncMetadata();
       clearSyncAuthenticatedUser();
       clearSyncConflict();

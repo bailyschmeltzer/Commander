@@ -1682,11 +1682,33 @@ export default {
           return jsonResponse({ error: 'Invalid JSON payload.' }, 400);
         }
 
-        const games = Array.isArray(body.games) ? body.games : [];
-        const powerLevels = body.powerLevels && typeof body.powerLevels === 'object' ? body.powerLevels : {};
-        const deckLists = Array.isArray(body.deckLists) ? body.deckLists : [];
-        const decks = Array.isArray(body.decks) ? body.decks : [];
-        const records = Array.isArray(body.records) ? body.records : [];
+        const hasRequiredPayloadShape = body && typeof body === 'object'
+          && Object.prototype.hasOwnProperty.call(body, 'games')
+          && Object.prototype.hasOwnProperty.call(body, 'powerLevels')
+          && Object.prototype.hasOwnProperty.call(body, 'deckLists')
+          && Object.prototype.hasOwnProperty.call(body, 'decks')
+          && Object.prototype.hasOwnProperty.call(body, 'records');
+
+        if (!hasRequiredPayloadShape) {
+          return jsonResponse({
+            error: 'Sync payload is incomplete. Refresh the page and reconnect before syncing again.',
+          }, 409);
+        }
+
+        const games = Array.isArray(body.games) ? body.games : null;
+        const powerLevels = body.powerLevels && typeof body.powerLevels === 'object' && !Array.isArray(body.powerLevels)
+          ? body.powerLevels
+          : null;
+        const deckLists = Array.isArray(body.deckLists) ? body.deckLists : null;
+        const decks = Array.isArray(body.decks) ? body.decks : null;
+        const records = Array.isArray(body.records) ? body.records : null;
+
+        if (!games || !powerLevels || !deckLists || !decks || !records) {
+          return jsonResponse({
+            error: 'Sync payload has invalid field types. Refresh the page and reconnect before syncing again.',
+          }, 409);
+        }
+
         const expectedRevisionHeader = request.headers.get('X-State-Revision');
         const expectedRevision = Number.parseInt(String(expectedRevisionHeader || '').trim(), 10);
 
@@ -1699,6 +1721,36 @@ export default {
         const currentRaw = await env.POD_STATE.get(stateKey, 'json');
         const currentState = currentRaw && typeof currentRaw === 'object' ? currentRaw : null;
         const currentRevision = Number.isFinite(Number(currentState?.revision)) ? Number(currentState.revision) : 0;
+        const currentGames = Array.isArray(currentState?.games) ? currentState.games : [];
+        const currentPowerLevels = currentState?.powerLevels && typeof currentState.powerLevels === 'object' && !Array.isArray(currentState.powerLevels)
+          ? currentState.powerLevels
+          : {};
+        const currentDeckLists = Array.isArray(currentState?.deckLists) ? currentState.deckLists : [];
+        const currentDecks = Array.isArray(currentState?.decks) ? currentState.decks : [];
+        const currentRecords = Array.isArray(currentState?.records) ? currentState.records : [];
+
+        const incomingHasData = games.length > 0
+          || Object.keys(powerLevels).length > 0
+          || deckLists.length > 0
+          || decks.length > 0
+          || records.length > 0;
+        const currentHasData = currentGames.length > 0
+          || Object.keys(currentPowerLevels).length > 0
+          || currentDeckLists.length > 0
+          || currentDecks.length > 0
+          || currentRecords.length > 0;
+        const allowDestructiveOverwrite = request.headers.get('X-Allow-Destructive-State-Overwrite') === '1';
+
+        if (currentHasData && !incomingHasData && !allowDestructiveOverwrite) {
+          return jsonResponse({
+            error: 'Blocked an empty sync payload to prevent accidental cloud data loss. Pull the latest cloud state and retry.',
+            conflict: {
+              revision: currentRevision,
+              updatedAt: String(currentState?.updatedAt || '').trim(),
+              updatedBy: String(currentState?.updatedBy || '').trim(),
+            },
+          }, 409);
+        }
 
         if (expectedRevision !== currentRevision) {
           return jsonResponse({
