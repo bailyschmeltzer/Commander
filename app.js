@@ -7005,8 +7005,20 @@ function renderDeckLibrary() {
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
-  if (!deckLibraryPlayerFilterDefaulted) {
-    deckLibraryPlayerFilterDefaulted = true;
+
+  // Default the filter to the logged-in user's display name once per session.
+  if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
+    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+    const currentUserId = getCurrentSyncUserId();
+    const ownedDeck = sortedDecks.find((deck) => String(deck?.ownerUserId || '').trim().toLowerCase() === currentUserId);
+
+    if (displayName && ownerFilterOptions.includes(displayName)) {
+      activeOwnerFilter = displayName;
+      deckLibraryPlayerFilterDefaulted = true;
+    } else if (ownedDeck) {
+      activeOwnerFilter = normalizeIdentityLabel(ownedDeck.owner || displayName || currentUserId);
+      deckLibraryPlayerFilterDefaulted = true;
+    }
   }
 
   if (deckLibraryPlayerFilterSelect) {
