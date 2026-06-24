@@ -45,6 +45,31 @@ jobs:
 
           python3 -c "import json, os, pathlib; path = pathlib.Path(os.environ['SNAPSHOT_PATH']); data = json.loads(path.read_text(encoding='utf-8')); path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')"
 
+      - name: Validate KV namespace matches wrangler POD_STATE binding
+        env:
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+        run: |
+          set -euo pipefail
+
+          expected_id="$(python3 - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path('wrangler.jsonc').read_text(encoding='utf-8')
+          match = re.search(r'"kv_namespaces"\s*:\s*\[.*?\{\s*"binding"\s*:\s*"POD_STATE"\s*,\s*"id"\s*:\s*"([^"]+)"', text, re.S)
+          if not match:
+              raise SystemExit('Could not find POD_STATE namespace id in wrangler.jsonc')
+          print(match.group(1).strip())
+          PY
+          )"
+
+          if [ "$expected_id" != "$CLOUDFLARE_KV_NAMESPACE_ID" ]; then
+            echo "Restore aborted: CLOUDFLARE_KV_NAMESPACE_ID secret does not match wrangler POD_STATE id." >&2
+            echo "Expected (wrangler): $expected_id" >&2
+            echo "Provided (secret): $CLOUDFLARE_KV_NAMESPACE_ID" >&2
+            exit 1
+          fi
+
       - name: Restore backup into Cloudflare KV
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -65,3 +90,49 @@ jobs:
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces/$CLOUDFLARE_KV_NAMESPACE_ID/values/$encoded_key"
 
           echo "Restore completed for KV key: $KV_KEY"
+
+      - name: Verify restored KV value matches snapshot
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN_RESTORE: ${{ secrets.CLOUDFLARE_API_TOKEN_RESTORE }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          KV_KEY: ${{ github.event.inputs.kv_key }}
+          SNAPSHOT_PATH: ${{ github.event.inputs.snapshot_path }}
+        run: |
+          set -euo pipefail
+
+          encoded_key="$(python3 -c "import os, urllib.parse; print(urllib.parse.quote(os.environ['KV_KEY'], safe=''))")"
+
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN_RESTORE" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces/$CLOUDFLARE_KV_NAMESPACE_ID/values/$encoded_key" \
+            -o restored.raw.json
+
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          snapshot_path = Path(os.environ['SNAPSHOT_PATH'])
+          restored_path = Path('restored.raw.json')
+
+          snapshot = json.loads(snapshot_path.read_text(encoding='utf-8'))
+          restored = json.loads(restored_path.read_text(encoding='utf-8'))
+
+          if snapshot != restored:
+              print('Restore verification failed: KV value does not match snapshot JSON.', file=sys.stderr)
+              sys.exit(1)
+
+          def count_list(value):
+              return len(value) if isinstance(value, list) else 0
+
+          summary = {
+              'games': count_list(restored.get('games')),
+              'decks': count_list(restored.get('decks')),
+              'deckLists': count_list(restored.get('deckLists')),
+              'records': count_list(restored.get('records')),
+              'revision': restored.get('revision', 0),
+          }
+          print('Restore verification passed:', summary)
+          PY

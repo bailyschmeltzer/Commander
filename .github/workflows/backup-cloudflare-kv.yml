@@ -20,6 +20,31 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Validate KV namespace matches wrangler POD_STATE binding
+        env:
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+        run: |
+          set -euo pipefail
+
+          expected_id="$(python3 - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path('wrangler.jsonc').read_text(encoding='utf-8')
+          match = re.search(r'"kv_namespaces"\s*:\s*\[.*?\{\s*"binding"\s*:\s*"POD_STATE"\s*,\s*"id"\s*:\s*"([^"]+)"', text, re.S)
+          if not match:
+              raise SystemExit('Could not find POD_STATE namespace id in wrangler.jsonc')
+          print(match.group(1).strip())
+          PY
+          )"
+
+          if [ "$expected_id" != "$CLOUDFLARE_KV_NAMESPACE_ID" ]; then
+            echo "Backup aborted: CLOUDFLARE_KV_NAMESPACE_ID secret does not match wrangler POD_STATE id." >&2
+            echo "Expected (wrangler): $expected_id" >&2
+            echo "Provided (secret): $CLOUDFLARE_KV_NAMESPACE_ID" >&2
+            exit 1
+          fi
+
       - name: Fetch Cloudflare KV state
         id: fetch
         env:

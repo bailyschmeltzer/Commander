@@ -5454,8 +5454,8 @@ function applyHistoryQueryFilters() {
   if (historyFilterPlayer) {
     if (player) {
       historyFilterPlayer.value = player;
-    } else if (!historyPlayerFilterDefaulted) {
-      historyFilterPlayer.value = normalizeIdentityLabel(getCurrentSyncDisplayName()) || 'all';
+    } else {
+      historyFilterPlayer.value = 'all';
       historyPlayerFilterDefaulted = true;
     }
   }
@@ -7005,20 +7005,8 @@ function renderDeckLibrary() {
   const ownerFilterOptions = getUniqueValues(sortedDecks.map((deck) => normalizeIdentityLabel(deck.owner || '')).filter(Boolean));
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
-
-  // Default the filter to the logged-in user's display name once per session.
-  if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
-    const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
-    const currentUserId = getCurrentSyncUserId();
-    const ownedDeck = sortedDecks.find((deck) => String(deck?.ownerUserId || '').trim().toLowerCase() === currentUserId);
-
-    if (displayName && ownerFilterOptions.includes(displayName)) {
-      activeOwnerFilter = displayName;
-      deckLibraryPlayerFilterDefaulted = true;
-    } else if (ownedDeck) {
-      activeOwnerFilter = normalizeIdentityLabel(ownedDeck.owner || displayName || currentUserId);
-      deckLibraryPlayerFilterDefaulted = true;
-    }
+  if (!deckLibraryPlayerFilterDefaulted) {
+    deckLibraryPlayerFilterDefaulted = true;
   }
 
   if (deckLibraryPlayerFilterSelect) {
