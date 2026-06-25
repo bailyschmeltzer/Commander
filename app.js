@@ -4965,6 +4965,7 @@ function ensurePlayerStats(stats, player) {
       firstBloods: 0,
       winTurnTotal: 0,
       winTurnCount: 0,
+      winTurns: [],
       commanders: {},
       commanderStats: {},
       killerCounts: {},
@@ -11716,6 +11717,60 @@ function getExpectedEloScore(ratingA, ratingB) {
   return 1 / (1 + (10 ** ((ratingB - ratingA) / 400)));
 }
 
+function getNormalizedTurnWinScore(turnNumber, slowTurnThreshold = 18) {
+  const normalizedTurn = Number(turnNumber);
+  if (!Number.isFinite(normalizedTurn) || normalizedTurn <= 0) {
+    return 0;
+  }
+
+  const cappedThreshold = Math.max(2, Number(slowTurnThreshold) || 18);
+  const clampedTurn = clamp(normalizedTurn, 1, cappedThreshold);
+  const linearScore = (cappedThreshold - clampedTurn) / (cappedThreshold - 1);
+  return linearScore ** 1.2;
+}
+
+function getNeutralTurnWinScore() {
+  return getNormalizedTurnWinScore(12);
+}
+
+function getSingleGameWinTurnEloBonus(turnNumber) {
+  const baseline = getNeutralTurnWinScore();
+  const speedScore = getNormalizedTurnWinScore(turnNumber);
+  return (speedScore - baseline) * 14;
+}
+
+function getAverageWinTurnEloBonus(averageTurnToWin, winCount) {
+  const normalizedWins = clamp((Number(winCount) || 0) / 6, 0, 1);
+  if (!normalizedWins) {
+    return 0;
+  }
+
+  const baseline = getNeutralTurnWinScore();
+  const speedScore = getNormalizedTurnWinScore(averageTurnToWin);
+  return (speedScore - baseline) * 30 * normalizedWins;
+}
+
+function getRecentWinTurnEloBonus(winTurns, recentLimit = 3) {
+  if (!Array.isArray(winTurns) || !winTurns.length) {
+    return 0;
+  }
+
+  const recentTurns = winTurns.slice(-Math.max(1, recentLimit)).reverse();
+  const recentWeights = [0.5, 0.3, 0.2];
+  const weightedSpeed = recentTurns.reduce((sum, turn, index) => {
+    const weight = recentWeights[index] || 0.1;
+    return sum + (getNormalizedTurnWinScore(turn) * weight);
+  }, 0);
+  const weightTotal = recentTurns.reduce((sum, _, index) => sum + (recentWeights[index] || 0.1), 0);
+  if (!weightTotal) {
+    return 0;
+  }
+
+  const baseline = getNeutralTurnWinScore();
+  const weightedAverageSpeed = weightedSpeed / weightTotal;
+  return (weightedAverageSpeed - baseline) * 22;
+}
+
 function getRowKills(row) {
   const killedList = getCleanKilledList(row?.killed);
   if (typeof row?.kills === 'number' && !Number.isNaN(row.kills)) {
@@ -11853,6 +11908,7 @@ function buildPlayerRankingEntries(games) {
   getGamesSortedByDateAscending(games).forEach((game) => {
     const rows = getGameRows(game);
     const firstBlood = getGameFirstBloodInfo(game);
+    const winningTurn = parseOptionalPositiveInteger(game?.liveSummary?.turnNumber);
     const participants = [];
 
     rows.forEach((row) => {
@@ -11873,6 +11929,9 @@ function buildPlayerRankingEntries(games) {
           currentWinStreak: 0,
           placementTotal: 0,
           placementGames: 0,
+          winTurnTotal: 0,
+          winTurnCount: 0,
+          winTurns: [],
           commanders: {},
         };
       }
@@ -11891,6 +11950,11 @@ function buildPlayerRankingEntries(games) {
         entry.points += getPlacementPoints(place) + kills + firstBloodBonus;
         if (place === 1) {
           entry.wins += 1;
+          if (winningTurn) {
+            entry.winTurnTotal += winningTurn;
+            entry.winTurnCount += 1;
+            entry.winTurns.push(winningTurn);
+          }
         }
         if (place) {
           entry.placementTotal += place;
@@ -11945,20 +12009,32 @@ function buildPlayerRankingEntries(games) {
         ? Math.min(maxStreakBonus, (stats[player].currentWinStreak - 1) * streakBonusStep)
         : 0;
 
-      stats[player].rating += baseRatingChange + streakBonus + (kills * eloKillBonus);
+      const singleGameTurnEloBonus = place === 1 && winningTurn
+        ? getSingleGameWinTurnEloBonus(winningTurn)
+        : 0;
+
+      stats[player].rating += baseRatingChange + streakBonus + (kills * eloKillBonus) + singleGameTurnEloBonus;
     });
   });
 
   const playerRankingEntries = Object.values(stats)
     .filter((entry) => entry.games > 0)
-    .map((entry) => ({
-      ...entry,
-      rating: Math.round(entry.rating),
-      avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
-      pointsPerGame: entry.games ? entry.points / entry.games : 0,
-      winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
-      favoriteCommander: getMaxCountKey(entry.commanders),
-    }))
+    .map((entry) => {
+      const avgWinTurn = entry.winTurnCount ? (entry.winTurnTotal / entry.winTurnCount) : 0;
+      const averageWinTurnEloBonus = getAverageWinTurnEloBonus(avgWinTurn, entry.winTurnCount);
+      const recentWinTurnEloBonus = getRecentWinTurnEloBonus(entry.winTurns || []);
+      return {
+        ...entry,
+        rating: Math.round(entry.rating + averageWinTurnEloBonus + recentWinTurnEloBonus),
+        avgWinTurn,
+        averageWinTurnEloBonus,
+        recentWinTurnEloBonus,
+        avgPlace: entry.placementGames ? entry.placementTotal / entry.placementGames : null,
+        pointsPerGame: entry.games ? entry.points / entry.games : 0,
+        winRate: entry.games ? (entry.wins / entry.games) * 100 : 0,
+        favoriteCommander: getMaxCountKey(entry.commanders),
+      };
+    })
     .sort(compareRankingsEntries);
 
   cacheBucket.playerRankingEntries = playerRankingEntries;
@@ -12892,6 +12968,7 @@ function getPlayerStatsData(games) {
         if (winningTurn) {
           playerStat.winTurnTotal += winningTurn;
           playerStat.winTurnCount += 1;
+          playerStat.winTurns.push(winningTurn);
         }
       }
 
@@ -13116,6 +13193,7 @@ function getCommanderStatsData(games) {
           placementGames: 0,
           winTurnTotal: 0,
           winTurnCount: 0,
+          winTurns: [],
         };
       }
 
@@ -13126,6 +13204,7 @@ function getCommanderStatsData(games) {
         if (winningTurn) {
           stats[commander].winTurnTotal += winningTurn;
           stats[commander].winTurnCount += 1;
+          stats[commander].winTurns.push(winningTurn);
         }
       }
 
@@ -13169,7 +13248,15 @@ function getCommanderActualPower(commanderStats) {
     const killsPerGame = stat.games ? stat.kills / stat.games : 0;
     const killScore = maxKillsPerGame ? killsPerGame / maxKillsPerGame : 0;
     const placementScore = stat.placementGames ? stat.placementScoreTotal / stat.placementGames : 0;
-    const rawScore = 0.5 * winRate + 0.25 * killScore + 0.25 * placementScore;
+    const avgWinTurn = stat.winTurnCount ? (stat.winTurnTotal / stat.winTurnCount) : null;
+    const singleGameTurnScore = Array.isArray(stat.winTurns) && stat.winTurns.length
+      ? getMean(stat.winTurns.map((turn) => getNormalizedTurnWinScore(turn)))
+      : 0;
+    const averageTurnScore = avgWinTurn ? getNormalizedTurnWinScore(avgWinTurn) : 0;
+    const turnSpeedScore = stat.winTurnCount
+      ? ((singleGameTurnScore * 0.65) + (averageTurnScore * 0.35))
+      : (stat.wins ? getNeutralTurnWinScore() : 0);
+    const rawScore = 0.4 * winRate + 0.2 * killScore + 0.2 * placementScore + 0.2 * turnSpeedScore;
     actual[commander] = Math.round(rawScore * 100) / 10;
   });
 
