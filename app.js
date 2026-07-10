@@ -10209,7 +10209,8 @@ function getCommanderBuilderInputs() {
 
 function getCommanderBuilderMode() {
   const selectedInput = commanderBuilderModeInputs.find((input) => input.checked);
-  return selectedInput?.value === 'keywords' ? 'keywords' : 'identity';
+  const value = String(selectedInput?.value || '').trim().toLowerCase();
+  return value === 'keywords' || value === 'both' ? value : 'identity';
 }
 
 function normalizeCommanderBuilderKeyword(value) {
@@ -10224,12 +10225,17 @@ function getCommanderBuilderQuery() {
   const mode = getCommanderBuilderMode();
   if (mode === 'keywords') {
     const keywords = getSelectedCommanderBuilderKeywords();
+    return keywords.length ? { mode, keywords } : null;
+  }
+
+  if (mode === 'both') {
+    const keywords = getSelectedCommanderBuilderKeywords();
     if (!keywords.length) {
       return null;
     }
 
     const identity = getSelectedCommanderBuilderIdentity();
-    return identity ? { mode, keywords, identity } : { mode, keywords };
+    return identity ? { mode, keywords, identity } : null;
   }
 
   const identity = getSelectedCommanderBuilderIdentity();
@@ -10241,10 +10247,10 @@ function getCommanderBuilderQueryKey(query) {
     return '';
   }
 
-  if (query.mode === 'keywords') {
+  if (query.mode === 'keywords' || query.mode === 'both') {
     const keywordKey = (query.keywords || []).map((keyword) => normalizeCommanderBuilderKeyword(keyword).toLowerCase()).join('|');
     const identityKey = String(query.identity || '').trim().toLowerCase();
-    return `keywords:${keywordKey}:identity:${identityKey || 'any'}`;
+    return `${query.mode}:${keywordKey}:identity:${identityKey || 'any'}`;
   }
 
   return `identity:${String(query.identity || '').trim().toLowerCase()}`;
@@ -10255,7 +10261,7 @@ function getCommanderBuilderCriteriaLabel(query) {
     return '';
   }
 
-  if (query.mode === 'keywords') {
+  if (query.mode === 'keywords' || query.mode === 'both') {
     const keywordLabel = (query.keywords || []).join(', ');
     const identityLabel = query.identity ? getCommanderIdentityLabel(query.identity) : '';
     return identityLabel ? `${keywordLabel} within ${identityLabel}` : keywordLabel;
@@ -10269,27 +10275,45 @@ function getCommanderBuilderTagLabel(query) {
     return '';
   }
 
-  return query.mode === 'keywords'
+  return query.mode === 'keywords' || query.mode === 'both'
     ? `Keywords: ${getCommanderBuilderCriteriaLabel(query)}`
     : getCommanderBuilderCriteriaLabel(query);
 }
 
 function getCommanderBuilderIdlePlaceholder(mode = getCommanderBuilderMode()) {
-  return mode === 'keywords'
-    ? 'Select at least one keyword ability to get started.'
-    : 'Choose a color identity to get started.';
+  if (mode === 'keywords') {
+    return 'Select at least one keyword ability to get started.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose a color identity and at least one keyword ability to get started.';
+  }
+
+  return 'Choose a color identity to get started.';
 }
 
 function getCommanderBuilderIdleCount(mode = getCommanderBuilderMode()) {
-  return mode === 'keywords'
-    ? 'Choose keyword abilities to load the pool.'
-    : 'Choose colors to load the pool.';
+  if (mode === 'keywords') {
+    return 'Choose keyword abilities to load the pool.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose colors and keyword abilities to load the pool.';
+  }
+
+  return 'Choose colors to load the pool.';
 }
 
 function getCommanderBuilderIdleStatus(mode = getCommanderBuilderMode()) {
-  return mode === 'keywords'
-    ? 'Select at least one keyword ability, then optionally narrow by exact color identity.'
-    : 'Choose at least one color, or select Colorless, then roll for a commander.';
+  if (mode === 'keywords') {
+    return 'Select at least one keyword ability, then roll for a commander.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose an exact color identity and at least one keyword ability, then roll for a commander.';
+  }
+
+  return 'Choose at least one color, or select Colorless, then roll for a commander.';
 }
 
 function getCommanderBuilderReadyPlaceholder(query) {
@@ -10297,7 +10321,7 @@ function getCommanderBuilderReadyPlaceholder(query) {
     return getCommanderBuilderIdlePlaceholder();
   }
 
-  return query.mode === 'keywords'
+  return query.mode === 'keywords' || query.mode === 'both'
     ? `Roll to load a commander that matches ${getCommanderBuilderCriteriaLabel(query)}.`
     : `Roll to load a random ${getCommanderBuilderCriteriaLabel(query)} commander.`;
 }
@@ -10307,7 +10331,7 @@ function getCommanderBuilderReadyCount(query) {
     return getCommanderBuilderIdleCount();
   }
 
-  return query.mode === 'keywords'
+  return query.mode === 'keywords' || query.mode === 'both'
     ? `Ready to search ${query.keywords.length} keyword abil${query.keywords.length === 1 ? 'ity' : 'ities'}.`
     : `Ready to load ${getCommanderBuilderCriteriaLabel(query)} commanders.`;
 }
@@ -10317,7 +10341,7 @@ function getCommanderBuilderReadyStatus(query) {
     return getCommanderBuilderIdleStatus();
   }
 
-  return query.mode === 'keywords'
+  return query.mode === 'keywords' || query.mode === 'both'
     ? `Roll to load commanders matching ${getCommanderBuilderCriteriaLabel(query)}.`
     : `Roll to load the ${getCommanderBuilderCriteriaLabel(query)} pool.`;
 }
@@ -10468,28 +10492,30 @@ function toggleCommanderBuilderKeyword(keyword, isSelected) {
 
 function updateCommanderBuilderModeUi() {
   commanderBuilderMode = getCommanderBuilderMode();
+  const showIdentityPanel = commanderBuilderMode === 'identity' || commanderBuilderMode === 'both';
+  const showKeywordPanel = commanderBuilderMode === 'keywords' || commanderBuilderMode === 'both';
 
   if (commanderBuilderIdentityPanel) {
-    commanderBuilderIdentityPanel.hidden = false;
+    commanderBuilderIdentityPanel.hidden = !showIdentityPanel;
   }
 
   if (commanderBuilderIdentityTitle) {
-    commanderBuilderIdentityTitle.textContent = commanderBuilderMode === 'keywords'
-      ? 'Optional Color Identity Filter'
+    commanderBuilderIdentityTitle.textContent = commanderBuilderMode === 'both'
+      ? 'Pick an Exact Color Identity'
       : 'Pick an Exact Color Identity';
   }
 
   if (commanderBuilderIdentityCopy) {
-    commanderBuilderIdentityCopy.textContent = commanderBuilderMode === 'keywords'
-      ? 'Leave colors blank to search any commander with those keyword abilities, or choose an exact identity to narrow the random pool.'
+    commanderBuilderIdentityCopy.textContent = commanderBuilderMode === 'both'
+      ? 'This stays exact. Choosing blue and black only returns Dimir commanders that also match your selected keyword abilities.'
       : 'The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.';
   }
 
   if (commanderBuilderKeywordPanel) {
-    commanderBuilderKeywordPanel.hidden = commanderBuilderMode !== 'keywords';
+    commanderBuilderKeywordPanel.hidden = !showKeywordPanel;
   }
 
-  if (commanderBuilderMode === 'keywords') {
+  if (showKeywordPanel) {
     void loadCommanderBuilderKeywordCatalog();
   }
 }
@@ -11308,8 +11334,8 @@ async function fetchCommanderBuilderSelection(query) {
   let response;
   try {
     const requestUrl = new URL(COMMANDER_BUILDER_ENDPOINT, window.location.origin);
-    requestUrl.searchParams.set('mode', query?.mode === 'keywords' ? 'keywords' : 'identity');
-    if (query?.mode === 'keywords') {
+    requestUrl.searchParams.set('mode', query?.mode === 'keywords' || query?.mode === 'both' ? 'keywords' : 'identity');
+    if (query?.mode === 'keywords' || query?.mode === 'both') {
       (query.keywords || []).forEach((keyword) => {
         requestUrl.searchParams.append('keyword', keyword);
       });
@@ -11360,7 +11386,7 @@ async function fetchCommanderBuilderSelection(query) {
     source: 'network',
     identity: String(payload?.identity || query?.identity || '').trim().toLowerCase(),
     keywords: Array.isArray(payload?.keywords) ? payload.keywords : (query?.keywords || []),
-    mode: payload?.mode === 'keywords' ? 'keywords' : 'identity',
+    mode: query?.mode || (payload?.mode === 'keywords' ? 'keywords' : 'identity'),
   };
 }
 
@@ -11582,7 +11608,7 @@ async function runCommanderBuilderRoll() {
   updateCommanderBuilderControls();
   renderCommanderBuilderPlaceholder('Loading commanders...');
   setCommanderBuilderStatus(
-    query.mode === 'keywords'
+    query.mode === 'keywords' || query.mode === 'both'
       ? `Loading commanders matching ${criteriaLabel} from Scryfall...`
       : `Loading ${criteriaLabel} commanders from Scryfall...`,
     'neutral',
@@ -11600,12 +11626,12 @@ async function runCommanderBuilderRoll() {
     if (!payload.card || !payload.totalCards) {
       commanderBuilderLastCardName = '';
       renderCommanderBuilderPlaceholder(
-        query.mode === 'keywords'
+        query.mode === 'keywords' || query.mode === 'both'
           ? `No commander-eligible cards were found matching ${criteriaLabel}.`
           : `No commander-eligible cards were found for ${criteriaLabel}.`,
       );
       setCommanderBuilderStatus(
-        query.mode === 'keywords'
+        query.mode === 'keywords' || query.mode === 'both'
           ? 'No commanders found for that keyword combination.'
           : 'No commanders found for that exact color identity.',
         'error',
@@ -11669,7 +11695,7 @@ function renderCommanderBuilder() {
     commanderBuilderCount.dataset.initialized = 'true';
   }
 
-  if (commanderBuilderMode === 'keywords') {
+  if (commanderBuilderMode === 'keywords' || commanderBuilderMode === 'both') {
     void loadCommanderBuilderKeywordCatalog();
   }
 

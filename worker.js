@@ -2103,9 +2103,9 @@ export default {
 
       try {
         const [abilitiesRes, actionsRes, abilityWordsRes] = await Promise.all([
-          fetch('https://api.scryfall.com/catalog/keyword-abilities', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
-          fetch('https://api.scryfall.com/catalog/keyword-actions', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
-          fetch('https://api.scryfall.com/catalog/ability-words', { headers: { 'User-Agent': 'CommanderTracker/1.0' } }),
+          fetch('https://api.scryfall.com/catalog/keyword-abilities', { headers: getScryfallHeaders() }),
+          fetch('https://api.scryfall.com/catalog/keyword-actions', { headers: getScryfallHeaders() }),
+          fetch('https://api.scryfall.com/catalog/ability-words', { headers: getScryfallHeaders() }),
         ]);
 
         if (!abilitiesRes.ok || !actionsRes.ok || !abilityWordsRes.ok) {
