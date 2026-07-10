@@ -189,6 +189,10 @@ const liveModalTextarea = document.getElementById('live-modal-textarea');
 const liveModalError = document.getElementById('live-modal-error');
 const liveModalCancelButton = document.getElementById('live-modal-cancel');
 const liveModalConfirmButton = document.getElementById('live-modal-confirm');
+const cardImageModal = document.getElementById('card-image-modal');
+const cardImageModalImg = document.getElementById('card-image-modal-img');
+const cardImageModalCloseButton = document.querySelector('#card-image-modal .card-image-modal-close');
+const cardImageModalOverlay = document.querySelector('#card-image-modal .card-image-modal-overlay');
 
 const syncUserInput = document.getElementById('sync-user');
 const syncTokenInput = document.getElementById('sync-token');
@@ -2729,6 +2733,27 @@ function hideLiveModal(result = null) {
   if (resolver) {
     resolver(result);
   }
+}
+
+function openCardImageModal(src, alt = 'Card image') {
+  const imageSrc = String(src || '').trim();
+  if (!cardImageModal || !cardImageModalImg || !imageSrc) {
+    return;
+  }
+
+  cardImageModalImg.src = imageSrc;
+  cardImageModalImg.alt = String(alt || 'Card image').trim() || 'Card image';
+  cardImageModal.hidden = false;
+}
+
+function closeCardImageModal() {
+  if (!cardImageModal || !cardImageModalImg) {
+    return;
+  }
+
+  cardImageModal.hidden = true;
+  cardImageModalImg.src = '';
+  cardImageModalImg.alt = 'Card image';
 }
 
 function setLiveModalError(message = '') {
@@ -5470,9 +5495,9 @@ function applyHistoryQueryFilters() {
   if (historyFilterPlayer) {
     if (player) {
       historyFilterPlayer.value = player;
+      historyPlayerFilterDefaulted = true;
     } else {
       historyFilterPlayer.value = 'all';
-      historyPlayerFilterDefaulted = true;
     }
   }
   if (historyFilterDateFrom) {
@@ -11416,6 +11441,7 @@ function renderHistoryGame(game, commanderMap) {
   const winner = getGameWinner(game) || '—';
   const totalKills = getGameTotalKills(game);
   const playerCount = rows.length;
+  const endingTurn = parseOptionalPositiveInteger(game?.liveSummary?.turnNumber);
   const firstBloodLabel = getGameFirstBloodLabel(game);
   const notes = game.notes ? escapeHtml(game.notes) : 'No notes recorded.';
   const gameDate = escapeHtml(game.date || 'Unknown date');
@@ -11443,6 +11469,7 @@ function renderHistoryGame(game, commanderMap) {
           <span class="history-item-fact">Winner: ${escapeHtml(winner)}</span>
           <span class="history-item-fact">${playerCount} players</span>
           <span class="history-item-fact">${totalKills} kills</span>
+          ${endingTurn ? `<span class="history-item-fact">Ended on turn ${endingTurn}</span>` : ''}
           <span class="history-item-fact">First blood: ${escapeHtml(firstBloodLabel)}</span>
         </div>
       </div>
@@ -11474,6 +11501,22 @@ function renderHistory(games) {
   }
 
   const sortedGames = getSortedHistoryGames(games);
+  if (historyFilterPlayer && !historyPlayerFilterDefaulted) {
+    const currentDisplayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
+    const currentUserId = normalizeIdentityLabel(getCurrentSyncUserId());
+    const availablePlayers = Array.from(historyFilterPlayer.options || [])
+      .map((option) => String(option.value || '').trim())
+      .filter((value) => value && value !== 'all');
+    const defaultPlayer = availablePlayers.find((value) => {
+      const key = getIdentityKey(value);
+      return Boolean(key) && (key === getIdentityKey(currentDisplayName) || key === getIdentityKey(currentUserId));
+    });
+
+    if (defaultPlayer) {
+      historyFilterPlayer.value = defaultPlayer;
+      historyPlayerFilterDefaulted = true;
+    }
+  }
   const winnerFilter = historyFilterWinner?.value || 'all';
   const commanderFilter = historyFilterCommander?.value || 'all';
   const playerFilter = historyFilterPlayer?.value || 'all';
@@ -13846,6 +13889,33 @@ if (liveModalInput) {
   });
 }
 
+if (cardImageModalCloseButton) {
+  cardImageModalCloseButton.addEventListener('click', () => {
+    closeCardImageModal();
+  });
+}
+
+if (cardImageModalOverlay) {
+  cardImageModalOverlay.addEventListener('click', () => {
+    closeCardImageModal();
+  });
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && cardImageModal && !cardImageModal.hidden) {
+    closeCardImageModal();
+  }
+});
+
+document.addEventListener('click', (event) => {
+  const rulingsCardImage = event.target.closest('.rulings-card-image');
+  if (!rulingsCardImage || !cardImageModal) {
+    return;
+  }
+
+  openCardImageModal(rulingsCardImage.currentSrc || rulingsCardImage.src, rulingsCardImage.alt || 'Card image');
+});
+
 if (livePlayerGrid) {
   livePlayerGrid.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
@@ -14306,6 +14376,14 @@ if (deckBuilderCards) {
   });
 
   deckBuilderCards.addEventListener('click', async (event) => {
+    const cardImage = event.target.closest('.deck-card-row-image');
+    if (cardImage) {
+      event.preventDefault();
+      event.stopPropagation();
+      openCardImageModal(cardImage.currentSrc || cardImage.src, cardImage.alt || 'Card image');
+      return;
+    }
+
     const changeArtButton = event.target.closest('[data-change-art-id]');
     if (changeArtButton) {
       const cardId = changeArtButton.dataset.changeArtId || '';
