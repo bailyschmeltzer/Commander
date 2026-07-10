@@ -40,6 +40,22 @@ function normalizeCommanderIdentity(identity) {
   return normalized.length === value.length ? normalized.join('') : '';
 }
 
+function normalizeCommanderBuilderMode(mode) {
+  const value = String(mode || '').trim().toLowerCase();
+  return value === 'keywords' ? 'keywords' : 'identity';
+}
+
+function normalizeCommanderKeywords(keywords) {
+  const rawValues = Array.isArray(keywords)
+    ? keywords
+    : String(keywords || '').split(',');
+
+  return [...new Set(rawValues
+    .map((value) => getTextValue(value))
+    .filter(Boolean)
+    .map((value) => value.replace(/\s+/g, ' ').trim()))];
+}
+
 function getCardImageUri(card) {
   if (card?.image_uris?.normal) {
     return card.image_uris.normal;
@@ -72,6 +88,18 @@ function getCardImageVariant(card, size) {
 
 function buildCommanderSearchQuery(identity) {
   return `game:paper is:commander id=${identity}`;
+}
+
+function buildCommanderKeywordSearchQuery(keywords, identity = '') {
+  const normalizedKeywords = normalizeCommanderKeywords(keywords);
+  if (!normalizedKeywords.length) {
+    return '';
+  }
+
+  const clauses = normalizedKeywords.map((keyword) => `fo:"${keyword.replace(/"/g, '\\"')}"`);
+  const normalizedIdentity = normalizeCommanderIdentity(identity);
+  const identityClause = normalizedIdentity ? ` id=${normalizedIdentity}` : '';
+  return `game:paper is:commander${identityClause} ${clauses.join(' ')}`;
 }
 
 // Card mapping helpers used by deck search, card detail, and commander endpoints.
@@ -857,6 +885,72 @@ async function fetchCommanderSelectionFromSearch(identity, requestOrigin) {
   return { totalCards, card: mapCommanderCard(raw, requestOrigin) };
 }
 
+async function fetchCommanderSelectionByKeywords(keywords, identity, requestOrigin) {
+  const normalizedKeywords = normalizeCommanderKeywords(keywords);
+  const normalizedIdentity = normalizeCommanderIdentity(identity);
+  const searchQuery = buildCommanderKeywordSearchQuery(normalizedKeywords, normalizedIdentity);
+  if (!searchQuery) {
+    throw new Error('At least one keyword is required.');
+  }
+
+  const PAGE_SIZE = 175;
+  const searchUrl = new URL('https://api.scryfall.com/cards/search');
+  searchUrl.searchParams.set('q', searchQuery);
+  searchUrl.searchParams.set('order', 'edhrec');
+  searchUrl.searchParams.set('unique', 'cards');
+  searchUrl.searchParams.set('page', '1');
+
+  const response = await fetch(searchUrl.toString(), {
+    headers: getScryfallHeaders(),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Scryfall request failed (${response.status}): ${detail}`);
+  }
+
+  const payload = await response.json();
+  const totalCards = Number.isFinite(Number(payload?.total_cards)) ? Number(payload.total_cards) : 0;
+  const pageCards = Array.isArray(payload?.data) ? payload.data : [];
+
+  if (!pageCards.length) {
+    return { totalCards, card: null };
+  }
+
+  const totalPages = Math.ceil(totalCards / PAGE_SIZE);
+  let candidates = pageCards;
+
+  if (totalPages > 1 && Math.random() > 0.5) {
+    const randomPage = 2 + Math.floor(Math.random() * (totalPages - 1));
+    const pageUrl = new URL('https://api.scryfall.com/cards/search');
+    pageUrl.searchParams.set('q', searchQuery);
+    pageUrl.searchParams.set('order', 'edhrec');
+    pageUrl.searchParams.set('unique', 'cards');
+    pageUrl.searchParams.set('page', String(randomPage));
+
+    try {
+      const pageResponse = await fetch(pageUrl.toString(), { headers: getScryfallHeaders() });
+      if (pageResponse.ok) {
+        const pagePayload = await pageResponse.json();
+        const pageData = Array.isArray(pagePayload?.data) ? pagePayload.data : [];
+        if (pageData.length) {
+          candidates = pageData;
+        }
+      }
+    } catch (_) {
+      // Fall back to page 1 candidates.
+    }
+  }
+
+  const raw = candidates[Math.floor(Math.random() * candidates.length)];
+  return {
+    totalCards,
+    card: mapCommanderCard(raw, requestOrigin),
+    keywords: normalizedKeywords,
+    identity: normalizedIdentity,
+  };
+}
+
 function isAllowedCommanderImageSource(value) {
   if (!value) {
     return false;
@@ -1356,15 +1450,44 @@ export default {
         return jsonResponse({ error: 'Method not allowed.' }, 405);
       }
 
-      const identity = normalizeCommanderIdentity(url.searchParams.get('identity'));
-      if (!identity) {
-        return jsonResponse({ error: 'A valid exact color identity is required.' }, 400);
-      }
+      const mode = normalizeCommanderBuilderMode(url.searchParams.get('mode'));
 
       try {
+        if (mode === 'keywords') {
+          const keywords = normalizeCommanderKeywords(url.searchParams.getAll('keyword'));
+          if (!keywords.length) {
+            const fromCsv = normalizeCommanderKeywords(url.searchParams.get('keywords'));
+            keywords.push(...fromCsv);
+          }
+          const identity = normalizeCommanderIdentity(url.searchParams.get('identity'));
+
+          const normalizedKeywords = normalizeCommanderKeywords(keywords);
+          if (!normalizedKeywords.length) {
+            return jsonResponse({ error: 'At least one keyword is required.' }, 400);
+          }
+
+          const { totalCards, card } = await fetchCommanderSelectionByKeywords(normalizedKeywords, identity, requestOrigin);
+
+          return jsonResponse({
+            mode,
+            keywords: normalizedKeywords,
+            identity,
+            totalCards,
+            card,
+          }, 200, {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+          });
+        }
+
+        const identity = normalizeCommanderIdentity(url.searchParams.get('identity'));
+        if (!identity) {
+          return jsonResponse({ error: 'A valid exact color identity is required.' }, 400);
+        }
+
         const { totalCards, card } = await fetchCommanderSelectionFromSearch(identity, requestOrigin);
 
         return jsonResponse({
+          mode,
           identity,
           totalCards,
           card,

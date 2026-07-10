@@ -63,38 +63,63 @@
         <section class="card commander-builder-card">
           <div class="commander-builder-header">
             <div>
-              <h2>Pick a Color Identity</h2>
-              <p class="commander-builder-copy">The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.</p>
+              <h2>Pick a Commander Filter</h2>
+              <p class="commander-builder-copy">Roll by exact color identity, or switch to keywords and find a random commander that matches the theme you want to build around.</p>
             </div>
             <p id="commander-builder-count" class="commander-builder-count">Choose colors to load the pool.</p>
           </div>
 
           <form id="commander-builder-form" class="commander-builder-form">
-            <div class="commander-builder-grid">
-              <label class="commander-builder-option commander-color-white">
-                <input type="checkbox" name="commander-color" value="W" />
-                <span>White</span>
+            <div class="commander-builder-mode-toggle" role="radiogroup" aria-label="Commander builder mode">
+              <label class="commander-builder-mode-option">
+                <input type="radio" name="commander-builder-mode" value="identity" checked />
+                <span>Color Identity</span>
               </label>
-              <label class="commander-builder-option commander-color-blue">
-                <input type="checkbox" name="commander-color" value="U" />
-                <span>Blue</span>
+              <label class="commander-builder-mode-option">
+                <input type="radio" name="commander-builder-mode" value="keywords" />
+                <span>Keywords</span>
               </label>
-              <label class="commander-builder-option commander-color-black">
-                <input type="checkbox" name="commander-color" value="B" />
-                <span>Black</span>
-              </label>
-              <label class="commander-builder-option commander-color-red">
-                <input type="checkbox" name="commander-color" value="R" />
-                <span>Red</span>
-              </label>
-              <label class="commander-builder-option commander-color-green">
-                <input type="checkbox" name="commander-color" value="G" />
-                <span>Green</span>
-              </label>
-              <label class="commander-builder-option commander-color-colorless">
-                <input type="checkbox" name="commander-color" value="C" />
-                <span>Colorless</span>
-              </label>
+            </div>
+
+            <div id="commander-builder-identity-panel" class="commander-builder-panel">
+              <h3 id="commander-builder-identity-title">Pick an Exact Color Identity</h3>
+              <p id="commander-builder-identity-copy" class="commander-builder-panel-copy">The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.</p>
+              <div class="commander-builder-grid">
+                <label class="commander-builder-option commander-color-white">
+                  <input type="checkbox" name="commander-color" value="W" />
+                  <span>White</span>
+                </label>
+                <label class="commander-builder-option commander-color-blue">
+                  <input type="checkbox" name="commander-color" value="U" />
+                  <span>Blue</span>
+                </label>
+                <label class="commander-builder-option commander-color-black">
+                  <input type="checkbox" name="commander-color" value="B" />
+                  <span>Black</span>
+                </label>
+                <label class="commander-builder-option commander-color-red">
+                  <input type="checkbox" name="commander-color" value="R" />
+                  <span>Red</span>
+                </label>
+                <label class="commander-builder-option commander-color-green">
+                  <input type="checkbox" name="commander-color" value="G" />
+                  <span>Green</span>
+                </label>
+                <label class="commander-builder-option commander-color-colorless">
+                  <input type="checkbox" name="commander-color" value="C" />
+                  <span>Colorless</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="commander-builder-keyword-panel" class="commander-builder-panel commander-builder-keyword-panel" hidden>
+              <div class="field commander-builder-keyword-search-field">
+                <label for="commander-builder-keyword-search">Search keyword abilities</label>
+                <input id="commander-builder-keyword-search" type="search" placeholder="Flying, Trample, Hexproof..." autocomplete="off" spellcheck="false" />
+              </div>
+              <p id="commander-builder-keyword-status" class="commander-builder-keyword-status status-muted">Loading keyword ability catalog...</p>
+              <div id="commander-builder-keyword-selection" class="commander-builder-keyword-selection" aria-live="polite"></div>
+              <div id="commander-builder-keyword-grid" class="commander-builder-keyword-grid"></div>
             </div>
             <p id="commander-builder-status" class="commander-builder-status status-muted">Choose at least one color, or select Colorless, then roll for a commander.</p>
             <div class="actions commander-builder-actions">
