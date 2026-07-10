@@ -2875,6 +2875,10 @@ button[type="submit"] {
   gap: 14px;
 }
 
+.commander-builder-panel[hidden] {
+  display: none;
+}
+
 .commander-builder-panel h3 {
   margin: 0;
 }
