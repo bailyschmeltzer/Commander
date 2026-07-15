@@ -20,6 +20,8 @@ const TOKEN_SEARCH_ENDPOINT = '/api/token-search';
 const DECK_CARD_ENDPOINT = '/api/deck-card?v=2';
 const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
 const DECK_CARDS_BULK_ENDPOINT = '/api/deck-cards-bulk';
+const DECK_CARDS_BULK_REQUEST_CHUNK_SIZE = 25;
+const DECK_CARDS_BULK_REQUEST_GAP_MS = 50;
 const AUTH_AUDIT_ENDPOINT = '/api/auth-logs';
 const REGISTERED_ACCOUNTS_ENDPOINT = '/api/accounts';
 const BUILTIN_ADMIN_USER_KEY = 'baily';
@@ -8116,52 +8118,61 @@ async function fetchDeckCardsByNamesBulk(names) {
     return new Map();
   }
 
-  const response = await fetch(DECK_CARDS_BULK_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ names: normalizedNames }),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const payload = await response.json();
-      if (payload?.detail) {
-        message = `${payload.error || message} ${payload.detail}`.trim();
-      } else if (payload?.error) {
-        message = payload.error;
-      }
-    } catch (error) {
-      // Keep default message.
-    }
-    throw new Error(message);
-  }
-
-  const payload = await response.json();
   const resultMap = new Map();
-  const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-  cards.forEach((entry) => {
-    const queryName = String(entry?.name || '').trim();
-    if (!queryName) {
-      return;
+  const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  for (let offset = 0; offset < normalizedNames.length; offset += DECK_CARDS_BULK_REQUEST_CHUNK_SIZE) {
+    const batch = normalizedNames.slice(offset, offset + DECK_CARDS_BULK_REQUEST_CHUNK_SIZE);
+    const response = await fetch(DECK_CARDS_BULK_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ names: batch }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      try {
+        const payload = await response.json();
+        if (payload?.detail) {
+          message = `${payload.error || message} ${payload.detail}`.trim();
+        } else if (payload?.error) {
+          message = payload.error;
+        }
+      } catch (error) {
+        // Keep default message.
+      }
+      throw new Error(message);
     }
 
-    const normalizedCard = normalizeDeckCardEntry(entry?.card);
-    if (normalizedCard) {
-      deckBuilderCardCache.set(queryName.toLowerCase(), normalizedCard);
-      deckBuilderCardCache.set(normalizedCard.name.toLowerCase(), normalizedCard);
-    }
-    resultMap.set(getIdentityKey(queryName), normalizedCard || null);
-    if (normalizedCard) {
-      const cardNameKey = getIdentityKey(normalizedCard.name);
-      if (cardNameKey && !resultMap.has(cardNameKey)) {
-        resultMap.set(cardNameKey, normalizedCard);
+    const payload = await response.json();
+    const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+    cards.forEach((entry) => {
+      const queryName = String(entry?.name || '').trim();
+      if (!queryName) {
+        return;
       }
+
+      const normalizedCard = normalizeDeckCardEntry(entry?.card);
+      if (normalizedCard) {
+        deckBuilderCardCache.set(queryName.toLowerCase(), normalizedCard);
+        deckBuilderCardCache.set(normalizedCard.name.toLowerCase(), normalizedCard);
+      }
+      resultMap.set(getIdentityKey(queryName), normalizedCard || null);
+      if (normalizedCard) {
+        const cardNameKey = getIdentityKey(normalizedCard.name);
+        if (cardNameKey && !resultMap.has(cardNameKey)) {
+          resultMap.set(cardNameKey, normalizedCard);
+        }
+      }
+    });
+
+    if (offset + DECK_CARDS_BULK_REQUEST_CHUNK_SIZE < normalizedNames.length) {
+      await wait(DECK_CARDS_BULK_REQUEST_GAP_MS);
     }
-  });
+  }
 
   return resultMap;
 }
