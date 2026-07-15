@@ -9656,6 +9656,11 @@ function getDeckImportLineEntry(value) {
     return null;
   }
 
+  if (/\s*\(Commander\)\s*$/i.test(name)) {
+    section = 'commander';
+    name = name.replace(/\s*\(Commander\)\s*$/i, '').trim();
+  }
+
   return { name, count, section };
 }
 
