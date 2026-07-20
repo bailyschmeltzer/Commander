@@ -360,6 +360,7 @@ const deckBuilderUndoStacks = {};
 const hydratedDeckIds = new Set();
 let activeGameState = null;
 let activeGameUndoState = [];
+let liveGameCompletionInFlight = false;
 let liveSetupFirstPlayerId = null;
 let wakeLockSentinel = null;
 let liveSourcePromptResolver = null;
@@ -4458,128 +4459,140 @@ function undoLastLiveAction() {
 }
 
 async function completeActiveGame() {
-  if (!activeGameState) {
+  if (!activeGameState || liveGameCompletionInFlight) {
     return;
   }
 
-  const rematchPlayers = activeGameState.players.map((player) => ({
-    name: player.name,
-    seat: player.seat,
-  }));
-
-  if (!activeGameState.events.length && !await promptLiveConfirm('This live game has no recorded events yet. Save it anyway?', {
-    title: 'Save empty live game?',
-    confirmLabel: 'Save anyway',
-  })) {
+  flushQueuedActiveGamePersist();
+  const gameToSave = cloneActiveGameState(activeGameState);
+  if (!gameToSave) {
     return;
   }
 
-  const alivePlayers = getActiveAlivePlayers(activeGameState);
-  if (alivePlayers.length > 1 && !await promptLiveConfirm('More than one player is still alive. Finish and score remaining players by life total?', {
-    title: 'Finish active game?',
-    confirmLabel: 'Finish game',
-  })) {
-    return;
-  }
+  liveGameCompletionInFlight = true;
 
-  const completedPlayers = activeGameState.players
-    .map((player) => ({ ...player }))
-    .sort((a, b) => {
-      if (a.eliminatedTurnNumber && b.eliminatedTurnNumber && a.eliminatedTurnNumber !== b.eliminatedTurnNumber) {
-        return a.eliminatedTurnNumber - b.eliminatedTurnNumber;
-      }
-      if (a.eliminatedAt && b.eliminatedAt) {
-        return new Date(a.eliminatedAt).getTime() - new Date(b.eliminatedAt).getTime();
-      }
-      if (a.eliminatedAt) {
-        return -1;
-      }
-      if (b.eliminatedAt) {
-        return 1;
-      }
-      return a.life - b.life;
-    });
+  try {
+    const rematchPlayers = gameToSave.players.map((player) => ({
+      name: player.name,
+      seat: player.seat,
+    }));
 
-  let nextPlace = completedPlayers.length;
-  completedPlayers.forEach((player) => {
-    if (player.place) {
-      nextPlace = Math.min(nextPlace, player.place - 1);
+    if (!gameToSave.events.length && !await promptLiveConfirm('This live game has no recorded events yet. Save it anyway?', {
+      title: 'Save empty live game?',
+      confirmLabel: 'Save anyway',
+    })) {
       return;
     }
-    player.place = nextPlace;
-    nextPlace -= 1;
-  });
 
-  const finalPlayers = completedPlayers.slice().sort((a, b) => a.place - b.place);
-  const durationMinutes = Math.max(1, Math.round((Date.now() - new Date(activeGameState.startedAt).getTime()) / 60000));
-  const recordStats = buildLiveGameRecordStats(activeGameState, finalPlayers, durationMinutes);
-  const playerRows = finalPlayers.map((player) => ({
-    player: player.name,
-    commander: player.commander,
-    place: player.place,
-    kills: player.kills,
-    turnKilled: player.eliminatedTurnNumber || null,
-    killed: player.killedPlayers || [],
-  }));
-  const finishOrder = finalPlayers.map((player) => player.name);
+    const alivePlayers = getActiveAlivePlayers(gameToSave);
+    if (alivePlayers.length > 1 && !await promptLiveConfirm('More than one player is still alive. Finish and score remaining players by life total?', {
+      title: 'Finish active game?',
+      confirmLabel: 'Finish game',
+    })) {
+      return;
+    }
 
-  const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
-    title: 'Final comments',
-    confirmLabel: 'Save game',
-    defaultValue: '',
-    placeholder: 'Optional notes',
-    multiline: true,
-  });
-  if (finalComments === null) {
-    return;
-  }
-
-  const autoNotes = buildActiveGameSummary({ ...activeGameState, players: finalPlayers });
-  const gameNotes = finalComments.trim() ? `${autoNotes} · ${finalComments.trim()}` : autoNotes;
-
-  const games = loadGames();
-  games.push({
-    id: activeGameState.id,
-    date: activeGameState.date,
-    playerRows,
-    players: playerRows.map((row) => row.player),
-    playerCommanders: playerRows.map((row) => ({ player: row.player, commander: row.commander })),
-    finishOrder,
-    notes: gameNotes,
-    liveSummary: {
-      startingPlayer: getPlayerNameById(activeGameState.startingPlayerId, activeGameState),
-      alternateWinCondition: activeGameState.alternateWinCondition || '',
-      alternateLoseConditions: finalPlayers
-        .filter((player) => player.eliminationDetails)
-        .map((player) => ({ player: player.name, details: player.eliminationDetails })),
-      durationMinutes,
-      firstBlood: activeGameState.firstBlood
-        ? {
-          actorPlayer: getPlayerNameById(activeGameState.firstBlood.actorPlayerId, activeGameState),
-          actorCommander: finalPlayers.find((player) => player.id === activeGameState.firstBlood.actorPlayerId)?.commander || '',
-          targetPlayer: getPlayerNameById(activeGameState.firstBlood.targetPlayerId, activeGameState),
-          turnNumber: activeGameState.firstBlood.turnNumber,
+    const completedPlayers = gameToSave.players
+      .map((player) => ({ ...player }))
+      .sort((a, b) => {
+        if (a.eliminatedTurnNumber && b.eliminatedTurnNumber && a.eliminatedTurnNumber !== b.eliminatedTurnNumber) {
+          return a.eliminatedTurnNumber - b.eliminatedTurnNumber;
         }
-        : null,
-      recordStats,
-      turnNumber: activeGameState.turnNumber,
-      eventCount: activeGameState.events.length,
-    },
-  });
-  saveGames(games);
-  persistActiveGameState(null);
-  persistActiveGameUndoState(null);
-  releaseWakeLock();
-  refresh();
-  refreshLiveTrackerUi();
-  await promptLiveAlert('Live game saved to history.', 'Game saved');
+        if (a.eliminatedAt && b.eliminatedAt) {
+          return new Date(a.eliminatedAt).getTime() - new Date(b.eliminatedAt).getTime();
+        }
+        if (a.eliminatedAt) {
+          return -1;
+        }
+        if (b.eliminatedAt) {
+          return 1;
+        }
+        return a.life - b.life;
+      });
 
-  if (await promptLiveConfirm('Start a rematch with the same players in the same seats? You can pick new commanders before starting the next game.', {
-    title: 'Start rematch?',
-    confirmLabel: 'Set up rematch',
-    cancelLabel: 'Not now',
-  })) {
-    prepareLiveRematchSetup(rematchPlayers);
+    let nextPlace = completedPlayers.length;
+    completedPlayers.forEach((player) => {
+      if (player.place) {
+        nextPlace = Math.min(nextPlace, player.place - 1);
+        return;
+      }
+      player.place = nextPlace;
+      nextPlace -= 1;
+    });
+
+    const finalPlayers = completedPlayers.slice().sort((a, b) => a.place - b.place);
+    const durationMinutes = Math.max(1, Math.round((Date.now() - new Date(gameToSave.startedAt).getTime()) / 60000));
+    const recordStats = buildLiveGameRecordStats(gameToSave, finalPlayers, durationMinutes);
+    const playerRows = finalPlayers.map((player) => ({
+      player: player.name,
+      commander: player.commander,
+      place: player.place,
+      kills: player.kills,
+      turnKilled: player.eliminatedTurnNumber || null,
+      killed: player.killedPlayers || [],
+    }));
+    const finishOrder = finalPlayers.map((player) => player.name);
+
+    const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
+      title: 'Final comments',
+      confirmLabel: 'Save game',
+      defaultValue: '',
+      placeholder: 'Optional notes',
+      multiline: true,
+    });
+    if (finalComments === null) {
+      return;
+    }
+
+    const autoNotes = buildActiveGameSummary({ ...gameToSave, players: finalPlayers });
+    const gameNotes = finalComments.trim() ? `${autoNotes} · ${finalComments.trim()}` : autoNotes;
+
+    const games = loadGames();
+    games.push({
+      id: gameToSave.id,
+      date: gameToSave.date,
+      playerRows,
+      players: playerRows.map((row) => row.player),
+      playerCommanders: playerRows.map((row) => ({ player: row.player, commander: row.commander })),
+      finishOrder,
+      notes: gameNotes,
+      liveSummary: {
+        startingPlayer: getPlayerNameById(gameToSave.startingPlayerId, gameToSave),
+        alternateWinCondition: gameToSave.alternateWinCondition || '',
+        alternateLoseConditions: finalPlayers
+          .filter((player) => player.eliminationDetails)
+          .map((player) => ({ player: player.name, details: player.eliminationDetails })),
+        durationMinutes,
+        firstBlood: gameToSave.firstBlood
+          ? {
+            actorPlayer: getPlayerNameById(gameToSave.firstBlood.actorPlayerId, gameToSave),
+            actorCommander: finalPlayers.find((player) => player.id === gameToSave.firstBlood.actorPlayerId)?.commander || '',
+            targetPlayer: getPlayerNameById(gameToSave.firstBlood.targetPlayerId, gameToSave),
+            turnNumber: gameToSave.firstBlood.turnNumber,
+          }
+          : null,
+        recordStats,
+        turnNumber: gameToSave.turnNumber,
+        eventCount: gameToSave.events.length,
+      },
+    });
+    saveGames(games);
+    persistActiveGameState(null);
+    persistActiveGameUndoState(null);
+    releaseWakeLock();
+    refresh();
+    refreshLiveTrackerUi();
+    await promptLiveAlert('Live game saved to history.', 'Game saved');
+
+    if (await promptLiveConfirm('Start a rematch with the same players in the same seats? You can pick new commanders before starting the next game.', {
+      title: 'Start rematch?',
+      confirmLabel: 'Set up rematch',
+      cancelLabel: 'Not now',
+    })) {
+      prepareLiveRematchSetup(rematchPlayers);
+    }
+  } finally {
+    liveGameCompletionInFlight = false;
   }
 }
 
