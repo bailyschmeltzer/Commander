@@ -1830,6 +1830,7 @@ async function cloudRequest(path, options = {}) {
   const response = await fetch(path, {
     ...options,
     headers,
+    cache: 'no-store',
     credentials: 'same-origin',
   });
 
