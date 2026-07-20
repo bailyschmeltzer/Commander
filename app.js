@@ -78,6 +78,7 @@ const authAuditRefreshButton = document.getElementById('auth-audit-refresh');
 const authAuditExportJsonButton = document.getElementById('auth-audit-export-json');
 const authAuditExportCsvButton = document.getElementById('auth-audit-export-csv');
 const authAuditFilterResultSelect = document.getElementById('auth-audit-filter-result');
+const authAuditFilterActionSelect = document.getElementById('auth-audit-filter-action');
 const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user');
 const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
 const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
@@ -303,6 +304,7 @@ let authAuditLastLoadedAt = 0;
 let authAuditLoadedForUserId = '';
 let authAuditFilterState = {
   result: 'all',
+  action: 'all',
   user: '',
   from: '',
   to: '',
@@ -5675,6 +5677,7 @@ function normalizeAuditDateInputValue(value) {
 function updateAuthAuditFilterStateFromInputs() {
   authAuditFilterState = {
     result: authAuditFilterResultSelect?.value || 'all',
+    action: authAuditFilterActionSelect?.value || 'all',
     user: String(authAuditFilterUserInput?.value || '').trim().toLowerCase(),
     from: normalizeAuditDateInputValue(authAuditFilterFromInput?.value || ''),
     to: normalizeAuditDateInputValue(authAuditFilterToInput?.value || ''),
@@ -5685,6 +5688,9 @@ function updateAuthAuditFilterStateFromInputs() {
 function resetAuthAuditFilters() {
   if (authAuditFilterResultSelect) {
     authAuditFilterResultSelect.value = 'all';
+  }
+  if (authAuditFilterActionSelect) {
+    authAuditFilterActionSelect.value = 'all';
   }
   if (authAuditFilterUserInput) {
     authAuditFilterUserInput.value = '';
@@ -5698,6 +5704,46 @@ function resetAuthAuditFilters() {
   updateAuthAuditFilterStateFromInputs();
 }
 
+function getAuthAuditAction(entry) {
+  const explicitAction = String(entry?.action || '').trim().toLowerCase();
+  if (explicitAction) {
+    return explicitAction;
+  }
+
+  const path = String(entry?.path || '').trim().toLowerCase();
+  const reason = String(entry?.reason || '').trim().toLowerCase();
+  const status = Number(entry?.status || 0);
+
+  if (!entry?.success || status >= 400 || reason.includes('error') || reason.includes('failed') || reason.includes('invalid') || reason.includes('unable')) {
+    return 'error';
+  }
+
+  if (reason.startsWith('saved game:')) {
+    return 'game-save';
+  }
+  if (reason.startsWith('updated game:')) {
+    return 'game-update';
+  }
+  if (reason.startsWith('deleted game:')) {
+    return 'game-delete';
+  }
+  if (reason.startsWith('saved deck:')) {
+    return 'deck-save';
+  }
+  if (reason.startsWith('updated deck:')) {
+    return 'deck-update';
+  }
+  if (reason.startsWith('deleted deck:')) {
+    return 'deck-delete';
+  }
+
+  if (path.startsWith('/api/session') || reason.includes('authenticated') || reason.includes('authentication') || reason.includes('incorrect pod access code') || reason.includes('display name is required') || reason.includes('pod access code is required')) {
+    return 'authentication';
+  }
+
+  return 'authentication';
+}
+
 function updateAuthAuditPaginationState() {
   const parsedPageSize = Number.parseInt(String(authAuditPageSizeSelect?.value || authAuditPageSize || '10'), 10);
   authAuditPageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 10;
@@ -5709,13 +5755,17 @@ function getFilteredAuthAuditLogs(logs) {
     return [];
   }
 
-  const { result, user, from, to } = authAuditFilterState;
+  const { result, action, user, from, to } = authAuditFilterState;
   return logs.filter((entry) => {
     const isSuccess = Boolean(entry?.success);
     if (result === 'failed' && isSuccess) {
       return false;
     }
     if (result === 'success' && !isSuccess) {
+      return false;
+    }
+
+    if (action !== 'all' && getAuthAuditAction(entry) !== action) {
       return false;
     }
 
@@ -5979,6 +6029,7 @@ function exportFilteredAuthAuditAsCsv() {
 
   const header = [
     'timestamp',
+    'action',
     'result',
     'reason',
     'statusCode',
@@ -5998,6 +6049,7 @@ function exportFilteredAuthAuditAsCsv() {
   logs.forEach((entry) => {
     const row = [
       entry?.timestamp || '',
+      getAuthAuditAction(entry),
       entry?.success ? 'success' : 'failed',
       entry?.reason || '',
       Number.isFinite(Number(entry?.status)) ? Number(entry.status) : '',
@@ -6042,6 +6094,7 @@ function renderAuthAuditLogs() {
 
   authAuditList.innerHTML = pagedLogs.map((entry) => {
     const status = entry?.success ? 'success' : 'failed';
+    const action = getAuthAuditAction(entry);
     const reason = entry?.reason || (entry?.success ? 'Authenticated.' : 'Authentication failed.');
     const who = entry?.auth?.displayName || entry?.user || 'Unknown user';
     const userId = entry?.auth?.userId || entry?.normalizedUser || '';
@@ -6059,6 +6112,7 @@ function renderAuthAuditLogs() {
         </div>
         <p class="auth-audit-item-reason">${escapeHtml(reason)}</p>
         <div class="auth-audit-item-meta">
+          <span class="history-item-fact">Action: ${escapeHtml(action)}</span>
           <span class="history-item-fact">User: ${escapeHtml(who)}</span>
           ${userId ? `<span class="history-item-fact">ID: ${escapeHtml(userId)}</span>` : ''}
           <span class="history-item-fact">HTTP: ${escapeHtml(method)} ${escapeHtml(path)}</span>
@@ -7132,8 +7186,25 @@ function renderDeckLibrary() {
     return;
   }
 
+  const currentUserId = getCurrentSyncUserId();
   const sortState = getTableSort('decks', 'updatedAt', true);
-  const sortedDecks = loadDecks()
+  const deckUsageLookup = buildDeckUsageLookup();
+  const visibleDecks = loadDecks().filter((deck) => {
+    const ownerUserId = String(deck?.ownerUserId || '').trim().toLowerCase();
+    const isOwnedByCurrentUser = Boolean(ownerUserId) && Boolean(currentUserId) && ownerUserId === currentUserId;
+    const hasGameRecord = isDeckUsedInGameFromLookup(deck, deckUsageLookup);
+    const isInRotation = deck?.inRotation !== false;
+
+    if (isOwnedByCurrentUser || isInRotation || hasGameRecord) {
+      return true;
+    }
+
+    // Keep inactive private decks out of the shared deck list, but allow them
+    // to remain accessible from a direct deck builder URL.
+    return false;
+  });
+
+  const sortedDecks = visibleDecks
     .slice()
     .sort((first, second) => {
       let result = 0;
@@ -7205,7 +7276,6 @@ function renderDeckLibrary() {
   const commanderPointsPerGameByIdentity = new Map(
     buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
   );
-  const deckUsageLookup = buildDeckUsageLookup();
   const commanderPointsLookup = new Map(
     buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
   );
@@ -15511,7 +15581,7 @@ function setupSyncUi() {
     });
   }
 
-  [authAuditFilterResultSelect, authAuditFilterUserInput, authAuditFilterFromInput, authAuditFilterToInput].forEach((input) => {
+  [authAuditFilterResultSelect, authAuditFilterActionSelect, authAuditFilterUserInput, authAuditFilterFromInput, authAuditFilterToInput].forEach((input) => {
     input?.addEventListener('input', () => {
       updateAuthAuditFilterStateFromInputs();
       updateAuthAuditStatusSummary('neutral');

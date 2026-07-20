@@ -78,6 +78,20 @@
               </select>
             </div>
             <div class="field">
+              <label for="auth-audit-filter-action">Action</label>
+              <select id="auth-audit-filter-action">
+                <option value="all">All actions</option>
+                <option value="authentication">Authentication</option>
+                <option value="game-save">Game saved</option>
+                <option value="game-update">Game updated</option>
+                <option value="game-delete">Game deleted</option>
+                <option value="deck-save">Deck saved</option>
+                <option value="deck-update">Deck updated</option>
+                <option value="deck-delete">Deck deleted</option>
+                <option value="error">Errors</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="auth-audit-filter-user">User contains</label>
               <input id="auth-audit-filter-user" type="text" placeholder="Name or ID" autocomplete="off" />
             </div>
