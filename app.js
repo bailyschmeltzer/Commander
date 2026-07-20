@@ -9,6 +9,7 @@ const ACTIVE_GAME_UNDO_STORAGE_KEY = 'commanderTrackerActiveGameUndo';
 const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
+const SYNC_PENDING_CHANGES_STORAGE_KEY = 'commanderTrackerSyncPendingChanges';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
@@ -455,6 +456,21 @@ function removeLocalStorageValue(key) {
     storageErrorMessage = 'Browser storage is unavailable on this device right now.';
     return false;
   }
+}
+
+function loadSyncPendingChangesState() {
+  return readLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY) === 'true';
+}
+
+function setSyncPendingChanges(value) {
+  syncPendingChanges = Boolean(value);
+
+  if (syncPendingChanges) {
+    writeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY, 'true');
+    return;
+  }
+
+  removeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY);
 }
 
 function getSyncCredentialAgeDays() {
@@ -1933,7 +1949,7 @@ async function resolveSyncConflict(conflict = syncConflictInfo) {
     return;
   }
 
-  syncPendingChanges = false;
+  setSyncPendingChanges(false);
   clearSyncConflict();
   refreshSyncStatus();
 
@@ -1973,6 +1989,7 @@ async function pullCloudState() {
     clearSyncConflict();
     appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
     persistLocalState(appState);
+    setSyncPendingChanges(false);
     syncHasLoadedCloudState = true;
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
@@ -2112,11 +2129,11 @@ async function pushCloudState() {
     return;
   }
 
-  if (!syncHasLoadedCloudState) {
+  if (!syncHasLoadedCloudState && !syncPendingChanges) {
     try {
       await pullCloudState();
     } catch (error) {
-      syncPendingChanges = true;
+      setSyncPendingChanges(true);
       syncLastErrorMessage = `${error.message}. Sync is blocked until latest cloud state loads.`;
       refreshSyncStatus();
       return;
@@ -2159,7 +2176,8 @@ async function pushCloudState() {
       // Re-render so activeDeckBuilderRecord picks up the server-corrected values.
       refresh();
     }
-    syncPendingChanges = decksChangedDuringFlight;
+    setSyncPendingChanges(decksChangedDuringFlight);
+    syncHasLoadedCloudState = true;
     shouldQueueFollowUpSync = decksChangedDuringFlight;
     syncRetryCount = 0;
     syncLastErrorMessage = '';
@@ -2193,7 +2211,7 @@ function queueCloudSync(delay = 500) {
     return;
   }
 
-  syncPendingChanges = true;
+  setSyncPendingChanges(true);
   syncLastErrorMessage = '';
   refreshSyncStatus();
 
@@ -2590,7 +2608,7 @@ function flushQueuedDeckPersist({ force = false, queueSync = true } = {}) {
   // During page transitions, avoid a blocking full sync call.
   // Keepalive upload handles best-effort cloud flush.
   if (hasSyncCredentials()) {
-    syncPendingChanges = true;
+    setSyncPendingChanges(true);
     syncLastErrorMessage = '';
     refreshSyncStatus();
   }
@@ -15240,12 +15258,14 @@ window.addEventListener('storage', (event) => {
     || event.key === SYNC_USER_STORAGE_KEY
     || event.key === SYNC_TOKEN_STORAGE_KEY
     || event.key === SYNC_CREDENTIAL_SET_AT_STORAGE_KEY
+    || event.key === SYNC_PENDING_CHANGES_STORAGE_KEY
   ) {
     if (!shouldIgnoreStateStorageReload) {
       appState = loadLocalState();
     }
     activeGameState = loadActiveGameState();
     activeGameUndoState = loadActiveGameUndoState();
+    setSyncPendingChanges(loadSyncPendingChangesState());
     const credentials = getSyncCredentials();
     if (syncUserInput) {
       syncUserInput.value = credentials.user;
@@ -15371,7 +15391,7 @@ function setupSyncUi() {
     setSyncUiCollapsed(false);
     clearSyncRetryTimer();
     syncRetryCount = 0;
-    syncPendingChanges = false;
+    setSyncPendingChanges(false);
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
     syncHasLoadedCloudState = false;
@@ -15470,7 +15490,7 @@ function setupSyncUi() {
         clearTimeout(syncQueueTimer);
         syncQueueTimer = null;
       }
-      syncPendingChanges = false;
+      setSyncPendingChanges(false);
       syncRetryCount = 0;
       syncLastSuccessAt = null;
       syncLastErrorMessage = '';
@@ -15482,6 +15502,7 @@ function setupSyncUi() {
       removeLocalStorageValue(SYNC_USER_STORAGE_KEY);
       removeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY);
       removeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY);
+      removeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY);
       syncUserInput.value = '';
       syncTokenInput.value = '';
       updateSyncControls();
@@ -15498,7 +15519,7 @@ function setupSyncUi() {
 
       clearSyncRetryTimer();
       syncRetryCount = 0;
-      syncPendingChanges = true;
+      setSyncPendingChanges(true);
       syncLastErrorMessage = '';
       refreshSyncStatus();
       await pushCloudState();
@@ -15510,6 +15531,7 @@ async function initializeApp() {
   appState = loadLocalState();
   appState = normalizeAppStateData(appState);
   persistLocalState(appState);
+  setSyncPendingChanges(loadSyncPendingChangesState());
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
   if (activeGameState) {
@@ -15552,7 +15574,11 @@ async function initializeApp() {
 
   if (hasSyncCredentials()) {
     try {
-      await pullCloudState();
+      if (syncPendingChanges) {
+        await pushCloudState();
+      } else {
+        await pullCloudState();
+      }
       setSyncUiCollapsed(false);
       refreshSyncStatus();
     } catch (error) {
