@@ -8,7 +8,7 @@ const CORS_HEADERS = {
 const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
-const AUTH_AUDIT_LOG_LIMIT = 500;
+const AUTH_AUDIT_LOG_LIMIT = 1000;
 const SESSION_COOKIE_NAME = 'commanderSession';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
@@ -1174,6 +1174,178 @@ async function appendAuthAuditEntry(env, entry) {
   }
 }
 
+function shouldSkipAutomaticErrorAudit(pathname, status) {
+  const path = getTextValue(pathname);
+  const code = Number(status);
+  return (
+    (path === '/api/state' && code === 401)
+    || (path === '/api/session' && code === 401)
+    || (path === '/api/auth-logs' && (code === 401 || code === 403))
+    || (path === '/api/accounts' && (code === 401 || code === 403))
+  );
+}
+
+async function maybeAuditErrorResponse(env, request, url, response) {
+  if (!response || response.status < 400 || !String(url?.pathname || '').startsWith('/api/')) {
+    return response;
+  }
+
+  if (shouldSkipAutomaticErrorAudit(url.pathname, response.status)) {
+    return response;
+  }
+
+  let reason = `Request failed (${response.status}).`;
+  try {
+    const contentType = getTextValue(response.headers.get('Content-Type')).toLowerCase();
+    if (contentType.includes('application/json')) {
+      const payload = await response.clone().json();
+      const errorText = getTextValue(payload?.error);
+      const detailText = getTextValue(payload?.detail);
+      reason = errorText || reason;
+      if (detailText) {
+        reason = `${reason} Detail: ${detailText}`;
+      }
+    } else {
+      const text = getTextValue(await response.clone().text());
+      if (text) {
+        reason = text;
+      }
+    }
+  } catch (_error) {
+    // Keep default fallback reason.
+  }
+
+  const auth = await loadSessionAuth(request, env);
+  await appendAuthAuditEntry(env, buildAuthAuditEntry({
+    request,
+    url,
+    auth,
+    success: false,
+    reason,
+    status: response.status,
+  }));
+
+  return response;
+}
+
+function getCollectionEntriesById(entries) {
+  return new Map(
+    (Array.isArray(entries) ? entries : [])
+      .map((entry) => [getTextValue(entry?.id), entry])
+      .filter(([id]) => id),
+  );
+}
+
+function formatGameAuditLabel(game) {
+  const date = getTextValue(game?.date);
+  const winner = Array.isArray(game?.finishOrder) ? getTextValue(game.finishOrder[0]) : '';
+  if (date && winner) {
+    return `${date} (${winner})`;
+  }
+  if (date) {
+    return date;
+  }
+  if (winner) {
+    return winner;
+  }
+  return 'Untitled game';
+}
+
+function formatDeckAuditLabel(deck) {
+  return getTextValue(deck?.name) || 'Untitled deck';
+}
+
+function buildMutationAuditReasons(currentEntries, nextEntries, {
+  noun,
+  formatLabel,
+} = {}) {
+  const currentById = getCollectionEntriesById(currentEntries);
+  const nextById = getCollectionEntriesById(nextEntries);
+  const created = [];
+  const updated = [];
+  const deleted = [];
+
+  nextById.forEach((nextEntry, id) => {
+    const currentEntry = currentById.get(id) || null;
+    if (!currentEntry) {
+      created.push(nextEntry);
+      return;
+    }
+
+    if (JSON.stringify(currentEntry) !== JSON.stringify(nextEntry)) {
+      updated.push(nextEntry);
+    }
+  });
+
+  currentById.forEach((currentEntry, id) => {
+    if (!nextById.has(id)) {
+      deleted.push(currentEntry);
+    }
+  });
+
+  const reasons = [];
+  const singular = noun || 'item';
+  const plural = `${singular}s`;
+  const labelFormatter = typeof formatLabel === 'function' ? formatLabel : (() => '');
+
+  if (created.length) {
+    reasons.push(created.length === 1
+      ? `Saved ${singular}: ${labelFormatter(created[0])}.`
+      : `Saved ${created.length} new ${plural}.`);
+  }
+
+  if (updated.length) {
+    reasons.push(updated.length === 1
+      ? `Updated ${singular}: ${labelFormatter(updated[0])}.`
+      : `Updated ${updated.length} ${plural}.`);
+  }
+
+  if (deleted.length) {
+    reasons.push(deleted.length === 1
+      ? `Deleted ${singular}: ${labelFormatter(deleted[0])}.`
+      : `Deleted ${deleted.length} ${plural}.`);
+  }
+
+  return reasons;
+}
+
+function buildStateMutationAuditEntries({ request, url, auth, currentState, nextState, includeDecks = false }) {
+  const entries = [];
+  const gameReasons = buildMutationAuditReasons(currentState?.games, nextState?.games, {
+    noun: 'game',
+    formatLabel: formatGameAuditLabel,
+  });
+  gameReasons.forEach((reason) => {
+    entries.push(buildAuthAuditEntry({
+      request,
+      url,
+      auth,
+      success: true,
+      reason,
+      status: 200,
+    }));
+  });
+
+  if (includeDecks) {
+    const deckReasons = buildMutationAuditReasons(currentState?.decks, nextState?.decks, {
+      noun: 'deck',
+      formatLabel: formatDeckAuditLabel,
+    });
+    deckReasons.forEach((reason) => {
+      entries.push(buildAuthAuditEntry({
+        request,
+        url,
+        auth,
+        success: true,
+        reason,
+        status: 200,
+      }));
+    });
+  }
+
+  return entries;
+}
+
 function buildAutoProvisionedAuth(user) {
   const normalizedUser = normalizeMemberKey(user);
   if (!normalizedUser) {
@@ -1587,6 +1759,9 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
+
+    try {
+      const response = await (async () => {
 
     if (url.pathname === '/api/commanders') {
       if (request.method !== 'GET') {
@@ -2110,6 +2285,21 @@ export default {
 
         await env.POD_STATE.put(stateKey, JSON.stringify(nextState));
 
+        const mutationAuditEntries = buildStateMutationAuditEntries({
+          request,
+          url,
+          auth,
+          currentState: currentState || {
+            games: [],
+            decks: [],
+          },
+          nextState,
+          includeDecks: hasFullPayloadShape,
+        });
+        for (const entry of mutationAuditEntries) {
+          await appendAuthAuditEntry(env, entry);
+        }
+
         return jsonResponse({
           ok: true,
           revision: nextRevision,
@@ -2230,8 +2420,8 @@ export default {
 
       const requestedLimit = Number.parseInt(getTextValue(url.searchParams.get('limit')), 10);
       const limit = Number.isFinite(requestedLimit)
-        ? Math.min(200, Math.max(1, requestedLimit))
-        : 120;
+        ? Math.min(AUTH_AUDIT_LOG_LIMIT, Math.max(1, requestedLimit))
+        : AUTH_AUDIT_LOG_LIMIT;
       const raw = env.POD_STATE ? await env.POD_STATE.get(AUTH_AUDIT_LOG_KEY, 'json') : null;
       const logs = Array.isArray(raw?.logs)
         ? raw.logs
@@ -2409,5 +2599,23 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+      })();
+
+      return await maybeAuditErrorResponse(env, request, url, response);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await appendAuthAuditEntry(env, buildAuthAuditEntry({
+        request,
+        url,
+        auth: await loadSessionAuth(request, env),
+        success: false,
+        reason: `Unhandled worker error: ${reason}`,
+        status: 500,
+      }));
+      return jsonResponse({
+        error: 'Unexpected server error.',
+        detail: reason,
+      }, 500);
+    }
   },
 };

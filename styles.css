@@ -1151,6 +1151,24 @@ button[type="submit"] {
   margin-bottom: 0;
 }
 
+.auth-audit-pagination-bar {
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+
+.auth-audit-page-size-field {
+  min-width: 170px;
+}
+
+.auth-audit-pagination-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 #auth-audit-filter-clear {
   align-self: end;
 }
@@ -1223,6 +1241,25 @@ button[type="submit"] {
 
   .auth-audit-controls {
     grid-template-columns: 1fr;
+  }
+
+  .auth-audit-pagination-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auth-audit-page-size-field {
+    width: 100%;
+  }
+
+  .auth-audit-pagination-actions {
+    justify-content: stretch;
+  }
+
+  .auth-audit-pagination-actions .secondary-button,
+  #auth-audit-page-summary {
+    width: 100%;
+    text-align: center;
   }
 }
 

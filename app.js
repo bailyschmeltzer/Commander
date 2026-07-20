@@ -82,6 +82,10 @@ const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user
 const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
 const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
 const authAuditFilterClearButton = document.getElementById('auth-audit-filter-clear');
+const authAuditPageSizeSelect = document.getElementById('auth-audit-page-size');
+const authAuditPagePrevButton = document.getElementById('auth-audit-page-prev');
+const authAuditPageNextButton = document.getElementById('auth-audit-page-next');
+const authAuditPageSummary = document.getElementById('auth-audit-page-summary');
 const syncDebugSection = document.getElementById('sync-debug-section');
 const syncDebugStatus = document.getElementById('sync-debug-status');
 const syncDebugList = document.getElementById('sync-debug-list');
@@ -303,6 +307,8 @@ let authAuditFilterState = {
   from: '',
   to: '',
 };
+let authAuditPageSize = 10;
+let authAuditCurrentPage = 1;
 let registeredAccounts = [];
 let registeredAccountsLoading = false;
 let registeredAccountsLastLoadedAt = 0;
@@ -5673,6 +5679,7 @@ function updateAuthAuditFilterStateFromInputs() {
     from: normalizeAuditDateInputValue(authAuditFilterFromInput?.value || ''),
     to: normalizeAuditDateInputValue(authAuditFilterToInput?.value || ''),
   };
+  authAuditCurrentPage = 1;
 }
 
 function resetAuthAuditFilters() {
@@ -5689,6 +5696,12 @@ function resetAuthAuditFilters() {
     authAuditFilterToInput.value = '';
   }
   updateAuthAuditFilterStateFromInputs();
+}
+
+function updateAuthAuditPaginationState() {
+  const parsedPageSize = Number.parseInt(String(authAuditPageSizeSelect?.value || authAuditPageSize || '10'), 10);
+  authAuditPageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 10;
+  authAuditCurrentPage = Math.max(1, authAuditCurrentPage);
 }
 
 function getFilteredAuthAuditLogs(logs) {
@@ -5732,7 +5745,43 @@ function getFilteredAuthAuditLogs(logs) {
 
 function getAuthAuditStatusSummary() {
   const visibleCount = getFilteredAuthAuditLogs(authAuditLogs).length;
-  return `Showing ${visibleCount} of ${authAuditLogs.length} recent authentication events.`;
+  return `Showing ${visibleCount} of ${authAuditLogs.length} stored authentication events.`;
+}
+
+function getPagedAuthAuditLogs(logs) {
+  const visibleLogs = getFilteredAuthAuditLogs(logs);
+  const totalPages = Math.max(1, Math.ceil(visibleLogs.length / authAuditPageSize));
+  authAuditCurrentPage = Math.min(Math.max(1, authAuditCurrentPage), totalPages);
+  const startIndex = (authAuditCurrentPage - 1) * authAuditPageSize;
+  const endIndex = startIndex + authAuditPageSize;
+
+  return {
+    visibleLogs,
+    pagedLogs: visibleLogs.slice(startIndex, endIndex),
+    totalPages,
+    startIndex,
+    endIndex: Math.min(endIndex, visibleLogs.length),
+  };
+}
+
+function updateAuthAuditPaginationControls(totalVisible = 0, totalPages = 1, startIndex = 0, endIndex = 0) {
+  if (authAuditPageSizeSelect) {
+    authAuditPageSizeSelect.value = String(authAuditPageSize);
+  }
+
+  if (authAuditPagePrevButton) {
+    authAuditPagePrevButton.disabled = authAuditCurrentPage <= 1 || totalVisible === 0;
+  }
+
+  if (authAuditPageNextButton) {
+    authAuditPageNextButton.disabled = authAuditCurrentPage >= totalPages || totalVisible === 0;
+  }
+
+  if (authAuditPageSummary) {
+    authAuditPageSummary.textContent = totalVisible
+      ? `Page ${authAuditCurrentPage} of ${totalPages} · ${startIndex + 1}-${endIndex} of ${totalVisible}`
+      : 'Page 1 of 1';
+  }
 }
 
 function updateAuthAuditStatusSummary(tone = 'neutral') {
@@ -5982,15 +6031,16 @@ function renderAuthAuditLogs() {
   }
 
   authAuditSection.hidden = false;
-
-  const visibleLogs = getFilteredAuthAuditLogs(authAuditLogs);
+  updateAuthAuditPaginationState();
+  const { visibleLogs, pagedLogs, totalPages, startIndex, endIndex } = getPagedAuthAuditLogs(authAuditLogs);
+  updateAuthAuditPaginationControls(visibleLogs.length, totalPages, startIndex, endIndex);
 
   if (!visibleLogs.length) {
     authAuditList.innerHTML = '<p class="history-empty-state">No login attempts logged yet.</p>';
     return;
   }
 
-  authAuditList.innerHTML = visibleLogs.map((entry) => {
+  authAuditList.innerHTML = pagedLogs.map((entry) => {
     const status = entry?.success ? 'success' : 'failed';
     const reason = entry?.reason || (entry?.success ? 'Authenticated.' : 'Authentication failed.');
     const who = entry?.auth?.displayName || entry?.user || 'Unknown user';
@@ -6052,8 +6102,9 @@ async function refreshAuthAuditLogs({ force = false } = {}) {
   setAuthAuditStatus('Loading authentication logs...', 'neutral');
 
   try {
-    const payload = await cloudRequest(`${AUTH_AUDIT_ENDPOINT}?limit=120`, { method: 'GET' });
+    const payload = await cloudRequest(`${AUTH_AUDIT_ENDPOINT}?limit=1000`, { method: 'GET' });
     authAuditLogs = Array.isArray(payload?.logs) ? payload.logs : [];
+    authAuditCurrentPage = 1;
     authAuditLoadedForUserId = currentUserId;
     authAuditLastLoadedAt = Date.now();
     updateAuthAuditStatusSummary('success');
@@ -15477,6 +15528,29 @@ function setupSyncUi() {
     authAuditFilterClearButton.addEventListener('click', () => {
       resetAuthAuditFilters();
       updateAuthAuditStatusSummary('neutral');
+      renderAuthAuditLogs();
+    });
+  }
+
+  if (authAuditPageSizeSelect) {
+    authAuditPageSizeSelect.addEventListener('change', () => {
+      updateAuthAuditPaginationState();
+      authAuditCurrentPage = 1;
+      renderAuthAuditLogs();
+      updateAuthAuditStatusSummary('neutral');
+    });
+  }
+
+  if (authAuditPagePrevButton) {
+    authAuditPagePrevButton.addEventListener('click', () => {
+      authAuditCurrentPage = Math.max(1, authAuditCurrentPage - 1);
+      renderAuthAuditLogs();
+    });
+  }
+
+  if (authAuditPageNextButton) {
+    authAuditPageNextButton.addEventListener('click', () => {
+      authAuditCurrentPage += 1;
       renderAuthAuditLogs();
     });
   }

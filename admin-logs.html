@@ -91,6 +91,22 @@
             </div>
             <button type="button" id="auth-audit-filter-clear" class="secondary-button">Clear filters</button>
           </div>
+          <div class="history-controls auth-audit-pagination-bar">
+            <div class="field auth-audit-page-size-field">
+              <label for="auth-audit-page-size">Results per page</label>
+              <select id="auth-audit-page-size">
+                <option value="10" selected>10</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="1000">1000</option>
+              </select>
+            </div>
+            <div class="auth-audit-pagination-actions">
+              <button type="button" id="auth-audit-page-prev" class="secondary-button">Previous</button>
+              <span id="auth-audit-page-summary" class="sync-status status-muted">Page 1</span>
+              <button type="button" id="auth-audit-page-next" class="secondary-button">Next</button>
+            </div>
+          </div>
           <p id="auth-audit-status" class="sync-status status-muted">Authentication audit logs are only visible to admins.</p>
           <div id="auth-audit-list">
             <p class="history-empty-state">No login attempts logged yet.</p>
