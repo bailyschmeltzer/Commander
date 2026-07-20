@@ -1945,7 +1945,7 @@ export default {
           return jsonResponse({ error: 'Invalid JSON payload.' }, 400);
         }
 
-        const hasRequiredPayloadShape = body && typeof body === 'object'
+        const hasFullPayloadShape = body && typeof body === 'object'
           && Object.prototype.hasOwnProperty.call(body, 'games')
           && Object.prototype.hasOwnProperty.call(body, 'powerLevels')
           && Object.prototype.hasOwnProperty.call(body, 'deckLists')
@@ -1953,8 +1953,14 @@ export default {
           && Object.prototype.hasOwnProperty.call(body, 'records')
           && Object.prototype.hasOwnProperty.call(body, 'activeGame')
           && Object.prototype.hasOwnProperty.call(body, 'activeGameUndo');
+        const hasLivePayloadShape = body && typeof body === 'object'
+          && Object.prototype.hasOwnProperty.call(body, 'games')
+          && (
+            Object.prototype.hasOwnProperty.call(body, 'activeGame')
+            || Object.prototype.hasOwnProperty.call(body, 'activeGameUndo')
+          );
 
-        if (!hasRequiredPayloadShape) {
+        if (!hasFullPayloadShape && !hasLivePayloadShape) {
           return jsonResponse({
             error: 'Sync payload is incomplete. Refresh the page and reconnect before syncing again.',
           }, 409);
@@ -1967,10 +1973,20 @@ export default {
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : null;
         const decks = Array.isArray(body.decks) ? body.decks : null;
         const records = Array.isArray(body.records) ? body.records : null;
-        const activeGame = body.activeGame && typeof body.activeGame === 'object' ? body.activeGame : (body.activeGame === null ? null : undefined);
-        const activeGameUndo = Array.isArray(body.activeGameUndo) ? body.activeGameUndo : null;
+        const activeGame = Object.prototype.hasOwnProperty.call(body, 'activeGame')
+          ? (body.activeGame && typeof body.activeGame === 'object' ? body.activeGame : (body.activeGame === null ? null : undefined))
+          : undefined;
+        const activeGameUndo = Object.prototype.hasOwnProperty.call(body, 'activeGameUndo')
+          ? (Array.isArray(body.activeGameUndo) ? body.activeGameUndo : null)
+          : undefined;
 
-        if (!games || !powerLevels || !deckLists || !decks || !records || typeof activeGame === 'undefined' || !activeGameUndo) {
+        if (!Array.isArray(games)) {
+          return jsonResponse({
+            error: 'Sync payload has invalid game data. Refresh the page and reconnect before syncing again.',
+          }, 409);
+        }
+
+        if (typeof games === 'undefined' || (hasFullPayloadShape && (!powerLevels || !deckLists || !decks || !records || typeof activeGame === 'undefined' || !activeGameUndo))) {
           return jsonResponse({
             error: 'Sync payload has invalid field types. Refresh the page and reconnect before syncing again.',
           }, 409);
@@ -2038,29 +2054,56 @@ export default {
 
         const updatedAt = new Date().toISOString();
         const nextRevision = currentRevision + 1;
-        const podMembers = getConfiguredMembers(env);
-        let normalizedDecks;
+        const nextState = hasFullPayloadShape
+          ? (() => {
+            const podMembers = getConfiguredMembers(env);
+            let normalizedDecks;
 
-        try {
-          normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth, podMembers);
-        } catch (error) {
+            try {
+              normalizedDecks = enforceDeckOwnership(currentState?.decks || [], decks, auth, podMembers);
+            } catch (error) {
+              return error;
+            }
+
+            return {
+              games,
+              powerLevels,
+              deckLists,
+              decks: normalizedDecks,
+              records,
+              activeGame,
+              activeGameUndo,
+              revision: nextRevision,
+              updatedAt,
+              updatedBy: auth.displayName || auth.user,
+            };
+          })()
+          : {
+            games,
+            powerLevels: currentState?.powerLevels && typeof currentState.powerLevels === 'object' && !Array.isArray(currentState.powerLevels)
+              ? currentState.powerLevels
+              : {},
+            deckLists: Array.isArray(currentState?.deckLists) ? currentState.deckLists : [],
+            decks: Array.isArray(currentState?.decks) ? currentState.decks : [],
+            records: Array.isArray(currentState?.records) ? currentState.records : [],
+            activeGame: typeof activeGame === 'undefined'
+              ? (currentState?.activeGame && typeof currentState.activeGame === 'object' ? currentState.activeGame : null)
+              : activeGame,
+            activeGameUndo: typeof activeGameUndo === 'undefined'
+              ? (Array.isArray(currentState?.activeGameUndo) ? currentState.activeGameUndo : [])
+              : activeGameUndo,
+            revision: nextRevision,
+            updatedAt,
+            updatedBy: auth.displayName || auth.user,
+          };
+
+        if (nextState instanceof Error) {
           return jsonResponse({
-            error: error instanceof Error ? error.message : 'Deck ownership validation failed.',
+            error: nextState.message || 'Deck ownership validation failed.',
           }, 403);
         }
 
-        await env.POD_STATE.put(stateKey, JSON.stringify({
-          games,
-          powerLevels,
-          deckLists,
-          decks: normalizedDecks,
-          records,
-          activeGame,
-          activeGameUndo,
-          revision: nextRevision,
-          updatedAt,
-          updatedBy: auth.displayName || auth.user,
-        }));
+        await env.POD_STATE.put(stateKey, JSON.stringify(nextState));
 
         return jsonResponse({
           ok: true,
@@ -2068,7 +2111,7 @@ export default {
           updatedAt,
           updatedBy: auth.displayName || auth.user,
           auth: buildAuthPayload(auth),
-          decks: normalizedDecks,
+          decks: hasFullPayloadShape ? nextState.decks : undefined,
         }, 200);
       }
 

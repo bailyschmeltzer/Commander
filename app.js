@@ -288,6 +288,7 @@ let syncCloudRevision = 0;
 let syncCloudUpdatedAt = '';
 let syncCloudUpdatedBy = '';
 let syncHasLoadedCloudState = false;
+let syncQueuedGamesOnly = null;
 let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
 let syncAuthenticatedRole = '';
@@ -1511,13 +1512,13 @@ function queueActiveGameCloudSync(delay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS) {
   }
 
   if (Number(delay) <= 0) {
-    queueCloudSync(0);
+    queueCloudSync(0, { gamesOnly: true });
     return;
   }
 
   activeGamePersistTimer = setTimeout(() => {
     activeGamePersistTimer = null;
-    queueCloudSync(0);
+    queueCloudSync(0, { gamesOnly: true });
   }, delay);
 }
 
@@ -1572,7 +1573,7 @@ function flushQueuedActiveGamePersist() {
 
   clearTimeout(activeGamePersistTimer);
   activeGamePersistTimer = null;
-  queueCloudSync(0);
+  queueCloudSync(0, { gamesOnly: true });
 }
 
 function getSyncCredentials() {
@@ -2105,6 +2106,7 @@ async function pushCloudState() {
 
   const requestStateMutationVersion = syncStateMutationVersion;
   const requestDeckMutationVersion = syncDecksMutationVersion;
+  const requestGamesOnly = syncQueuedGamesOnly;
   let shouldQueueFollowUpSync = false;
   syncInFlight = true;
   syncConnectionState = 'connected';
@@ -2118,15 +2120,21 @@ async function pushCloudState() {
       headers: {
         'X-State-Revision': String(syncCloudRevision),
       },
-      body: JSON.stringify({
-        games: appState.games,
-        powerLevels: appState.powerLevels,
-        deckLists: appState.deckLists,
-        decks: appState.decks,
-        records: appState.records,
-        activeGame: appState.activeGame,
-        activeGameUndo: appState.activeGameUndo,
-      }),
+      body: JSON.stringify(requestGamesOnly
+        ? {
+          games: appState.games,
+          activeGame: appState.activeGame,
+          activeGameUndo: appState.activeGameUndo,
+        }
+        : {
+          games: appState.games,
+          powerLevels: appState.powerLevels,
+          deckLists: appState.deckLists,
+          decks: appState.decks,
+          records: appState.records,
+          activeGame: appState.activeGame,
+          activeGameUndo: appState.activeGameUndo,
+        }),
     });
     updateSyncAuthenticatedUser(payload.auth || null);
     updateSyncMetadata({
@@ -2137,7 +2145,7 @@ async function pushCloudState() {
     const stateChangedDuringFlight = syncStateMutationVersion !== requestStateMutationVersion;
     const decksChangedDuringFlight = syncDecksMutationVersion !== requestDeckMutationVersion;
     // If the server returned normalized decks (e.g. with resolved ownerUserId), adopt them.
-    if (Array.isArray(payload.decks) && !decksChangedDuringFlight) {
+    if (!requestGamesOnly && Array.isArray(payload.decks) && !decksChangedDuringFlight) {
       appState = normalizeAppStateData({ ...appState, decks: payload.decks });
       persistLocalState(appState);
       // Re-render so activeDeckBuilderRecord picks up the server-corrected values.
@@ -2168,17 +2176,24 @@ async function pushCloudState() {
     updateSyncControls();
     refreshSyncStatus();
     if (shouldQueueFollowUpSync) {
-      queueCloudSync(0);
+      queueCloudSync(0, { gamesOnly: syncQueuedGamesOnly === true });
+    } else {
+      syncQueuedGamesOnly = null;
     }
   }
 }
 
-function queueCloudSync(delay = 500) {
+function queueCloudSync(delay = 500, { gamesOnly = false } = {}) {
   if (!hasSyncCredentials()) {
     return;
   }
 
   syncStateMutationVersion += 1;
+  if (!gamesOnly) {
+    syncQueuedGamesOnly = false;
+  } else if (syncQueuedGamesOnly !== false) {
+    syncQueuedGamesOnly = true;
+  }
   setSyncPendingChanges(true);
   syncLastErrorMessage = '';
   refreshSyncStatus();
@@ -2484,7 +2499,6 @@ function saveGames(games, { queueSync = true } = {}) {
     ...appState,
     games: Array.isArray(games) ? games : [],
   });
-  appState.records = mergeRecordsWithDefaults(appState.records, appState.games);
   persistLocalState(appState);
 
   // Storage events do not fire in the same tab, so update the deck-builder
@@ -2497,7 +2511,7 @@ function saveGames(games, { queueSync = true } = {}) {
   }
 
   if (queueSync) {
-    queueCloudSync();
+    queueCloudSync(0, { gamesOnly: true });
   }
 }
 
@@ -2519,7 +2533,7 @@ function saveDeckLists(deckLists) {
 }
 
 function saveDecks(decks, options = {}) {
-  const { deferPersist = false, delay = DECKS_PERSIST_DEBOUNCE_MS } = options;
+  const { deferPersist = false, delay = DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS } = options;
   syncDecksMutationVersion += 1;
   appState = normalizeAppStateData({
     ...appState,
