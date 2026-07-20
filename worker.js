@@ -1133,7 +1133,9 @@ function getRequestIp(request) {
 
 function buildAuthAuditEntry({ request, url, auth = null, success = false, reason = '', status = 0 }) {
   const requestUser = getRequestUser(request);
-  const normalizedUser = normalizeMemberKey(requestUser);
+  const fallbackUser = getTextValue(auth?.displayName || auth?.user || auth?.userId);
+  const auditUser = getTextValue(requestUser || fallbackUser);
+  const normalizedUser = normalizeMemberKey(auditUser);
 
   return {
     id: crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
@@ -1143,7 +1145,7 @@ function buildAuthAuditEntry({ request, url, auth = null, success = false, reaso
     reason: getTextValue(reason || (success ? 'Authenticated.' : 'Authentication failed.')),
     method: getTextValue(request.method).toUpperCase(),
     path: `${url.pathname}${url.search}`,
-    user: getTextValue(requestUser),
+    user: auditUser,
     normalizedUser,
     tokenHint: maskToken(getRequestToken(request)),
     ip: getRequestIp(request),
@@ -2153,8 +2155,25 @@ export default {
         });
         const auth = await hasValidAuth(authRequest, env);
         if (!auth.ok) {
+          await appendAuthAuditEntry(env, buildAuthAuditEntry({
+            request: authRequest,
+            url,
+            auth,
+            success: false,
+            reason: auth.reason,
+            status: 401,
+          }));
           return jsonResponse({ error: auth.reason }, 401);
         }
+
+        await appendAuthAuditEntry(env, buildAuthAuditEntry({
+          request: authRequest,
+          url,
+          auth,
+          success: true,
+          reason: 'Authenticated.',
+          status: 200,
+        }));
 
         const sessionKey = await persistSessionAuth(env, {
           ...auth,

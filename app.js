@@ -14101,26 +14101,59 @@ function renderSummary(games) {
 
 function refresh() {
   const games = loadGames();
+  const currentPageName = getCurrentPageName();
   updateFormDatalists(games);
   renderIdentityRenameOptions();
-  renderSummary(games);
-  renderRankingsPage(games);
-  renderPlayerStats(games);
-  updateHistoryFilters(games);
-  applyHistoryQueryFilters();
-  renderHistory(games);
-  renderCommanderStats(games);
-  renderDeckLibrary();
-  renderDeckSelector();
-  renderCommanderBuilder();
-  warmCommanderIdentityDisplayCache(games);
-  renderDeckBuilderPage();
-  renderRecords();
-  refreshLiveTrackerUi();
+
+  switch (currentPageName) {
+    case 'index.html':
+      renderSummary(games);
+      break;
+    case 'rankings.html':
+      renderRankingsPage(games);
+      warmCommanderIdentityDisplayCache(games);
+      break;
+    case 'player.html':
+      renderPlayerStats(games);
+      break;
+    case 'history.html':
+      updateHistoryFilters(games);
+      applyHistoryQueryFilters();
+      renderHistory(games);
+      warmCommanderIdentityDisplayCache(games);
+      break;
+    case 'commander.html':
+      renderCommanderStats(games);
+      warmCommanderIdentityDisplayCache(games);
+      break;
+    case 'decklists.html':
+      renderDeckLibrary();
+      break;
+    case 'deckselector.html':
+      renderDeckSelector();
+      break;
+    case 'commanderbuilder.html':
+      renderCommanderBuilder();
+      break;
+    case 'deckbuilder.html':
+      renderDeckBuilderPage();
+      break;
+    case 'records.html':
+      renderRecords();
+      break;
+    case 'livegame.html':
+      refreshLiveTrackerUi();
+      break;
+    case 'admin-logs.html':
+      void refreshAuthAuditLogs();
+      void refreshRegisteredAccounts();
+      break;
+    default:
+      break;
+  }
+
   initializeMobileSortControls();
   applyResponsiveTableLabels();
-  void refreshAuthAuditLogs();
-  void refreshRegisteredAccounts();
   void backfillDeckListCommanderOracleIds();
 }
 
