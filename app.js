@@ -310,6 +310,7 @@ let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
 let storageErrorMessage = '';
+let syncStateMutationVersion = 0;
 let syncDecksMutationVersion = 0;
 let historyQueryFiltersApplied = false;
 let deckSelectorSpinTimer = null;
@@ -2140,6 +2141,7 @@ async function pushCloudState() {
     }
   }
 
+  const requestStateMutationVersion = syncStateMutationVersion;
   const requestDeckMutationVersion = syncDecksMutationVersion;
   let shouldQueueFollowUpSync = false;
   syncInFlight = true;
@@ -2168,6 +2170,7 @@ async function pushCloudState() {
       updatedAt: payload.updatedAt,
       updatedBy: payload.updatedBy,
     });
+    const stateChangedDuringFlight = syncStateMutationVersion !== requestStateMutationVersion;
     const decksChangedDuringFlight = syncDecksMutationVersion !== requestDeckMutationVersion;
     // If the server returned normalized decks (e.g. with resolved ownerUserId), adopt them.
     if (Array.isArray(payload.decks) && !decksChangedDuringFlight) {
@@ -2176,9 +2179,9 @@ async function pushCloudState() {
       // Re-render so activeDeckBuilderRecord picks up the server-corrected values.
       refresh();
     }
-    setSyncPendingChanges(decksChangedDuringFlight);
+    setSyncPendingChanges(stateChangedDuringFlight);
     syncHasLoadedCloudState = true;
-    shouldQueueFollowUpSync = decksChangedDuringFlight;
+    shouldQueueFollowUpSync = stateChangedDuringFlight;
     syncRetryCount = 0;
     syncLastErrorMessage = '';
     clearSyncConflict();
@@ -2211,6 +2214,7 @@ function queueCloudSync(delay = 500) {
     return;
   }
 
+  syncStateMutationVersion += 1;
   setSyncPendingChanges(true);
   syncLastErrorMessage = '';
   refreshSyncStatus();
@@ -3348,6 +3352,16 @@ function addLiveSetupRow(data = {}) {
   liveGamePlayerBody.appendChild(row);
   populateRowSelectors(row);
   updateLiveSetupSeatLabels();
+}
+
+function getLiveCommanderOptionValues() {
+  return getUniqueValuesBySimilarity(
+    loadDecks()
+      .map(normalizeDeckRecord)
+      .filter((deck) => Boolean(deck?.commander?.name))
+      .filter((deck) => deck.inRotation !== false)
+      .map((deck) => deck.commander.name),
+  );
 }
 
 function prepareLiveRematchSetup(previousPlayers = []) {
@@ -6154,10 +6168,12 @@ function populateRowSelectors(row) {
   }
 
   const tableBody = row.closest('tbody');
+  const isLiveSetupRow = tableBody === liveGamePlayerBody;
   const usedPlayers = getUsedPlayersInTable(tableBody, row);
   const availablePlayers = usedPlayers.size
     ? knownPlayers.filter((p) => !usedPlayers.has(getIdentityKey(p)))
     : knownPlayers;
+  const availableCommanders = isLiveSetupRow ? getLiveCommanderOptionValues() : knownCommanders;
 
   const playerMenu = row.querySelector('.player-dropdown-menu');
   const commanderMenu = row.querySelector('.commander-dropdown-menu');
@@ -6167,7 +6183,7 @@ function populateRowSelectors(row) {
   }
 
   if (commanderMenu) {
-    buildDropdownMenu(commanderMenu, knownCommanders);
+    buildDropdownMenu(commanderMenu, availableCommanders);
   }
 }
 
@@ -6444,7 +6460,7 @@ function updateFormDatalists(games) {
     buildDatalistOptions(playerDatalist, knownPlayers);
   }
   if (commanderDatalist) {
-    buildDatalistOptions(commanderDatalist, knownCommanders);
+    buildDatalistOptions(commanderDatalist, liveGameForm ? getLiveCommanderOptionValues() : knownCommanders);
   }
   if (firstBloodPlayerMenu) {
     buildDropdownMenu(firstBloodPlayerMenu, knownPlayers);
