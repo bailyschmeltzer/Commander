@@ -2479,7 +2479,7 @@ function loadGames() {
   return games;
 }
 
-function saveGames(games) {
+function saveGames(games, { queueSync = true } = {}) {
   appState = normalizeAppStateData({
     ...appState,
     games: Array.isArray(games) ? games : [],
@@ -2496,7 +2496,9 @@ function saveGames(games) {
     }
   }
 
-  queueCloudSync();
+  if (queueSync) {
+    queueCloudSync();
+  }
 }
 
 function loadDeckLists() {
@@ -4579,9 +4581,20 @@ async function completeActiveGame() {
         eventCount: gameToSave.events.length,
       },
     });
-    saveGames(games);
-    persistActiveGameState(null, { syncDelay: 0 });
-    persistActiveGameUndoState(null, { syncDelay: 0 });
+    saveGames(games, { queueSync: false });
+    appState = normalizeAppStateData({
+      ...appState,
+      activeGame: null,
+      activeGameUndo: [],
+    });
+    persistLocalState(appState);
+    activeGameState = null;
+    activeGameUndoState = [];
+    if (activeGamePersistTimer) {
+      clearTimeout(activeGamePersistTimer);
+      activeGamePersistTimer = null;
+    }
+    queueCloudSync(0);
     releaseWakeLock();
     refresh();
     refreshLiveTrackerUi();
