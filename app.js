@@ -3885,23 +3885,6 @@ function getCurrentPageName() {
   return (segments[segments.length - 1] || 'index.html').toLowerCase();
 }
 
-function shouldLoadCloudStateImmediately() {
-  const eagerPages = new Set([
-    'index.html',
-    'livegame.html',
-    'history.html',
-    'rankings.html',
-    'player.html',
-    'commander.html',
-    'decklists.html',
-    'deckselector.html',
-    'deckbuilder.html',
-    'records.html',
-  ]);
-
-  return eagerPages.has(getCurrentPageName());
-}
-
 function closePrimaryMenu() {
   if (!pageSwitch) {
     return;
@@ -15357,9 +15340,7 @@ document.addEventListener('visibilitychange', () => {
   }
 
   if (document.visibilityState === 'visible') {
-    checkCloudStateFreshness({
-      autoPull: shouldLoadCloudStateImmediately() && !syncPendingChanges && !syncConflictInfo,
-    });
+    checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
   }
 });
 
@@ -15368,9 +15349,7 @@ window.addEventListener('pagehide', () => {
 });
 
 window.addEventListener('focus', () => {
-  checkCloudStateFreshness({
-    autoPull: shouldLoadCloudStateImmediately() && !syncPendingChanges && !syncConflictInfo,
-  });
+  checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
 });
 
 function setupSyncUi() {
@@ -15575,25 +15554,23 @@ async function initializeApp() {
   refresh();
 
   void refreshSessionStatus();
-  if (shouldLoadCloudStateImmediately()) {
-    void pullCloudState().then(() => {
-      if (form) {
-        const editId = getQueryParam('editId');
-        if (editId) {
-          const game = getGameById(editId);
-          if (game) {
-            setEditMode(game);
-          }
+  void pullCloudState().then(() => {
+    if (form) {
+      const editId = getQueryParam('editId');
+      if (editId) {
+        const game = getGameById(editId);
+        if (game) {
+          setEditMode(game);
         }
       }
-      setSyncUiCollapsed(false);
-      refreshSyncStatus();
-    }).catch((error) => {
-      syncConnectionState = error.status === 401 ? 'local' : 'configured';
-      syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
-      refreshSyncStatus();
-    });
-  }
+    }
+    setSyncUiCollapsed(false);
+    refreshSyncStatus();
+  }).catch((error) => {
+    syncConnectionState = error.status === 401 ? 'local' : 'configured';
+    syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
+    refreshSyncStatus();
+  });
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
   // cannot overwrite appState and wipe the newly created deck.
