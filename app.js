@@ -1504,7 +1504,24 @@ function loadActiveGameUndoState() {
     : [];
 }
 
-function persistActiveGameUndoState(state) {
+function queueActiveGameCloudSync(delay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS) {
+  if (activeGamePersistTimer) {
+    clearTimeout(activeGamePersistTimer);
+    activeGamePersistTimer = null;
+  }
+
+  if (Number(delay) <= 0) {
+    queueCloudSync(0);
+    return;
+  }
+
+  activeGamePersistTimer = setTimeout(() => {
+    activeGamePersistTimer = null;
+    queueCloudSync(0);
+  }, delay);
+}
+
+function persistActiveGameUndoState(state, { syncDelay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS } = {}) {
   const normalizedState = Array.isArray(state)
     ? state.map((entry) => normalizeActiveGameStateData(cloneActiveGameState(entry))).filter(Boolean)
     : state
@@ -1513,7 +1530,7 @@ function persistActiveGameUndoState(state) {
 
   activeGameUndoState = normalizedState;
   persistLocalState({ ...appState, activeGameUndo: normalizedState });
-  queueCloudSync(0);
+  queueActiveGameCloudSync(syncDelay);
 }
 
 function cloneActiveGameState(state) {
@@ -1522,42 +1539,30 @@ function cloneActiveGameState(state) {
 
 function saveUndoSnapshot() {
   if (!activeGameState) {
-    persistActiveGameUndoState(null);
+    persistActiveGameUndoState(null, { syncDelay: 0 });
     return;
   }
 
   persistActiveGameUndoState([
     ...activeGameUndoState,
     cloneActiveGameState(activeGameState),
-  ]);
+  ], {
+    syncDelay: ACTIVE_GAME_PERSIST_DEBOUNCE_MS,
+  });
 }
 
-function persistActiveGameState(state) {
-  if (activeGamePersistTimer) {
-    clearTimeout(activeGamePersistTimer);
-    activeGamePersistTimer = null;
-  }
-
+function persistActiveGameState(state, { syncDelay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS } = {}) {
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
   persistLocalState({ ...appState, activeGame: normalizedState });
-  queueCloudSync(0);
+  queueActiveGameCloudSync(syncDelay);
 }
 
 function queueActiveGameStatePersist(state, delay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS) {
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
   persistLocalState({ ...appState, activeGame: normalizedState });
-
-  if (activeGamePersistTimer) {
-    clearTimeout(activeGamePersistTimer);
-    activeGamePersistTimer = null;
-  }
-
-  activeGamePersistTimer = setTimeout(() => {
-    activeGamePersistTimer = null;
-    queueCloudSync(0);
-  }, delay);
+  queueActiveGameCloudSync(delay);
 }
 
 function flushQueuedActiveGamePersist() {
@@ -4548,8 +4553,8 @@ async function completeActiveGame() {
       },
     });
     saveGames(games);
-    persistActiveGameState(null);
-    persistActiveGameUndoState(null);
+    persistActiveGameState(null, { syncDelay: 0 });
+    persistActiveGameUndoState(null, { syncDelay: 0 });
     releaseWakeLock();
     refresh();
     refreshLiveTrackerUi();
@@ -4583,8 +4588,8 @@ async function abandonActiveGame() {
     return;
   }
 
-  persistActiveGameState(null);
-  persistActiveGameUndoState(null);
+  persistActiveGameState(null, { syncDelay: 0 });
+  persistActiveGameUndoState(null, { syncDelay: 0 });
   releaseWakeLock();
   refreshLiveTrackerUi();
 }

@@ -3860,6 +3860,7 @@ button[type="submit"] {
     position: fixed;
     bottom: 12px;
     left: 50%;
+    right: auto;
     transform: translateX(-50%);
     z-index: 4200;
   }
@@ -3868,6 +3869,7 @@ button[type="submit"] {
     bottom: auto;
     top: 12px;
     left: 50%;
+    right: auto;
     transform: translateX(-50%) rotate(180deg);
   }
 
