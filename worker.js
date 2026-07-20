@@ -1,7 +1,7 @@
 // HTTP/CORS and cache configuration for the Cloudflare Worker.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-User-Name, X-Pod-Token, X-State-Revision',
 };
 
@@ -9,6 +9,8 @@ const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
 const AUTH_AUDIT_LOG_LIMIT = 500;
+const SESSION_COOKIE_NAME = 'commanderSession';
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
 
@@ -23,6 +25,137 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
       ...extraHeaders,
     },
   });
+}
+
+function getCookieValue(request, name) {
+  const cookieHeader = getTextValue(request.headers.get('Cookie'));
+  if (!cookieHeader || !name) {
+    return '';
+  }
+
+  const pairs = cookieHeader.split(';');
+  for (const pair of pairs) {
+    const separatorIndex = pair.indexOf('=');
+    if (separatorIndex < 0) {
+      continue;
+    }
+
+    const key = pair.slice(0, separatorIndex).trim();
+    if (key !== name) {
+      continue;
+    }
+
+    return decodeURIComponent(pair.slice(separatorIndex + 1).trim());
+  }
+
+  return '';
+}
+
+function buildSessionCookie(value, { maxAge = SESSION_TTL_SECONDS, expires = '' } = {}) {
+  const parts = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(value || '')}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Secure',
+  ];
+
+  if (Number.isFinite(Number(maxAge))) {
+    parts.push(`Max-Age=${Math.max(0, Number(maxAge))}`);
+  }
+
+  if (expires) {
+    parts.push(`Expires=${expires}`);
+  }
+
+  return parts.join('; ');
+}
+
+function buildExpiredSessionCookie() {
+  return buildSessionCookie('', {
+    maxAge: 0,
+    expires: 'Thu, 01 Jan 1970 00:00:00 GMT',
+  });
+}
+
+function getSessionKey(request) {
+  return getCookieValue(request, SESSION_COOKIE_NAME);
+}
+
+function getSessionStoreKey(sessionKey) {
+  return sessionKey ? `pod:default:session:${sessionKey}` : '';
+}
+
+async function loadSessionAuth(request, env) {
+  if (!env.POD_STATE) {
+    return null;
+  }
+
+  const sessionKey = getSessionKey(request);
+  if (!sessionKey) {
+    return null;
+  }
+
+  const raw = await env.POD_STATE.get(getSessionStoreKey(sessionKey), 'json');
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const expiresAt = getTextValue(raw.expiresAt);
+  if (!expiresAt || Number.isNaN(new Date(expiresAt).getTime()) || new Date(expiresAt).getTime() <= Date.now()) {
+    await env.POD_STATE.delete(getSessionStoreKey(sessionKey));
+    return null;
+  }
+
+  const auth = raw.auth && typeof raw.auth === 'object' ? raw.auth : null;
+  if (!auth) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    user: getTextValue(auth.user),
+    userId: getTextValue(auth.userId).toLowerCase(),
+    displayName: getTextValue(auth.displayName || auth.user),
+    role: getTextValue(auth.role || 'member').toLowerCase(),
+    authMode: getTextValue(auth.authMode || 'session').toLowerCase(),
+    sessionKey,
+  };
+}
+
+async function persistSessionAuth(env, auth) {
+  if (!env.POD_STATE || !auth) {
+    return '';
+  }
+
+  const sessionKey = crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const expiresAt = new Date(Date.now() + (SESSION_TTL_SECONDS * 1000)).toISOString();
+  await env.POD_STATE.put(getSessionStoreKey(sessionKey), JSON.stringify({
+    auth: {
+      user: getTextValue(auth.user),
+      userId: getTextValue(auth.userId).toLowerCase(),
+      displayName: getTextValue(auth.displayName || auth.user),
+      role: getTextValue(auth.role || 'member').toLowerCase(),
+      authMode: getTextValue(auth.authMode || 'session').toLowerCase(),
+    },
+    expiresAt,
+  }), {
+    expirationTtl: SESSION_TTL_SECONDS,
+  });
+  return sessionKey;
+}
+
+async function clearSessionAuth(request, env) {
+  if (!env.POD_STATE) {
+    return;
+  }
+
+  const sessionKey = getSessionKey(request);
+  if (!sessionKey) {
+    return;
+  }
+
+  await env.POD_STATE.delete(getSessionStoreKey(sessionKey));
 }
 
 function normalizeCommanderIdentity(identity) {
@@ -1215,6 +1348,11 @@ function buildRegisteredAccounts(configuredMembers, state) {
 }
 
 async function hasValidAuth(request, env) {
+  const sessionAuth = await loadSessionAuth(request, env);
+  if (sessionAuth?.ok) {
+    return sessionAuth;
+  }
+
   const user = getRequestUser(request);
   const token = getRequestToken(request);
   const configuredMembers = getConfiguredMembers(env);
@@ -1774,10 +1912,12 @@ export default {
 
       if (request.method === 'GET') {
         const raw = await env.POD_STATE.get(stateKey, 'json');
-        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [] };
+        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
         state.decks = Array.isArray(state.decks) ? state.decks : [];
         state.records = Array.isArray(state.records) ? state.records : [];
+        state.activeGame = state.activeGame && typeof state.activeGame === 'object' ? state.activeGame : null;
+        state.activeGameUndo = Array.isArray(state.activeGameUndo) ? state.activeGameUndo : [];
         state.revision = Number.isFinite(Number(state.revision)) ? Number(state.revision) : 0;
         state.updatedAt = String(state.updatedAt || '').trim();
         state.updatedBy = String(state.updatedBy || '').trim();
@@ -1810,7 +1950,9 @@ export default {
           && Object.prototype.hasOwnProperty.call(body, 'powerLevels')
           && Object.prototype.hasOwnProperty.call(body, 'deckLists')
           && Object.prototype.hasOwnProperty.call(body, 'decks')
-          && Object.prototype.hasOwnProperty.call(body, 'records');
+          && Object.prototype.hasOwnProperty.call(body, 'records')
+          && Object.prototype.hasOwnProperty.call(body, 'activeGame')
+          && Object.prototype.hasOwnProperty.call(body, 'activeGameUndo');
 
         if (!hasRequiredPayloadShape) {
           return jsonResponse({
@@ -1825,8 +1967,10 @@ export default {
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : null;
         const decks = Array.isArray(body.decks) ? body.decks : null;
         const records = Array.isArray(body.records) ? body.records : null;
+        const activeGame = body.activeGame && typeof body.activeGame === 'object' ? body.activeGame : (body.activeGame === null ? null : undefined);
+        const activeGameUndo = Array.isArray(body.activeGameUndo) ? body.activeGameUndo : null;
 
-        if (!games || !powerLevels || !deckLists || !decks || !records) {
+        if (!games || !powerLevels || !deckLists || !decks || !records || typeof activeGame === 'undefined' || !activeGameUndo) {
           return jsonResponse({
             error: 'Sync payload has invalid field types. Refresh the page and reconnect before syncing again.',
           }, 409);
@@ -1851,17 +1995,23 @@ export default {
         const currentDeckLists = Array.isArray(currentState?.deckLists) ? currentState.deckLists : [];
         const currentDecks = Array.isArray(currentState?.decks) ? currentState.decks : [];
         const currentRecords = Array.isArray(currentState?.records) ? currentState.records : [];
+        const currentActiveGame = currentState?.activeGame && typeof currentState.activeGame === 'object' ? currentState.activeGame : null;
+        const currentActiveGameUndo = Array.isArray(currentState?.activeGameUndo) ? currentState.activeGameUndo : [];
 
         const incomingHasData = games.length > 0
           || Object.keys(powerLevels).length > 0
           || deckLists.length > 0
           || decks.length > 0
-          || records.length > 0;
+          || records.length > 0
+          || Boolean(activeGame)
+          || activeGameUndo.length > 0;
         const currentHasData = currentGames.length > 0
           || Object.keys(currentPowerLevels).length > 0
           || currentDeckLists.length > 0
           || currentDecks.length > 0
-          || currentRecords.length > 0;
+          || currentRecords.length > 0
+          || Boolean(currentActiveGame)
+          || currentActiveGameUndo.length > 0;
         const allowDestructiveOverwrite = request.headers.get('X-Allow-Destructive-State-Overwrite') === '1';
 
         if (currentHasData && !incomingHasData && !allowDestructiveOverwrite) {
@@ -1905,6 +2055,8 @@ export default {
           deckLists,
           decks: normalizedDecks,
           records,
+          activeGame,
+          activeGameUndo,
           revision: nextRevision,
           updatedAt,
           updatedBy: auth.displayName || auth.user,
@@ -1918,6 +2070,52 @@ export default {
           auth: buildAuthPayload(auth),
           decks: normalizedDecks,
         }, 200);
+      }
+
+      return jsonResponse({ error: 'Method not allowed.' }, 405);
+    }
+
+    if (url.pathname === '/api/session') {
+      if (request.method === 'POST') {
+        let body;
+        try {
+          body = await request.json();
+        } catch (error) {
+          return jsonResponse({ error: 'Invalid JSON payload.' }, 400);
+        }
+
+        const headers = new Headers({
+          'Content-Type': 'application/json',
+          'X-User-Name': getTextValue(body?.user),
+          'X-Pod-Token': getTextValue(body?.token),
+        });
+        const authRequest = new Request(request.url, {
+          method: request.method,
+          headers,
+        });
+        const auth = await hasValidAuth(authRequest, env);
+        if (!auth.ok) {
+          return jsonResponse({ error: auth.reason }, 401);
+        }
+
+        const sessionKey = await persistSessionAuth(env, {
+          ...auth,
+          authMode: auth.authMode || 'session',
+        });
+
+        return jsonResponse({
+          ok: true,
+          auth: buildAuthPayload(auth),
+        }, 200, {
+          'Set-Cookie': buildSessionCookie(sessionKey),
+        });
+      }
+
+      if (request.method === 'DELETE') {
+        await clearSessionAuth(request, env);
+        return jsonResponse({ ok: true }, 200, {
+          'Set-Cookie': buildExpiredSessionCookie(),
+        });
       }
 
       return jsonResponse({ error: 'Method not allowed.' }, 405);

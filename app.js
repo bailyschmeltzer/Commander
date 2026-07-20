@@ -275,7 +275,7 @@ const tableSortState = {
   commanderStreaks: { column: 'currentWins', descending: true },
   decks: { column: 'updatedAt', descending: true },
 };
-let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [] };
+let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] };
 let syncQueueTimer = null;
 let syncRetryTimer = null;
 let syncInFlight = false;
@@ -425,42 +425,22 @@ function getDerivedCacheBucket(games) {
 }
 
 function readLocalStorageValue(key) {
-  try {
-    storageErrorMessage = '';
-    return localStorage.getItem(key);
-  } catch (error) {
-    storageErrorMessage = 'Browser storage is unavailable on this device right now.';
-    return null;
-  }
+  storageErrorMessage = '';
+  return null;
 }
 
 function writeLocalStorageValue(key, value) {
-  try {
-    localStorage.setItem(key, value);
-    storageErrorMessage = '';
-    return true;
-  } catch (error) {
-    const isQuotaError = error?.name === 'QuotaExceededError' || error?.code === 22;
-    storageErrorMessage = isQuotaError
-      ? 'Browser storage is full. Local-only saves may not persist until storage is cleared.'
-      : 'Browser storage is unavailable on this device right now.';
-    return false;
-  }
+  storageErrorMessage = '';
+  return true;
 }
 
 function removeLocalStorageValue(key) {
-  try {
-    localStorage.removeItem(key);
-    storageErrorMessage = '';
-    return true;
-  } catch (error) {
-    storageErrorMessage = 'Browser storage is unavailable on this device right now.';
-    return false;
-  }
+  storageErrorMessage = '';
+  return true;
 }
 
 function loadSyncPendingChangesState() {
-  return readLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY) === 'true';
+  return Boolean(syncPendingChanges);
 }
 
 function setSyncPendingChanges(value) {
@@ -475,17 +455,7 @@ function setSyncPendingChanges(value) {
 }
 
 function getSyncCredentialAgeDays() {
-  const storedValue = readLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY) || '';
-  if (!storedValue) {
-    return null;
-  }
-
-  const timestamp = new Date(storedValue).getTime();
-  if (Number.isNaN(timestamp)) {
-    return null;
-  }
-
-  return Math.floor((Date.now() - timestamp) / 86400000);
+  return null;
 }
 
 function getStorageWarningMessage() {
@@ -1053,6 +1023,8 @@ function normalizeAppStateData(state) {
     deckLists: Array.isArray(state?.deckLists) ? state.deckLists : [],
     decks: Array.isArray(state?.decks) ? state.decks : [],
     records: Array.isArray(state?.records) ? state.records : [],
+    activeGame: state?.activeGame && typeof state.activeGame === 'object' ? state.activeGame : null,
+    activeGameUndo: Array.isArray(state?.activeGameUndo) ? state.activeGameUndo : [],
   };
 
   const identityMaps = buildAppStateIdentityMaps(baseState);
@@ -1072,6 +1044,8 @@ function normalizeAppStateData(state) {
     deckLists: normalizeIdentityValues(baseState.deckLists, identityMaps, 'deckLists'),
     decks: baseState.decks.map(normalizeDeckRecord).filter(Boolean),
     records: normalizeIdentityValues(baseState.records, identityMaps, 'records'),
+    activeGame: normalizeActiveGameStateData(baseState.activeGame),
+    activeGameUndo: baseState.activeGameUndo.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean),
   };
 }
 
@@ -1510,52 +1484,24 @@ async function handleIdentityRenameSubmit({ type, currentInput, nextInput, statu
 }
 
 function loadLocalState() {
-  const games = parseJsonSafe(readLocalStorageValue(STORAGE_KEY) || '[]', []);
-  const powerLevels = parseJsonSafe(readLocalStorageValue(EXPECTED_POWER_STORAGE_KEY) || '{}', {});
-  const deckLists = parseJsonSafe(readLocalStorageValue(DECK_LIST_STORAGE_KEY) || '[]', []);
-  const decks = parseJsonSafe(readLocalStorageValue(DECKS_STORAGE_KEY) || '[]', []);
-  const records = parseJsonSafe(readLocalStorageValue(RECORDS_STORAGE_KEY) || '[]', []);
-  const rawState = {
-    games: Array.isArray(games) ? games : [],
-    powerLevels: powerLevels && typeof powerLevels === 'object' ? powerLevels : {},
-    deckLists: Array.isArray(deckLists) ? deckLists : [],
-    decks: Array.isArray(decks) ? decks : [],
-    records: Array.isArray(records) ? records : [],
-  };
-  const normalizedState = normalizeAppStateData(rawState);
-
-  if (JSON.stringify(rawState) !== JSON.stringify(normalizedState)) {
-    persistLocalState(normalizedState);
-  }
-
-  return normalizedState;
+  return normalizeAppStateData(appState);
 }
 
 function persistLocalState(state) {
-  writeLocalStorageValue(STORAGE_KEY, JSON.stringify(state.games || []));
-  writeLocalStorageValue(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(state.powerLevels || {}));
-  writeLocalStorageValue(DECK_LIST_STORAGE_KEY, JSON.stringify(state.deckLists || []));
-  writeLocalStorageValue(DECKS_STORAGE_KEY, JSON.stringify(state.decks || []));
-  writeLocalStorageValue(RECORDS_STORAGE_KEY, JSON.stringify(state.records || []));
+  appState = normalizeAppStateData({
+    ...appState,
+    ...(state && typeof state === 'object' ? state : {}),
+  });
 }
 
 function loadActiveGameState() {
-  const storedState = parseJsonSafe(readLocalStorageValue(ACTIVE_GAME_STORAGE_KEY) || 'null', null);
-  const normalizedState = normalizeActiveGameStateData(storedState);
-
-  if (JSON.stringify(storedState) !== JSON.stringify(normalizedState)) {
-    persistActiveGameState(normalizedState);
-  }
-
-  return normalizedState;
+  return normalizeActiveGameStateData(appState?.activeGame);
 }
 
 function loadActiveGameUndoState() {
-  const storedState = parseJsonSafe(readLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY) || 'null', null);
-  if (Array.isArray(storedState)) {
-    return storedState.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean);
-  }
-  return storedState ? [normalizeActiveGameStateData(storedState)] : [];
+  return Array.isArray(appState?.activeGameUndo)
+    ? appState.activeGameUndo.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean)
+    : [];
 }
 
 function persistActiveGameUndoState(state) {
@@ -1566,12 +1512,8 @@ function persistActiveGameUndoState(state) {
       : [];
 
   activeGameUndoState = normalizedState;
-  if (!normalizedState.length) {
-    removeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY);
-    return;
-  }
-
-  writeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(normalizedState));
+  persistLocalState({ ...appState, activeGameUndo: normalizedState });
+  queueCloudSync(0);
 }
 
 function cloneActiveGameState(state) {
@@ -1598,31 +1540,23 @@ function persistActiveGameState(state) {
 
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
-  if (!normalizedState) {
-    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
-    return;
-  }
-
-  writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState));
+  persistLocalState({ ...appState, activeGame: normalizedState });
+  queueCloudSync(0);
 }
 
 function queueActiveGameStatePersist(state, delay = ACTIVE_GAME_PERSIST_DEBOUNCE_MS) {
   const normalizedState = normalizeActiveGameStateData(state);
   activeGameState = normalizedState;
+  persistLocalState({ ...appState, activeGame: normalizedState });
 
   if (activeGamePersistTimer) {
     clearTimeout(activeGamePersistTimer);
     activeGamePersistTimer = null;
   }
 
-  if (!normalizedState) {
-    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
-    return;
-  }
-
   activeGamePersistTimer = setTimeout(() => {
     activeGamePersistTimer = null;
-    writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(activeGameState));
+    queueCloudSync(0);
   }, delay);
 }
 
@@ -1633,25 +1567,18 @@ function flushQueuedActiveGamePersist() {
 
   clearTimeout(activeGamePersistTimer);
   activeGamePersistTimer = null;
-
-  if (!activeGameState) {
-    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
-    return;
-  }
-
-  writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(activeGameState));
+  queueCloudSync(0);
 }
 
 function getSyncCredentials() {
   return {
-    user: (readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim(),
-    token: (readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim(),
+    user: String(syncAuthenticatedDisplayName || syncUserInput?.value || '').trim(),
+    token: String(syncTokenInput?.value || '').trim(),
   };
 }
 
 function hasSyncCredentials() {
-  const credentials = getSyncCredentials();
-  return Boolean(credentials.user && credentials.token);
+  return Boolean(getCurrentSyncUserId() || (syncUserInput?.value.trim() && syncTokenInput?.value.trim()));
 }
 
 function formatSyncTimestamp(value) {
@@ -1701,7 +1628,7 @@ function getCurrentSyncUserId() {
 }
 
 function getCurrentSyncDisplayName() {
-  return String(syncAuthenticatedDisplayName || '').trim() || normalizeIdentityLabel(getSyncCredentials().user || '');
+  return String(syncAuthenticatedDisplayName || '').trim() || normalizeIdentityLabel(syncUserInput?.value || '');
 }
 
 function isCurrentSyncUserAdmin() {
@@ -1758,10 +1685,10 @@ function getSyncStatusSnapshot() {
     };
   }
 
-  if (!credentials.user || !credentials.token) {
+  if (!hasSyncCredentials()) {
     return {
       tone: 'muted',
-      message: 'Cloud sync not connected. Data stays local until you connect.',
+      message: 'Cloud sync not connected.',
     };
   }
 
@@ -1875,9 +1802,10 @@ function updateSyncControls() {
   }
 
   const hasCredentials = hasSyncCredentials();
+  const canAttemptConnect = Boolean(syncUserInput.value.trim() && syncTokenInput.value.trim());
   const isBusy = syncInFlight || syncConnectionState === 'connecting';
   if (syncConnectButton) {
-    syncConnectButton.disabled = isBusy;
+    syncConnectButton.disabled = isBusy || !canAttemptConnect;
   }
   if (syncDisconnectButton) {
     syncDisconnectButton.disabled = !hasCredentials || isBusy;
@@ -1888,19 +1816,15 @@ function updateSyncControls() {
 }
 
 async function cloudRequest(path, options = {}) {
-  const credentials = getSyncCredentials();
-  if (!credentials.user || !credentials.token) {
-    throw new Error('Missing sync credentials');
-  }
-
   const headers = new Headers(options.headers || {});
-  headers.set('Content-Type', 'application/json');
-  headers.set('X-User-Name', credentials.user);
-  headers.set('X-Pod-Token', credentials.token);
+  if (!headers.has('Content-Type') && options.method !== 'GET') {
+    headers.set('Content-Type', 'application/json');
+  }
 
   const response = await fetch(path, {
     ...options,
     headers,
+    credentials: 'same-origin',
   });
 
   if (!response.ok) {
@@ -1981,6 +1905,8 @@ async function pullCloudState() {
     const deckLists = Array.isArray(statePayload?.deckLists) ? statePayload.deckLists : [];
     const decks = Array.isArray(statePayload?.decks) ? statePayload.decks : [];
     const records = Array.isArray(statePayload?.records) ? statePayload.records : [];
+    const activeGame = statePayload?.activeGame && typeof statePayload.activeGame === 'object' ? statePayload.activeGame : null;
+    const activeGameUndo = Array.isArray(statePayload?.activeGameUndo) ? statePayload.activeGameUndo : [];
     updateSyncAuthenticatedUser(payload?.auth || statePayload?.auth || null);
     updateSyncMetadata({
       revision: payload?.revision ?? statePayload?.revision,
@@ -1988,8 +1914,15 @@ async function pullCloudState() {
       updatedBy: payload?.updatedBy ?? statePayload?.updatedBy,
     });
     clearSyncConflict();
-    appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records });
+    appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records, activeGame, activeGameUndo });
     persistLocalState(appState);
+    activeGameState = loadActiveGameState();
+    activeGameUndoState = loadActiveGameUndoState();
+    if (activeGameState) {
+      acquireWakeLock();
+    } else {
+      releaseWakeLock();
+    }
     setSyncPendingChanges(false);
     syncHasLoadedCloudState = true;
     syncConnectionState = 'connected';
@@ -2005,7 +1938,11 @@ async function pullCloudState() {
     });
     renderSyncDebugLog();
   } catch (error) {
-    syncConnectionState = hasSyncCredentials() ? 'configured' : 'local';
+    if (error.status === 401) {
+      clearSyncAuthenticatedUser();
+      syncHasLoadedCloudState = false;
+    }
+    syncConnectionState = getCurrentSyncUserId() ? 'configured' : 'local';
     throw error;
   } finally {
     updateSyncControls();
@@ -2021,11 +1958,8 @@ function pushCloudStateKeepalive() {
     return;
   }
 
-  const credentials = getSyncCredentials();
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
-  headers.set('X-User-Name', credentials.user);
-  headers.set('X-Pod-Token', credentials.token);
   headers.set('X-State-Revision', String(syncCloudRevision));
 
   fetch(CLOUD_SYNC_ENDPOINT, {
@@ -2037,8 +1971,11 @@ function pushCloudStateKeepalive() {
       deckLists: appState.deckLists,
       decks: appState.decks,
       records: appState.records,
+      activeGame: appState.activeGame,
+      activeGameUndo: appState.activeGameUndo,
     }),
     keepalive: true,
+    credentials: 'same-origin',
   }).catch(() => {
     // Best-effort unload flush; normal retries still run after navigation.
   });
@@ -2162,6 +2099,8 @@ async function pushCloudState() {
         deckLists: appState.deckLists,
         decks: appState.decks,
         records: appState.records,
+        activeGame: appState.activeGame,
+        activeGameUndo: appState.activeGameUndo,
       }),
     });
     updateSyncAuthenticatedUser(payload.auth || null);
@@ -15385,10 +15324,9 @@ function setupSyncUi() {
     return;
   }
 
-  const credentials = getSyncCredentials();
-  syncUserInput.value = credentials.user;
-  syncTokenInput.value = credentials.token;
-  syncConnectionState = credentials.user && credentials.token ? 'configured' : 'local';
+  syncUserInput.value = '';
+  syncTokenInput.value = '';
+  syncConnectionState = getCurrentSyncUserId() ? 'connected' : 'local';
   syncHasLoadedCloudState = false;
   updateSyncControls();
   refreshSyncStatus();
@@ -15415,23 +15353,21 @@ function setupSyncUi() {
     updateSyncMetadata();
     clearSyncConflict();
     syncConnectionState = 'connecting';
-    if (!writeLocalStorageValue(SYNC_USER_STORAGE_KEY, user) || !writeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY, token)) {
-      syncConnectionState = 'local';
-      clearSyncAuthenticatedUser();
-      updateSyncControls();
-      refreshSyncStatus();
-      return;
-    }
-    writeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY, new Date().toISOString());
     updateSyncControls();
     refreshSyncStatus();
 
     try {
+      const sessionPayload = await cloudRequest('/api/session', {
+        method: 'POST',
+        body: JSON.stringify({ user, token }),
+      });
+      updateSyncAuthenticatedUser(sessionPayload.auth || null);
       await pullCloudState();
+      syncTokenInput.value = '';
       refreshSyncStatus();
       setSyncUiCollapsed(true);
     } catch (error) {
-      syncConnectionState = 'configured';
+      syncConnectionState = 'local';
       clearSyncAuthenticatedUser();
       syncLastErrorMessage = error.message;
       refreshSyncStatus();
@@ -15512,17 +15448,18 @@ function setupSyncUi() {
       syncLastErrorMessage = '';
       syncHasLoadedCloudState = false;
       updateSyncMetadata();
+      appState = normalizeAppStateData({ games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] });
+      activeGameState = null;
+      activeGameUndoState = [];
       clearSyncAuthenticatedUser();
       clearSyncConflict();
       syncConnectionState = 'local';
-      removeLocalStorageValue(SYNC_USER_STORAGE_KEY);
-      removeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY);
-      removeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY);
-      removeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY);
       syncUserInput.value = '';
       syncTokenInput.value = '';
+      void cloudRequest('/api/session', { method: 'DELETE' }).catch(() => null);
       updateSyncControls();
       refreshSyncStatus();
+      refresh();
     });
   }
 
@@ -15544,15 +15481,10 @@ function setupSyncUi() {
 }
 
 async function initializeApp() {
-  appState = loadLocalState();
-  appState = normalizeAppStateData(appState);
-  persistLocalState(appState);
-  setSyncPendingChanges(loadSyncPendingChangesState());
-  activeGameState = loadActiveGameState();
-  activeGameUndoState = loadActiveGameUndoState();
-  if (activeGameState) {
-    acquireWakeLock();
-  }
+  appState = normalizeAppStateData({ games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] });
+  setSyncPendingChanges(false);
+  activeGameState = null;
+  activeGameUndoState = [];
   hideLiveSourcePrompt();
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
@@ -15588,21 +15520,23 @@ async function initializeApp() {
 
   refresh();
 
-  if (hasSyncCredentials()) {
-    try {
-      if (syncPendingChanges) {
-        await pushCloudState();
-      } else {
-        await pullCloudState();
+  try {
+    await pullCloudState();
+    if (form) {
+      const editId = getQueryParam('editId');
+      if (editId) {
+        const game = getGameById(editId);
+        if (game) {
+          setEditMode(game);
+        }
       }
-      setSyncUiCollapsed(false);
-      refreshSyncStatus();
-    } catch (error) {
-      syncConnectionState = 'configured';
-      setSyncUiCollapsed(false);
-      syncLastErrorMessage = `${error.message}. Using local cache.`;
-      refreshSyncStatus();
     }
+    setSyncUiCollapsed(false);
+    refreshSyncStatus();
+  } catch (error) {
+    syncConnectionState = error.status === 401 ? 'local' : 'configured';
+    syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
+    refreshSyncStatus();
   }
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
