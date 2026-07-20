@@ -3202,6 +3202,9 @@ function syncActiveGameTurnFromInput() {
     return turnNumber;
   }
 
+  if (activeGameState.turnNumber !== turnNumber) {
+    saveUndoSnapshot();
+  }
   activeGameState.turnNumber = turnNumber;
   persistActiveGameState(activeGameState);
   return turnNumber;
@@ -3224,6 +3227,10 @@ async function promptForTurnNumber(message, defaultValue = getLiveTrackedTurnNum
   });
   if (parsed === null) {
     return null;
+  }
+
+  if (activeGameState && activeGameState.turnNumber !== parsed) {
+    saveUndoSnapshot();
   }
 
   if (activeGameState) {
@@ -14434,6 +14441,7 @@ if (liveTurnButton) {
     if (!activeGameState) {
       return;
     }
+    saveUndoSnapshot();
     activeGameState.turnNumber = getLiveTrackedTurnNumber() + 1;
     persistActiveGameState(activeGameState);
     if (liveTurnNumberEl) {
