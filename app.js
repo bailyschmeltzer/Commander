@@ -1954,6 +1954,26 @@ async function pullCloudState() {
   }
 }
 
+async function refreshSessionStatus() {
+  try {
+    const payload = await cloudRequest('/api/session', { method: 'GET' });
+    updateSyncAuthenticatedUser(payload.auth || null);
+    syncConnectionState = 'connected';
+    syncLastErrorMessage = '';
+    refreshSyncStatus();
+    return payload.auth || null;
+  } catch (error) {
+    if (error.status === 401) {
+      clearSyncAuthenticatedUser();
+      syncConnectionState = 'local';
+      refreshSyncStatus();
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 function pushCloudStateKeepalive() {
   if (!hasSyncCredentials() || !navigator.onLine || syncConflictInfo || !syncHasLoadedCloudState) {
     return;
@@ -3863,6 +3883,23 @@ function getCurrentPageName() {
   const pathName = String(window.location.pathname || '').trim();
   const segments = pathName.split('/').filter(Boolean);
   return (segments[segments.length - 1] || 'index.html').toLowerCase();
+}
+
+function shouldLoadCloudStateImmediately() {
+  const eagerPages = new Set([
+    'index.html',
+    'livegame.html',
+    'history.html',
+    'rankings.html',
+    'player.html',
+    'commander.html',
+    'decklists.html',
+    'deckselector.html',
+    'deckbuilder.html',
+    'records.html',
+  ]);
+
+  return eagerPages.has(getCurrentPageName());
 }
 
 function closePrimaryMenu() {
@@ -15320,7 +15357,9 @@ document.addEventListener('visibilitychange', () => {
   }
 
   if (document.visibilityState === 'visible') {
-    checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
+    checkCloudStateFreshness({
+      autoPull: shouldLoadCloudStateImmediately() && !syncPendingChanges && !syncConflictInfo,
+    });
   }
 });
 
@@ -15329,7 +15368,9 @@ window.addEventListener('pagehide', () => {
 });
 
 window.addEventListener('focus', () => {
-  checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
+  checkCloudStateFreshness({
+    autoPull: shouldLoadCloudStateImmediately() && !syncPendingChanges && !syncConflictInfo,
+  });
 });
 
 function setupSyncUi() {
@@ -15533,23 +15574,25 @@ async function initializeApp() {
 
   refresh();
 
-  try {
-    await pullCloudState();
-    if (form) {
-      const editId = getQueryParam('editId');
-      if (editId) {
-        const game = getGameById(editId);
-        if (game) {
-          setEditMode(game);
+  void refreshSessionStatus();
+  if (shouldLoadCloudStateImmediately()) {
+    void pullCloudState().then(() => {
+      if (form) {
+        const editId = getQueryParam('editId');
+        if (editId) {
+          const game = getGameById(editId);
+          if (game) {
+            setEditMode(game);
+          }
         }
       }
-    }
-    setSyncUiCollapsed(false);
-    refreshSyncStatus();
-  } catch (error) {
-    syncConnectionState = error.status === 401 ? 'local' : 'configured';
-    syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
-    refreshSyncStatus();
+      setSyncUiCollapsed(false);
+      refreshSyncStatus();
+    }).catch((error) => {
+      syncConnectionState = error.status === 401 ? 'local' : 'configured';
+      syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
+      refreshSyncStatus();
+    });
   }
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState

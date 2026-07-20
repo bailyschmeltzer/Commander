@@ -2076,6 +2076,18 @@ export default {
     }
 
     if (url.pathname === '/api/session') {
+      if (request.method === 'GET') {
+        const auth = await loadSessionAuth(request, env);
+        if (!auth?.ok) {
+          return jsonResponse({ error: 'No active session.' }, 401);
+        }
+
+        return jsonResponse({
+          ok: true,
+          auth: buildAuthPayload(auth),
+        }, 200);
+      }
+
       if (request.method === 'POST') {
         let body;
         try {
