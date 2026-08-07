@@ -1681,14 +1681,36 @@ function flushQueuedActiveGamePersist() {
 }
 
 function getSyncCredentials() {
+  const storedUser = String(readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim();
+  const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
   return {
-    user: String(syncAuthenticatedDisplayName || syncUserInput?.value || '').trim(),
-    token: String(syncTokenInput?.value || '').trim(),
+    user: String(syncAuthenticatedDisplayName || syncUserInput?.value || storedUser || '').trim(),
+    token: String(syncTokenInput?.value || storedToken || '').trim(),
   };
 }
 
 function hasSyncCredentials() {
-  return Boolean(getCurrentSyncUserId() || (syncUserInput?.value.trim() && syncTokenInput?.value.trim()));
+  const credentials = getSyncCredentials();
+  return Boolean(getCurrentSyncUserId() || (credentials.user && credentials.token));
+}
+
+function persistSyncCredentials(user, token) {
+  const normalizedUser = String(user || '').trim();
+  const normalizedToken = String(token || '').trim();
+
+  if (!normalizedUser || !normalizedToken) {
+    return;
+  }
+
+  writeLocalStorageValue(SYNC_USER_STORAGE_KEY, normalizedUser);
+  writeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY, normalizedToken);
+  writeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY, new Date().toISOString());
+}
+
+function clearPersistedSyncCredentials() {
+  removeLocalStorageValue(SYNC_USER_STORAGE_KEY);
+  removeLocalStorageValue(SYNC_TOKEN_STORAGE_KEY);
+  removeLocalStorageValue(SYNC_CREDENTIAL_SET_AT_STORAGE_KEY);
 }
 
 function formatSyncTimestamp(value) {
@@ -1939,6 +1961,16 @@ function updateSyncControls() {
 
 async function cloudRequest(path, options = {}) {
   const headers = new Headers(options.headers || {});
+  const credentials = getSyncCredentials();
+
+  if (!headers.has('X-User-Name') && credentials.user) {
+    headers.set('X-User-Name', credentials.user);
+  }
+
+  if (!headers.has('X-Pod-Token') && credentials.token) {
+    headers.set('X-Pod-Token', credentials.token);
+  }
+
   if (!headers.has('Content-Type') && options.method !== 'GET') {
     headers.set('Content-Type', 'application/json');
   }
@@ -15847,8 +15879,10 @@ function setupSyncUi() {
     return;
   }
 
-  syncUserInput.value = '';
-  syncTokenInput.value = '';
+  const storedUser = String(readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim();
+  const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
+  syncUserInput.value = storedUser;
+  syncTokenInput.value = storedToken;
   syncConnectionState = getCurrentSyncUserId() ? 'connected' : 'local';
   syncHasLoadedCloudState = false;
   updateSyncControls();
@@ -15884,9 +15918,9 @@ function setupSyncUi() {
         method: 'POST',
         body: JSON.stringify({ user, token }),
       });
+      persistSyncCredentials(user, token);
       updateSyncAuthenticatedUser(sessionPayload.auth || null);
       await pullCloudState();
-      syncTokenInput.value = '';
       refreshSyncStatus();
       setSyncUiCollapsed(true);
     } catch (error) {
@@ -16002,6 +16036,7 @@ function setupSyncUi() {
       syncConnectionState = 'local';
       syncUserInput.value = '';
       syncTokenInput.value = '';
+      clearPersistedSyncCredentials();
       void cloudRequest('/api/session', { method: 'DELETE' }).catch(() => null);
       updateSyncControls();
       refreshSyncStatus();
