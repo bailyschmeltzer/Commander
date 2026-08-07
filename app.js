@@ -2380,6 +2380,12 @@ function queueCloudSync(delay = 500, { gamesOnly = false } = {}) {
     return;
   }
 
+  // Never auto-push before first successful cloud bootstrap for this session.
+  // This prevents local pre-refresh mutations from overwriting cloud state.
+  if (!syncHasLoadedCloudState) {
+    return;
+  }
+
   if (syncQueueTimer) {
     clearTimeout(syncQueueTimer);
   }
@@ -16150,28 +16156,9 @@ async function initializeApp() {
     };
 
     try {
-      let pendingPushError = null;
-      if (syncPendingChanges && hasSyncCredentials() && hasAnyStateData(appState)) {
-        try {
-          const metadata = await fetchCloudStateMetadata();
-          updateSyncMetadata(metadata);
-          await pushCloudState();
-        } catch (error) {
-          pendingPushError = error;
-        }
-      } else if (syncPendingChanges && !hasAnyStateData(appState)) {
-        // Ignore stale pending flags when local state is empty; pulling cloud first
-        // is the only safe action.
-        setSyncPendingChanges(false);
-      }
-
-      // Always try to pull cloud state on startup so the page cannot get stuck
-      // on local-only data when a pending-local push path fails.
+      // Strict cloud-first bootstrap: pull canonical cloud state before allowing
+      // any automatic local push.
       await pullCloudState();
-
-      if (pendingPushError instanceof Error) {
-        syncLastErrorMessage = `${pendingPushError.message}. Showing latest cloud state.`;
-      }
 
       restoreEditModeIfNeeded();
       setSyncUiCollapsed(false);
