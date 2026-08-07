@@ -14606,6 +14606,18 @@ function renderSummary(games) {
 
 function refresh() {
   const games = loadGames();
+  const shouldUpdateLookupCaches = Boolean(
+    form
+    || liveGameForm
+    || recordsForm
+    || customRecordForm
+    || deckBuilderPage
+    || playerRenameForm
+    || commanderRenameForm
+    || historyFilterWinner
+    || historyFilterCommander
+    || historyFilterPlayer
+  );
   const hasRankingsView = Boolean(rankingsSummary || rankingsTableBody || recentPlayerTrendsBody || recentCommanderTrendsBody || playerStreaksBody || commanderStreaksBody);
   const hasHistoryView = Boolean(historyList);
   const hasCommanderStatsView = Boolean(commanderStatsTableBody);
@@ -14624,8 +14636,10 @@ function refresh() {
     || hasDeckSelectorView
   );
 
-  updateFormDatalists(games);
-  renderIdentityRenameOptions();
+  if (shouldUpdateLookupCaches) {
+    updateFormDatalists(games);
+    renderIdentityRenameOptions();
+  }
 
   if (summaryEl) {
     renderSummary(games);
@@ -16228,7 +16242,9 @@ async function initializeApp() {
   refresh();
 
   void (async () => {
-    await refreshSessionStatus().catch(() => null);
+    // Do not block initial data hydration on a separate session-status request.
+    // pullCloudState() already authenticates and returns auth payload.
+    void refreshSessionStatus().catch(() => null);
 
     const restoreEditModeIfNeeded = () => {
       if (!form) {
