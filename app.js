@@ -14606,27 +14606,88 @@ function renderSummary(games) {
 
 function refresh() {
   const games = loadGames();
+  const hasRankingsView = Boolean(rankingsSummary || rankingsTableBody || recentPlayerTrendsBody || recentCommanderTrendsBody || playerStreaksBody || commanderStreaksBody);
+  const hasHistoryView = Boolean(historyList);
+  const hasCommanderStatsView = Boolean(commanderStatsTableBody);
+  const hasDeckLibraryView = Boolean(deckLibraryTableBody);
+  const hasDeckSelectorView = Boolean(deckSelectorResults || deckSelectorOwnerList);
+  const hasCommanderBuilderView = Boolean(commanderBuilderResult || commanderBuilderForm);
+  const hasDeckBuilderView = Boolean(deckBuilderPage);
+  const hasRecordsView = Boolean(recordsTableBody || recordsForm);
+  const hasLiveView = Boolean(liveGameForm || livePlayerGrid || liveGameStatus || document.body.classList.contains('page-live-game'));
+  const hasAdminLogsView = Boolean(authAuditSection || registeredAccountsSection || document.body.classList.contains('page-admin-logs'));
+  const shouldWarmCommanderIdentityCache = Boolean(
+    hasRankingsView
+    || hasHistoryView
+    || hasCommanderStatsView
+    || hasDeckLibraryView
+    || hasDeckSelectorView
+  );
+
   updateFormDatalists(games);
   renderIdentityRenameOptions();
-  renderSummary(games);
-  renderRankingsPage(games);
-  renderPlayerStats(games);
-  updateHistoryFilters(games);
-  applyHistoryQueryFilters();
-  renderHistory(games);
-  renderCommanderStats(games);
-  renderDeckLibrary();
-  renderDeckSelector();
-  renderCommanderBuilder();
-  warmCommanderIdentityDisplayCache(games);
-  renderDeckBuilderPage();
-  renderRecords();
-  refreshLiveTrackerUi();
+
+  if (summaryEl) {
+    renderSummary(games);
+  }
+
+  if (hasRankingsView) {
+    renderRankingsPage(games);
+  }
+
+  if (playerStatsTableBody) {
+    renderPlayerStats(games);
+  }
+
+  if (hasHistoryView) {
+    updateHistoryFilters(games);
+    applyHistoryQueryFilters();
+    renderHistory(games);
+  }
+
+  if (hasCommanderStatsView) {
+    renderCommanderStats(games);
+  }
+
+  if (hasDeckLibraryView) {
+    renderDeckLibrary();
+  }
+
+  if (hasDeckSelectorView) {
+    renderDeckSelector();
+  }
+
+  if (hasCommanderBuilderView) {
+    renderCommanderBuilder();
+  }
+
+  if (shouldWarmCommanderIdentityCache) {
+    warmCommanderIdentityDisplayCache(games);
+  }
+
+  if (hasDeckBuilderView) {
+    renderDeckBuilderPage();
+  }
+
+  if (hasRecordsView) {
+    renderRecords();
+  }
+
+  if (hasLiveView) {
+    refreshLiveTrackerUi();
+  }
+
   initializeMobileSortControls();
   applyResponsiveTableLabels();
-  void refreshAuthAuditLogs();
-  void refreshRegisteredAccounts();
-  void backfillDeckListCommanderOracleIds();
+
+  if (hasAdminLogsView) {
+    void refreshAuthAuditLogs();
+    void refreshRegisteredAccounts();
+  }
+
+  if (hasDeckLibraryView || hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
+    void backfillDeckListCommanderOracleIds();
+  }
 }
 
 function resetForm() {
