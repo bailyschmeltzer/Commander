@@ -435,17 +435,50 @@ function getDerivedCacheBucket(games) {
 
 function readLocalStorageValue(key) {
   storageErrorMessage = '';
-  return null;
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return null;
+    }
+
+    const value = globalThis.localStorage.getItem(key);
+    return value === null ? null : value;
+  } catch (error) {
+    storageErrorMessage = `Storage is unavailable: ${error.message}`;
+    return null;
+  }
 }
 
 function writeLocalStorageValue(key, value) {
   storageErrorMessage = '';
-  return true;
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      throw new Error('localStorage is unavailable');
+    }
+
+    globalThis.localStorage.setItem(key, String(value));
+    return true;
+  } catch (error) {
+    storageErrorMessage = `Couldn’t save to storage: ${error.message}`;
+    return false;
+  }
 }
 
 function removeLocalStorageValue(key) {
   storageErrorMessage = '';
-  return true;
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return true;
+    }
+
+    globalThis.localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    storageErrorMessage = `Couldn’t clear storage: ${error.message}`;
+    return false;
+  }
 }
 
 function loadSyncPendingChangesState() {
@@ -1048,7 +1081,7 @@ function normalizeAppStateData(state) {
   });
 
   return {
-    games: normalizeIdentityValues(baseState.games, identityMaps, 'games'),
+    games: (Array.isArray(baseState.games) ? baseState.games : []).map((game) => normalizeSavedGameEntry(game, baseState.decks)),
     powerLevels: normalizedPowerLevels,
     deckLists: normalizeIdentityValues(baseState.deckLists, identityMaps, 'deckLists'),
     decks: baseState.decks.map(normalizeDeckRecord).filter(Boolean),
@@ -1492,8 +1525,67 @@ async function handleIdentityRenameSubmit({ type, currentInput, nextInput, statu
   setIdentityRenameStatus(statusElement, `${matchingCurrentValue} is now stored as ${nextValue}.`, 'success');
 }
 
+function buildPersistedAppStatePayload(state) {
+  const normalizedState = normalizeAppStateData(state);
+  return {
+    games: normalizedState.games,
+    powerLevels: normalizedState.powerLevels,
+    deckLists: normalizedState.deckLists,
+    decks: normalizedState.decks,
+    records: normalizedState.records,
+    activeGame: normalizedState.activeGame,
+    activeGameUndo: normalizedState.activeGameUndo,
+  };
+}
+
+function persistAppStateToStorage(state) {
+  const normalizedState = normalizeAppStateData(state);
+  const payload = buildPersistedAppStatePayload(normalizedState);
+
+  writeLocalStorageValue(STORAGE_KEY, JSON.stringify(payload));
+  writeLocalStorageValue(EXPECTED_POWER_STORAGE_KEY, JSON.stringify(normalizedState.powerLevels));
+  writeLocalStorageValue(DECK_LIST_STORAGE_KEY, JSON.stringify(normalizedState.deckLists));
+  writeLocalStorageValue(DECKS_STORAGE_KEY, JSON.stringify(normalizedState.decks));
+  writeLocalStorageValue(RECORDS_STORAGE_KEY, JSON.stringify(normalizedState.records));
+
+  if (normalizedState.activeGame) {
+    writeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(normalizedState.activeGame));
+  } else {
+    removeLocalStorageValue(ACTIVE_GAME_STORAGE_KEY);
+  }
+
+  if (normalizedState.activeGameUndo.length) {
+    writeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY, JSON.stringify(normalizedState.activeGameUndo));
+  } else {
+    removeLocalStorageValue(ACTIVE_GAME_UNDO_STORAGE_KEY);
+  }
+
+  return normalizedState;
+}
+
 function loadLocalState() {
-  return normalizeAppStateData(appState);
+  const storagePayload = parseJsonSafe(readLocalStorageValue(STORAGE_KEY), null);
+  const legacyState = Array.isArray(storagePayload)
+    ? { games: storagePayload }
+    : storagePayload && typeof storagePayload === 'object'
+      ? storagePayload
+      : null;
+
+  if (!legacyState) {
+    return normalizeAppStateData(appState);
+  }
+
+  const fallbackState = {
+    games: Array.isArray(legacyState.games) ? legacyState.games : [],
+    powerLevels: legacyState.powerLevels && typeof legacyState.powerLevels === 'object' ? legacyState.powerLevels : {},
+    deckLists: Array.isArray(legacyState.deckLists) ? legacyState.deckLists : [],
+    decks: Array.isArray(legacyState.decks) ? legacyState.decks : [],
+    records: Array.isArray(legacyState.records) ? legacyState.records : [],
+    activeGame: legacyState.activeGame && typeof legacyState.activeGame === 'object' ? legacyState.activeGame : null,
+    activeGameUndo: Array.isArray(legacyState.activeGameUndo) ? legacyState.activeGameUndo : [],
+  };
+
+  return normalizeAppStateData(fallbackState);
 }
 
 function persistLocalState(state) {
@@ -1501,6 +1593,7 @@ function persistLocalState(state) {
     ...appState,
     ...(state && typeof state === 'object' ? state : {}),
   });
+  persistAppStateToStorage(appState);
 }
 
 function loadActiveGameState() {
@@ -4558,7 +4651,7 @@ async function completeActiveGame() {
       kills: player.kills,
       turnKilled: player.eliminatedTurnNumber || null,
       killed: player.killedPlayers || [],
-    }));
+    })).map((row) => enrichSavedGamePlayerRow(row));
     const finishOrder = finalPlayers.map((player) => player.name);
 
     const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
@@ -4576,12 +4669,10 @@ async function completeActiveGame() {
     const gameNotes = finalComments.trim() ? `${autoNotes} · ${finalComments.trim()}` : autoNotes;
 
     const games = loadGames();
-    games.push({
+    games.push(buildCompactSavedGameEntry({
       id: gameToSave.id,
       date: gameToSave.date,
       playerRows,
-      players: playerRows.map((row) => row.player),
-      playerCommanders: playerRows.map((row) => ({ player: row.player, commander: row.commander })),
       finishOrder,
       notes: gameNotes,
       liveSummary: {
@@ -4603,7 +4694,7 @@ async function completeActiveGame() {
         turnNumber: gameToSave.turnNumber,
         eventCount: gameToSave.events.length,
       },
-    });
+    }));
     saveGames(games, { queueSync: false });
     appState = normalizeAppStateData({
       ...appState,
@@ -4775,7 +4866,188 @@ function sanitizeManualGameRows(rows) {
     player: canonicalizeIdentityValue(row.player, playerMap),
     commander: canonicalizeIdentityValue(row.commander, commanderMap),
     killed: normalizeIdentityList(row.killed, playerMap),
-  }));
+  })).map((row) => enrichSavedGamePlayerRow(row));
+}
+
+function enrichSavedGamePlayerRow(row = {}, decks = loadDecks()) {
+  const existingDeckId = String(row?.deckId || '').trim();
+  const existingDeckName = String(row?.deckName || '').trim();
+  const existingDeckCommander = String(row?.deckCommander || '').trim();
+  const player = String(row?.player || '').trim();
+  const commander = String(row?.commander || '').trim();
+
+  if (!commander && !player) {
+    return {
+      ...row,
+      deckId: existingDeckId,
+      deckName: existingDeckName,
+      deckCommander: existingDeckCommander,
+    };
+  }
+
+  if (existingDeckId && existingDeckName) {
+    return {
+      ...row,
+      deckId: existingDeckId,
+      deckName: existingDeckName,
+      deckCommander: existingDeckCommander,
+    };
+  }
+
+  const ownerKey = getIdentityKey(player);
+  const commanderKey = getIdentityKey(commander);
+  if (!commanderKey) {
+    return {
+      ...row,
+      deckId: existingDeckId,
+      deckName: existingDeckName,
+      deckCommander: existingDeckCommander,
+    };
+  }
+
+  const exactDeckMatch = decks.find((deck) => {
+    const deckCommanderKey = getIdentityKey(deck?.commander?.name || '');
+    if (!deckCommanderKey || deckCommanderKey !== commanderKey) {
+      return false;
+    }
+    if (!ownerKey) {
+      return true;
+    }
+    return getIdentityKey(deck?.owner || '') === ownerKey;
+  });
+
+  if (exactDeckMatch) {
+    return {
+      ...row,
+      deckId: String(exactDeckMatch.id || '').trim(),
+      deckName: String(exactDeckMatch.name || exactDeckMatch?.commander?.name || '').trim(),
+      deckCommander: String(exactDeckMatch?.commander?.name || '').trim(),
+    };
+  }
+
+  const fallbackDeckMatch = decks.find((deck) => {
+    const deckCommanderKey = getIdentityKey(deck?.commander?.name || '');
+    if (!deckCommanderKey) {
+      return false;
+    }
+    if (!ownerKey) {
+      return getStringSimilarity(commanderKey, deckCommanderKey) >= 0.9;
+    }
+    return getStringSimilarity(commanderKey, deckCommanderKey) >= 0.9
+      && getIdentityKey(deck?.owner || '') === ownerKey;
+  });
+
+  if (fallbackDeckMatch) {
+    return {
+      ...row,
+      deckId: String(fallbackDeckMatch.id || '').trim(),
+      deckName: String(fallbackDeckMatch.name || fallbackDeckMatch?.commander?.name || '').trim(),
+      deckCommander: String(fallbackDeckMatch?.commander?.name || '').trim(),
+    };
+  }
+
+  return {
+    ...row,
+    deckId: existingDeckId,
+    deckName: existingDeckName,
+    deckCommander: existingDeckCommander,
+  };
+}
+
+function normalizeSavedGameEntry(game = {}, decks = []) {
+  const baseGame = game && typeof game === 'object' ? game : {};
+  const finishOrder = Array.isArray(baseGame.finishOrder) && baseGame.finishOrder.length
+    ? baseGame.finishOrder.filter(Boolean)
+    : [];
+  const rawRows = Array.isArray(baseGame.playerRows) && baseGame.playerRows.length
+    ? baseGame.playerRows
+    : (Array.isArray(baseGame.playerCommanders) && baseGame.playerCommanders.length
+      ? baseGame.playerCommanders
+      : (Array.isArray(baseGame.players) && baseGame.players.length
+        ? baseGame.players.map((player) => ({ player }))
+        : []));
+
+  const rows = rawRows
+    .map((row) => {
+      const player = String(row?.player || '').trim();
+      if (!player) {
+        return null;
+      }
+
+      const explicitPlace = typeof row?.place === 'number'
+        ? row.place
+        : parseOptionalPositiveInteger(row?.place || '');
+      const place = explicitPlace ?? (finishOrder.length ? finishOrder.indexOf(player) + 1 : null);
+      const kills = typeof row?.kills === 'number'
+        ? row.kills
+        : parseOptionalNonNegativeInteger(row?.kills || '');
+      const killed = Array.isArray(row?.killed)
+        ? row.killed
+        : normalizeList(row?.killed || '');
+      const turnKilled = typeof row?.turnKilled === 'number'
+        ? row.turnKilled
+        : parseOptionalPositiveInteger(row?.turnKilled || '');
+
+      return enrichSavedGamePlayerRow({
+        ...row,
+        player,
+        commander: String(row?.commander || '').trim(),
+        place: place ?? null,
+        kills: typeof kills === 'number' ? kills : 0,
+        killed,
+        turnKilled: typeof turnKilled === 'number' ? turnKilled : null,
+      }, decks);
+    })
+    .filter(Boolean);
+
+  const normalizedFinishOrder = finishOrder.length
+    ? finishOrder
+    : rows
+      .slice()
+      .sort((a, b) => ((a.place || 999) - (b.place || 999)))
+      .map((row) => row.player);
+
+  const liveSummary = baseGame.liveSummary && typeof baseGame.liveSummary === 'object' ? baseGame.liveSummary : {};
+  const normalizedLiveSummary = {
+    startingPlayer: String(liveSummary.startingPlayer || '').trim(),
+    alternateWinCondition: String(liveSummary.alternateWinCondition || '').trim(),
+    alternateLoseConditions: Array.isArray(liveSummary.alternateLoseConditions)
+      ? liveSummary.alternateLoseConditions
+        .map((entry) => ({
+          player: String(entry?.player || '').trim(),
+          details: String(entry?.details || '').trim(),
+        }))
+        .filter((entry) => entry.player || entry.details)
+      : [],
+    durationMinutes: typeof liveSummary.durationMinutes === 'number' ? liveSummary.durationMinutes : null,
+    firstBlood: liveSummary.firstBlood && typeof liveSummary.firstBlood === 'object'
+      ? {
+        actorPlayer: String(liveSummary.firstBlood.actorPlayer || '').trim(),
+        actorCommander: String(liveSummary.firstBlood.actorCommander || '').trim(),
+        targetPlayer: String(liveSummary.firstBlood.targetPlayer || '').trim(),
+        turnNumber: typeof liveSummary.firstBlood.turnNumber === 'number' ? liveSummary.firstBlood.turnNumber : null,
+      }
+      : null,
+    recordStats: liveSummary.recordStats && typeof liveSummary.recordStats === 'object' ? liveSummary.recordStats : null,
+    turnNumber: typeof liveSummary.turnNumber === 'number' ? liveSummary.turnNumber : null,
+    eventCount: typeof liveSummary.eventCount === 'number' ? liveSummary.eventCount : null,
+  };
+
+  return {
+    ...baseGame,
+    id: String(baseGame.id || generateId()).trim(),
+    date: String(baseGame.date || new Date().toISOString().slice(0, 10)).trim(),
+    playerRows: rows,
+    players: rows.map((row) => row.player),
+    playerCommanders: rows.map((row) => ({ player: row.player, commander: row.commander })),
+    finishOrder: normalizedFinishOrder,
+    notes: String(baseGame.notes || '').trim(),
+    liveSummary: normalizedLiveSummary,
+  };
+}
+
+function buildCompactSavedGameEntry(game = {}) {
+  return normalizeSavedGameEntry(game, loadDecks());
 }
 
 function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
@@ -5459,7 +5731,7 @@ function setEditMode(game) {
   }
 
   resetPlayerTable();
-  const existingRows = game.playerRows && game.playerRows.length ? game.playerRows : getGameRows(game);
+  const existingRows = getGameRows(game);
 
   playerTableBody.innerHTML = '';
   existingRows.forEach((row) => {
@@ -7074,9 +7346,9 @@ function isDeckUsedInGame(deck) {
     return true;
   }
 
-  // Check game playerRows (games registered without a deck URL)
+  // Check game rows (games registered without a deck URL)
   return loadGames().some((game) =>
-    (Array.isArray(game.playerRows) ? game.playerRows : []).some((row) => {
+    getGameRows(game).some((row) => {
       const rowNameKey = getIdentityKey(row.commander || '');
       const rowOwnerKey = getIdentityKey(row.player || '');
       return rowNameKey === deckNameKey && (!ownerKey || rowOwnerKey === ownerKey);
@@ -7115,7 +7387,7 @@ function buildDeckUsageLookup(deckLists = loadDeckLists(), games = loadGames()) 
   });
 
   games.forEach((game) => {
-    (Array.isArray(game?.playerRows) ? game.playerRows : []).forEach((row) => {
+    getGameRows(game).forEach((row) => {
       addCommanderUsage(row?.commander, row?.player);
     });
   });
@@ -12201,27 +12473,29 @@ function updateHistorySortOrderLabel() {
 }
 
 function getGameRows(game) {
-  if (Array.isArray(game.playerRows) && game.playerRows.length) {
-    return game.playerRows;
+  const normalizedGame = normalizeSavedGameEntry(game, loadDecks());
+
+  if (Array.isArray(normalizedGame.playerRows) && normalizedGame.playerRows.length) {
+    return normalizedGame.playerRows;
   }
 
-  if (Array.isArray(game.playerCommanders) && game.playerCommanders.length) {
-    return game.playerCommanders.map((entry) => ({
+  if (Array.isArray(normalizedGame.playerCommanders) && normalizedGame.playerCommanders.length) {
+    return normalizedGame.playerCommanders.map((entry) => ({
       player: entry.player || '',
       commander: entry.commander || '',
       place: typeof entry.place !== 'undefined'
         ? entry.place
-        : (Array.isArray(game.finishOrder) ? game.finishOrder.indexOf(entry.player) + 1 : null),
+        : (Array.isArray(normalizedGame.finishOrder) ? normalizedGame.finishOrder.indexOf(entry.player) + 1 : null),
       kills: typeof entry.kills === 'number' ? entry.kills : 0,
       killed: entry.killed ?? [],
     }));
   }
 
-  if (Array.isArray(game.players) && game.players.length) {
-    return game.players.map((player) => ({
+  if (Array.isArray(normalizedGame.players) && normalizedGame.players.length) {
+    return normalizedGame.players.map((player) => ({
       player,
       commander: '',
-      place: Array.isArray(game.finishOrder) ? game.finishOrder.indexOf(player) + 1 : null,
+      place: Array.isArray(normalizedGame.finishOrder) ? normalizedGame.finishOrder.indexOf(player) + 1 : null,
       kills: 0,
       killed: [],
     }));
@@ -14194,7 +14468,7 @@ function renderSummary(games) {
       playerWins[winner] = (playerWins[winner] || 0) + 1;
     }
 
-    const playerCommandersList = game.playerCommanders || (game.playerRows || []).map(({ player, commander }) => ({ player, commander }));
+    const playerCommandersList = getGameRows(game).map(({ player, commander }) => ({ player, commander }));
     playerCommandersList.forEach(({ commander }) => {
       if (commander) {
         commanderCount[commander] = (commanderCount[commander] || 0) + 1;
@@ -14334,31 +14608,32 @@ if (form) {
 
     const sanitizedRows = sanitizeManualGameRows(rows);
 
-    const players = sanitizedRows.map(({ player }) => player);
-    const playerCommanders = sanitizedRows.map(({ player, commander }) => ({ player, commander }));
-    const finishOrder = sanitizedRows
+    const playerRows = sanitizedRows.slice();
+    const players = playerRows.map(({ player }) => player);
+    const playerCommanders = playerRows.map(({ player, commander }) => ({ player, commander }));
+    const finishOrder = playerRows
       .slice()
       .filter((row) => row.place !== null)
       .sort((a, b) => (a.place || 999) - (b.place || 999))
       .map((row) => row.player);
     const manualLiveSummary = buildManualGameLiveSummary(
-      sanitizedRows,
+      playerRows,
       dateInput.value || new Date().toISOString().slice(0, 10),
       firstBloodPlayer,
       firstBloodTurn,
       winningTurn,
     );
 
-    const newGame = {
+    const newGame = buildCompactSavedGameEntry({
       id: editingGameId || generateId(),
       date: dateInput.value || new Date().toISOString().slice(0, 10),
-      playerRows: sanitizedRows,
+      playerRows,
       players,
       playerCommanders,
       finishOrder,
       liveSummary: mergeEditedGameLiveSummary(existingGame?.liveSummary, manualLiveSummary),
       notes: notesInput.value.trim(),
-    };
+    });
 
     if (editingGameId) {
       const index = games.findIndex((game) => game.id === editingGameId);
@@ -15686,10 +15961,10 @@ function setupSyncUi() {
 }
 
 async function initializeApp() {
-  appState = normalizeAppStateData({ games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] });
+  appState = loadLocalState();
   setSyncPendingChanges(false);
-  activeGameState = null;
-  activeGameUndoState = [];
+  activeGameState = loadActiveGameState();
+  activeGameUndoState = loadActiveGameUndoState();
   hideLiveSourcePrompt();
   initializePrimaryMenu();
   initializeLiveTrackerTouchGuards();
