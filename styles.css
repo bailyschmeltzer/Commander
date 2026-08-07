@@ -3547,6 +3547,13 @@ button[type="submit"] {
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+.page-live-game [data-action="adjust-life"],
+.page-live-game .live-tap-half,
+.page-live-game .live-life-split-half {
+  touch-action: none;
+}
+
 .live-player-life-button-standard {
   font: inherit;
   color: inherit;

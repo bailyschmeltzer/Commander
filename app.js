@@ -380,10 +380,10 @@ let liveModalConfig = null;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
-const LIVE_HOLD_REPEAT_START_DELAY_MS = 180;
+const LIVE_HOLD_REPEAT_START_DELAY_MS = 220;
 const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
 const LIVE_HOLD_ADJUSTMENT_STEP = 5;
-const LIVE_HOLD_ADJUSTMENT_INTERVAL_MS = 140;
+const LIVE_HOLD_ADJUSTMENT_INTERVAL_MS = 170;
 let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
@@ -3327,6 +3327,7 @@ function startLiveHoldRepeat(button, { applyInitialChange = false } = {}) {
 
   liveHoldTimerId = setTimeout(() => {
     liveHoldRepeated = true;
+    applyQuickLifeChange(playerId, holdDelta);
     liveHoldIntervalId = setInterval(() => {
       applyQuickLifeChange(playerId, holdDelta);
     }, LIVE_HOLD_ADJUSTMENT_INTERVAL_MS);
@@ -14772,6 +14773,20 @@ document.addEventListener('click', (event) => {
 });
 
 if (livePlayerGrid) {
+  const beginLiveLifeAdjustment = (event, adjustButton) => {
+    event.preventDefault();
+
+    if (
+      event.type === 'pointerdown'
+      && typeof adjustButton.setPointerCapture === 'function'
+      && Number.isInteger(event.pointerId)
+    ) {
+      adjustButton.setPointerCapture(event.pointerId);
+    }
+
+    startLiveHoldRepeat(adjustButton, { applyInitialChange: true });
+  };
+
   livePlayerGrid.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-cannot-lose"]');
     if (toggle) {
@@ -14819,23 +14834,52 @@ if (livePlayerGrid) {
     applyQuickLifeChange(playerId, delta);
   });
 
-  livePlayerGrid.addEventListener('pointerdown', (event) => {
-    const adjustButton = event.target.closest('[data-action="adjust-life"]');
-    if (adjustButton) {
-      startLiveHoldRepeat(adjustButton, { applyInitialChange: true });
+  if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+    livePlayerGrid.addEventListener('pointerdown', (event) => {
+      const adjustButton = event.target.closest('[data-action="adjust-life"]');
+      if (!adjustButton) {
+        return;
+      }
+
+      beginLiveLifeAdjustment(event, adjustButton);
+    });
+
+    ['pointerup', 'pointercancel'].forEach((eventName) => {
+      livePlayerGrid.addEventListener(eventName, () => {
+        stopLiveHoldRepeat();
+      });
+    });
+
+    ['pointerup', 'pointercancel'].forEach((eventName) => {
+      document.addEventListener(eventName, () => {
+        stopLiveHoldRepeat();
+      });
+    });
+  } else {
+    livePlayerGrid.addEventListener('touchstart', (event) => {
+      const adjustButton = event.target.closest('[data-action="adjust-life"]');
+      if (!adjustButton) {
+        return;
+      }
+
+      beginLiveLifeAdjustment(event, adjustButton);
+    }, { passive: false });
+
+    ['touchend', 'touchcancel'].forEach((eventName) => {
+      livePlayerGrid.addEventListener(eventName, () => {
+        stopLiveHoldRepeat();
+      }, { passive: true });
+
+      document.addEventListener(eventName, () => {
+        stopLiveHoldRepeat();
+      }, { passive: true });
+    });
+  }
+
+  livePlayerGrid.addEventListener('contextmenu', (event) => {
+    if (event.target.closest('[data-action="adjust-life"]')) {
+      event.preventDefault();
     }
-  });
-
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName) => {
-    livePlayerGrid.addEventListener(eventName, () => {
-      stopLiveHoldRepeat();
-    });
-  });
-
-  ['pointerup', 'pointercancel'].forEach((eventName) => {
-    document.addEventListener(eventName, () => {
-      stopLiveHoldRepeat();
-    });
   });
 }
 
