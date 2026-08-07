@@ -7,16 +7,12 @@ const CORS_HEADERS = {
 
 const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const SCRYFALL_BULK_NAME_INDEX_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
 const AUTH_AUDIT_LOG_LIMIT = 1000;
 const SESSION_COOKIE_NAME = 'commanderSession';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
-let scryfallBulkNameIndex = new Map();
-let scryfallBulkNameIndexLoadedAt = 0;
-let scryfallBulkNameIndexPromise = null;
 
 // Response and normalization helpers.
 
@@ -530,81 +526,6 @@ async function fetchScryfallCardCollectionByNames(names) {
   return { data: [], not_found: [] };
 }
 
-async function getScryfallOracleBulkNameIndex() {
-  const isFresh = scryfallBulkNameIndex.size > 0 && (Date.now() - scryfallBulkNameIndexLoadedAt) <= SCRYFALL_BULK_NAME_INDEX_TTL_MS;
-  if (isFresh) {
-    return scryfallBulkNameIndex;
-  }
-
-  if (!scryfallBulkNameIndexPromise) {
-    scryfallBulkNameIndexPromise = (async () => {
-      const infoResponse = await fetch('https://api.scryfall.com/bulk-data/oracle-cards', {
-        headers: getScryfallHeaders(),
-      });
-
-      if (!infoResponse.ok) {
-        const detail = await infoResponse.text();
-        throw new Error(`Scryfall bulk metadata request failed (${infoResponse.status}): ${detail}`);
-      }
-
-      const infoPayload = await infoResponse.json();
-      const downloadUri = getTextValue(infoPayload?.download_uri);
-      if (!downloadUri) {
-        throw new Error('Scryfall bulk metadata did not include a download URI.');
-      }
-
-      const bulkResponse = await fetch(downloadUri, {
-        headers: getScryfallHeaders(),
-      });
-
-      if (!bulkResponse.ok) {
-        const detail = await bulkResponse.text();
-        throw new Error(`Scryfall bulk cards download failed (${bulkResponse.status}): ${detail}`);
-      }
-
-      const cards = await bulkResponse.json();
-      const nextIndex = new Map();
-      (Array.isArray(cards) ? cards : []).forEach((card) => {
-        const canonicalName = getTextValue(card?.name);
-        if (!canonicalName) {
-          return;
-        }
-
-        getDeckImportLookupCandidates(canonicalName).forEach((candidate) => {
-          const key = getDeckLookupKey(candidate);
-          if (key && !nextIndex.has(key)) {
-            nextIndex.set(key, canonicalName);
-          }
-        });
-
-        if (Array.isArray(card?.card_faces)) {
-          card.card_faces.forEach((face) => {
-            const faceName = getTextValue(face?.name);
-            if (!faceName) {
-              return;
-            }
-
-            getDeckImportLookupCandidates(faceName).forEach((candidate) => {
-              const key = getDeckLookupKey(candidate);
-              if (key && !nextIndex.has(key)) {
-                nextIndex.set(key, canonicalName);
-              }
-            });
-          });
-        }
-      });
-
-      scryfallBulkNameIndex = nextIndex;
-      scryfallBulkNameIndexLoadedAt = Date.now();
-      return scryfallBulkNameIndex;
-    })().finally(() => {
-      scryfallBulkNameIndexPromise = null;
-    });
-  }
-
-  return await scryfallBulkNameIndexPromise;
-}
-
 // Scryfall fetch and cache orchestration.
 
 async function fetchDeckSearchResults(query) {
@@ -1041,7 +962,13 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
   const requestCollectionByNames = async (lookupNames) => {
     for (let offset = 0; offset < lookupNames.length; offset += CHUNK_SIZE) {
       const batch = lookupNames.slice(offset, offset + CHUNK_SIZE);
-      const payload = await fetchScryfallCardCollectionByNames(batch);
+      let payload = null;
+      try {
+        payload = await fetchScryfallCardCollectionByNames(batch);
+      } catch (_error) {
+        // Do not fail the full import batch when one chunk is throttled.
+        payload = { data: [] };
+      }
       const cards = Array.isArray(payload?.data) ? payload.data : [];
       cards.forEach((card) => {
         const mapped = mapDeckCard(card, requestOrigin);
@@ -1055,40 +982,18 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
           setCachedValue(scryfallCardCache, candidateKey, card);
         });
       });
+
+      if (offset + CHUNK_SIZE < lookupNames.length) {
+        await waitFor(70);
+      }
     }
   };
 
   await requestCollectionByNames(unresolvedNames);
 
-  const unresolvedAfterCollection = uniqueNames.filter((name) => !foundByNameKey.has(getDeckLookupKey(name)));
-  if (unresolvedAfterCollection.length) {
-    try {
-      const bulkNameIndex = await getScryfallOracleBulkNameIndex();
-      const canonicalLookupNames = [];
-      const seenCanonicalKeys = new Set();
-
-      unresolvedAfterCollection.forEach((name) => {
-        const queryKey = getDeckLookupKey(name);
-        const canonicalName = bulkNameIndex.get(queryKey);
-        const canonicalKey = getDeckLookupKey(canonicalName);
-        if (!canonicalName || !canonicalKey || seenCanonicalKeys.has(canonicalKey)) {
-          return;
-        }
-
-        seenCanonicalKeys.add(canonicalKey);
-        canonicalLookupNames.push(canonicalName);
-      });
-
-      if (canonicalLookupNames.length) {
-        await requestCollectionByNames(canonicalLookupNames);
-      }
-    } catch (_error) {
-      // Ignore bulk-name-index failures and continue to bounded fallback.
-    }
-  }
-
   const unresolvedAfterBulk = uniqueNames.filter((name) => !foundByNameKey.has(getDeckLookupKey(name)));
-  for (let index = 0; index < unresolvedAfterBulk.length; index += 1) {
+  const FALLBACK_LIMIT = 15;
+  for (let index = 0; index < unresolvedAfterBulk.length && index < FALLBACK_LIMIT; index += 1) {
     const unresolvedName = unresolvedAfterBulk[index];
     const lookupKey = getDeckLookupKey(unresolvedName);
     if (!lookupKey || foundByNameKey.has(lookupKey)) {
@@ -1096,13 +1001,23 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
     }
 
     try {
-      const card = await fetchDeckCardByName(unresolvedName, requestOrigin);
+      const fallbackCandidates = getDeckImportLookupCandidates(unresolvedName);
+      let card = null;
+      for (let candidateIndex = 0; candidateIndex < fallbackCandidates.length; candidateIndex += 1) {
+        const candidate = fallbackCandidates[candidateIndex];
+        card = await fetchDeckCardByName(candidate, requestOrigin);
+        if (card) {
+          break;
+        }
+      }
       if (card) {
         foundByNameKey.set(lookupKey, card);
       }
     } catch (_error) {
       // Keep unresolved imports as null for the caller.
     }
+
+    await waitFor(90);
   }
 
   return requestedNames.map((name) => ({
