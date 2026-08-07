@@ -7,12 +7,16 @@ const CORS_HEADERS = {
 
 const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const SCRYFALL_BULK_NAME_INDEX_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
 const AUTH_AUDIT_LOG_LIMIT = 1000;
 const SESSION_COOKIE_NAME = 'commanderSession';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
+let scryfallBulkNameIndex = new Map();
+let scryfallBulkNameIndexLoadedAt = 0;
+let scryfallBulkNameIndexPromise = null;
 
 // Response and normalization helpers.
 
@@ -448,6 +452,159 @@ function getRetryAfterSeconds(response) {
   return Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
 }
 
+function waitFor(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getDeckImportLookupCandidates(name) {
+  const raw = getTextValue(name);
+  if (!raw) {
+    return [];
+  }
+
+  const variants = new Set();
+  const pushVariant = (value) => {
+    const normalized = getTextValue(value).replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return;
+    }
+    variants.add(normalized);
+  };
+
+  pushVariant(raw);
+  pushVariant(raw.replace(/[’‘`´]/g, "'"));
+  pushVariant(raw.split(/\s*\/\/\s*/)[0]);
+  pushVariant(raw.replace(/\s+\([A-Za-z0-9]+\)\s+\d+[A-Za-z]*$/i, ''));
+  pushVariant(raw.replace(/\s+\d+[A-Za-z]*$/i, ''));
+
+  return [...variants];
+}
+
+function buildScryfallCardCollectionRequestPayload(names) {
+  return {
+    identifiers: names.map((name) => ({ name })),
+  };
+}
+
+async function fetchScryfallCardCollectionByNames(names) {
+  const normalizedNames = Array.isArray(names)
+    ? names.map((value) => getTextValue(value)).filter(Boolean)
+    : [];
+
+  if (!normalizedNames.length) {
+    return { data: [], not_found: [] };
+  }
+
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = await fetch('https://api.scryfall.com/cards/collection', {
+      method: 'POST',
+      headers: {
+        ...getScryfallHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(buildScryfallCardCollectionRequestPayload(normalizedNames)),
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    const isRetryable = response.status === 429 || response.status >= 500;
+    if (isRetryable && attempt < (maxAttempts - 1)) {
+      const retryAfterMs = response.status === 429
+        ? getRetryAfterSeconds(response) * 1000
+        : 300 * (attempt + 1);
+      await waitFor(Math.min(2000, Math.max(120, retryAfterMs)));
+      continue;
+    }
+
+    if (response.status === 429) {
+      throw new Error(`Scryfall card bulk lookup is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+    }
+
+    const detail = await response.text();
+    throw new Error(`Scryfall card bulk lookup failed (${response.status}): ${detail}`);
+  }
+
+  return { data: [], not_found: [] };
+}
+
+async function getScryfallOracleBulkNameIndex() {
+  const isFresh = scryfallBulkNameIndex.size > 0 && (Date.now() - scryfallBulkNameIndexLoadedAt) <= SCRYFALL_BULK_NAME_INDEX_TTL_MS;
+  if (isFresh) {
+    return scryfallBulkNameIndex;
+  }
+
+  if (!scryfallBulkNameIndexPromise) {
+    scryfallBulkNameIndexPromise = (async () => {
+      const infoResponse = await fetch('https://api.scryfall.com/bulk-data/oracle-cards', {
+        headers: getScryfallHeaders(),
+      });
+
+      if (!infoResponse.ok) {
+        const detail = await infoResponse.text();
+        throw new Error(`Scryfall bulk metadata request failed (${infoResponse.status}): ${detail}`);
+      }
+
+      const infoPayload = await infoResponse.json();
+      const downloadUri = getTextValue(infoPayload?.download_uri);
+      if (!downloadUri) {
+        throw new Error('Scryfall bulk metadata did not include a download URI.');
+      }
+
+      const bulkResponse = await fetch(downloadUri, {
+        headers: getScryfallHeaders(),
+      });
+
+      if (!bulkResponse.ok) {
+        const detail = await bulkResponse.text();
+        throw new Error(`Scryfall bulk cards download failed (${bulkResponse.status}): ${detail}`);
+      }
+
+      const cards = await bulkResponse.json();
+      const nextIndex = new Map();
+      (Array.isArray(cards) ? cards : []).forEach((card) => {
+        const canonicalName = getTextValue(card?.name);
+        if (!canonicalName) {
+          return;
+        }
+
+        getDeckImportLookupCandidates(canonicalName).forEach((candidate) => {
+          const key = getDeckLookupKey(candidate);
+          if (key && !nextIndex.has(key)) {
+            nextIndex.set(key, canonicalName);
+          }
+        });
+
+        if (Array.isArray(card?.card_faces)) {
+          card.card_faces.forEach((face) => {
+            const faceName = getTextValue(face?.name);
+            if (!faceName) {
+              return;
+            }
+
+            getDeckImportLookupCandidates(faceName).forEach((candidate) => {
+              const key = getDeckLookupKey(candidate);
+              if (key && !nextIndex.has(key)) {
+                nextIndex.set(key, canonicalName);
+              }
+            });
+          });
+        }
+      });
+
+      scryfallBulkNameIndex = nextIndex;
+      scryfallBulkNameIndexLoadedAt = Date.now();
+      return scryfallBulkNameIndex;
+    })().finally(() => {
+      scryfallBulkNameIndexPromise = null;
+    });
+  }
+
+  return await scryfallBulkNameIndexPromise;
+}
+
 // Scryfall fetch and cache orchestration.
 
 async function fetchDeckSearchResults(query) {
@@ -809,7 +966,7 @@ async function fetchDeckCardByPrint(setCode, collectorNumber, requestOrigin) {
 }
 
 async function fetchDeckCardByName(name, requestOrigin) {
-  const cacheKey = getTextValue(name).toLowerCase();
+  const cacheKey = getDeckLookupKey(name);
   const cachedCard = getCachedValue(scryfallCardCache, cacheKey, SCRYFALL_CARD_CACHE_TTL_MS);
   if (cachedCard) {
     return mapDeckCard(cachedCard, requestOrigin);
@@ -881,40 +1038,71 @@ async function fetchDeckCardsByNames(names, requestOrigin) {
   });
 
   const CHUNK_SIZE = 75;
-  for (let offset = 0; offset < unresolvedNames.length; offset += CHUNK_SIZE) {
-    const batch = unresolvedNames.slice(offset, offset + CHUNK_SIZE);
-    const response = await fetch('https://api.scryfall.com/cards/collection', {
-      method: 'POST',
-      headers: {
-        ...getScryfallHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        identifiers: batch.map((name) => ({ name })),
-      }),
-    });
+  const requestCollectionByNames = async (lookupNames) => {
+    for (let offset = 0; offset < lookupNames.length; offset += CHUNK_SIZE) {
+      const batch = lookupNames.slice(offset, offset + CHUNK_SIZE);
+      const payload = await fetchScryfallCardCollectionByNames(batch);
+      const cards = Array.isArray(payload?.data) ? payload.data : [];
+      cards.forEach((card) => {
+        const mapped = mapDeckCard(card, requestOrigin);
+        getDeckImportLookupCandidates(card?.name).forEach((candidate) => {
+          const candidateKey = getDeckLookupKey(candidate);
+          if (!candidateKey) {
+            return;
+          }
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error(`Scryfall card bulk lookup is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+          foundByNameKey.set(candidateKey, mapped);
+          setCachedValue(scryfallCardCache, candidateKey, card);
+        });
+      });
+    }
+  };
+
+  await requestCollectionByNames(unresolvedNames);
+
+  const unresolvedAfterCollection = uniqueNames.filter((name) => !foundByNameKey.has(getDeckLookupKey(name)));
+  if (unresolvedAfterCollection.length) {
+    try {
+      const bulkNameIndex = await getScryfallOracleBulkNameIndex();
+      const canonicalLookupNames = [];
+      const seenCanonicalKeys = new Set();
+
+      unresolvedAfterCollection.forEach((name) => {
+        const queryKey = getDeckLookupKey(name);
+        const canonicalName = bulkNameIndex.get(queryKey);
+        const canonicalKey = getDeckLookupKey(canonicalName);
+        if (!canonicalName || !canonicalKey || seenCanonicalKeys.has(canonicalKey)) {
+          return;
+        }
+
+        seenCanonicalKeys.add(canonicalKey);
+        canonicalLookupNames.push(canonicalName);
+      });
+
+      if (canonicalLookupNames.length) {
+        await requestCollectionByNames(canonicalLookupNames);
       }
+    } catch (_error) {
+      // Ignore bulk-name-index failures and continue to bounded fallback.
+    }
+  }
 
-      const detail = await response.text();
-      throw new Error(`Scryfall card bulk lookup failed (${response.status}): ${detail}`);
+  const unresolvedAfterBulk = uniqueNames.filter((name) => !foundByNameKey.has(getDeckLookupKey(name)));
+  for (let index = 0; index < unresolvedAfterBulk.length; index += 1) {
+    const unresolvedName = unresolvedAfterBulk[index];
+    const lookupKey = getDeckLookupKey(unresolvedName);
+    if (!lookupKey || foundByNameKey.has(lookupKey)) {
+      continue;
     }
 
-    const payload = await response.json();
-    const cards = Array.isArray(payload?.data) ? payload.data : [];
-    cards.forEach((card) => {
-      const mapped = mapDeckCard(card, requestOrigin);
-      const nameKey = getDeckLookupKey(card?.name);
-      if (!nameKey) {
-        return;
+    try {
+      const card = await fetchDeckCardByName(unresolvedName, requestOrigin);
+      if (card) {
+        foundByNameKey.set(lookupKey, card);
       }
-
-      foundByNameKey.set(nameKey, mapped);
-      setCachedValue(scryfallCardCache, nameKey, card);
-    });
+    } catch (_error) {
+      // Keep unresolved imports as null for the caller.
+    }
   }
 
   return requestedNames.map((name) => ({
