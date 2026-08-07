@@ -106,6 +106,7 @@ const commanderRenameMenu = document.getElementById('commander-rename-menu');
 const removePlayerRowButton = document.getElementById('remove-player-row');
 const deckLibraryCreateButton = document.getElementById('deck-library-create');
 const deckLibraryPlayerFilterSelect = document.getElementById('deck-library-player-filter');
+const deckLibraryRotationFilterSelect = document.getElementById('deck-library-rotation-filter');
 const deckLibraryPlayerFilterClearButton = document.getElementById('deck-library-player-filter-clear');
 const deckLibraryTableBody = document.getElementById('deck-library-body');
 const deckSelectorForm = document.getElementById('deck-selector-form');
@@ -7620,6 +7621,7 @@ function renderDeckLibrary() {
   }
 
   const activeOwnerFilterKey = getIdentityKey(activeOwnerFilter);
+  const activeRotationFilter = String(deckLibraryRotationFilterSelect?.value || 'all').trim().toLowerCase();
   let decks = activeOwnerFilter
     ? sortedDecks.filter((deck) => {
       const ownerLabel = normalizeIdentityLabel(deck.owner || '');
@@ -7628,12 +7630,23 @@ function renderDeckLibrary() {
     })
     : sortedDecks;
 
+  if (activeRotationFilter === 'active') {
+    decks = decks.filter((deck) => deck.inRotation !== false);
+  } else if (activeRotationFilter === 'inactive') {
+    decks = decks.filter((deck) => deck.inRotation === false);
+  }
+
   if (activeOwnerFilter && !decks.length) {
     activeOwnerFilter = '';
     if (deckLibraryPlayerFilterSelect) {
       buildSelectOptions(deckLibraryPlayerFilterSelect, ownerFilterOptions, '', 'All players');
     }
-    decks = sortedDecks;
+
+    decks = activeRotationFilter === 'active'
+      ? sortedDecks.filter((deck) => deck.inRotation !== false)
+      : activeRotationFilter === 'inactive'
+        ? sortedDecks.filter((deck) => deck.inRotation === false)
+        : sortedDecks;
   }
   const commanderPointsPerGameByIdentity = new Map(
     buildCommanderRankingEntries(loadGames()).map((entry) => [getIdentityKey(entry.name), entry.pointsPerGame])
@@ -7649,7 +7662,14 @@ function renderDeckLibrary() {
   }
 
   if (!decks.length) {
-    deckLibraryTableBody.innerHTML = '<tr><td colspan="7">No built decks found for that player.</td></tr>';
+    const emptyMessage = activeOwnerFilter
+      ? 'No built decks found for that player and deck status.'
+      : activeRotationFilter === 'active'
+        ? 'No active decks found.'
+        : activeRotationFilter === 'inactive'
+          ? 'No inactive decks found.'
+          : 'No built decks found for that filter.';
+    deckLibraryTableBody.innerHTML = `<tr><td colspan="7">${escapeHtml(emptyMessage)}</td></tr>`;
     updateSortableTableIndicators('decks');
     return;
   }
@@ -15175,10 +15195,20 @@ if (deckLibraryPlayerFilterSelect) {
   });
 }
 
+if (deckLibraryRotationFilterSelect) {
+  deckLibraryRotationFilterSelect.addEventListener('change', () => {
+    renderDeckLibrary();
+    applyResponsiveTableLabels();
+  });
+}
+
 if (deckLibraryPlayerFilterClearButton) {
   deckLibraryPlayerFilterClearButton.addEventListener('click', () => {
     if (deckLibraryPlayerFilterSelect) {
       deckLibraryPlayerFilterSelect.value = '';
+    }
+    if (deckLibraryRotationFilterSelect) {
+      deckLibraryRotationFilterSelect.value = 'all';
     }
     renderDeckLibrary();
     applyResponsiveTableLabels();
