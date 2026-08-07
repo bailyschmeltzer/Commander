@@ -484,7 +484,7 @@ function removeLocalStorageValue(key) {
 }
 
 function loadSyncPendingChangesState() {
-  return Boolean(syncPendingChanges);
+  return readLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY) === 'true';
 }
 
 function setSyncPendingChanges(value) {
@@ -1713,9 +1713,21 @@ function updateSyncMetadata({ revision = 0, updatedAt = '', updatedBy = '' } = {
 }
 
 function updateSyncAuthenticatedUser(auth = null) {
+  const previousUserId = String(syncAuthenticatedUserId || '').trim().toLowerCase();
+  const nextUserId = String(auth?.userId || '').trim().toLowerCase();
+
   syncAuthenticatedUserId = String(auth?.userId || '').trim().toLowerCase();
   syncAuthenticatedDisplayName = String(auth?.displayName || '').trim();
   syncAuthenticatedRole = String(auth?.role || '').trim().toLowerCase();
+
+  if (previousUserId !== nextUserId) {
+    deckLibraryPlayerFilterDefaulted = false;
+    historyPlayerFilterDefaulted = false;
+
+    if (deckLibraryPlayerFilterSelect) {
+      deckLibraryPlayerFilterSelect.value = '';
+    }
+  }
 }
 
 function clearSyncAuthenticatedUser() {
@@ -7515,17 +7527,22 @@ function renderDeckLibrary() {
   const requestedOwnerFilter = normalizeIdentityLabel(deckLibraryPlayerFilterSelect?.value || '');
   let activeOwnerFilter = ownerFilterOptions.includes(requestedOwnerFilter) ? requestedOwnerFilter : '';
 
-  // Default the filter to the logged-in user's display name once per session.
+  // Default the filter to the logged-in user once per session.
   if (!activeOwnerFilter && !deckLibraryPlayerFilterDefaulted) {
     const displayName = normalizeIdentityLabel(getCurrentSyncDisplayName());
     const currentUserId = getCurrentSyncUserId();
-    const ownedDeck = sortedDecks.find((deck) => String(deck?.ownerUserId || '').trim().toLowerCase() === currentUserId);
+    const ownedDeckByUserId = sortedDecks.find((deck) => String(deck?.ownerUserId || '').trim().toLowerCase() === currentUserId);
 
-    if (displayName && ownerFilterOptions.includes(displayName)) {
+    if (ownedDeckByUserId) {
+      activeOwnerFilter = normalizeIdentityLabel(ownedDeckByUserId.owner || displayName || currentUserId);
+      deckLibraryPlayerFilterDefaulted = true;
+    }
+
+    if (!activeOwnerFilter && displayName && ownerFilterOptions.includes(displayName)) {
       activeOwnerFilter = displayName;
       deckLibraryPlayerFilterDefaulted = true;
-    } else if (ownedDeck) {
-      activeOwnerFilter = normalizeIdentityLabel(ownedDeck.owner || displayName || currentUserId);
+    } else if (!activeOwnerFilter && ownedDeckByUserId) {
+      activeOwnerFilter = normalizeIdentityLabel(ownedDeckByUserId.owner || displayName || currentUserId);
       deckLibraryPlayerFilterDefaulted = true;
     }
   }
@@ -16010,7 +16027,7 @@ function setupSyncUi() {
 
 async function initializeApp() {
   appState = loadLocalState();
-  setSyncPendingChanges(false);
+  setSyncPendingChanges(loadSyncPendingChangesState());
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
   hideLiveSourcePrompt();
@@ -16048,24 +16065,48 @@ async function initializeApp() {
 
   refresh();
 
-  void refreshSessionStatus();
-  void pullCloudState().then(() => {
-    if (form) {
-      const editId = getQueryParam('editId');
-      if (editId) {
-        const game = getGameById(editId);
-        if (game) {
-          setEditMode(game);
-        }
-      }
+  void (async () => {
+    const sessionAuth = await refreshSessionStatus().catch(() => null);
+    const canSyncWithSession = Boolean(sessionAuth?.userId || getCurrentSyncUserId());
+
+    if (!canSyncWithSession) {
+      return;
     }
-    setSyncUiCollapsed(false);
-    refreshSyncStatus();
-  }).catch((error) => {
-    syncConnectionState = error.status === 401 ? 'local' : 'configured';
-    syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
-    refreshSyncStatus();
-  });
+
+    const restoreEditModeIfNeeded = () => {
+      if (!form) {
+        return;
+      }
+
+      const editId = getQueryParam('editId');
+      if (!editId) {
+        return;
+      }
+
+      const game = getGameById(editId);
+      if (game) {
+        setEditMode(game);
+      }
+    };
+
+    try {
+      if (syncPendingChanges) {
+        const metadata = await fetchCloudStateMetadata();
+        updateSyncMetadata(metadata);
+        await pushCloudState();
+      } else {
+        await pullCloudState();
+      }
+
+      restoreEditModeIfNeeded();
+      setSyncUiCollapsed(false);
+      refreshSyncStatus();
+    } catch (error) {
+      syncConnectionState = error.status === 401 ? 'local' : 'configured';
+      syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
+      refreshSyncStatus();
+    }
+  })();
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
   // cannot overwrite appState and wipe the newly created deck.
