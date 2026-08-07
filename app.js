@@ -382,6 +382,8 @@ let liveHoldIntervalId = null;
 let liveHoldRepeated = false;
 const LIVE_HOLD_REPEAT_START_DELAY_MS = 180;
 const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
+const LIVE_HOLD_ADJUSTMENT_STEP = 5;
+const LIVE_HOLD_ADJUSTMENT_INTERVAL_MS = 140;
 let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
@@ -3321,11 +3323,13 @@ function startLiveHoldRepeat(button, { applyInitialChange = false } = {}) {
     applyQuickLifeChange(playerId, delta);
   }
 
+  const holdDelta = delta * LIVE_HOLD_ADJUSTMENT_STEP;
+
   liveHoldTimerId = setTimeout(() => {
     liveHoldRepeated = true;
     liveHoldIntervalId = setInterval(() => {
-      applyQuickLifeChange(playerId, delta);
-    }, LIVE_HOLD_REPEAT_INTERVAL_MS);
+      applyQuickLifeChange(playerId, holdDelta);
+    }, LIVE_HOLD_ADJUSTMENT_INTERVAL_MS);
   }, LIVE_HOLD_REPEAT_START_DELAY_MS);
 }
 
