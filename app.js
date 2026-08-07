@@ -16067,12 +16067,7 @@ async function initializeApp() {
   refresh();
 
   void (async () => {
-    const sessionAuth = await refreshSessionStatus().catch(() => null);
-    const canSyncWithSession = Boolean(sessionAuth?.userId || getCurrentSyncUserId());
-
-    if (!canSyncWithSession) {
-      return;
-    }
+    await refreshSessionStatus().catch(() => null);
 
     const restoreEditModeIfNeeded = () => {
       if (!form) {
@@ -16095,6 +16090,9 @@ async function initializeApp() {
         const metadata = await fetchCloudStateMetadata();
         updateSyncMetadata(metadata);
         await pushCloudState();
+        // Follow a pending-local push with a pull so the new page reflects
+        // the canonical cloud state without requiring a manual refresh.
+        await pullCloudState();
       } else {
         await pullCloudState();
       }
