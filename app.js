@@ -1599,6 +1599,19 @@ function persistLocalState(state) {
   persistAppStateToStorage(appState);
 }
 
+function hasAnyStateData(state = appState) {
+  const normalizedState = normalizeAppStateData(state && typeof state === 'object' ? state : {});
+  return (
+    (Array.isArray(normalizedState.games) && normalizedState.games.length > 0)
+    || (normalizedState.powerLevels && Object.keys(normalizedState.powerLevels).length > 0)
+    || (Array.isArray(normalizedState.deckLists) && normalizedState.deckLists.length > 0)
+    || (Array.isArray(normalizedState.decks) && normalizedState.decks.length > 0)
+    || (Array.isArray(normalizedState.records) && normalizedState.records.length > 0)
+    || Boolean(normalizedState.activeGame)
+    || (Array.isArray(normalizedState.activeGameUndo) && normalizedState.activeGameUndo.length > 0)
+  );
+}
+
 function loadActiveGameState() {
   return normalizeActiveGameStateData(appState?.activeGame);
 }
@@ -2256,6 +2269,22 @@ async function pushCloudState() {
   const requestStateMutationVersion = syncStateMutationVersion;
   const requestDeckMutationVersion = syncDecksMutationVersion;
   const requestGamesOnly = syncQueuedGamesOnly;
+  const localStateHasData = hasAnyStateData(appState);
+
+  // Safety guard: never send a full empty-state overwrite before we've loaded
+  // cloud state for this session.
+  if (!requestGamesOnly && !syncHasLoadedCloudState && !localStateHasData) {
+    try {
+      await pullCloudState();
+      return;
+    } catch (error) {
+      setSyncPendingChanges(true);
+      syncLastErrorMessage = `${error.message}. Blocked empty local state push until cloud data can be loaded.`;
+      refreshSyncStatus();
+      return;
+    }
+  }
+
   let shouldQueueFollowUpSync = false;
   syncInFlight = true;
   syncConnectionState = 'connected';
@@ -16122,7 +16151,7 @@ async function initializeApp() {
 
     try {
       let pendingPushError = null;
-      if (syncPendingChanges && hasSyncCredentials()) {
+      if (syncPendingChanges && hasSyncCredentials() && hasAnyStateData(appState)) {
         try {
           const metadata = await fetchCloudStateMetadata();
           updateSyncMetadata(metadata);
@@ -16130,6 +16159,10 @@ async function initializeApp() {
         } catch (error) {
           pendingPushError = error;
         }
+      } else if (syncPendingChanges && !hasAnyStateData(appState)) {
+        // Ignore stale pending flags when local state is empty; pulling cloud first
+        // is the only safe action.
+        setSyncPendingChanges(false);
       }
 
       // Always try to pull cloud state on startup so the page cannot get stuck
