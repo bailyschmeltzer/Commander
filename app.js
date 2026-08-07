@@ -30,6 +30,7 @@ const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
 const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 0;
+const DECK_BUILDER_META_SAVE_DEBOUNCE_MS = 120;
 const AUTH_AUDIT_REFRESH_INTERVAL_MS = 60 * 1000;
 
 // Cached DOM references used across all pages.
@@ -5416,7 +5417,7 @@ function saveCommanderPowerLevels(levels) {
     powerLevels: levels && typeof levels === 'object' ? levels : {},
   });
   persistLocalState(appState);
-  queueCloudSync();
+  queueCloudSync(0);
 }
 
 function setCommanderExpectedPower(commander, value) {
@@ -9757,7 +9758,7 @@ function queueDeckBuilderMetaSave() {
       powerLevel: capturedPower,
       inRotation: capturedInRotation,
     }, 'Deck details saved.');
-  }, 220);
+  }, DECK_BUILDER_META_SAVE_DEBOUNCE_MS);
 }
 
 async function selectDeckBuilderSearchResult(name) {
@@ -15779,9 +15780,9 @@ function flushStateForPageExit() {
   }
 
   pageExitFlushStamp = now;
-  pushCloudStateKeepalive();
   flushQueuedActiveGamePersist();
   flushQueuedDeckPersist({ queueSync: false });
+  pushCloudStateKeepalive();
 }
 
 window.addEventListener('resize', () => {
