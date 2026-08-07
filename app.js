@@ -16086,15 +16086,23 @@ async function initializeApp() {
     };
 
     try {
-      if (syncPendingChanges) {
-        const metadata = await fetchCloudStateMetadata();
-        updateSyncMetadata(metadata);
-        await pushCloudState();
-        // Follow a pending-local push with a pull so the new page reflects
-        // the canonical cloud state without requiring a manual refresh.
-        await pullCloudState();
-      } else {
-        await pullCloudState();
+      let pendingPushError = null;
+      if (syncPendingChanges && hasSyncCredentials()) {
+        try {
+          const metadata = await fetchCloudStateMetadata();
+          updateSyncMetadata(metadata);
+          await pushCloudState();
+        } catch (error) {
+          pendingPushError = error;
+        }
+      }
+
+      // Always try to pull cloud state on startup so the page cannot get stuck
+      // on local-only data when a pending-local push path fails.
+      await pullCloudState();
+
+      if (pendingPushError instanceof Error) {
+        syncLastErrorMessage = `${pendingPushError.message}. Showing latest cloud state.`;
       }
 
       restoreEditModeIfNeeded();
