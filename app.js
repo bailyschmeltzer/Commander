@@ -1936,6 +1936,38 @@ function shouldAutoPullCloudState() {
   return !syncConflictInfo && (!syncPendingChanges || !syncHasLoadedCloudState);
 }
 
+async function retryCloudBootstrap({ maxAttempts = 4, initialDelayMs = 1200 } = {}) {
+  if (!hasSyncCredentials() || !navigator.onLine) {
+    return false;
+  }
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await pullCloudState();
+      return true;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) {
+        break;
+      }
+
+      const delayMs = initialDelayMs * attempt;
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, delayMs);
+      });
+    }
+  }
+
+  if (lastError) {
+    syncConnectionState = lastError.status === 401 ? 'local' : 'configured';
+    syncLastErrorMessage = lastError.status === 401 ? '' : `${lastError.message}.`;
+    refreshSyncStatus();
+  }
+
+  return false;
+}
+
 function setSyncStatus(message, tone = 'neutral') {
   if (!syncStatus) {
     return;
@@ -2142,12 +2174,16 @@ async function refreshSessionStatus() {
   }
 }
 
-function pushCloudStateKeepalive() {
-  if (!hasSyncCredentials() || !navigator.onLine || syncConflictInfo || !syncHasLoadedCloudState) {
+function pushCloudStateKeepalive({ force = false } = {}) {
+  if (!hasSyncCredentials() || !navigator.onLine || syncConflictInfo) {
     return;
   }
 
-  if (!syncPendingChanges && !decksPersistTimer) {
+  if (!force && !syncHasLoadedCloudState) {
+    return;
+  }
+
+  if (!force && !syncPendingChanges && !decksPersistTimer) {
     return;
   }
 
@@ -15988,17 +16024,58 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-function flushStateForPageExit() {
+function flushStateForPageExit({ forceSync = false } = {}) {
   const now = Date.now();
-  if (now - pageExitFlushStamp < 250) {
+  if (now - pageExitFlushStamp < 250 && !forceSync) {
     return;
   }
 
   pageExitFlushStamp = now;
   flushQueuedActiveGamePersist();
-  flushQueuedDeckPersist({ queueSync: false });
-  pushCloudStateKeepalive();
+  flushQueuedDeckPersist({ force: true, queueSync: false });
+  persistLocalState(appState);
+  if (hasSyncCredentials()) {
+    setSyncPendingChanges(true);
+    syncLastErrorMessage = '';
+    refreshSyncStatus();
+    pushCloudStateKeepalive({ force: true });
+  }
 }
+
+function handleInternalPageNavigation(event) {
+  const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+  if (!anchor || anchor.hasAttribute('download')) {
+    return;
+  }
+
+  const href = anchor.getAttribute('href') || '';
+  const normalizedHref = String(href || '').trim();
+  if (!normalizedHref || normalizedHref.startsWith('#') || normalizedHref.startsWith('mailto:') || normalizedHref.startsWith('tel:') || normalizedHref.startsWith('javascript:')) {
+    return;
+  }
+
+  const target = anchor.getAttribute('target') || '';
+  if (target === '_blank' || target === '_parent' || target === '_top') {
+    return;
+  }
+
+  try {
+    const absoluteUrl = new URL(normalizedHref, window.location.href);
+    if (absoluteUrl.origin !== window.location.origin) {
+      return;
+    }
+  } catch (error) {
+    return;
+  }
+
+  event.preventDefault();
+  flushStateForPageExit({ forceSync: true });
+  window.setTimeout(() => {
+    window.location.assign(normalizedHref);
+  }, 80);
+}
+
+document.addEventListener('click', handleInternalPageNavigation, true);
 
 window.addEventListener('resize', () => {
   closePrimaryMenu();
@@ -16029,6 +16106,9 @@ window.visualViewport?.addEventListener('resize', () => {
 window.addEventListener('online', async () => {
   refreshSyncStatus();
   await checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState(), force: true });
+  if (!syncConflictInfo && hasSyncCredentials()) {
+    void retryCloudBootstrap();
+  }
   if (!syncConflictInfo && hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
     queueCloudSync(250);
   }
@@ -16039,22 +16119,28 @@ window.addEventListener('offline', () => {
   refreshSyncStatus();
 });
 
-document.addEventListener('visibilitychange', () => {
+document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'hidden') {
     flushStateForPageExit();
   }
 
   if (document.visibilityState === 'visible') {
     checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
+    if (hasSyncCredentials()) {
+      await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
+    }
   }
 });
 
 window.addEventListener('pagehide', () => {
-  flushStateForPageExit();
+  flushStateForPageExit({ forceSync: true });
 });
 
-window.addEventListener('focus', () => {
+window.addEventListener('focus', async () => {
   checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
+  if (hasSyncCredentials()) {
+    await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
+  }
 });
 
 function setupSyncUi() {
@@ -16305,30 +16391,18 @@ async function initializeApp() {
       }
     };
 
-    const attemptCloudBootstrap = async (attempt = 1) => {
-      try {
-        // Strict cloud-first bootstrap: pull canonical cloud state before allowing
-        // any automatic local push.
-        await pullCloudState();
-
-        restoreEditModeIfNeeded();
-        setSyncUiCollapsed(false);
-        refreshSyncStatus();
-      } catch (error) {
-        if (hasSyncCredentials() && navigator.onLine && attempt < 2) {
-          window.setTimeout(() => {
-            void attemptCloudBootstrap(attempt + 1);
-          }, attempt === 1 ? 1500 : 3000);
-          return;
-        }
-
-        syncConnectionState = error.status === 401 ? 'local' : 'configured';
-        syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
-        refreshSyncStatus();
+    const handleCloudBootstrap = async () => {
+      const succeeded = await retryCloudBootstrap();
+      if (!succeeded) {
+        return;
       }
+
+      restoreEditModeIfNeeded();
+      setSyncUiCollapsed(false);
+      refreshSyncStatus();
     };
 
-    void attemptCloudBootstrap();
+    void handleCloudBootstrap();
   })();
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
