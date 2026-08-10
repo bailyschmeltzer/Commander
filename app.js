@@ -2198,7 +2198,7 @@ async function pullCloudState() {
 
 async function refreshSessionStatus() {
   try {
-    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 1000 });
+    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 1500 });
     updateSyncAuthenticatedUser(payload.auth || null);
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
@@ -2206,9 +2206,15 @@ async function refreshSessionStatus() {
     return payload.auth || null;
   } catch (error) {
     if (error.status === 401) {
-      clearSyncAuthenticatedUser();
+      if (!hasSyncCredentials()) {
+        clearSyncAuthenticatedUser();
+      }
       syncConnectionState = 'local';
       refreshSyncStatus();
+      return null;
+    }
+
+    if (error?.status === 504 || error?.name === 'AbortError') {
       return null;
     }
 
@@ -16373,6 +16379,39 @@ function setupSyncUi() {
   }
 }
 
+async function restorePersistedSyncSession() {
+  const storedUser = String(readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim();
+  const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
+
+  if (!storedUser || !storedToken) {
+    return false;
+  }
+
+  if (getCurrentSyncUserId() && syncHasLoadedCloudState) {
+    return true;
+  }
+
+  try {
+    const sessionPayload = await cloudRequest('/api/session', {
+      method: 'POST',
+      body: JSON.stringify({ user: storedUser, token: storedToken }),
+      timeoutMs: 2500,
+    });
+    persistSyncCredentials(storedUser, storedToken);
+    updateSyncAuthenticatedUser(sessionPayload.auth || null);
+    await pullCloudState();
+    return true;
+  } catch (error) {
+    if (error.status === 401) {
+      syncConnectionState = 'local';
+      refreshSyncStatus();
+      return false;
+    }
+
+    return false;
+  }
+}
+
 async function initializeApp() {
   appState = loadLocalState();
   setSyncPendingChanges(loadSyncPendingChangesState());
@@ -16433,6 +16472,12 @@ async function initializeApp() {
   refreshSyncStatus();
 
   void (async () => {
+    // Restore the prior session from stored credentials in the background so page-to-page
+    // navigation does not force a fresh login prompt.
+    if (hasSyncCredentials()) {
+      void restorePersistedSyncSession().catch(() => null);
+    }
+
     // Do not block initial data hydration on a separate session-status request.
     // pullCloudState() already authenticates and returns auth payload.
     void refreshSessionStatus().catch(() => null);

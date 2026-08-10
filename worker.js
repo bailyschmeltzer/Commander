@@ -56,14 +56,17 @@ function getCookieValue(request, name) {
   return '';
 }
 
-function buildSessionCookie(value, { maxAge = SESSION_TTL_SECONDS, expires = '' } = {}) {
+function buildSessionCookie(value, { maxAge = SESSION_TTL_SECONDS, expires = '', isSecure = false } = {}) {
   const parts = [
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(value || '')}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
-    'Secure',
   ];
+
+  if (isSecure) {
+    parts.push('Secure');
+  }
 
   if (Number.isFinite(Number(maxAge))) {
     parts.push(`Max-Age=${Math.max(0, Number(maxAge))}`);
@@ -76,10 +79,11 @@ function buildSessionCookie(value, { maxAge = SESSION_TTL_SECONDS, expires = '' 
   return parts.join('; ');
 }
 
-function buildExpiredSessionCookie() {
+function buildExpiredSessionCookie({ isSecure = false } = {}) {
   return buildSessionCookie('', {
     maxAge: 0,
     expires: 'Thu, 01 Jan 1970 00:00:00 GMT',
+    isSecure,
   });
 }
 
@@ -2499,14 +2503,18 @@ export default {
           ok: true,
           auth: buildAuthPayload(auth),
         }, 200, {
-          'Set-Cookie': buildSessionCookie(sessionKey),
+          'Set-Cookie': buildSessionCookie(sessionKey, {
+            isSecure: new URL(request.url).protocol === 'https:',
+          }),
         });
       }
 
       if (request.method === 'DELETE') {
         await clearSessionAuth(request, env);
         return jsonResponse({ ok: true }, 200, {
-          'Set-Cookie': buildExpiredSessionCookie(),
+          'Set-Cookie': buildExpiredSessionCookie({
+            isSecure: new URL(request.url).protocol === 'https:',
+          }),
         });
       }
 
