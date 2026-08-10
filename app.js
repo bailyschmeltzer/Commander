@@ -286,6 +286,7 @@ let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: 
 let syncQueueTimer = null;
 let syncRetryTimer = null;
 let syncInFlight = false;
+let syncBootstrapInFlight = false;
 let syncRetryCount = 0;
 let syncPendingChanges = false;
 let syncLastSuccessAt = null;
@@ -1850,6 +1851,13 @@ function getSyncStatusSnapshot() {
     };
   }
 
+  if (syncBootstrapInFlight) {
+    return {
+      tone: 'neutral',
+      message: 'Syncing cloud data…',
+    };
+  }
+
   if (!navigator.onLine) {
     if (syncPendingChanges) {
       return {
@@ -1936,27 +1944,38 @@ function shouldAutoPullCloudState() {
   return !syncConflictInfo && (!syncPendingChanges || !syncHasLoadedCloudState);
 }
 
+function setSyncBootstrapInFlight(isInFlight) {
+  syncBootstrapInFlight = Boolean(isInFlight);
+  refreshSyncStatus();
+}
+
 async function retryCloudBootstrap({ maxAttempts = 4, initialDelayMs = 1200 } = {}) {
   if (!hasSyncCredentials() || !navigator.onLine) {
     return false;
   }
 
-  let lastError = null;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      await pullCloudState();
-      return true;
-    } catch (error) {
-      lastError = error;
-      if (attempt >= maxAttempts) {
-        break;
-      }
+  setSyncBootstrapInFlight(true);
 
-      const delayMs = initialDelayMs * attempt;
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, delayMs);
-      });
+  let lastError = null;
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await pullCloudState();
+        return true;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= maxAttempts) {
+          break;
+        }
+
+        const delayMs = initialDelayMs * attempt;
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, delayMs);
+        });
+      }
     }
+  } finally {
+    setSyncBootstrapInFlight(false);
   }
 
   if (lastError) {
@@ -16370,39 +16389,42 @@ async function initializeApp() {
 
   refresh();
 
+  const restoreEditModeIfNeeded = () => {
+    if (!form) {
+      return;
+    }
+
+    const editId = getQueryParam('editId');
+    if (!editId) {
+      return;
+    }
+
+    const game = getGameById(editId);
+    if (game) {
+      setEditMode(game);
+    }
+  };
+
+  restoreEditModeIfNeeded();
+  refreshSyncStatus();
+
   void (async () => {
     // Do not block initial data hydration on a separate session-status request.
     // pullCloudState() already authenticates and returns auth payload.
     void refreshSessionStatus().catch(() => null);
 
-    const restoreEditModeIfNeeded = () => {
-      if (!form) {
-        return;
-      }
+    if (!hasSyncCredentials() || !navigator.onLine) {
+      return;
+    }
 
-      const editId = getQueryParam('editId');
-      if (!editId) {
-        return;
-      }
+    const succeeded = await retryCloudBootstrap();
+    if (!succeeded) {
+      return;
+    }
 
-      const game = getGameById(editId);
-      if (game) {
-        setEditMode(game);
-      }
-    };
-
-    const handleCloudBootstrap = async () => {
-      const succeeded = await retryCloudBootstrap();
-      if (!succeeded) {
-        return;
-      }
-
-      restoreEditModeIfNeeded();
-      setSyncUiCollapsed(false);
-      refreshSyncStatus();
-    };
-
-    void handleCloudBootstrap();
+    restoreEditModeIfNeeded();
+    setSyncUiCollapsed(false);
+    refreshSyncStatus();
   })();
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
