@@ -2031,6 +2031,14 @@ function updateSyncControls() {
 async function cloudRequest(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const credentials = getSyncCredentials();
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs)) ? Number(options.timeoutMs) : 0;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const signal = options.signal || controller?.signal;
+  const timeoutId = timeoutMs > 0 && controller
+    ? window.setTimeout(() => {
+      controller.abort();
+    }, timeoutMs)
+    : null;
 
   if (!headers.has('X-User-Name') && credentials.user) {
     headers.set('X-User-Name', credentials.user);
@@ -2044,32 +2052,47 @@ async function cloudRequest(path, options = {}) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(path, {
-    ...options,
-    headers,
-    cache: 'no-store',
-    credentials: 'same-origin',
-  });
+  try {
+    const response = await fetch(path, {
+      ...options,
+      headers,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal,
+    });
 
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    let errorBody = null;
-    try {
-      errorBody = await response.json();
-      if (errorBody && errorBody.error) {
-        message = errorBody.error;
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      let errorBody = null;
+      try {
+        errorBody = await response.json();
+        if (errorBody && errorBody.error) {
+          message = errorBody.error;
+        }
+      } catch (error) {
+        // Keep default message.
       }
-    } catch (error) {
-      // Keep default message.
+
+      const requestError = new Error(message);
+      requestError.status = response.status;
+      requestError.body = errorBody;
+      throw requestError;
     }
 
-    const requestError = new Error(message);
-    requestError.status = response.status;
-    requestError.body = errorBody;
-    throw requestError;
-  }
+    return response.json();
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error(`Request timed out after ${timeoutMs}ms.`);
+      timeoutError.status = 504;
+      throw timeoutError;
+    }
 
-  return response.json();
+    throw error;
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function resolveSyncConflict(conflict = syncConflictInfo) {
@@ -2120,7 +2143,7 @@ async function pullCloudState() {
   refreshSyncStatus();
 
   try {
-    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET' });
+    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET', timeoutMs: 1500 });
     const statePayload = payload?.state && typeof payload.state === 'object'
       ? payload.state
       : payload;
@@ -2175,7 +2198,7 @@ async function pullCloudState() {
 
 async function refreshSessionStatus() {
   try {
-    const payload = await cloudRequest('/api/session', { method: 'GET' });
+    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 1000 });
     updateSyncAuthenticatedUser(payload.auth || null);
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
@@ -2230,7 +2253,7 @@ function pushCloudStateKeepalive({ force = false } = {}) {
 }
 
 async function fetchCloudStateMetadata() {
-  const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET' });
+  const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET', timeoutMs: 1000 });
   updateSyncAuthenticatedUser(payload.auth || null);
   return {
     revision: Number.isFinite(Number(payload?.revision)) ? Number(payload.revision) : 0,
@@ -16205,6 +16228,7 @@ function setupSyncUi() {
       const sessionPayload = await cloudRequest('/api/session', {
         method: 'POST',
         body: JSON.stringify({ user, token }),
+        timeoutMs: 3000,
       });
       persistSyncCredentials(user, token);
       updateSyncAuthenticatedUser(sessionPayload.auth || null);

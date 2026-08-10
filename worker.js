@@ -13,6 +13,8 @@ const SESSION_COOKIE_NAME = 'commanderSession';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
 const scryfallCardCache = new Map();
+const configuredMembersCache = new Map();
+const registeredPlayerKeysCache = new Map();
 
 // Response and normalization helpers.
 
@@ -99,14 +101,15 @@ async function loadSessionAuth(request, env) {
     return null;
   }
 
-  const raw = await env.POD_STATE.get(getSessionStoreKey(sessionKey), 'json');
+  const sessionStoreKey = getSessionStoreKey(sessionKey);
+  const raw = await env.POD_STATE.get(sessionStoreKey, 'json');
   if (!raw || typeof raw !== 'object') {
     return null;
   }
 
   const expiresAt = getTextValue(raw.expiresAt);
   if (!expiresAt || Number.isNaN(new Date(expiresAt).getTime()) || new Date(expiresAt).getTime() <= Date.now()) {
-    await env.POD_STATE.delete(getSessionStoreKey(sessionKey));
+    await env.POD_STATE.delete(sessionStoreKey);
     return null;
   }
 
@@ -1635,6 +1638,7 @@ async function hasValidAuth(request, env) {
 
   const user = getRequestUser(request);
   const token = getRequestToken(request);
+  const normalizedUser = normalizeMemberKey(user);
   const configuredMembers = getConfiguredMembers(env);
   const configuredMemberTokens = new Set(
     configuredMembers
@@ -1642,17 +1646,11 @@ async function hasValidAuth(request, env) {
       .filter(Boolean),
   );
   const stateKey = 'pod:default:state';
+  const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
 
   if (!env.POD_STATE) {
     return { ok: false, reason: 'Server missing POD_STATE KV binding.' };
   }
-
-  const rawState = await env.POD_STATE.get(stateKey, 'json');
-  const registeredPlayerKeys = getRegisteredPlayerKeysFromState(rawState && typeof rawState === 'object' ? rawState : null);
-  const normalizedUser = normalizeMemberKey(user);
-  const resolvedRegisteredUserId = resolveRegisteredPlayerKey(normalizedUser, registeredPlayerKeys);
-  const autoProvisioned = buildAutoProvisionedAuth(user);
-  const configuredToken = (env.POD_ACCESS_TOKEN || '').trim();
 
   if (!user) {
     return { ok: false, reason: 'Display name is required.' };
@@ -1662,7 +1660,6 @@ async function hasValidAuth(request, env) {
   }
 
   if (configuredMembers.length) {
-    // Configured member credentials path.
     const member = configuredMembers.find((entry) => entry.matchKeys.has(normalizedUser));
     if (member) {
       if (token === member.token || (configuredToken && token === configuredToken)) {
@@ -1681,7 +1678,23 @@ async function hasValidAuth(request, env) {
           authMode: token === member.token ? 'member' : 'legacy',
         };
       }
+
+      return { ok: false, reason: `Incorrect pod access code for "${user}".` };
     }
+
+    const rawState = await env.POD_STATE.get(stateKey, 'json');
+    const state = rawState && typeof rawState === 'object' ? rawState : null;
+    const revision = Number.isFinite(Number(state?.revision)) ? Number(state.revision) : null;
+    const cachedRegisteredPlayerKeys = registeredPlayerKeysCache.get(stateKey);
+    const registeredPlayerKeys = cachedRegisteredPlayerKeys?.revision === revision
+      ? cachedRegisteredPlayerKeys.keys
+      : (() => {
+        const computedKeys = getRegisteredPlayerKeysFromState(state);
+        registeredPlayerKeysCache.set(stateKey, { revision, keys: computedKeys });
+        return computedKeys;
+      })();
+    const resolvedRegisteredUserId = resolveRegisteredPlayerKey(normalizedUser, registeredPlayerKeys);
+    const autoProvisioned = buildAutoProvisionedAuth(user);
 
     // Auto-provisioned path for registered game-history players.
     if (autoProvisioned && resolvedRegisteredUserId && token === `commander-${resolvedRegisteredUserId}`) {
@@ -1727,17 +1740,26 @@ async function hasValidAuth(request, env) {
       };
     }
 
-    // If user is a configured member, keep a specific invalid-code message.
-    if (member) {
-      return { ok: false, reason: `Incorrect pod access code for "${user}".` };
-    }
-
     if (resolvedRegisteredUserId) {
       return { ok: false, reason: `Incorrect pod access code for "${user}".` };
     }
 
     return { ok: false, reason: `Username "${user}" not found in pod members and is not registered in game history.` };
   }
+
+  const rawState = await env.POD_STATE.get(stateKey, 'json');
+  const state = rawState && typeof rawState === 'object' ? rawState : null;
+  const revision = Number.isFinite(Number(state?.revision)) ? Number(state.revision) : null;
+  const cachedRegisteredPlayerKeys = registeredPlayerKeysCache.get(stateKey);
+  const registeredPlayerKeys = cachedRegisteredPlayerKeys?.revision === revision
+    ? cachedRegisteredPlayerKeys.keys
+    : (() => {
+      const computedKeys = getRegisteredPlayerKeysFromState(state);
+      registeredPlayerKeysCache.set(stateKey, { revision, keys: computedKeys });
+      return computedKeys;
+    })();
+  const resolvedRegisteredUserId = resolveRegisteredPlayerKey(normalizedUser, registeredPlayerKeys);
+  const autoProvisioned = buildAutoProvisionedAuth(user);
 
   // Auto-provisioned path with no configured member list.
   if (autoProvisioned && resolvedRegisteredUserId && token === `commander-${resolvedRegisteredUserId}`) {
