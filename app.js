@@ -1699,7 +1699,7 @@ function buildLocalSyncAuthSnapshot(user, { role = '' } = {}) {
   const displayName = String(user || '').trim();
   const normalizedUserId = normalizeSyncUserKey(displayName);
   const resolvedRole = String(role || '').trim().toLowerCase() || (
-    isBuiltInAdminUser(displayName) || isBuiltInAdminUser(normalizedUserId)
+    normalizedUserId === BUILTIN_ADMIN_USER_KEY
       ? 'admin'
       : 'member'
   );
@@ -16532,10 +16532,6 @@ async function initializeApp() {
     if (hasSyncCredentials()) {
       void restorePersistedSyncSession().catch(() => null);
     }
-
-    // Do not block initial data hydration on a separate session-status request.
-    // pullCloudState() already authenticates and returns auth payload.
-    void refreshSessionStatus().catch(() => null);
 
     if (!hasSyncCredentials() || !navigator.onLine) {
       return;
