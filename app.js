@@ -1695,6 +1695,42 @@ function flushQueuedActiveGamePersist() {
   queueCloudSync(0, { gamesOnly: true });
 }
 
+function buildLocalSyncAuthSnapshot(user, { role = '' } = {}) {
+  const displayName = String(user || '').trim();
+  const normalizedUserId = normalizeSyncUserKey(displayName);
+  const resolvedRole = String(role || '').trim().toLowerCase() || (
+    isBuiltInAdminUser(displayName) || isBuiltInAdminUser(normalizedUserId)
+      ? 'admin'
+      : 'member'
+  );
+
+  return {
+    userId: normalizedUserId,
+    displayName,
+    role: resolvedRole,
+  };
+}
+
+function applyStoredSyncSession(user, token = '', { role = '' } = {}) {
+  const normalizedUser = String(user || '').trim();
+  const normalizedToken = String(token || '').trim();
+
+  if (!normalizedUser) {
+    return null;
+  }
+
+  if (normalizedToken) {
+    persistSyncCredentials(normalizedUser, normalizedToken);
+  }
+
+  const auth = buildLocalSyncAuthSnapshot(normalizedUser, { role });
+  updateSyncAuthenticatedUser(auth);
+  syncConnectionState = 'connected';
+  syncLastErrorMessage = '';
+  refreshSyncStatus();
+  return auth;
+}
+
 function getSyncCredentials() {
   const storedUser = String(readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim();
   const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
@@ -2197,12 +2233,21 @@ async function pullCloudState() {
 }
 
 async function refreshSessionStatus() {
+  const storedUser = String(readLocalStorageValue(SYNC_USER_STORAGE_KEY) || '').trim();
+  const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
+
+  if (storedUser && storedToken) {
+    applyStoredSyncSession(storedUser, storedToken);
+  }
+
   try {
-    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 1500 });
-    updateSyncAuthenticatedUser(payload.auth || null);
-    syncConnectionState = 'connected';
-    syncLastErrorMessage = '';
-    refreshSyncStatus();
+    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 400 });
+    if (payload?.auth) {
+      updateSyncAuthenticatedUser(payload.auth || null);
+      syncConnectionState = 'connected';
+      syncLastErrorMessage = '';
+      refreshSyncStatus();
+    }
     return payload.auth || null;
   } catch (error) {
     if (error.status === 401) {
@@ -16200,7 +16245,11 @@ function setupSyncUi() {
   const storedToken = String(readLocalStorageValue(SYNC_TOKEN_STORAGE_KEY) || '').trim();
   syncUserInput.value = storedUser;
   syncTokenInput.value = storedToken;
-  syncConnectionState = getCurrentSyncUserId() ? 'connected' : 'local';
+  if (storedUser && storedToken) {
+    applyStoredSyncSession(storedUser, storedToken);
+  } else {
+    syncConnectionState = 'local';
+  }
   syncHasLoadedCloudState = false;
   updateSyncControls();
   refreshSyncStatus();
@@ -16231,16 +16280,22 @@ function setupSyncUi() {
     refreshSyncStatus();
 
     try {
-      const sessionPayload = await cloudRequest('/api/session', {
-        method: 'POST',
-        body: JSON.stringify({ user, token }),
-        timeoutMs: 3000,
-      });
-      persistSyncCredentials(user, token);
-      updateSyncAuthenticatedUser(sessionPayload.auth || null);
-      await pullCloudState();
-      refreshSyncStatus();
+      applyStoredSyncSession(user, token);
       setSyncUiCollapsed(true);
+
+      if (navigator.onLine) {
+        void cloudRequest('/api/session', {
+          method: 'POST',
+          body: JSON.stringify({ user, token }),
+          timeoutMs: 900,
+        }).then((sessionPayload) => {
+          if (sessionPayload?.auth) {
+            updateSyncAuthenticatedUser(sessionPayload.auth || null);
+            refreshSyncStatus();
+          }
+          void pullCloudState().catch(() => null);
+        }).catch(() => null);
+      }
     } catch (error) {
       syncConnectionState = 'local';
       clearSyncAuthenticatedUser();
@@ -16391,25 +16446,25 @@ async function restorePersistedSyncSession() {
     return true;
   }
 
-  try {
-    const sessionPayload = await cloudRequest('/api/session', {
-      method: 'POST',
-      body: JSON.stringify({ user: storedUser, token: storedToken }),
-      timeoutMs: 2500,
-    });
-    persistSyncCredentials(storedUser, storedToken);
-    updateSyncAuthenticatedUser(sessionPayload.auth || null);
-    await pullCloudState();
-    return true;
-  } catch (error) {
-    if (error.status === 401) {
-      syncConnectionState = 'local';
-      refreshSyncStatus();
-      return false;
-    }
+  applyStoredSyncSession(storedUser, storedToken);
 
-    return false;
+  if (!navigator.onLine) {
+    return true;
   }
+
+  void cloudRequest('/api/session', {
+    method: 'POST',
+    body: JSON.stringify({ user: storedUser, token: storedToken }),
+    timeoutMs: 900,
+  }).then((sessionPayload) => {
+    if (sessionPayload?.auth) {
+      updateSyncAuthenticatedUser(sessionPayload.auth || null);
+      refreshSyncStatus();
+    }
+    void pullCloudState().catch(() => null);
+  }).catch(() => null);
+
+  return true;
 }
 
 async function initializeApp() {
