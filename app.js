@@ -4665,6 +4665,21 @@ function undoLastLiveAction() {
   refresh();
 }
 
+function buildCompletedLiveGameNotes(autoNotes = '', finalComments = '') {
+  const trimmedAutoNotes = String(autoNotes || '').trim();
+  const trimmedFinalComments = String(finalComments || '').trim();
+
+  if (!trimmedAutoNotes) {
+    return trimmedFinalComments;
+  }
+
+  if (!trimmedFinalComments) {
+    return trimmedAutoNotes;
+  }
+
+  return `${trimmedAutoNotes} · ${trimmedFinalComments}`;
+}
+
 async function completeActiveGame() {
   if (!activeGameState || liveGameCompletionInFlight) {
     return;
@@ -4740,19 +4755,7 @@ async function completeActiveGame() {
     })).map((row) => enrichSavedGamePlayerRow(row));
     const finishOrder = finalPlayers.map((player) => player.name);
 
-    const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
-      title: 'Final comments',
-      confirmLabel: 'Save game',
-      defaultValue: '',
-      placeholder: 'Optional notes',
-      multiline: true,
-    });
-    if (finalComments === null) {
-      return;
-    }
-
     const autoNotes = buildActiveGameSummary({ ...gameToSave, players: finalPlayers });
-    const gameNotes = finalComments.trim() ? `${autoNotes} · ${finalComments.trim()}` : autoNotes;
 
     const games = loadGames();
     games.push(buildCompactSavedGameEntry({
@@ -4760,7 +4763,7 @@ async function completeActiveGame() {
       date: gameToSave.date,
       playerRows,
       finishOrder,
-      notes: gameNotes,
+      notes: autoNotes,
       liveSummary: {
         startingPlayer: getPlayerNameById(gameToSave.startingPlayerId, gameToSave),
         alternateWinCondition: gameToSave.alternateWinCondition || '',
@@ -4798,6 +4801,31 @@ async function completeActiveGame() {
     releaseWakeLock();
     refresh();
     refreshLiveTrackerUi();
+
+    liveGameCompletionInFlight = false;
+
+    const finalComments = await promptLiveText('Any final comments for this game? These will be saved with the game notes.', {
+      title: 'Final comments',
+      confirmLabel: 'Save game',
+      defaultValue: '',
+      placeholder: 'Optional notes',
+      multiline: true,
+    });
+    if (finalComments !== null) {
+      const trimmedComments = String(finalComments || '').trim();
+      const updatedGames = loadGames();
+      const savedGameIndex = updatedGames.findIndex((savedGame) => savedGame.id === gameToSave.id);
+      if (savedGameIndex >= 0) {
+        updatedGames[savedGameIndex] = buildCompactSavedGameEntry({
+          ...updatedGames[savedGameIndex],
+          notes: buildCompletedLiveGameNotes(autoNotes, trimmedComments),
+        });
+        saveGames(updatedGames, { queueSync: false });
+        refresh();
+        queueCloudSync(0);
+      }
+    }
+
     await promptLiveAlert('Live game saved to history.', 'Game saved');
 
     if (await promptLiveConfirm('Start a rematch with the same players in the same seats? You can pick new commanders before starting the next game.', {
@@ -4808,7 +4836,9 @@ async function completeActiveGame() {
       prepareLiveRematchSetup(rematchPlayers);
     }
   } finally {
-    liveGameCompletionInFlight = false;
+    if (liveGameCompletionInFlight) {
+      liveGameCompletionInFlight = false;
+    }
   }
 }
 
@@ -7901,8 +7931,8 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
     : [...existingDecks, normalizedDeck];
 
   saveDecks(nextDecks, {
-    deferPersist: true,
-    delay: Number.isFinite(Number(persistDelayMs)) ? Number(persistDelayMs) : DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS,
+    deferPersist: false,
+    delay: 0,
   });
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
@@ -7914,6 +7944,15 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
   updateDeckBuilderUndoButton();
+
+  if (deckBuilderPage) {
+    const activeDeck = applyDeckBuilderDraftMeta(ensureActiveDeckBuilderRecord() || null);
+    if (activeDeck) {
+      renderDeckBuilderBreakdown(activeDeck);
+    }
+    renderDeckBuilderCards(activeDeck || normalizedDeck);
+  }
+
   if (skipFullRefresh && deckBuilderPage) {
     renderDeckBuilderPage();
     return;
