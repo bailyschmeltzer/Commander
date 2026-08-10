@@ -1932,6 +1932,10 @@ function refreshSyncStatus() {
   updateAdminLogsShortcutVisibility();
 }
 
+function shouldAutoPullCloudState() {
+  return !syncConflictInfo && (!syncPendingChanges || !syncHasLoadedCloudState);
+}
+
 function setSyncStatus(message, tone = 'neutral') {
   if (!syncStatus) {
     return;
@@ -2201,7 +2205,7 @@ async function checkCloudStateFreshness({ autoPull = false, force = false } = {}
 
     updateSyncMetadata(metadata);
 
-    if (syncPendingChanges) {
+    if (syncHasLoadedCloudState && syncPendingChanges) {
       clearSyncRetryTimer();
       if (syncQueueTimer) {
         clearTimeout(syncQueueTimer);
@@ -16024,7 +16028,7 @@ window.visualViewport?.addEventListener('resize', () => {
 
 window.addEventListener('online', async () => {
   refreshSyncStatus();
-  await checkCloudStateFreshness({ autoPull: !syncPendingChanges, force: true });
+  await checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState(), force: true });
   if (!syncConflictInfo && hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
     queueCloudSync(250);
   }
@@ -16041,7 +16045,7 @@ document.addEventListener('visibilitychange', () => {
   }
 
   if (document.visibilityState === 'visible') {
-    checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
+    checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
   }
 });
 
@@ -16050,7 +16054,7 @@ window.addEventListener('pagehide', () => {
 });
 
 window.addEventListener('focus', () => {
-  checkCloudStateFreshness({ autoPull: !syncPendingChanges && !syncConflictInfo });
+  checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
 });
 
 function setupSyncUi() {
@@ -16301,19 +16305,30 @@ async function initializeApp() {
       }
     };
 
-    try {
-      // Strict cloud-first bootstrap: pull canonical cloud state before allowing
-      // any automatic local push.
-      await pullCloudState();
+    const attemptCloudBootstrap = async (attempt = 1) => {
+      try {
+        // Strict cloud-first bootstrap: pull canonical cloud state before allowing
+        // any automatic local push.
+        await pullCloudState();
 
-      restoreEditModeIfNeeded();
-      setSyncUiCollapsed(false);
-      refreshSyncStatus();
-    } catch (error) {
-      syncConnectionState = error.status === 401 ? 'local' : 'configured';
-      syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
-      refreshSyncStatus();
-    }
+        restoreEditModeIfNeeded();
+        setSyncUiCollapsed(false);
+        refreshSyncStatus();
+      } catch (error) {
+        if (hasSyncCredentials() && navigator.onLine && attempt < 2) {
+          window.setTimeout(() => {
+            void attemptCloudBootstrap(attempt + 1);
+          }, attempt === 1 ? 1500 : 3000);
+          return;
+        }
+
+        syncConnectionState = error.status === 401 ? 'local' : 'configured';
+        syncLastErrorMessage = error.status === 401 ? '' : `${error.message}.`;
+        refreshSyncStatus();
+      }
+    };
+
+    void attemptCloudBootstrap();
   })();
 
   // Create and prefill the deck AFTER cloud sync settles so pullCloudState
