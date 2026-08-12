@@ -470,6 +470,11 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+.playtest-tool-group select {
+  appearance: auto;
+  cursor: pointer;
+}
+
 .playtest-icon-button-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

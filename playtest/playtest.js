@@ -1554,6 +1554,7 @@
           counterCustomInput.focus();
         }
       }
+      setStatus(isCustom ? 'Enter a custom counter type.' : `Counter type selected: ${counterTypeInput.options[counterTypeInput.selectedIndex]?.text || counterTypeInput.value}.`);
     });
 
     createTokenButton.addEventListener('click', createTokensOnBattlefield);
