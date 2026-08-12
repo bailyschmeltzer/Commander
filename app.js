@@ -1803,6 +1803,7 @@ function updateSyncAuthenticatedUser(auth = null) {
     }
   }
 
+  updateAdminLogsShortcutVisibility();
   document.dispatchEvent(new CustomEvent('commander:auth-changed'));
 }
 
