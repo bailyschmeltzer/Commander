@@ -1156,12 +1156,15 @@
 
   function toCanvasCoordinates(clientX, clientY) {
     const rect = battlefieldDrop.getBoundingClientRect();
-    const xInClient = Math.max(0, Math.min(rect.width, clientX - rect.left));
-    const yInClient = Math.max(0, Math.min(rect.height, clientY - rect.top));
+    const rootStyles = getComputedStyle(document.documentElement);
+    const cardWidth = Number.parseFloat(rootStyles.getPropertyValue('--card-w')) || 135;
+    const cardHeight = Number.parseFloat(rootStyles.getPropertyValue('--card-h')) || 190;
+    const xInClient = Math.max(0, Math.min(rect.width, clientX - rect.left - cardWidth / 2));
+    const yInClient = Math.max(0, Math.min(rect.height, clientY - rect.top - cardHeight / 2));
 
     return {
-      x: (xInClient / Math.max(1, rect.width)) * DEFAULT_CANVAS_WIDTH,
-      y: (yInClient / Math.max(1, rect.height)) * DEFAULT_CANVAS_HEIGHT,
+      x: Math.max(0, Math.min(DEFAULT_CANVAS_WIDTH - cardWidth, (xInClient / Math.max(1, rect.width)) * DEFAULT_CANVAS_WIDTH)),
+      y: Math.max(0, Math.min(DEFAULT_CANVAS_HEIGHT - cardHeight, (yInClient / Math.max(1, rect.height)) * DEFAULT_CANVAS_HEIGHT)),
     };
   }
 

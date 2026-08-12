@@ -263,7 +263,8 @@ button:disabled {
 .playtest-life-tracker {
   position: absolute;
   top: 12px;
-  right: 12px;
+  left: 12px;
+  right: auto;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -322,7 +323,7 @@ button:disabled {
 
 .playtest-hand-dock {
   position: absolute;
-  right: 12px;
+  right: calc(var(--card-w) * 2 + 28px);
   bottom: 12px;
   left: 12px;
   min-height: 174px;
