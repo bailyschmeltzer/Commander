@@ -11,8 +11,8 @@
   --playtest-accent-soft: #e7ebf7;
   --playtest-danger: #8c1717;
   --playtest-table: #c4cfdf;
-  --card-w: 108px;
-  --card-h: 152px;
+  --card-w: 135px;
+  --card-h: 190px;
 }
 
 * {
@@ -694,8 +694,8 @@ button:disabled {
   }
 
   :root {
-    --card-w: 92px;
-    --card-h: 130px;
+    --card-w: 115px;
+    --card-h: 162px;
   }
 
   .playtest-zone-stack-rail {

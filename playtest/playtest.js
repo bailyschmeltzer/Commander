@@ -1555,7 +1555,7 @@
     });
 
     document.body.addEventListener('click', (event) => {
-      if (event.target.closest('.playtest-card')) {
+      if (event.target.closest('.playtest-card, .playtest-tools-panel, .playtest-zone-stack, .playtest-zone-drawer')) {
         return;
       }
       state.selectedCardId = '';
