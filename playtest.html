@@ -79,8 +79,8 @@
             <span id="playtest-mulligan-status" class="playtest-muted">Mulligans: 0</span>
           </div>
 
-          <section class="playtest-tool-group">
-            <h3>Deck</h3>
+          <details class="playtest-tool-group playtest-collapsible" open>
+            <summary>Deck</summary>
             <label for="playtest-deck-select">Saved deck</label>
             <select id="playtest-deck-select"></select>
             <label for="playtest-shuffle-seed">Shuffle seed <span class="playtest-optional">optional</span></label>
@@ -101,10 +101,10 @@
               <input id="playtest-touch-move-mode" type="checkbox" />
               Tap zones to move selected cards
             </label>
-          </section>
+          </details>
 
-          <section class="playtest-tool-group">
-            <h3>Card</h3>
+          <details class="playtest-tool-group playtest-collapsible" open>
+            <summary>Card</summary>
             <p id="playtest-selected-name" class="playtest-selected-name">No card selected</p>
             <div class="playtest-icon-button-row">
               <button id="playtest-toggle-tap" type="button" class="playtest-secondary" title="Tap or untap selected card" disabled>Tap</button>
@@ -118,10 +118,10 @@
               <button data-move-zone="command" type="button" class="playtest-secondary" title="Move selected card to command zone" disabled>Cmd</button>
               <button data-move-zone="library" type="button" class="playtest-secondary" title="Move selected card to library" disabled>Deck</button>
             </div>
-          </section>
+          </details>
 
-          <section class="playtest-tool-group">
-            <h3>Counters</h3>
+          <details class="playtest-tool-group playtest-collapsible" open>
+            <summary>Counters</summary>
             <div class="playtest-counter-row">
               <input id="playtest-counter-type" type="text" value="+1/+1" aria-label="Counter type" />
               <button id="playtest-counter-add" type="button" class="playtest-secondary" disabled title="Add counter">+</button>
@@ -132,17 +132,17 @@
               <button id="playtest-commander-reset" type="button" class="playtest-secondary" disabled>Reset Tax</button>
             </div>
             <p id="playtest-commander-tax" class="playtest-muted">Commander tax: n/a</p>
-          </section>
+          </details>
 
-          <section class="playtest-tool-group">
-            <h3>Tokens</h3>
+          <details class="playtest-tool-group playtest-collapsible" open>
+            <summary>Tokens</summary>
             <input id="playtest-token-name" type="text" placeholder="Token name" aria-label="Token name" />
             <div class="playtest-counter-row">
               <input id="playtest-token-count" type="number" min="1" value="1" aria-label="Token quantity" />
               <input id="playtest-token-image" type="url" placeholder="Image URL (optional)" aria-label="Token image URL" />
             </div>
             <button id="playtest-create-token" type="button">Create Token</button>
-          </section>
+          </details>
 
           <details class="playtest-tool-group playtest-extra-tools">
             <summary>More tools</summary>

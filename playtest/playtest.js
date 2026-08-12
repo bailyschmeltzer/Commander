@@ -312,16 +312,43 @@
   }
 
   function loadDeckCatalog() {
-    const directDecks = parseJsonSafe(localStorage.getItem(DECKS_STORAGE_KEY) || '[]', []);
-    const appState = parseJsonSafe(localStorage.getItem('commanderTrackerGames') || '{}', {});
-    const storedDecks = Array.isArray(directDecks)
-      ? directDecks
-      : (Array.isArray(appState?.decks) ? appState.decks : []);
-    const fallbackDecks = Array.isArray(appState?.decks) ? appState.decks : [];
-    const mergedDecks = [...storedDecks, ...fallbackDecks];
+    const mergedDecks = [];
+
+    const addDecks = (candidate) => {
+      if (Array.isArray(candidate)) {
+        mergedDecks.push(...candidate);
+        return;
+      }
+      if (candidate && typeof candidate === 'object') {
+        if (Array.isArray(candidate.decks)) {
+          mergedDecks.push(...candidate.decks);
+        }
+        if (candidate.state && typeof candidate.state === 'object' && Array.isArray(candidate.state.decks)) {
+          mergedDecks.push(...candidate.state.decks);
+        }
+      }
+    };
+
+    addDecks(parseJsonSafe(localStorage.getItem(DECKS_STORAGE_KEY) || '[]', []));
+    addDecks(parseJsonSafe(localStorage.getItem('commanderTrackerGames') || '{}', {}));
+
+    // Cloud/bootstrap payloads may be persisted under a different app key.
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index) || '';
+      if (!/deck|state|cloud|sync/i.test(key)) {
+        continue;
+      }
+      addDecks(parseJsonSafe(localStorage.getItem(key) || '', null));
+    }
+
+    const decksById = new Map();
+    updateDeckCatalog(mergedDecks);
+  }
+
+  function updateDeckCatalog(candidates) {
     const decksById = new Map();
 
-    mergedDecks.forEach((deck) => {
+    candidates.forEach((deck) => {
       const normalized = normalizeDeckRecord(deck);
       if (normalized) {
         decksById.set(normalized.id, normalized);
@@ -331,12 +358,46 @@
     state.deckCatalog = [...decksById.values()];
   }
 
+  async function refreshDeckCatalogFromCloud() {
+    const user = String(localStorage.getItem('commanderTrackerSyncUser') || '').trim();
+    const token = String(localStorage.getItem('commanderTrackerSyncToken') || '').trim();
+    if (!user || !token) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/state', {
+        method: 'GET',
+        headers: {
+          'X-User-Name': user,
+          'X-Pod-Token': token,
+        },
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      const cloudState = payload?.state && typeof payload.state === 'object' ? payload.state : payload;
+      if (!Array.isArray(cloudState?.decks)) {
+        return;
+      }
+
+      updateDeckCatalog([...state.deckCatalog, ...cloudState.decks]);
+      renderDeckOptions();
+    } catch {
+      // Local decks remain usable when cloud refresh is unavailable.
+    }
+  }
+
   function renderDeckOptions() {
     deckSelect.innerHTML = '';
     if (!state.deckCatalog.length) {
       const emptyOption = document.createElement('option');
       emptyOption.value = '';
-      emptyOption.textContent = 'No saved decks found';
+      emptyOption.textContent = 'No saved decks found on this device';
       deckSelect.appendChild(emptyOption);
       return;
     }
@@ -1091,14 +1152,14 @@
     const height = battlefieldCanvas.height;
 
     const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#2f5d2f');
-    gradient.addColorStop(0.55, '#245024');
-    gradient.addColorStop(1, '#1d3e1d');
+    gradient.addColorStop(0, '#d9e2ef');
+    gradient.addColorStop(0.55, '#c7d3e3');
+    gradient.addColorStop(1, '#b9c7da');
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = 'rgba(235, 255, 225, 0.12)';
+    ctx.strokeStyle = 'rgba(44, 58, 114, 0.10)';
     ctx.lineWidth = 1;
 
     for (let x = 0; x <= width; x += 70) {
@@ -1115,7 +1176,7 @@
       ctx.stroke();
     }
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(44, 58, 114, 0.22)';
     ctx.lineWidth = 2;
     ctx.strokeRect(8, 8, width - 16, height - 16);
   }
@@ -1502,6 +1563,7 @@
   function initialize() {
     loadDeckCatalog();
     renderDeckOptions();
+    void refreshDeckCatalogFromCloud();
 
     const restored = loadSession();
     if (!restored) {
