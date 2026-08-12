@@ -14,7 +14,7 @@
   const openingHandButton = document.getElementById('playtest-opening-hand');
   const mulliganButton = document.getElementById('playtest-mulligan');
   const undoButton = document.getElementById('playtest-undo');
-  const redoButton = document.getElementById('playtest-redo');
+  const untapAllButton = document.getElementById('playtest-untap-all');
   const touchMoveModeInput = document.getElementById('playtest-touch-move-mode');
   const mulliganStatusEl = document.getElementById('playtest-mulligan-status');
   const resetSessionButton = document.getElementById('playtest-reset-session');
@@ -780,7 +780,20 @@
 
   function updateHistoryButtons() {
     undoButton.disabled = !history.undo.length;
-    redoButton.disabled = !history.redo.length;
+  }
+
+  function untapAllBattlefieldCards() {
+    const tappedCards = state.zones.battlefield.filter((card) => card.tapped);
+    if (!tappedCards.length) {
+      setStatus('All battlefield cards are already untapped.');
+      return;
+    }
+
+    commitMutation(() => {
+      tappedCards.forEach((card) => {
+        card.tapped = false;
+      });
+    }, `Untapped ${tappedCards.length} battlefield card${tappedCards.length === 1 ? '' : 's'}.`, 'Untap All');
   }
 
   function toggleSelectedTapState(setUntappedOnly) {
@@ -1449,7 +1462,7 @@
     });
 
     undoButton.addEventListener('click', undoMutation);
-    redoButton.addEventListener('click', redoMutation);
+    untapAllButton?.addEventListener('click', untapAllBattlefieldCards);
 
     resetSessionButton.addEventListener('click', () => {
       if (!isSessionDirty()) {
