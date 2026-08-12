@@ -552,9 +552,9 @@ button:disabled {
 
 .playtest-card {
   position: relative;
-  width: var(--card-w);
-  min-width: var(--card-w);
-  height: var(--card-h);
+  width: 135px;
+  min-width: 135px;
+  height: 190px;
   overflow: hidden;
   border: 1px solid var(--playtest-border);
   border-radius: 7px;
@@ -696,6 +696,12 @@ button:disabled {
   :root {
     --card-w: 115px;
     --card-h: 162px;
+  }
+
+  .playtest-card {
+    width: 115px;
+    min-width: 115px;
+    height: 162px;
   }
 
   .playtest-zone-stack-rail {
