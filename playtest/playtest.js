@@ -58,6 +58,7 @@
   const battlefieldCardsEl = document.getElementById('playtest-battlefield-cards');
   const handEl = document.getElementById('playtest-hand');
   const zoneCardsEl = document.getElementById('playtest-zone-cards');
+  const inspectedZoneLabelEl = document.getElementById('playtest-inspected-zone-label');
   const debugOutputEl = document.getElementById('playtest-debug-output');
   const actionLogEl = document.getElementById('playtest-action-log');
 
@@ -311,11 +312,23 @@
   }
 
   function loadDeckCatalog() {
-    const raw = localStorage.getItem(DECKS_STORAGE_KEY);
-    const parsed = parseJsonSafe(raw || '[]', []);
-    state.deckCatalog = Array.isArray(parsed)
-      ? parsed.map(normalizeDeckRecord).filter(Boolean)
-      : [];
+    const directDecks = parseJsonSafe(localStorage.getItem(DECKS_STORAGE_KEY) || '[]', []);
+    const appState = parseJsonSafe(localStorage.getItem('commanderTrackerGames') || '{}', {});
+    const storedDecks = Array.isArray(directDecks)
+      ? directDecks
+      : (Array.isArray(appState?.decks) ? appState.decks : []);
+    const fallbackDecks = Array.isArray(appState?.decks) ? appState.decks : [];
+    const mergedDecks = [...storedDecks, ...fallbackDecks];
+    const decksById = new Map();
+
+    mergedDecks.forEach((deck) => {
+      const normalized = normalizeDeckRecord(deck);
+      if (normalized) {
+        decksById.set(normalized.id, normalized);
+      }
+    });
+
+    state.deckCatalog = [...decksById.values()];
   }
 
   function renderDeckOptions() {
@@ -913,6 +926,8 @@
   function renderInspectedZoneCards() {
     zoneCardsEl.innerHTML = '';
     const cards = state.zones[state.inspectedZone] || [];
+    const zoneDrawer = zoneCardsEl.closest('.playtest-zone-drawer');
+    zoneDrawer?.classList.toggle('is-visible', cards.length > 0);
 
     cards
       .slice()
@@ -1030,6 +1045,9 @@
     renderHand();
     renderBattlefield();
     renderInspectedZoneCards();
+    if (inspectedZoneLabelEl) {
+      inspectedZoneLabelEl.textContent = state.inspectedZone.charAt(0).toUpperCase() + state.inspectedZone.slice(1);
+    }
     updateSelectedControls();
     renderDebugSnapshot();
     renderActionLog();

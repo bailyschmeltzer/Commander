@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Playtest Lab</title>
-    <meta name="theme-color" content="#dde7d6" />
+    <meta name="theme-color" content="#f5f6fb" />
     <link rel="icon" type="image/png" href="image.png" />
     <link rel="shortcut icon" type="image/png" href="image.png" />
     <link rel="apple-touch-icon" href="image.png" />
@@ -14,204 +14,159 @@
   <body class="playtest-page">
     <div class="playtest-shell">
       <header class="playtest-header">
-        <div>
+        <div class="playtest-title-group">
           <p class="playtest-kicker">Experimental</p>
           <h1>Playtest Lab</h1>
-          <p>Standalone mock game sandbox. Load a saved deck, draw cards, move zones, and stress test interactions.</p>
+          <p id="playtest-status" class="playtest-status">Choose a deck to begin.</p>
         </div>
         <div class="playtest-header-actions">
           <a href="decklists.html" class="playtest-link-button">Back to Decks</a>
-          <button id="playtest-reset-session" type="button" class="playtest-danger">Reset Session</button>
+          <button id="playtest-reset-session" type="button" class="playtest-danger">Reset</button>
         </div>
       </header>
 
-      <main class="playtest-layout">
-        <aside class="playtest-sidebar">
-          <section class="playtest-panel">
-            <h2>Deck Loader</h2>
+      <main class="playtest-workspace">
+        <section class="playtest-stage" aria-label="Playtest table">
+          <canvas id="playtest-battlefield-canvas" width="1400" height="760"></canvas>
+          <div class="playtest-stage-chrome">
+            <div class="playtest-zone-rail" aria-label="Card zones">
+              <button class="playtest-zone" data-zone="library" type="button">
+                <span>Library</span><strong id="zone-count-library" class="playtest-visually-hidden">0</strong>
+              </button>
+              <button class="playtest-zone" data-zone="graveyard" type="button">
+                <span>Graveyard</span><strong id="zone-count-graveyard" class="playtest-visually-hidden">0</strong>
+              </button>
+              <button class="playtest-zone" data-zone="exile" type="button">
+                <span>Exile</span><strong id="zone-count-exile" class="playtest-visually-hidden">0</strong>
+              </button>
+              <button class="playtest-zone" data-zone="command" type="button">
+                <span>Command</span><strong id="zone-count-command" class="playtest-visually-hidden">0</strong>
+              </button>
+            </div>
+            <div class="playtest-life-tracker" aria-label="Life tracker">
+              <span class="playtest-life-label">Life</span>
+              <button id="playtest-life-minus" type="button" aria-label="Decrease life">-</button>
+              <input id="playtest-life" type="number" value="40" min="0" aria-label="Life total" />
+              <button id="playtest-life-plus" type="button" aria-label="Increase life">+</button>
+            </div>
+            <div class="playtest-battlefield-hint">Battlefield</div>
+            <div id="playtest-battlefield-drop" class="playtest-battlefield-drop" aria-label="Battlefield drop area">
+              <div id="playtest-battlefield-cards" class="playtest-battlefield-cards"></div>
+            </div>
+            <section class="playtest-hand-dock" aria-label="Hand">
+              <div class="playtest-hand-heading"><span>Hand</span><small>Double-click a card to inspect</small></div>
+              <div id="playtest-hand" class="playtest-hand" data-zone="hand"></div>
+            </section>
+            <section class="playtest-zone-drawer" aria-label="Inspected zone">
+              <div class="playtest-zone-drawer-heading">
+                <span id="playtest-inspected-zone-label">Zone</span>
+                <div class="playtest-row playtest-row-tight">
+                  <button id="playtest-zone-to-top" type="button" class="playtest-secondary" disabled>Top</button>
+                  <button id="playtest-zone-to-bottom" type="button" class="playtest-secondary" disabled>Bottom</button>
+                </div>
+              </div>
+              <div id="playtest-zone-cards" class="playtest-zone-cards"></div>
+            </section>
+          </div>
+        </section>
+
+        <aside class="playtest-tools-panel" aria-label="Playtest tools">
+          <div class="playtest-tools-heading">
+            <div>
+              <p class="playtest-kicker">Table controls</p>
+              <h2>Tools</h2>
+            </div>
+            <span id="playtest-mulligan-status" class="playtest-muted">Mulligans: 0</span>
+          </div>
+
+          <section class="playtest-tool-group">
+            <h3>Deck</h3>
             <label for="playtest-deck-select">Saved deck</label>
             <select id="playtest-deck-select"></select>
-            <label for="playtest-shuffle-seed">Shuffle seed (optional)</label>
-            <input id="playtest-shuffle-seed" type="text" placeholder="e.g. pod-night-12" />
-            <div class="playtest-row">
-              <button id="playtest-load-deck" type="button">Load Deck</button>
-              <button id="playtest-shuffle" type="button" class="playtest-secondary">Shuffle</button>
+            <label for="playtest-shuffle-seed">Shuffle seed <span class="playtest-optional">optional</span></label>
+            <input id="playtest-shuffle-seed" type="text" placeholder="Repeatable shuffle" />
+            <div class="playtest-icon-button-row">
+              <button id="playtest-load-deck" type="button" title="Load selected deck">Load</button>
+              <button id="playtest-shuffle" type="button" class="playtest-secondary" title="Shuffle library">Shuffle</button>
+              <button id="playtest-draw-1" type="button" class="playtest-secondary" title="Draw one card">Draw</button>
+              <button id="playtest-draw-7" type="button" class="playtest-secondary" title="Draw seven cards">7</button>
             </div>
-            <div class="playtest-row">
-              <button id="playtest-draw-1" type="button" class="playtest-secondary">Draw 1</button>
-              <button id="playtest-draw-7" type="button" class="playtest-secondary">Draw 7</button>
-            </div>
-            <div class="playtest-row">
+            <div class="playtest-icon-button-row">
               <button id="playtest-opening-hand" type="button" class="playtest-secondary">Opening 7</button>
-              <button id="playtest-mulligan" type="button" class="playtest-secondary">Mulligan -1</button>
-            </div>
-            <div class="playtest-row">
-              <button id="playtest-undo" type="button" class="playtest-secondary">Undo</button>
-              <button id="playtest-redo" type="button" class="playtest-secondary">Redo</button>
+              <button id="playtest-mulligan" type="button" class="playtest-secondary">Mulligan</button>
+              <button id="playtest-undo" type="button" class="playtest-secondary" title="Undo">Undo</button>
+              <button id="playtest-redo" type="button" class="playtest-secondary" title="Redo">Redo</button>
             </div>
             <label class="playtest-inline-toggle" for="playtest-touch-move-mode">
               <input id="playtest-touch-move-mode" type="checkbox" />
-              Tap a zone to move selected card (touch fallback)
+              Tap zones to move selected cards
             </label>
-            <p id="playtest-mulligan-status" class="playtest-muted">Mulligans: 0. Current opening size: 7.</p>
-            <p id="playtest-status" class="playtest-status">Choose a deck to begin.</p>
           </section>
 
-          <section class="playtest-panel">
-            <h2>Session Tools</h2>
-            <div class="playtest-row">
-              <button id="playtest-export-session" type="button" class="playtest-secondary">Export JSON</button>
-              <button id="playtest-copy-session" type="button" class="playtest-secondary">Copy JSON</button>
+          <section class="playtest-tool-group">
+            <h3>Card</h3>
+            <p id="playtest-selected-name" class="playtest-selected-name">No card selected</p>
+            <div class="playtest-icon-button-row">
+              <button id="playtest-toggle-tap" type="button" class="playtest-secondary" title="Tap or untap selected card" disabled>Tap</button>
+              <button id="playtest-toggle-face" type="button" class="playtest-secondary" title="Turn selected card face down or up" disabled>Face</button>
+              <button data-move-zone="hand" type="button" class="playtest-secondary" title="Move selected card to hand" disabled>Hand</button>
+              <button data-move-zone="battlefield" type="button" class="playtest-secondary" title="Move selected card to battlefield" disabled>Field</button>
             </div>
-            <label for="playtest-session-json">Import / Export payload</label>
-            <textarea id="playtest-session-json" rows="6" placeholder="Paste playtest session JSON here"></textarea>
-            <div class="playtest-row">
-              <button id="playtest-import-session" type="button">Import Session</button>
-              <button id="playtest-clear-session-json" type="button" class="playtest-secondary">Clear</button>
-            </div>
-          </section>
-
-          <section class="playtest-panel">
-            <h2>Life Tracker</h2>
-            <div class="playtest-life-wrap">
-              <button id="playtest-life-minus" type="button" class="playtest-secondary">-</button>
-              <input id="playtest-life" type="number" value="40" min="0" />
-              <button id="playtest-life-plus" type="button" class="playtest-secondary">+</button>
+            <div class="playtest-icon-button-row">
+              <button data-move-zone="graveyard" type="button" class="playtest-secondary" title="Move selected card to graveyard" disabled>Grave</button>
+              <button data-move-zone="exile" type="button" class="playtest-secondary" title="Move selected card to exile" disabled>Exile</button>
+              <button data-move-zone="command" type="button" class="playtest-secondary" title="Move selected card to command zone" disabled>Cmd</button>
+              <button data-move-zone="library" type="button" class="playtest-secondary" title="Move selected card to library" disabled>Deck</button>
             </div>
           </section>
 
-          <section class="playtest-panel">
-            <h2>Token Creator</h2>
-            <label for="playtest-token-name">Token name</label>
-            <input id="playtest-token-name" type="text" placeholder="Goblin" />
-            <label for="playtest-token-count">Quantity</label>
-            <input id="playtest-token-count" type="number" min="1" value="1" />
-            <label for="playtest-token-image">Image URL (optional)</label>
-            <input id="playtest-token-image" type="url" placeholder="https://..." />
-            <button id="playtest-create-token" type="button">Create on Battlefield</button>
+          <section class="playtest-tool-group">
+            <h3>Counters</h3>
+            <div class="playtest-counter-row">
+              <input id="playtest-counter-type" type="text" value="+1/+1" aria-label="Counter type" />
+              <button id="playtest-counter-add" type="button" class="playtest-secondary" disabled title="Add counter">+</button>
+              <button id="playtest-counter-remove" type="button" class="playtest-secondary" disabled title="Remove counter">-</button>
+            </div>
+            <div class="playtest-icon-button-row">
+              <button id="playtest-commander-cast" type="button" class="playtest-secondary" disabled>Cast Cmdr</button>
+              <button id="playtest-commander-reset" type="button" class="playtest-secondary" disabled>Reset Tax</button>
+            </div>
+            <p id="playtest-commander-tax" class="playtest-muted">Commander tax: n/a</p>
           </section>
 
-          <section class="playtest-panel">
-            <h2>Selected Card</h2>
-            <p id="playtest-selected-name" class="playtest-selected-name">No card selected.</p>
-            <div class="playtest-row">
-              <button id="playtest-toggle-tap" type="button" class="playtest-secondary" disabled>Tap / Untap</button>
-              <button id="playtest-toggle-face" type="button" class="playtest-secondary" disabled>Face Up / Down</button>
+          <section class="playtest-tool-group">
+            <h3>Tokens</h3>
+            <input id="playtest-token-name" type="text" placeholder="Token name" aria-label="Token name" />
+            <div class="playtest-counter-row">
+              <input id="playtest-token-count" type="number" min="1" value="1" aria-label="Token quantity" />
+              <input id="playtest-token-image" type="url" placeholder="Image URL (optional)" aria-label="Token image URL" />
             </div>
-            <label for="playtest-counter-type">Counter type</label>
-            <input id="playtest-counter-type" type="text" value="+1/+1" />
-            <div class="playtest-row">
-              <button id="playtest-counter-add" type="button" class="playtest-secondary" disabled>Add Counter</button>
-              <button id="playtest-counter-remove" type="button" class="playtest-secondary" disabled>Remove Counter</button>
-            </div>
-            <div class="playtest-row">
-              <button id="playtest-commander-cast" type="button" class="playtest-secondary" disabled>Commander Cast +1</button>
-              <button id="playtest-commander-reset" type="button" class="playtest-secondary" disabled>Reset Commander Tax</button>
-            </div>
-            <p id="playtest-commander-tax" class="playtest-muted">Commander Tax: n/a</p>
-            <div class="playtest-zone-actions">
-              <button data-move-zone="hand" type="button" class="playtest-secondary" disabled>To Hand</button>
-              <button data-move-zone="battlefield" type="button" class="playtest-secondary" disabled>To Battlefield</button>
-              <button data-move-zone="graveyard" type="button" class="playtest-secondary" disabled>To Graveyard</button>
-              <button data-move-zone="exile" type="button" class="playtest-secondary" disabled>To Exile</button>
-              <button data-move-zone="command" type="button" class="playtest-secondary" disabled>To Command</button>
-            </div>
-            <details class="playtest-shortcuts" open>
-              <summary>Keyboard Shortcuts</summary>
-              <ul>
-                <li><strong>D</strong>: Draw 1</li>
-                <li><strong>Shift + D</strong>: Draw 7</li>
-                <li><strong>T</strong>: Tap/Untap selected card</li>
-                <li><strong>U</strong>: Untap selected card</li>
-                <li><strong>H/B/G/E/C/L</strong>: Move selected card to Hand/Battlefield/Graveyard/Exile/Command/Library</li>
-                <li><strong>Ctrl + Z</strong>: Undo</li>
-                <li><strong>Ctrl + Y</strong>: Redo</li>
-              </ul>
-            </details>
-          </section>
-        </aside>
-
-        <section class="playtest-main">
-          <section class="playtest-panel playtest-zones">
-            <h2>Zones</h2>
-            <div class="playtest-zone-grid">
-              <button class="playtest-zone" data-zone="library" type="button">
-                <span>Library</span>
-                <strong id="zone-count-library">0</strong>
-              </button>
-              <button class="playtest-zone" data-zone="graveyard" type="button">
-                <span>Graveyard</span>
-                <strong id="zone-count-graveyard">0</strong>
-              </button>
-              <button class="playtest-zone" data-zone="exile" type="button">
-                <span>Exile</span>
-                <strong id="zone-count-exile">0</strong>
-              </button>
-              <button class="playtest-zone" data-zone="command" type="button">
-                <span>Command</span>
-                <strong id="zone-count-command">0</strong>
-              </button>
-            </div>
+            <button id="playtest-create-token" type="button">Create Token</button>
           </section>
 
-          <section class="playtest-panel playtest-battlefield-wrap">
-            <div class="playtest-battlefield-head">
-              <h2>Battlefield Canvas</h2>
-              <p>Drag cards here and move them around freely.</p>
-            </div>
-            <div id="playtest-battlefield-drop" class="playtest-battlefield-drop">
-              <canvas id="playtest-battlefield-canvas" width="1400" height="760"></canvas>
-              <div id="playtest-battlefield-cards" class="playtest-battlefield-cards"></div>
-            </div>
-          </section>
-
-          <section class="playtest-panel">
-            <h2>Hand</h2>
-            <div id="playtest-hand" class="playtest-hand" data-zone="hand"></div>
-          </section>
-
-          <section class="playtest-panel">
-            <h2>Zone Cards</h2>
-            <p class="playtest-muted">Click a zone above to inspect and move cards from that zone.</p>
-            <div class="playtest-row">
-              <button id="playtest-zone-to-top" type="button" class="playtest-secondary" disabled>Selected to Top</button>
-              <button id="playtest-zone-to-bottom" type="button" class="playtest-secondary" disabled>Selected to Bottom</button>
-            </div>
-            <div id="playtest-zone-cards" class="playtest-zone-cards"></div>
-          </section>
-
-          <section class="playtest-panel">
-            <details class="playtest-diagnostics" open>
-              <summary>Debug Snapshot</summary>
-              <pre id="playtest-debug-output" class="playtest-debug-output">{}</pre>
-            </details>
-          </section>
-
-          <section class="playtest-panel">
-            <details class="playtest-diagnostics" open>
-              <summary>Smoke Checklist</summary>
-              <div class="playtest-smoke-list" id="playtest-smoke-list">
-                <label><input type="checkbox" /> Load deck</label>
-                <label><input type="checkbox" /> Draw cards</label>
-                <label><input type="checkbox" /> Mulligan flow</label>
-                <label><input type="checkbox" /> Move cards between zones</label>
-                <label><input type="checkbox" /> Tap and untap</label>
-                <label><input type="checkbox" /> Counters add/remove</label>
-                <label><input type="checkbox" /> Commander tax update</label>
-                <label><input type="checkbox" /> Token creation</label>
-                <label><input type="checkbox" /> Undo and redo</label>
-                <label><input type="checkbox" /> Session restore after reload</label>
+          <details class="playtest-tool-group playtest-extra-tools">
+            <summary>More tools</summary>
+            <div class="playtest-extra-content">
+              <div class="playtest-icon-button-row">
+                <button id="playtest-export-session" type="button" class="playtest-secondary">Export</button>
+                <button id="playtest-copy-session" type="button" class="playtest-secondary">Copy</button>
+                <button id="playtest-import-session" type="button" class="playtest-secondary">Import</button>
+                <button id="playtest-clear-session-json" type="button" class="playtest-secondary">Clear</button>
               </div>
-            </details>
-          </section>
+              <textarea id="playtest-session-json" rows="4" placeholder="Session JSON"></textarea>
+            </div>
+          </details>
 
-          <section class="playtest-panel">
-            <details class="playtest-diagnostics" open>
-              <summary>Action Log</summary>
-              <div id="playtest-action-log" class="playtest-action-log"></div>
-            </details>
-          </section>
-        </section>
+          <details class="playtest-shortcuts">
+            <summary>Keyboard shortcuts</summary>
+            <ul>
+              <li><strong>D</strong> draw, <strong>Shift+D</strong> draw 7</li>
+              <li><strong>T</strong> tap, <strong>U</strong> untap</li>
+              <li><strong>H/B/G/E/C/L</strong> move to hand, field, grave, exile, command, library</li>
+              <li><strong>Ctrl+Z</strong> undo, <strong>Ctrl+Y</strong> redo</li>
+            </ul>
+          </details>
+        </aside>
       </main>
     </div>
 
