@@ -64,6 +64,10 @@
   const handEl = document.getElementById('playtest-hand');
   const zoneCardsEl = document.getElementById('playtest-zone-cards');
   const zoneSearchInput = document.getElementById('playtest-zone-search');
+  const libraryLookCountInput = document.getElementById('playtest-library-look-count');
+  const libraryLookButton = document.getElementById('playtest-library-look');
+  const libraryScryButton = document.getElementById('playtest-library-scry');
+  const librarySurveilButton = document.getElementById('playtest-library-surveil');
   const inspectedZoneLabelEl = document.getElementById('playtest-inspected-zone-label');
   const debugOutputEl = document.getElementById('playtest-debug-output');
   const actionLogEl = document.getElementById('playtest-action-log');
@@ -83,6 +87,8 @@
     inspectedZone: 'graveyard',
     inspectedZoneSearch: '',
     inspectedZoneOpen: false,
+    libraryPreviewCount: 0,
+    libraryPreviewMode: '',
     mulliganCount: 0,
     openingHandSize: 7,
     shuffleSeed: '',
@@ -628,6 +634,23 @@
     });
   }
 
+  function previewLibraryTop(count, mode) {
+    const amount = Math.max(1, Math.min(state.zones.library.length, Number(count) || 1));
+    if (!state.zones.library.length) {
+      setStatus('Library is empty.');
+      return;
+    }
+
+    state.inspectedZone = 'library';
+    state.inspectedZoneOpen = true;
+    state.inspectedZoneSearch = '';
+    state.libraryPreviewCount = amount;
+    state.libraryPreviewMode = mode;
+    renderAll();
+    saveSession();
+    setStatus(`${mode} the top ${amount} card${amount === 1 ? '' : 's'} of your library.`);
+  }
+
   function initializeOpeningHand(size) {
     if (!state.deckId) {
       setStatus('Load a deck first.');
@@ -979,7 +1002,9 @@
 
     const meta = document.createElement('div');
     meta.className = 'playtest-card-meta';
-    meta.innerHTML = `<span>${escapeHtml(card.name)}</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`;
+    meta.innerHTML = card.faceDown
+      ? `<span>Face down</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`
+      : `<span>${escapeHtml(card.name)}</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`;
     cardEl.appendChild(meta);
 
     cardEl.addEventListener('click', (event) => {
@@ -1033,17 +1058,22 @@
     }
 
     const normalizedSearch = state.inspectedZoneSearch.toLowerCase();
-    const visibleCards = normalizedSearch
-      ? cards.filter((card) => card.name.toLowerCase().includes(normalizedSearch) || card.typeLine.toLowerCase().includes(normalizedSearch))
+    const previewCards = state.inspectedZone === 'library' && state.libraryPreviewCount > 0
+      ? cards.slice(-state.libraryPreviewCount)
       : cards;
+    const visibleCards = normalizedSearch
+      ? previewCards.filter((card) => card.name.toLowerCase().includes(normalizedSearch) || card.typeLine.toLowerCase().includes(normalizedSearch))
+      : previewCards;
 
     visibleCards
       .slice()
       .reverse()
       .forEach((card) => {
         const zoneViewCard = { ...card };
-        // The deck browser reveals card faces for search only; the actual library remains unchanged.
-        zoneViewCard.faceDown = false;
+        // Only the library browser reveals cards; face-down battlefield/exile cards stay hidden.
+        if (state.inspectedZone === 'library') {
+          zoneViewCard.faceDown = false;
+        }
         zoneCardsEl.appendChild(createCardElement(zoneViewCard, state.inspectedZone));
       });
 
@@ -1609,6 +1639,8 @@
         state.inspectedZone = zone;
         state.inspectedZoneSearch = '';
         state.inspectedZoneOpen = true;
+        state.libraryPreviewCount = 0;
+        state.libraryPreviewMode = '';
         renderAll();
         saveSession();
       });
@@ -1619,6 +1651,13 @@
       renderInspectedZoneCards();
       updateSelectedControls();
     });
+
+    const previewLibrary = (mode) => {
+      previewLibraryTop(libraryLookCountInput?.value, mode);
+    };
+    libraryLookButton?.addEventListener('click', () => previewLibrary('Looking at'));
+    libraryScryButton?.addEventListener('click', () => previewLibrary('Scrying'));
+    librarySurveilButton?.addEventListener('click', () => previewLibrary('Surveilling'));
 
     document.body.addEventListener('click', (event) => {
       if (event.target.closest('.playtest-card, .playtest-tools-panel, .playtest-zone-stack, .playtest-zone-drawer')) {

@@ -37,7 +37,7 @@
                 <span>Command</span><strong id="zone-count-command">0</strong><span id="zone-pile-command" class="playtest-zone-pile"></span>
               </button>
               <button class="playtest-zone playtest-zone-stack" data-zone="library" type="button">
-                <span>Deck</span><strong id="zone-count-library">0</strong><span id="zone-pile-library" class="playtest-zone-pile"></span>
+                <span>Library</span><strong id="zone-count-library">0</strong><span id="zone-pile-library" class="playtest-zone-pile"></span>
               </button>
               <button class="playtest-zone playtest-zone-stack" data-zone="graveyard" type="button">
                 <span>Graveyard</span><strong id="zone-count-graveyard">0</strong><span id="zone-pile-graveyard" class="playtest-zone-pile"></span>
@@ -86,6 +86,12 @@
             <select id="playtest-deck-select"></select>
             <label for="playtest-shuffle-seed">Shuffle seed <span class="playtest-optional">optional</span></label>
             <input id="playtest-shuffle-seed" type="text" placeholder="Repeatable shuffle" />
+            <div class="playtest-counter-row">
+              <input id="playtest-library-look-count" type="number" min="1" value="1" aria-label="Number of library cards to view" />
+              <button id="playtest-library-look" type="button" class="playtest-secondary" title="Look at the top cards">Look</button>
+              <button id="playtest-library-scry" type="button" class="playtest-secondary" title="Scry the top cards">Scry</button>
+              <button id="playtest-library-surveil" type="button" class="playtest-secondary" title="Surveil the top cards">Surveil</button>
+            </div>
             <div class="playtest-icon-button-row">
               <button id="playtest-load-deck" type="button" title="Load selected deck">Load</button>
               <button id="playtest-shuffle" type="button" class="playtest-secondary" title="Shuffle library">Shuffle</button>
@@ -117,7 +123,7 @@
               <button data-move-zone="graveyard" type="button" class="playtest-secondary" title="Move selected card to graveyard" disabled>Grave</button>
               <button data-move-zone="exile" type="button" class="playtest-secondary" title="Move selected card to exile" disabled>Exile</button>
               <button data-move-zone="command" type="button" class="playtest-secondary" title="Move selected card to command zone" disabled>Cmd</button>
-              <button data-move-zone="library" type="button" class="playtest-secondary" title="Move selected card to library" disabled>Deck</button>
+              <button data-move-zone="library" type="button" class="playtest-secondary" title="Move selected card to library" disabled>Library</button>
             </div>
           </details>
 

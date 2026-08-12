@@ -516,6 +516,16 @@ button:disabled {
   grid-column: span 2;
 }
 
+#playtest-library-look-count {
+  min-width: 0;
+}
+
+@media (max-width: 460px) {
+  #playtest-library-look-count {
+    grid-column: 1 / -1;
+  }
+}
+
 .playtest-selected-name {
   min-height: 28px;
   margin: 0;
