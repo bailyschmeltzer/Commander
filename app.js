@@ -1802,6 +1802,8 @@ function updateSyncAuthenticatedUser(auth = null) {
       deckLibraryPlayerFilterSelect.value = '';
     }
   }
+
+  document.dispatchEvent(new CustomEvent('commander:auth-changed'));
 }
 
 function clearSyncAuthenticatedUser() {
@@ -14866,11 +14868,6 @@ function refresh() {
   initializeMobileSortControls();
   applyResponsiveTableLabels();
 
-  if (hasAdminLogsView) {
-    void refreshAuthAuditLogs();
-    void refreshRegisteredAccounts();
-  }
-
   if (hasDeckLibraryView || hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
     void backfillDeckListCommanderOracleIds();
   }
@@ -16310,76 +16307,6 @@ function setupSyncUi() {
     syncConnectButton.addEventListener('click', handleSyncConnect);
   }
 
-  if (authAuditRefreshButton) {
-    authAuditRefreshButton.addEventListener('click', () => {
-      void refreshAuthAuditLogs({ force: true });
-      void refreshRegisteredAccounts({ force: true });
-    });
-  }
-
-  if (authAuditExportJsonButton) {
-    authAuditExportJsonButton.addEventListener('click', () => {
-      exportFilteredAuthAuditAsJson();
-    });
-  }
-
-  if (authAuditExportCsvButton) {
-    authAuditExportCsvButton.addEventListener('click', () => {
-      exportFilteredAuthAuditAsCsv();
-    });
-  }
-
-  [authAuditFilterResultSelect, authAuditFilterActionSelect, authAuditFilterUserInput, authAuditFilterFromInput, authAuditFilterToInput].forEach((input) => {
-    input?.addEventListener('input', () => {
-      updateAuthAuditFilterStateFromInputs();
-      updateAuthAuditStatusSummary('neutral');
-      renderAuthAuditLogs();
-    });
-    input?.addEventListener('change', () => {
-      updateAuthAuditFilterStateFromInputs();
-      updateAuthAuditStatusSummary('neutral');
-      renderAuthAuditLogs();
-    });
-  });
-
-  if (authAuditFilterClearButton) {
-    authAuditFilterClearButton.addEventListener('click', () => {
-      resetAuthAuditFilters();
-      updateAuthAuditStatusSummary('neutral');
-      renderAuthAuditLogs();
-    });
-  }
-
-  if (authAuditPageSizeSelect) {
-    authAuditPageSizeSelect.addEventListener('change', () => {
-      updateAuthAuditPaginationState();
-      authAuditCurrentPage = 1;
-      renderAuthAuditLogs();
-      updateAuthAuditStatusSummary('neutral');
-    });
-  }
-
-  if (authAuditPagePrevButton) {
-    authAuditPagePrevButton.addEventListener('click', () => {
-      authAuditCurrentPage = Math.max(1, authAuditCurrentPage - 1);
-      renderAuthAuditLogs();
-    });
-  }
-
-  if (authAuditPageNextButton) {
-    authAuditPageNextButton.addEventListener('click', () => {
-      authAuditCurrentPage += 1;
-      renderAuthAuditLogs();
-    });
-  }
-
-  if (syncDebugClearButton) {
-    syncDebugClearButton.addEventListener('click', () => {
-      syncDebugLogs = [];
-      renderSyncDebugLog();
-    });
-  }
-
   [syncUserInput, syncTokenInput].forEach((input) => {
     input?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -16554,12 +16481,31 @@ async function initializeApp() {
     renderDeckBuilderPage();
   }
 
-  // Force audit logs to load on admin-logs page.
-  if (document.body.classList.contains('page-admin-logs')) {
-    setTimeout(() => {
-      void refreshAuthAuditLogs({ force: true });
-    }, 100);
-  }
+}
+
+if (typeof window !== 'undefined') {
+  window.CommanderAdminLogs = {
+    refreshAuthAuditLogs,
+    refreshRegisteredAccounts,
+    renderAuthAuditLogs,
+    renderRegisteredAccounts,
+    renderSyncDebugLog,
+    updateAuthAuditFilterStateFromInputs,
+    updateAuthAuditPaginationState,
+    updateAuthAuditStatusSummary,
+    resetAuthAuditFilters,
+    exportFilteredAuthAuditAsJson,
+    exportFilteredAuthAuditAsCsv,
+    getAuthAuditState: () => ({
+      currentPage: authAuditCurrentPage,
+      setCurrentPage: (page) => {
+        authAuditCurrentPage = Math.max(1, Number(page) || 1);
+      },
+      clearSyncDebugLogs: () => {
+        syncDebugLogs = [];
+      },
+    }),
+  };
 }
 
 initializeApp();
