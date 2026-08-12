@@ -1356,6 +1356,13 @@ button[type="submit"] {
   margin-bottom: 6px;
 }
 
+.deck-library-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .deck-filter-controls {
   display: flex;
   align-items: flex-end;
@@ -4728,6 +4735,8 @@ button[type="submit"] {
 
   .page-deckbuilder .deck-card-row-actions,
   .page-deckbuilder .deck-card-row-actions button,
+  .page-decklists .deck-library-header-actions,
+  .page-decklists .deck-library-header-actions .page-action-link,
   .page-decklists #deck-library-create,
   .page-deckbuilder .page-action-link {
     width: 100%;

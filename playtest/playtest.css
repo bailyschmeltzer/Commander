@@ -1,0 +1,490 @@
+:root {
+  --bg: #d8e5d1;
+  --panel: #f3f6ec;
+  --panel-border: #243120;
+  --ink: #111a10;
+  --muted: #4a5b47;
+  --accent: #2f6b2f;
+  --accent-strong: #1f4f1f;
+  --danger: #8a1f1f;
+  --card-w: 118px;
+  --card-h: 166px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.playtest-page {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 20% 5%, #edf4e8 0%, transparent 35%),
+    radial-gradient(circle at 85% 25%, #ccdbbf 0%, transparent 30%),
+    linear-gradient(180deg, #dde7d6 0%, #c3d2ba 100%);
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+}
+
+.playtest-shell {
+  width: min(1800px, 100%);
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.playtest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.playtest-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.playtest-header h1 {
+  margin: 2px 0 4px;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+}
+
+.playtest-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.playtest-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.playtest-link-button,
+button {
+  border: 1px solid #1f2b1d;
+  background: #fff;
+  color: var(--ink);
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button:hover,
+.playtest-link-button:hover {
+  transform: translateY(-1px);
+}
+
+.playtest-danger {
+  background: #fff3f3;
+  color: #6f1212;
+  border-color: #6f1212;
+}
+
+.playtest-secondary {
+  background: #eef5ea;
+}
+
+.playtest-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 14px;
+}
+
+.playtest-sidebar,
+.playtest-main {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.playtest-panel {
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 8px 18px rgba(23, 39, 21, 0.12);
+  padding: 12px;
+}
+
+.playtest-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.playtest-panel label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 8px 0 4px;
+}
+
+.playtest-panel input,
+.playtest-panel select,
+.playtest-panel textarea {
+  width: 100%;
+  border: 1px solid #4d5e48;
+  border-radius: 10px;
+  padding: 8px;
+  font: inherit;
+  background: #fff;
+}
+
+.playtest-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.playtest-status,
+.playtest-muted {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.playtest-shortcuts {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: #334330;
+}
+
+.playtest-shortcuts summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.playtest-shortcuts ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.playtest-shortcuts li {
+  margin: 3px 0;
+}
+
+.playtest-inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.playtest-inline-toggle input {
+  width: auto;
+}
+
+.playtest-life-wrap {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 6px;
+}
+
+.playtest-life-wrap input {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.playtest-selected-name {
+  margin: 0;
+  min-height: 34px;
+  font-weight: 700;
+}
+
+.playtest-zone-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#playtest-commander-tax,
+#playtest-mulligan-status {
+  margin-top: 8px;
+}
+
+.playtest-diagnostics summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.playtest-debug-output {
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid #4a5e45;
+  border-radius: 10px;
+  background: #eaf2e4;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 0.76rem;
+}
+
+.playtest-smoke-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.playtest-smoke-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.playtest-smoke-list input {
+  width: auto;
+}
+
+.playtest-action-log {
+  margin-top: 10px;
+  border: 1px solid #4a5e45;
+  border-radius: 10px;
+  background: #eaf2e4;
+  min-height: 90px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  font-size: 0.76rem;
+}
+
+.playtest-action-item {
+  display: block;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(36, 49, 32, 0.15);
+}
+
+.playtest-action-item:last-child {
+  border-bottom: 0;
+}
+
+.playtest-zones .playtest-zone-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.playtest-zone {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 68px;
+  background: #e7f0df;
+}
+
+.playtest-zone.active {
+  background: #cee2c1;
+  border-color: var(--accent-strong);
+}
+
+.playtest-zone strong {
+  font-size: 1.2rem;
+}
+
+.playtest-battlefield-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.playtest-battlefield-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.playtest-battlefield-drop {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid #1a2a18;
+  background: #284626;
+  min-height: 380px;
+}
+
+#playtest-battlefield-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(360px, 44vw, 660px);
+}
+
+.playtest-battlefield-cards {
+  position: absolute;
+  inset: 0;
+}
+
+.playtest-hand,
+.playtest-zone-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 90px;
+}
+
+.playtest-card {
+  width: var(--card-w);
+  min-height: var(--card-h);
+  border: 1px solid #1d2d1b;
+  border-radius: 9px;
+  background: #fefefc;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16);
+  cursor: grab;
+}
+
+.playtest-card.is-selected {
+  outline: 3px solid #75a654;
+}
+
+.playtest-card.is-tapped {
+  transform: rotate(90deg);
+  transform-origin: center center;
+}
+
+.playtest-card.battlefield {
+  position: absolute;
+}
+
+.playtest-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #d8d8d8;
+}
+
+.playtest-card-back {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(135deg, #1e2638 0%, #384a6b 45%, #23304b 100%);
+  color: #f2f6ff;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.playtest-card-meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(14, 22, 13, 0.9);
+  color: #f2f6eb;
+  font-size: 0.68rem;
+  padding: 3px 5px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.playtest-counter-chip {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: inline-flex;
+  background: #fff8cb;
+  border: 1px solid #484123;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  max-width: 102px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playtest-image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.playtest-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 13, 10, 0.72);
+}
+
+.playtest-image-content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 18px;
+}
+
+#playtest-image-close {
+  justify-self: end;
+  margin-bottom: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+#playtest-image {
+  max-width: min(92vw, 520px);
+  max-height: 82vh;
+  border-radius: 12px;
+  border: 1px solid #fff;
+}
+
+@media (max-width: 1080px) {
+  .playtest-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .playtest-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .playtest-shell {
+    padding: 10px;
+  }
+
+  .playtest-header {
+    flex-direction: column;
+  }
+
+  .playtest-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .playtest-zones .playtest-zone-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .playtest-hand,
+  .playtest-zone-cards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  :root {
+    --card-w: 106px;
+    --card-h: 150px;
+  }
+}
