@@ -1591,6 +1591,13 @@
     zoneButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const zone = button.dataset.zone;
+        if (state.inspectedZone === zone && state.inspectedZoneOpen) {
+          state.inspectedZoneOpen = false;
+          renderAll();
+          saveSession();
+          return;
+        }
+
         if (state.touchMoveMode && state.selectedCardId) {
           const selectedLocation = findCardLocation(state.selectedCardId);
           if (selectedLocation && selectedLocation.zone !== zone) {
@@ -1652,6 +1659,14 @@
     });
 
     document.addEventListener('keydown', handleKeyboardShortcut);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && state.inspectedZoneOpen && imageModal.hidden) {
+        state.inspectedZoneOpen = false;
+        renderAll();
+        saveSession();
+      }
+    });
 
     window.addEventListener('resize', () => {
       drawBattlefieldCanvas();
