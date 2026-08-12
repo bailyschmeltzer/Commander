@@ -386,6 +386,19 @@ button:disabled {
   display: block;
 }
 
+.playtest-zone-search {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  margin: 5px 0 2px;
+  border: 1px solid #8d96a9;
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: #fff;
+  color: var(--playtest-ink);
+  font-size: 0.78rem;
+}
+
 .playtest-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

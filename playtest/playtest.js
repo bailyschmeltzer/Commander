@@ -63,6 +63,7 @@
   const battlefieldCardsEl = document.getElementById('playtest-battlefield-cards');
   const handEl = document.getElementById('playtest-hand');
   const zoneCardsEl = document.getElementById('playtest-zone-cards');
+  const zoneSearchInput = document.getElementById('playtest-zone-search');
   const inspectedZoneLabelEl = document.getElementById('playtest-inspected-zone-label');
   const debugOutputEl = document.getElementById('playtest-debug-output');
   const actionLogEl = document.getElementById('playtest-action-log');
@@ -80,6 +81,8 @@
     life: 40,
     selectedCardId: '',
     inspectedZone: 'graveyard',
+    inspectedZoneSearch: '',
+    inspectedZoneOpen: false,
     mulliganCount: 0,
     openingHandSize: 7,
     shuffleSeed: '',
@@ -148,6 +151,8 @@
       life: state.life,
       selectedCardId: state.selectedCardId,
       inspectedZone: state.inspectedZone,
+      inspectedZoneSearch: state.inspectedZoneSearch,
+      inspectedZoneOpen: state.inspectedZoneOpen,
       mulliganCount: state.mulliganCount,
       openingHandSize: state.openingHandSize,
       shuffleSeed: state.shuffleSeed,
@@ -168,6 +173,8 @@
     state.life = Number.isFinite(Number(snapshot.life)) ? Number(snapshot.life) : 40;
     state.selectedCardId = String(snapshot.selectedCardId || '');
     state.inspectedZone = zoneNames.includes(snapshot.inspectedZone) ? snapshot.inspectedZone : 'graveyard';
+    state.inspectedZoneSearch = String(snapshot.inspectedZoneSearch || '');
+    state.inspectedZoneOpen = Boolean(snapshot.inspectedZoneOpen);
     state.mulliganCount = Number.isFinite(Number(snapshot.mulliganCount)) ? Math.max(0, Number(snapshot.mulliganCount)) : 0;
     state.openingHandSize = Number.isFinite(Number(snapshot.openingHandSize)) ? Math.max(0, Number(snapshot.openingHandSize)) : 7;
     state.shuffleSeed = String(snapshot.shuffleSeed || '');
@@ -1019,23 +1026,31 @@
     zoneCardsEl.innerHTML = '';
     const cards = state.zones[state.inspectedZone] || [];
     const zoneDrawer = zoneCardsEl.closest('.playtest-zone-drawer');
-    zoneDrawer?.classList.toggle('is-visible', cards.length > 0);
+    zoneDrawer?.classList.toggle('is-visible', state.inspectedZoneOpen);
+    if (zoneSearchInput) {
+      zoneSearchInput.value = state.inspectedZoneSearch;
+      zoneSearchInput.placeholder = state.inspectedZone === 'library' ? 'Search your deck' : `Search ${state.inspectedZone}`;
+    }
 
-    cards
+    const normalizedSearch = state.inspectedZoneSearch.toLowerCase();
+    const visibleCards = normalizedSearch
+      ? cards.filter((card) => card.name.toLowerCase().includes(normalizedSearch) || card.typeLine.toLowerCase().includes(normalizedSearch))
+      : cards;
+
+    visibleCards
       .slice()
       .reverse()
       .forEach((card) => {
         const zoneViewCard = { ...card };
-        if (state.inspectedZone === 'library') {
-          zoneViewCard.faceDown = true;
-        }
+        // The deck browser reveals card faces for search only; the actual library remains unchanged.
+        zoneViewCard.faceDown = false;
         zoneCardsEl.appendChild(createCardElement(zoneViewCard, state.inspectedZone));
       });
 
-    if (!cards.length) {
+    if (!visibleCards.length) {
       const empty = document.createElement('p');
       empty.className = 'playtest-muted';
-      empty.textContent = `No cards in ${state.inspectedZone}.`;
+      empty.textContent = normalizedSearch ? 'No matching cards.' : `No cards in ${state.inspectedZone}.`;
       zoneCardsEl.appendChild(empty);
     }
   }
@@ -1585,9 +1600,17 @@
         }
 
         state.inspectedZone = zone;
+        state.inspectedZoneSearch = '';
+        state.inspectedZoneOpen = true;
         renderAll();
         saveSession();
       });
+    });
+
+    zoneSearchInput?.addEventListener('input', () => {
+      state.inspectedZoneSearch = zoneSearchInput.value.trim();
+      renderInspectedZoneCards();
+      updateSelectedControls();
     });
 
     document.body.addEventListener('click', (event) => {
