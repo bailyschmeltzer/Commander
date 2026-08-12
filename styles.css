@@ -260,6 +260,31 @@ label {
   word-break: break-word;
 }
 
+.player-table th {
+  position: relative;
+}
+
+.table-column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  z-index: 2;
+  width: 7px;
+  cursor: col-resize;
+}
+
+.table-column-resize-handle:hover,
+body.is-resizing-table-column .table-column-resize-handle {
+  background: rgba(44, 58, 114, 0.35);
+}
+
+body.is-resizing-table-column,
+body.is-resizing-table-column * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .player-stats-table {
   font-size: 0.92rem;
   table-layout: auto;
@@ -3807,6 +3832,10 @@ button[type="submit"] {
 }
 
 @media (max-width: 900px) {
+  .table-column-resize-handle {
+    display: none;
+  }
+
   body {
     font-size: 15px;
   }

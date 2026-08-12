@@ -14701,6 +14701,85 @@ function applyResponsiveTableLabels() {
   });
 }
 
+let activeTableColumnResize = null;
+
+function resetTableColumnWidths(table) {
+  if (!table) {
+    return;
+  }
+
+  table.querySelectorAll('th, td').forEach((cell) => {
+    cell.style.width = '';
+    cell.style.minWidth = '';
+  });
+  table.querySelectorAll('.table-column-resize-handle').forEach((handle) => {
+    handle.remove();
+  });
+}
+
+function initializeTableColumnResizers() {
+  document.querySelectorAll('.player-table').forEach((table) => {
+    resetTableColumnWidths(table);
+
+    const headers = Array.from(table.querySelectorAll(':scope > thead > tr:first-child > th'));
+    if (!headers.length) {
+      return;
+    }
+
+    headers.forEach((header, index) => {
+      if (index === headers.length - 1) {
+        return;
+      }
+
+      const handle = document.createElement('span');
+      handle.className = 'table-column-resize-handle';
+      handle.setAttribute('role', 'separator');
+      handle.setAttribute('aria-label', `Resize ${header.textContent.trim()} column`);
+      handle.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const tableRect = table.getBoundingClientRect();
+        activeTableColumnResize = {
+          table,
+          index,
+          startX: event.clientX,
+          startWidth: header.getBoundingClientRect().width,
+          tableLeft: tableRect.left,
+        };
+        document.body.classList.add('is-resizing-table-column');
+      });
+      handle.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      header.appendChild(handle);
+    });
+  });
+}
+
+document.addEventListener('mousemove', (event) => {
+  if (!activeTableColumnResize) {
+    return;
+  }
+
+  const { table, index, startX, startWidth } = activeTableColumnResize;
+  const tableWidth = table.getBoundingClientRect().width;
+  const nextWidth = Math.max(64, startWidth + (event.clientX - startX));
+  const cells = table.querySelectorAll(`tr > :nth-child(${index + 1})`);
+  cells.forEach((cell) => {
+    cell.style.width = `${Math.min(nextWidth, Math.max(64, tableWidth - 64))}px`;
+    cell.style.minWidth = `${Math.min(nextWidth, Math.max(64, tableWidth - 64))}px`;
+  });
+});
+
+document.addEventListener('mouseup', () => {
+  if (!activeTableColumnResize) {
+    return;
+  }
+  activeTableColumnResize = null;
+  document.body.classList.remove('is-resizing-table-column');
+});
+
 function handleSortableHeaderClick(event) {
   const header = event.target.closest('.sortable-header');
   if (!header) {
@@ -14863,6 +14942,7 @@ function refresh() {
 
   initializeMobileSortControls();
   applyResponsiveTableLabels();
+  initializeTableColumnResizers();
 
   if (hasDeckLibraryView || hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
     void backfillDeckListCommanderOracleIds();
