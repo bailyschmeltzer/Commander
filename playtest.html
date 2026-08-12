@@ -123,7 +123,20 @@
           <details class="playtest-tool-group playtest-collapsible" open>
             <summary>Counters</summary>
             <div class="playtest-counter-row">
-              <input id="playtest-counter-type" type="text" value="+1/+1" aria-label="Counter type" />
+              <select id="playtest-counter-type" aria-label="Counter type">
+                <option value="+1/+1">+1/+1</option>
+                <option value="-1/-1">-1/-1</option>
+                <option value="loyalty">Loyalty</option>
+                <option value="charge">Charge</option>
+                <option value="time">Time</option>
+                <option value="age">Age</option>
+                <option value="quest">Quest</option>
+                <option value="poison">Poison</option>
+                <option value="stun">Stun</option>
+                <option value="shield">Shield</option>
+                <option value="custom">Custom...</option>
+              </select>
+              <input id="playtest-counter-custom" type="text" placeholder="Custom" aria-label="Custom counter type" hidden />
               <button id="playtest-counter-add" type="button" class="playtest-secondary" disabled title="Add counter">+</button>
               <button id="playtest-counter-remove" type="button" class="playtest-secondary" disabled title="Remove counter">-</button>
             </div>

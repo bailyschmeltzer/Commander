@@ -38,6 +38,7 @@
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
   const toggleFaceButton = document.getElementById('playtest-toggle-face');
   const counterTypeInput = document.getElementById('playtest-counter-type');
+  const counterCustomInput = document.getElementById('playtest-counter-custom');
   const counterAddButton = document.getElementById('playtest-counter-add');
   const counterRemoveButton = document.getElementById('playtest-counter-remove');
   const commanderCastButton = document.getElementById('playtest-commander-cast');
@@ -826,7 +827,7 @@
       return;
     }
 
-    const type = String(counterTypeInput.value || '').trim();
+    const type = getSelectedCounterType();
     if (!type) {
       setStatus('Enter a counter type first.');
       return;
@@ -843,6 +844,13 @@
       }
       return Number(card.counters[type] || 0);
     }, (nextValue) => nextValue > 0 ? `${card.name} ${type} counter now ${nextValue}.` : `${card.name} ${type} counter removed.`, 'Counters');
+  }
+
+  function getSelectedCounterType() {
+    if (counterTypeInput?.value === 'custom') {
+      return String(counterCustomInput?.value || '').trim();
+    }
+    return String(counterTypeInput?.value || '').trim();
   }
 
   function moveSelectedToZone(nextZone) {
@@ -1169,9 +1177,10 @@
 
   function toCanvasCoordinates(clientX, clientY) {
     const rect = battlefieldDrop.getBoundingClientRect();
-    const rootStyles = getComputedStyle(document.documentElement);
-    const cardWidth = Number.parseFloat(rootStyles.getPropertyValue('--card-w')) || 135;
-    const cardHeight = Number.parseFloat(rootStyles.getPropertyValue('--card-h')) || 190;
+    const renderedCard = document.querySelector('.playtest-card');
+    const renderedCardRect = renderedCard?.getBoundingClientRect();
+    const cardWidth = renderedCardRect?.width || 135;
+    const cardHeight = renderedCardRect?.height || 190;
     const xInClient = Math.max(0, Math.min(rect.width, clientX - rect.left - cardWidth / 2));
     const yInClient = Math.max(0, Math.min(rect.height, clientY - rect.top - cardHeight / 2));
 
@@ -1536,6 +1545,16 @@
     lifeMinusButton.addEventListener('click', () => adjustLife(-1));
     lifePlusButton.addEventListener('click', () => adjustLife(1));
     lifeInput.addEventListener('change', setLifeFromInput);
+
+    counterTypeInput?.addEventListener('change', () => {
+      const isCustom = counterTypeInput.value === 'custom';
+      if (counterCustomInput) {
+        counterCustomInput.hidden = !isCustom;
+        if (isCustom) {
+          counterCustomInput.focus();
+        }
+      }
+    });
 
     createTokenButton.addEventListener('click', createTokensOnBattlefield);
 

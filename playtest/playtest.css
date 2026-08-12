@@ -11,8 +11,8 @@
   --playtest-accent-soft: #e7ebf7;
   --playtest-danger: #8c1717;
   --playtest-table: #c4cfdf;
-  --card-w: 135px;
-  --card-h: 190px;
+  --card-w: clamp(96px, 9.4vw, 135px);
+  --card-h: calc(var(--card-w) * 1.4074);
 }
 
 * {
@@ -275,6 +275,7 @@ button:disabled {
   background: rgba(247, 249, 255, 0.94);
   box-shadow: 0 4px 10px rgba(28, 31, 42, 0.15);
   backdrop-filter: blur(4px);
+  z-index: 5;
 }
 
 .playtest-life-label {
@@ -319,6 +320,7 @@ button:disabled {
 .playtest-battlefield-cards {
   position: absolute;
   inset: 0;
+  z-index: 2;
 }
 
 .playtest-hand-dock {
@@ -326,13 +328,14 @@ button:disabled {
   right: calc(var(--card-w) * 2 + 28px);
   bottom: 12px;
   left: 12px;
-  min-height: 174px;
+  min-height: calc(var(--card-h) + 34px);
   padding: 8px;
   border: 1px solid rgba(27, 27, 27, 0.75);
   border-radius: 9px;
   background: rgba(247, 249, 255, 0.94);
   box-shadow: 0 4px 10px rgba(28, 31, 42, 0.16);
   backdrop-filter: blur(4px);
+  z-index: 5;
 }
 
 .playtest-hand-heading,
@@ -357,7 +360,7 @@ button:disabled {
 .playtest-zone-cards {
   display: flex;
   gap: 7px;
-  min-height: 128px;
+  min-height: calc(var(--card-h) - 12px);
   padding: 4px 2px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -369,13 +372,14 @@ button:disabled {
   right: 12px;
   left: 12px;
   display: none;
-  min-height: 190px;
+  min-height: calc(var(--card-h) + 34px);
   padding: 8px;
   border: 1px solid rgba(27, 27, 27, 0.75);
   border-radius: 9px;
   background: rgba(247, 249, 255, 0.96);
   box-shadow: 0 4px 10px rgba(28, 31, 42, 0.18);
   backdrop-filter: blur(4px);
+  z-index: 5;
 }
 
 .playtest-zone-drawer.is-visible {
@@ -486,6 +490,10 @@ button:disabled {
   grid-column: auto;
 }
 
+.playtest-counter-row #playtest-counter-custom {
+  grid-column: 1 / -1;
+}
+
 .playtest-counter-row #playtest-token-image {
   grid-column: span 2;
 }
@@ -553,9 +561,9 @@ button:disabled {
 
 .playtest-card {
   position: relative;
-  width: 135px;
-  min-width: 135px;
-  height: 190px;
+  width: var(--card-w);
+  min-width: var(--card-w);
+  height: var(--card-h);
   overflow: hidden;
   border: 1px solid var(--playtest-border);
   border-radius: 7px;
@@ -691,18 +699,7 @@ button:disabled {
 
 @media (max-width: 900px) {
   .playtest-workspace {
-    grid-template-columns: minmax(0, 1fr) 270px;
-  }
-
-  :root {
-    --card-w: 115px;
-    --card-h: 162px;
-  }
-
-  .playtest-card {
-    width: 115px;
-    min-width: 115px;
-    height: 162px;
+    grid-template-columns: minmax(0, 1fr) 280px;
   }
 
   .playtest-zone-stack-rail {
@@ -738,6 +735,25 @@ button:disabled {
     min-height: 72vh;
   }
 
+  :root {
+    --card-w: clamp(92px, 25vw, 115px);
+    --card-h: calc(var(--card-w) * 1.4074);
+  }
+
+  .playtest-zone-stack-rail {
+    right: 8px;
+    top: 8px;
+    grid-template-columns: repeat(2, var(--card-w));
+    grid-template-rows: repeat(3, var(--card-h));
+    gap: 5px;
+  }
+
+  .playtest-hand-dock {
+    right: calc(var(--card-w) * 2 + 18px);
+    bottom: 8px;
+    left: 8px;
+  }
+
   .playtest-tools-panel {
     max-height: none;
     overflow: visible;
@@ -745,5 +761,37 @@ button:disabled {
 
   .playtest-zone-drawer {
     top: 78px;
+  }
+}
+
+@media (max-width: 460px) {
+  .playtest-shell {
+    padding: 8px;
+  }
+
+  .playtest-header-actions {
+    width: 100%;
+  }
+
+  .playtest-header-actions > * {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .playtest-icon-button-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .playtest-wide-button-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .playtest-stage {
+    min-height: 78vh;
+  }
+
+  .playtest-life-tracker {
+    top: 8px;
+    left: 8px;
   }
 }
