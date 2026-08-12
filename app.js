@@ -14797,7 +14797,6 @@ function refresh() {
   const hasCommanderStatsView = Boolean(commanderStatsTableBody);
   const hasDeckLibraryView = Boolean(deckLibraryTableBody);
   const hasDeckSelectorView = Boolean(deckSelectorResults || deckSelectorOwnerList);
-  const hasCommanderBuilderView = Boolean(commanderBuilderResult || commanderBuilderForm);
   const hasDeckBuilderView = Boolean(deckBuilderPage);
   const hasRecordsView = Boolean(recordsTableBody || recordsForm);
   const hasLiveView = Boolean(liveGameForm || livePlayerGrid || liveGameStatus || document.body.classList.contains('page-live-game'));
@@ -14843,10 +14842,6 @@ function refresh() {
 
   if (hasDeckSelectorView) {
     renderDeckSelector();
-  }
-
-  if (hasCommanderBuilderView) {
-    renderCommanderBuilder();
   }
 
   if (shouldWarmCommanderIdentityCache) {
@@ -15952,62 +15947,6 @@ if (deckSelectorForm) {
   });
 }
 
-if (commanderBuilderForm) {
-  commanderBuilderForm.addEventListener('change', (event) => {
-    const modeInput = event.target.closest('input[name="commander-builder-mode"]');
-    if (modeInput) {
-      updateCommanderBuilderModeUi();
-      syncCommanderBuilderPreviewState();
-      return;
-    }
-
-    const colorInput = event.target.closest('input[name="commander-color"]');
-    if (colorInput) {
-      syncCommanderBuilderExclusiveSelection(colorInput);
-      syncCommanderBuilderPreviewState();
-      return;
-    }
-
-    const keywordInput = event.target.closest('input[name="commander-builder-keyword"]');
-    if (!keywordInput) {
-      return;
-    }
-
-    toggleCommanderBuilderKeyword(keywordInput.value, keywordInput.checked);
-    syncCommanderBuilderPreviewState();
-  });
-
-  commanderBuilderForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await runCommanderBuilderRoll();
-  });
-}
-
-if (commanderBuilderKeywordSearch) {
-  commanderBuilderKeywordSearch.addEventListener('input', (event) => {
-    commanderBuilderKeywordSearchTerm = String(event.target.value || '').trim();
-    renderCommanderBuilderKeywordCatalog();
-  });
-}
-
-if (commanderBuilderKeywordSelection) {
-  commanderBuilderKeywordSelection.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-remove-commander-keyword]');
-    if (!button) {
-      return;
-    }
-
-    toggleCommanderBuilderKeyword(button.dataset.removeCommanderKeyword, false);
-    syncCommanderBuilderPreviewState();
-  });
-}
-
-if (commanderBuilderRerollButton) {
-  commanderBuilderRerollButton.addEventListener('click', () => {
-    rerollCommanderBuilderCard();
-  });
-}
-
 if (recordsForm) {
   recordsForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -16484,6 +16423,20 @@ async function initializeApp() {
 }
 
 if (typeof window !== 'undefined') {
+  window.CommanderBuilderPage = {
+    renderCommanderBuilder,
+    updateCommanderBuilderModeUi,
+    syncCommanderBuilderPreviewState,
+    syncCommanderBuilderExclusiveSelection,
+    toggleCommanderBuilderKeyword,
+    renderCommanderBuilderKeywordCatalog,
+    setCommanderBuilderKeywordSearchTerm: (value) => {
+      commanderBuilderKeywordSearchTerm = String(value || '').trim();
+    },
+    runCommanderBuilderRoll,
+    rerollCommanderBuilderCard,
+  };
+
   window.CommanderAdminLogs = {
     refreshAuthAuditLogs,
     refreshRegisteredAccounts,
