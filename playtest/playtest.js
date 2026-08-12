@@ -50,6 +50,10 @@
   const zoneCountGraveyard = document.getElementById('zone-count-graveyard');
   const zoneCountExile = document.getElementById('zone-count-exile');
   const zoneCountCommand = document.getElementById('zone-count-command');
+  const zonePileLibrary = document.getElementById('zone-pile-library');
+  const zonePileGraveyard = document.getElementById('zone-pile-graveyard');
+  const zonePileExile = document.getElementById('zone-pile-exile');
+  const zonePileCommand = document.getElementById('zone-pile-command');
   const zoneToTopButton = document.getElementById('playtest-zone-to-top');
   const zoneToBottomButton = document.getElementById('playtest-zone-to-bottom');
 
@@ -657,10 +661,10 @@
 
   function runMulligan() {
     const nextMulligan = state.mulliganCount + 1;
-    const nextHandSize = Math.max(0, 7 - nextMulligan);
+    const nextHandSize = nextMulligan <= 1 ? 7 : Math.max(0, 8 - nextMulligan);
     commitMutation(() => {
       state.mulliganCount = nextMulligan;
-    }, `Mulligan ${nextMulligan}. Next opening hand size: ${nextHandSize}.`, 'Mulligan');
+    }, `Mulligan ${nextMulligan}. ${nextMulligan === 1 ? 'First mulligan is free.' : `Next opening hand size: ${nextHandSize}.`}`, 'Mulligan');
     initializeOpeningHand(nextHandSize);
   }
 
@@ -771,7 +775,7 @@
   }
 
   function updateMulliganStatus() {
-    mulliganStatusEl.textContent = `Mulligans: ${state.mulliganCount}. Current opening size: ${state.openingHandSize}.`;
+    mulliganStatusEl.textContent = `Mulligans: ${state.mulliganCount} · Opening: ${state.openingHandSize}`;
   }
 
   function updateHistoryButtons() {
@@ -935,7 +939,13 @@
     if (counters) {
       const counterChip = document.createElement('span');
       counterChip.className = 'playtest-counter-chip';
-      counterChip.textContent = counters;
+      Object.entries(card.counters || {})
+        .filter(([, value]) => Number(value) > 0)
+        .forEach(([type, value]) => {
+          const counterLine = document.createElement('span');
+          counterLine.textContent = `${type}: ${value}`;
+          counterChip.appendChild(counterLine);
+        });
       cardEl.appendChild(counterChip);
     }
 
@@ -1019,6 +1029,36 @@
       const zone = button.dataset.zone;
       button.classList.toggle('active', zone === state.inspectedZone);
     });
+
+    renderZonePile(zonePileLibrary, state.zones.library, true);
+    renderZonePile(zonePileGraveyard, state.zones.graveyard, false);
+    renderZonePile(zonePileExile, state.zones.exile, false);
+    renderZonePile(zonePileCommand, state.zones.command, false);
+  }
+
+  function renderZonePile(pileElement, cards, showBack) {
+    if (!pileElement) {
+      return;
+    }
+
+    const topCard = cards[cards.length - 1] || null;
+    pileElement.classList.toggle('has-card', Boolean(topCard));
+    if (!topCard) {
+      pileElement.style.backgroundImage = '';
+      pileElement.textContent = '';
+      return;
+    }
+
+    if (showBack || topCard.faceDown) {
+      pileElement.style.backgroundImage = 'linear-gradient(135deg, #303b5f, #647395)';
+      pileElement.textContent = '';
+      return;
+    }
+
+    pileElement.style.backgroundImage = topCard.imageUri || topCard.imageSmallUri
+      ? `url("${String(topCard.imageUri || topCard.imageSmallUri).replace(/"/g, '\\"')}")`
+      : 'linear-gradient(135deg, #dce4f0, #b7c5d9)';
+    pileElement.textContent = '';
   }
 
   function renderLife() {

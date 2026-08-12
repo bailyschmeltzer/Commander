@@ -29,18 +29,18 @@
         <section class="playtest-stage" aria-label="Playtest table">
           <canvas id="playtest-battlefield-canvas" width="1400" height="760"></canvas>
           <div class="playtest-stage-chrome">
-            <div class="playtest-zone-rail" aria-label="Card zones">
-              <button class="playtest-zone" data-zone="library" type="button">
-                <span>Library</span><strong id="zone-count-library" class="playtest-visually-hidden">0</strong>
+            <div class="playtest-zone-stack-rail" aria-label="Card zones">
+              <button class="playtest-zone playtest-zone-stack" data-zone="exile" type="button">
+                <span>Exile</span><strong id="zone-count-exile">0</strong><span id="zone-pile-exile" class="playtest-zone-pile"></span>
               </button>
-              <button class="playtest-zone" data-zone="graveyard" type="button">
-                <span>Graveyard</span><strong id="zone-count-graveyard" class="playtest-visually-hidden">0</strong>
+              <button class="playtest-zone playtest-zone-stack" data-zone="command" type="button">
+                <span>Command</span><strong id="zone-count-command">0</strong><span id="zone-pile-command" class="playtest-zone-pile"></span>
               </button>
-              <button class="playtest-zone" data-zone="exile" type="button">
-                <span>Exile</span><strong id="zone-count-exile" class="playtest-visually-hidden">0</strong>
+              <button class="playtest-zone playtest-zone-stack" data-zone="library" type="button">
+                <span>Deck</span><strong id="zone-count-library">0</strong><span id="zone-pile-library" class="playtest-zone-pile"></span>
               </button>
-              <button class="playtest-zone" data-zone="command" type="button">
-                <span>Command</span><strong id="zone-count-command" class="playtest-visually-hidden">0</strong>
+              <button class="playtest-zone playtest-zone-stack" data-zone="graveyard" type="button">
+                <span>Graveyard</span><strong id="zone-count-graveyard">0</strong><span id="zone-pile-graveyard" class="playtest-zone-pile"></span>
               </button>
             </div>
             <div class="playtest-life-tracker" aria-label="Life tracker">
@@ -91,7 +91,7 @@
               <button id="playtest-draw-1" type="button" class="playtest-secondary" title="Draw one card">Draw</button>
               <button id="playtest-draw-7" type="button" class="playtest-secondary" title="Draw seven cards">7</button>
             </div>
-            <div class="playtest-icon-button-row">
+            <div class="playtest-icon-button-row playtest-wide-button-row">
               <button id="playtest-opening-hand" type="button" class="playtest-secondary">Opening 7</button>
               <button id="playtest-mulligan" type="button" class="playtest-secondary">Mulligan</button>
               <button id="playtest-undo" type="button" class="playtest-secondary" title="Undo">Undo</button>
