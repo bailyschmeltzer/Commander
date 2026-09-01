@@ -352,6 +352,7 @@ let deckBuilderTokenSearchLoading = false;
 let deckBuilderTokenSearchResultsState = [];
 let deckBuilderSelectedCard = null;
 let deckBuilderSelectedDeckCardId = null;
+let deckBuilderSelectedFaceIndex = 0;
 let deckBuilderSaveTimer = null;
 let deckBuilderArtPickerCardId = '';
 let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
@@ -9116,6 +9117,7 @@ async function selectDeckCardByName(cardName) {
     const card = await fetchDeckCardByName(cardName);
     if (card) {
       deckBuilderSelectedCard = card;
+      deckBuilderSelectedFaceIndex = 0;
       persistDeckBuilderSelectedCard(card);
       // Hide search results and show selection panel
       if (deckBuilderSearchResults) {
@@ -9202,32 +9204,49 @@ function renderDeckBuilderSelection() {
   persistDeckBuilderSelectedCard(card);
   deckBuilderSelection.dataset.selectedCard = JSON.stringify(card);
 
+  const cardFaces = Array.isArray(card.cardFaces) ? card.cardFaces : [];
+  const activeFaceIndex = cardFaces.length
+    ? Math.min(Math.max(0, deckBuilderSelectedFaceIndex), cardFaces.length - 1)
+    : 0;
+  const activeFace = cardFaces[activeFaceIndex] || null;
+  const activeFaceName = activeFace?.name || card.name;
+  const activeFaceImage = activeFace?.imageLargeUri || activeFace?.imageUri || card.imageLargeUri || card.imageUri || '';
+  const activeFaceTypeLine = activeFace?.typeLine || card.typeLine || 'No type line available';
+  const activeFaceManaCost = activeFace?.manaCost || card.manaCost || '—';
+  const activeFaceRulesText = activeFace?.oracleText || getDeckCardRulesText(card);
+  const activeFaceStatLine = getDeckCardStatLine(activeFace || card);
+  const canFlipFaces = cardFaces.length > 1;
   const badges = [
     card.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
     card.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
   ].filter(Boolean).join('');
-  const rulesText = getDeckCardRulesText(card);
-  const statLine = getDeckCardStatLine(card);
   const canSetCommander = canSetCardAsCommanderForDeck(deck, card);
 
   deckBuilderSelection.innerHTML = `
     <article class="deck-card-preview">
+      ${activeFaceImage ? `<img class="deck-card-preview-image" src="${escapeHtml(activeFaceImage)}" alt="${escapeHtml(activeFaceName)}" loading="lazy" />` : ''}
       <div class="deck-card-preview-copy">
         <p class="deck-card-preview-kicker">Selected Card</p>
-        <h3>${escapeHtml(card.name)}</h3>
-        <p class="deck-card-preview-meta">${escapeHtml(card.typeLine || 'No type line available')}</p>
-        <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(card.manaCost || '—')}</p>
-        ${statLine ? `<p class="deck-card-preview-meta">${escapeHtml(statLine)}</p>` : ''}
-        ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
+        <h3>${escapeHtml(activeFaceName)}</h3>
+        <p class="deck-card-preview-meta">${escapeHtml(activeFaceTypeLine)}</p>
+        <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(activeFaceManaCost)}</p>
+        ${activeFaceStatLine ? `<p class="deck-card-preview-meta">${escapeHtml(activeFaceStatLine)}</p>` : ''}
+        ${activeFaceRulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(activeFaceRulesText)}</div>` : ''}
         ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
       </div>
       <div class="actions deck-card-preview-actions">
+        ${canFlipFaces ? `<button type="button" id="deck-builder-flip-card" class="secondary-button">Flip</button>` : ''}
         <button type="button" id="deck-builder-add-card" onclick="window.__deckBuilderAddSelectedCard && window.__deckBuilderAddSelectedCard(event)"${isReadOnly ? ' disabled' : ''}>Add to Deck</button>
         ${card.isToken ? `<button type="button" id="deck-builder-add-token" class="secondary-button" onclick="window.__deckBuilderAddSelectedToken && window.__deckBuilderAddSelectedToken(event)"${isReadOnly ? ' disabled' : ''}>Add to Tokens</button>` : ''}
         <button type="button" id="deck-builder-add-maybeboard" class="secondary-button" onclick="window.__deckBuilderAddSelectedMaybeboard && window.__deckBuilderAddSelectedMaybeboard(event)"${isReadOnly ? ' disabled' : ''}>Add to Maybeboard</button>
         ${canSetCommander ? `<button type="button" id="deck-builder-set-commander" class="secondary-button" onclick="window.__deckBuilderSetCommander && window.__deckBuilderSetCommander(event)"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>` : ''}
       </div>
     </article>`;
+
+  deckBuilderSelection.querySelector('#deck-builder-flip-card')?.addEventListener('click', () => {
+    deckBuilderSelectedFaceIndex = (activeFaceIndex + 1) % cardFaces.length;
+    renderDeckBuilderSelection();
+  });
 
 }
 

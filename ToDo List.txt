@@ -39,6 +39,6 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Fix admin logs shortcut not showing for admins on all pages
 
-Dual sided cards should be able to flip, but image and description text in the deck builder
+[x] Dual sided cards should be able to flip, but image and description text in the deck builder
 
 Harden importing from rate limiting

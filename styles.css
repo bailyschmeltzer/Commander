@@ -1829,11 +1829,21 @@ button[type="submit"] {
 
 .deck-card-preview {
   display: grid;
+  grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
   gap: 14px;
   padding: 16px;
   border: 1px solid #000000;
   border-radius: 16px;
   background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
+}
+
+.deck-card-preview-image {
+  width: 100%;
+  max-height: 230px;
+  object-fit: contain;
+  border: 1px solid #aaaaaa;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .deck-card-preview-copy h3 {
@@ -1865,7 +1875,19 @@ button[type="submit"] {
 }
 
 .deck-card-preview-actions {
+  grid-column: 1 / -1;
   margin-top: 2px;
+}
+
+@media (max-width: 560px) {
+  .deck-card-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card-preview-image {
+    width: min(100%, 220px);
+    justify-self: center;
+  }
 }
 
 .deck-card-badge-row {
