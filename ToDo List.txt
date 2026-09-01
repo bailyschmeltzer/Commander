@@ -25,7 +25,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Add an emblem creator for planeswalker abilities
 
-Ability to send a card to front or back of the field stack, i.e. put an equipment behind a creature
+[x] Ability to send a card to front or back of the field stack, i.e. put an equipment behind a creature
 
 Add a floating mana tracker
 

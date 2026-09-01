@@ -42,6 +42,8 @@
   const selectedNameEl = document.getElementById('playtest-selected-name');
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
   const toggleFaceButton = document.getElementById('playtest-toggle-face');
+  const sendBackButton = document.getElementById('playtest-send-back');
+  const sendFrontButton = document.getElementById('playtest-send-front');
   const createTokenCopyButton = document.getElementById('playtest-create-token-copy');
   const tokenCopyNonlegendaryInput = document.getElementById('playtest-token-copy-nonlegendary');
   const counterTypeInput = document.getElementById('playtest-counter-type');
@@ -808,6 +810,25 @@
     }, `Life set to ${parsed}.`, 'Set Life');
   }
 
+  function reorderSelectedOnBattlefield(toFront) {
+    const card = getSelectedCard();
+    const location = card ? findCardLocation(card.instanceId) : null;
+    if (!location || location.zone !== 'battlefield') {
+      return;
+    }
+
+    commitMutation(() => {
+      state.zones.battlefield.splice(location.index, 1);
+      if (toFront) {
+        state.zones.battlefield.push(card);
+      } else {
+        state.zones.battlefield.unshift(card);
+      }
+    }, `${card.name} moved to the ${toFront ? 'front' : 'back'} of the battlefield.`, 'Reorder Battlefield', {
+      noopMessage: `${card.name} is already at the ${toFront ? 'front' : 'back'} of the battlefield.`,
+    });
+  }
+
   function getSelectedCard() {
     if (!state.selectedCardId) {
       return null;
@@ -845,6 +866,9 @@
     moveZoneButtons.forEach((button) => {
       button.disabled = !canManageCard;
     });
+    const selectedOnBattlefield = hasSelection && findCardLocation(card.instanceId)?.zone === 'battlefield';
+    sendBackButton.disabled = !selectedOnBattlefield;
+    sendFrontButton.disabled = !selectedOnBattlefield;
 
     const selectedInInspectedZone = hasSelection
       && findCardLocation(card.instanceId)?.zone === state.inspectedZone
@@ -1865,6 +1889,8 @@
 
     toggleTapButton.addEventListener('click', () => toggleSelectedTapState(false));
     toggleFaceButton.addEventListener('click', toggleSelectedFaceState);
+    sendBackButton.addEventListener('click', () => reorderSelectedOnBattlefield(false));
+    sendFrontButton.addEventListener('click', () => reorderSelectedOnBattlefield(true));
     createTokenCopyButton.addEventListener('click', createTokenCopyOfSelectedCard);
     counterAddButton.addEventListener('click', () => adjustSelectedCounter(1));
     counterRemoveButton.addEventListener('click', () => adjustSelectedCounter(-1));
