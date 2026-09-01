@@ -317,7 +317,8 @@ button:disabled {
   border-radius: 8px;
   background: rgba(247, 249, 255, 0.94);
   box-shadow: 0 4px 10px rgba(28, 31, 42, 0.15);
-  z-index: 5;
+  z-index: 6;
+  pointer-events: auto;
 }
 
 .playtest-mana-tracker {
