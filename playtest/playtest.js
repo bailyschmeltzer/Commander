@@ -953,12 +953,6 @@
       const castCount = Number(state.commanderTaxByName[key] || 0);
       const tax = castCount * 2;
       commanderTaxEl.textContent = `${card.name}: cast ${castCount} time${castCount === 1 ? '' : 's'}, tax +${tax}.`;
-    } else if (card.isToken && !card.imageUri && !card.imageSmallUri) {
-      const tokenFace = document.createElement('div');
-      tokenFace.className = 'playtest-token-face';
-      tokenFace.dataset.color = card.tokenColor || 'colorless';
-      tokenFace.textContent = card.name;
-      cardEl.appendChild(tokenFace);
     } else {
       commanderTaxEl.textContent = 'Commander Tax: n/a';
     }
