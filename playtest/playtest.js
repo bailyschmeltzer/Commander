@@ -59,6 +59,7 @@
   const zonePileGraveyard = document.getElementById('zone-pile-graveyard');
   const zonePileExile = document.getElementById('zone-pile-exile');
   const zonePileCommand = document.getElementById('zone-pile-command');
+  const commandZoneTaxEl = document.getElementById('playtest-command-zone-tax');
   const zoneToTopButton = document.getElementById('playtest-zone-to-top');
   const zoneToBottomButton = document.getElementById('playtest-zone-to-bottom');
 
@@ -639,6 +640,11 @@
     }
 
     card.zone = nextZone;
+
+    if (nextZone === 'command' && isCommanderLikeCard(card)) {
+      const key = getCommanderTaxKey(card);
+      state.commanderTaxByName[key] = Number(state.commanderTaxByName[key] || 0) + 1;
+    }
 
     if (nextZone === 'battlefield') {
       card.x = Number.isFinite(Number(options?.x)) ? Number(options.x) : card.x;
@@ -1222,6 +1228,12 @@
     renderZonePile(zonePileExile, state.zones.exile, false);
     renderZonePile(zonePileCommand, state.zones.command, false);
     zonePileCommand.draggable = state.zones.command.length > 0;
+
+    const commanderTaxes = state.zones.command
+      .filter(isCommanderLikeCard)
+      .map((card) => `${card.name}: +${Number(state.commanderTaxByName[getCommanderTaxKey(card)] || 0) * 2}`);
+    commandZoneTaxEl.hidden = !commanderTaxes.length;
+    commandZoneTaxEl.textContent = commanderTaxes.join(' | ');
   }
 
   function renderZonePile(pileElement, cards, showBack) {

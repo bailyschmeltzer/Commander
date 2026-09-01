@@ -19,7 +19,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] The commander should be able to be click and dragged out of the command zone instead of needing to open the command zone
 
-Commander tax should be displayed below the command zone
+[x] Commander tax should be displayed below the command zone
 
 Cards that move from the battlefield to anywhere else should automatically lose all counters
 

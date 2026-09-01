@@ -183,6 +183,25 @@ button:disabled {
   grid-row: 1;
 }
 
+.playtest-command-zone-tax {
+  position: absolute;
+  top: calc(var(--card-h) + 4px);
+  left: 0;
+  z-index: 3;
+  width: var(--card-w);
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 1px solid rgba(27, 27, 27, 0.7);
+  border-radius: 4px;
+  background: rgba(247, 249, 255, 0.94);
+  color: var(--playtest-accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .playtest-zone-stack[data-zone="exile"] {
   grid-column: 2;
   grid-row: 1;
