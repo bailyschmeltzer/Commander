@@ -35,7 +35,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] click (not holding) a single card in play field to tap or untap
 
-slow down hold to change on life counters in live game. 1 full second should tick by 5
+[x] slow down hold to change on life counters in live game. 1 full second should tick by 5
 
 Fix admin logs shortcut not showing for admins on all pages
 
