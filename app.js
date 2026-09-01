@@ -9164,28 +9164,44 @@ function renderDeckBuilderSelection() {
     
     if (deck?.commander) {
       const commander = deck.commander;
+      const commanderFaces = Array.isArray(commander.cardFaces) ? commander.cardFaces : [];
+      const activeFaceIndex = commanderFaces.length
+        ? Math.min(Math.max(0, deckBuilderSelectedFaceIndex), commanderFaces.length - 1)
+        : 0;
+      const activeFace = commanderFaces[activeFaceIndex] || null;
+      const activeFaceName = activeFace?.name || commander.name;
+      const activeFaceImage = activeFace?.imageLargeUri || activeFace?.imageUri || commander.imageLargeUri || commander.imageUri || '';
+      const activeFaceTypeLine = activeFace?.typeLine || commander.typeLine || 'No type line available';
+      const activeFaceManaCost = activeFace?.manaCost || commander.manaCost || '—';
       const badges = [
         commander.isBanned ? '<span class="deck-card-badge deck-card-badge-banned">Banned</span>' : '',
         commander.isGameChanger ? '<span class="deck-card-badge deck-card-badge-gamechanger" title="Game Changer" aria-label="Game Changer">&#9889;</span>' : '',
       ].filter(Boolean).join('');
-      const rulesText = getDeckCardRulesText(commander);
-      const statLine = getDeckCardStatLine(commander);
+      const rulesText = activeFace?.oracleText || getDeckCardRulesText(commander);
+      const statLine = getDeckCardStatLine(activeFace || commander);
 
       deckBuilderSelection.innerHTML = `
         <article class="deck-card-preview">
+          ${activeFaceImage ? `<img class="deck-card-preview-image" src="${escapeHtml(activeFaceImage)}" alt="${escapeHtml(activeFaceName)}" loading="lazy" />` : ''}
           <div class="deck-card-preview-copy">
             <p class="deck-card-preview-kicker">Current Commander</p>
-            <h3>${buildCommanderDisplayHtml(commander.name, escapeHtml(commander.name), commander)}</h3>
-            <p class="deck-card-preview-meta">${escapeHtml(commander.typeLine || 'No type line available')}</p>
-            <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(commander.manaCost || '—')}</p>
+            <h3>${buildCommanderDisplayHtml(activeFaceName, escapeHtml(activeFaceName), commander)}</h3>
+            <p class="deck-card-preview-meta">${escapeHtml(activeFaceTypeLine)}</p>
+            <p class="deck-card-preview-meta">Mana cost: ${escapeHtml(activeFaceManaCost)}</p>
             ${statLine ? `<p class="deck-card-preview-meta">${escapeHtml(statLine)}</p>` : ''}
             ${rulesText ? `<div class="deck-card-preview-rules-text">${formatCommanderBuilderRichText(rulesText)}</div>` : ''}
             ${badges ? `<div class="deck-card-badge-row">${badges}</div>` : ''}
           </div>
           <div class="actions deck-card-preview-actions">
+            ${commanderFaces.length > 1 ? `<button type="button" id="deck-builder-flip-card" class="secondary-button">Flip</button>` : ''}
             <button type="button" class="secondary-button" onclick="window.__deckBuilderRemoveCommander && window.__deckBuilderRemoveCommander(event)"${isReadOnly ? ' disabled' : ''}>Remove Commander</button>
           </div>
         </article>`;
+
+      deckBuilderSelection.querySelector('#deck-builder-flip-card')?.addEventListener('click', () => {
+        deckBuilderSelectedFaceIndex = (activeFaceIndex + 1) % commanderFaces.length;
+        renderDeckBuilderSelection();
+      });
 
       const removeButton = deckBuilderSelection.querySelector('[onclick*="RemoveCommander"]');
       if (removeButton) {

@@ -46,6 +46,7 @@
   const selectedNameEl = document.getElementById('playtest-selected-name');
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
   const toggleFaceButton = document.getElementById('playtest-toggle-face');
+  const flipCardButton = document.getElementById('playtest-flip-card');
   const sendBackButton = document.getElementById('playtest-send-back');
   const sendFrontButton = document.getElementById('playtest-send-front');
   const createTokenCopyButton = document.getElementById('playtest-create-token-copy');
@@ -498,6 +499,14 @@
       imageSmallUri: String(base.imageUri || '').trim(),
       typeLine: String(base.typeLine || '').trim(),
       scryfallUri: String(base.scryfallUri || '').trim(),
+      cardFaces: Array.isArray(base.cardFaces) ? base.cardFaces.map((face) => ({
+        name: String(face?.name || '').trim(),
+        typeLine: String(face?.typeLine || '').trim(),
+        oracleText: String(face?.oracleText || '').trim(),
+        imageUri: String(face?.imageLargeUri || face?.imageUri || '').trim(),
+        imageSmallUri: String(face?.imageUri || '').trim(),
+      })).filter((face) => face.name || face.typeLine || face.oracleText || face.imageUri) : [],
+      faceIndex: Number.isFinite(Number(base.faceIndex)) ? Math.max(0, Number(base.faceIndex)) : 0,
       isToken: Boolean(base.isToken),
       isCopy: Boolean(base.isCopy),
       isEmblem: Boolean(base.isEmblem),
@@ -537,6 +546,14 @@
       imageSmallUri: String(card.imageSmallUri || '').trim(),
       typeLine: String(card.typeLine || '').trim(),
       scryfallUri: String(card.scryfallUri || '').trim(),
+      cardFaces: Array.isArray(card.cardFaces) ? card.cardFaces.map((face) => ({
+        name: String(face?.name || '').trim(),
+        typeLine: String(face?.typeLine || '').trim(),
+        oracleText: String(face?.oracleText || '').trim(),
+        imageUri: String(face?.imageLargeUri || face?.imageUri || '').trim(),
+        imageSmallUri: String(face?.imageUri || '').trim(),
+      })).filter((face) => face.name || face.typeLine || face.oracleText || face.imageUri) : [],
+      faceIndex: Number.isFinite(Number(card.faceIndex)) ? Math.max(0, Number(card.faceIndex)) : 0,
       isToken: Boolean(card.isToken),
       isCopy: Boolean(card.isCopy),
       isEmblem: Boolean(card.isEmblem),
@@ -913,6 +930,7 @@
     const canManageCard = hasSelection && !card.isEmblem;
     toggleTapButton.disabled = !canManageCard;
     toggleFaceButton.disabled = !canManageCard;
+    flipCardButton.disabled = !canManageCard || card.cardFaces.length < 2;
     createTokenCopyButton.disabled = !canManageCard;
     tokenCopyNonlegendaryInput.disabled = !hasSelection;
     counterAddButton.disabled = !canManageCard;
@@ -1002,6 +1020,17 @@
       card.faceDown = !card.faceDown;
       return card.faceDown;
     }, (faceDown) => faceDown ? `${card.name} turned face down.` : `${card.name} turned face up.`, 'Face State');
+  }
+
+  function flipSelectedCard() {
+    const card = getSelectedCard();
+    if (!card || card.isEmblem || card.cardFaces.length < 2) {
+      return;
+    }
+
+    commitMutation(() => {
+      card.faceIndex = (card.faceIndex + 1) % card.cardFaces.length;
+    }, `Flipped to ${card.cardFaces[card.faceIndex].name || card.name}.`, 'Flip Card');
   }
 
   function adjustSelectedCounter(delta) {
@@ -1142,6 +1171,10 @@
       cardEl.style.top = `${top}px`;
     }
 
+    const cardFace = card.cardFaces?.[card.faceIndex % card.cardFaces.length] || null;
+    const displayName = cardFace?.name || card.name;
+    const displayImage = cardFace?.imageUri || cardFace?.imageSmallUri || card.imageUri || card.imageSmallUri;
+
     if (card.isEmblem) {
       const emblemFace = document.createElement('div');
       emblemFace.className = 'playtest-emblem-face';
@@ -1173,8 +1206,8 @@
       cardEl.appendChild(tokenFace);
     } else {
       const image = document.createElement('img');
-      image.src = card.imageUri || card.imageSmallUri || '';
-      image.alt = card.name;
+      image.src = displayImage;
+      image.alt = displayName;
       image.loading = 'lazy';
       image.decoding = 'async';
       cardEl.appendChild(image);
@@ -1215,7 +1248,7 @@
 
     const meta = document.createElement('div');
     meta.className = 'playtest-card-meta';
-    const cardLabel = card.isCopy ? `Copy: ${card.name}` : card.name;
+    const cardLabel = card.isCopy ? `Copy: ${displayName}` : displayName;
     meta.innerHTML = card.faceDown
       ? `<span>Face down</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`
       : `<span>${escapeHtml(cardLabel)}</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`;
@@ -1968,6 +2001,7 @@
 
     toggleTapButton.addEventListener('click', () => toggleSelectedTapState(false));
     toggleFaceButton.addEventListener('click', toggleSelectedFaceState);
+    flipCardButton.addEventListener('click', flipSelectedCard);
     sendBackButton.addEventListener('click', () => reorderSelectedOnBattlefield(false));
     sendFrontButton.addEventListener('click', () => reorderSelectedOnBattlefield(true));
     createTokenCopyButton.addEventListener('click', createTokenCopyOfSelectedCard);
