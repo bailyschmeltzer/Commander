@@ -32,6 +32,9 @@
   const tokenNameInput = document.getElementById('playtest-token-name');
   const tokenCountInput = document.getElementById('playtest-token-count');
   const tokenImageInput = document.getElementById('playtest-token-image');
+  const tokenPowerInput = document.getElementById('playtest-token-power');
+  const tokenToughnessInput = document.getElementById('playtest-token-toughness');
+  const tokenKeywordsInput = document.getElementById('playtest-token-keywords');
   const createTokenButton = document.getElementById('playtest-create-token');
 
   const selectedNameEl = document.getElementById('playtest-selected-name');
@@ -480,6 +483,9 @@
       isToken: Boolean(base.isToken),
       isCopy: Boolean(base.isCopy),
       isCommanderCard: Boolean(options?.isCommanderCard),
+      power: String(base.power || '').trim(),
+      toughness: String(base.toughness || '').trim(),
+      keywords: Array.isArray(base.keywords) ? base.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean) : [],
       tapped: false,
       faceDown: false,
       counters: {},
@@ -511,6 +517,9 @@
       isToken: Boolean(card.isToken),
       isCopy: Boolean(card.isCopy),
       isCommanderCard: Boolean(card.isCommanderCard),
+      power: String(card.power || '').trim(),
+      toughness: String(card.toughness || '').trim(),
+      keywords: Array.isArray(card.keywords) ? card.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean) : [],
       tapped: Boolean(card.tapped),
       faceDown: Boolean(card.faceDown),
       counters: card.counters && typeof card.counters === 'object' ? { ...card.counters } : {},
@@ -997,6 +1006,17 @@
     return entries.map((entry) => `${entry[0]}:${entry[1]}`).join(' ');
   }
 
+  function summarizeCardDetails(card) {
+    const details = [];
+    if (card.power || card.toughness) {
+      details.push(`${card.power || '?'}/${card.toughness || '?'}`);
+    }
+    if (card.keywords?.length) {
+      details.push(card.keywords.join(', '));
+    }
+    return details.join(' | ');
+  }
+
   function createCardElement(card, contextZone) {
     const cardEl = document.createElement('article');
     cardEl.className = `playtest-card ${contextZone === 'battlefield' ? 'battlefield' : ''}${card.tapped ? ' is-tapped' : ''}${state.selectedCardId === card.instanceId ? ' is-selected' : ''}`;
@@ -1040,6 +1060,14 @@
           counterChip.appendChild(counterLine);
         });
       cardEl.appendChild(counterChip);
+    }
+
+    const cardDetails = summarizeCardDetails(card);
+    if (cardDetails) {
+      const detailChip = document.createElement('span');
+      detailChip.className = 'playtest-card-detail-chip';
+      detailChip.textContent = cardDetails;
+      cardEl.appendChild(detailChip);
     }
 
     const meta = document.createElement('div');
@@ -1435,6 +1463,12 @@
     const count = Number(tokenCountInput.value);
     const amount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
     const imageUri = String(tokenImageInput.value || '').trim();
+    const power = String(tokenPowerInput.value || '').trim();
+    const toughness = String(tokenToughnessInput.value || '').trim();
+    const keywords = String(tokenKeywordsInput.value || '')
+      .split(',')
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
 
     commitMutation(() => {
       for (let i = 0; i < amount; i += 1) {
@@ -1449,6 +1483,9 @@
           isToken: true,
           isCopy: false,
           isCommanderCard: false,
+          power,
+          toughness,
+          keywords: [...keywords],
           tapped: false,
           faceDown: false,
           counters: {},
@@ -1462,6 +1499,9 @@
     tokenNameInput.value = '';
     tokenCountInput.value = '1';
     tokenImageInput.value = '';
+    tokenPowerInput.value = '';
+    tokenToughnessInput.value = '';
+    tokenKeywordsInput.value = '';
   }
 
   function createTokenCopyOfSelectedCard() {
@@ -1487,6 +1527,9 @@
         isToken: true,
         isCopy: true,
         isCommanderCard: false,
+        power: card.power,
+        toughness: card.toughness,
+        keywords: [...card.keywords],
         tapped: false,
         faceDown: card.faceDown,
         counters: { ...card.counters },
