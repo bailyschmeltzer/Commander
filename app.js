@@ -14913,7 +14913,6 @@ function refresh() {
     hasRankingsView
     || hasHistoryView
     || hasCommanderStatsView
-    || hasDeckLibraryView
     || hasDeckSelectorView
   );
 
@@ -14972,7 +14971,7 @@ function refresh() {
   applyResponsiveTableLabels();
   initializeTableColumnResizers();
 
-  if (hasDeckLibraryView || hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
+  if (hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
     void backfillDeckListCommanderOracleIds();
   }
 }
