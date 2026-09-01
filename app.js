@@ -7858,7 +7858,7 @@ function renderDeckLibrary() {
         <td data-label="Deck">
           <span class="deck-library-name-cell">
             ${escapeHtml(deck.name)}
-            <span class="deck-rotation-indicator ${isInRotation ? 'is-in' : 'is-out'}" role="img" aria-label="${escapeHtml(rotationLabel)}" title="${escapeHtml(rotationLabel)}"></span>
+            <span class="deck-rotation-indicator ${isInRotation ? 'is-in' : 'is-out'}" role="img" aria-label="${escapeHtml(rotationLabel)}" title="${escapeHtml(rotationLabel)}">${isInRotation ? '✓' : 'X'}</span>
           </span>
         </td>
         <td data-label="Owner">${escapeHtml(deck.owner || '—')}</td>

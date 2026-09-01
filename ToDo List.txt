@@ -31,7 +31,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Add turn tracker, and advancing turn does untap and draw automatically
 
-Change red/green inactive/active dots to be a check or x instead
+[x] Change red/green inactive/active dots to be a check or x instead
 
 click (not holding) a single card in play field to tap or untap
 

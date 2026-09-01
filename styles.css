@@ -1455,22 +1455,23 @@ button[type="submit"] {
 }
 
 .deck-rotation-indicator {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .deck-rotation-indicator.is-in {
-  background: #2f9e44;
-  border-color: #1f7a33;
+  color: #1f7a33;
 }
 
 .deck-rotation-indicator.is-out {
-  background: #c92a2a;
-  border-color: #9e1f1f;
+  color: #9e1f1f;
 }
 
 .deck-builder-hero-actions {
