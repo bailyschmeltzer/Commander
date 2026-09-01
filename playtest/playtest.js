@@ -650,7 +650,9 @@
     saveSession();
     const placementHint = mode === 'Scrying'
       ? ' Select a card, then choose Top or Bottom. Place cards in the order you want them to resolve, with the last Top choice becoming the top card.'
-      : '';
+      : mode === 'Surveilling'
+        ? ' Select a card, then choose Top or Graveyard. Place cards in the order you want them to resolve, with the last Top choice becoming the top card.'
+        : '';
     setStatus(`${mode} the top ${amount} card${amount === 1 ? '' : 's'} of your library.${placementHint}`);
   }
 
@@ -794,14 +796,18 @@
     zoneToTopButton.disabled = !selectedInInspectedZone;
     zoneToBottomButton.disabled = !selectedInInspectedZone;
 
-    const isScrying = state.inspectedZone === 'library' && state.libraryPreviewMode === 'Scrying';
-    zoneToTopButton.textContent = isScrying ? 'Put on Top' : 'Top';
-    zoneToBottomButton.textContent = isScrying ? 'Put on Bottom' : 'Bottom';
-    zoneToTopButton.title = isScrying
-      ? 'Place the selected scryed card on top of your library'
+    const previewMode = state.inspectedZone === 'library' ? state.libraryPreviewMode : '';
+    const isScrying = previewMode === 'Scrying';
+    const isSurveilling = previewMode === 'Surveilling';
+    zoneToTopButton.textContent = isScrying || isSurveilling ? 'Put on Top' : 'Top';
+    zoneToBottomButton.textContent = isScrying ? 'Put on Bottom' : isSurveilling ? 'Put in Graveyard' : 'Bottom';
+    zoneToTopButton.title = isScrying || isSurveilling
+      ? 'Place the selected card on top of your library'
       : 'Move the selected card to the top of this zone';
     zoneToBottomButton.title = isScrying
       ? 'Place the selected scryed card on the bottom of your library'
+      : isSurveilling
+        ? 'Put the selected surveilled card into your graveyard'
       : 'Move the selected card to the bottom of this zone';
 
     const commanderCard = hasSelection && isCommanderLikeCard(card);
@@ -921,6 +927,11 @@
 
     const located = findCardLocation(card.instanceId);
     if (!located || located.zone !== state.inspectedZone || located.zone === 'battlefield') {
+      return;
+    }
+
+    if (!toTop && state.inspectedZone === 'library' && state.libraryPreviewMode === 'Surveilling') {
+      commitMutation(() => moveCardToZone(card.instanceId, 'graveyard'), `Put ${card.name} into your graveyard.`, 'Surveil');
       return;
     }
 

@@ -2,7 +2,7 @@ Couple things to add:
 
 [x] Scry should give each card the option to place the card top deck or bottom of deck, and the order if scrying multiple.
 
-Surveil should do the exact same, but instead of bottom deck, to graveyard.
+[x] Surveil should do the exact same, but instead of bottom deck, to graveyard.
 
 The look and scry buttons need the formatting fixed
 
