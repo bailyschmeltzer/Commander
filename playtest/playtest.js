@@ -639,6 +639,10 @@
       return true;
     }
 
+    if (located.zone === 'battlefield' && nextZone !== 'battlefield') {
+      card.counters = {};
+    }
+
     card.zone = nextZone;
 
     if (nextZone === 'command' && isCommanderLikeCard(card)) {
