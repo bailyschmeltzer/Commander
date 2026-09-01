@@ -28,6 +28,10 @@
   const lifeInput = document.getElementById('playtest-life');
   const lifeMinusButton = document.getElementById('playtest-life-minus');
   const lifePlusButton = document.getElementById('playtest-life-plus');
+  const manaButtons = Array.from(document.querySelectorAll('[data-mana-color]'));
+  const clearManaButton = document.getElementById('playtest-clear-mana');
+  const turnNumberEl = document.getElementById('playtest-turn-number');
+  const nextTurnButton = document.getElementById('playtest-next-turn');
 
   const tokenNameInput = document.getElementById('playtest-token-name');
   const tokenCountInput = document.getElementById('playtest-token-count');
@@ -93,6 +97,8 @@
     deckId: '',
     deckName: '',
     life: 40,
+    mana: { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: 0 },
+    turn: 1,
     selectedCardId: '',
     inspectedZone: 'graveyard',
     inspectedZoneSearch: '',
@@ -166,6 +172,8 @@
       deckId: state.deckId,
       deckName: state.deckName,
       life: state.life,
+      mana: { ...state.mana },
+      turn: state.turn,
       selectedCardId: state.selectedCardId,
       inspectedZone: state.inspectedZone,
       inspectedZoneSearch: state.inspectedZoneSearch,
@@ -191,6 +199,11 @@
     state.deckId = String(snapshot.deckId || '');
     state.deckName = String(snapshot.deckName || '');
     state.life = Number.isFinite(Number(snapshot.life)) ? Number(snapshot.life) : 40;
+    state.mana = ['white', 'blue', 'black', 'red', 'green', 'colorless'].reduce((mana, color) => {
+      mana[color] = Number.isFinite(Number(snapshot.mana?.[color])) ? Math.max(0, Number(snapshot.mana[color])) : 0;
+      return mana;
+    }, {});
+    state.turn = Number.isFinite(Number(snapshot.turn)) ? Math.max(1, Number(snapshot.turn)) : 1;
     state.selectedCardId = String(snapshot.selectedCardId || '');
     state.inspectedZone = zoneNames.includes(snapshot.inspectedZone) ? snapshot.inspectedZone : 'graveyard';
     state.inspectedZoneSearch = String(snapshot.inspectedZoneSearch || '');
@@ -774,6 +787,8 @@
       state.deckId = deck.id;
       state.deckName = deck.name;
       state.life = 40;
+      state.mana = { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: 0 };
+      state.turn = 1;
       state.selectedCardId = '';
       state.inspectedZone = 'graveyard';
       state.mulliganCount = 0;
@@ -796,6 +811,45 @@
       state.life = nextLife;
       return nextLife;
     }, (nextLife) => `Life set to ${nextLife}.`, 'Adjust Life');
+  }
+
+  function adjustMana(color, delta) {
+    if (!Object.hasOwn(state.mana, color)) {
+      return;
+    }
+
+    commitMutation(() => {
+      state.mana[color] = Math.max(0, Number(state.mana[color] || 0) + delta);
+      return state.mana[color];
+    }, (amount) => `${color.charAt(0).toUpperCase() + color.slice(1)} mana: ${amount}.`, 'Mana');
+  }
+
+  function clearMana() {
+    commitMutation(() => {
+      Object.keys(state.mana).forEach((color) => {
+        state.mana[color] = 0;
+      });
+    }, 'Mana pool cleared.', 'Clear Mana', { noopMessage: 'Mana pool is already empty.' });
+  }
+
+  function advanceTurn() {
+    commitMutation(() => {
+      const tappedCount = state.zones.battlefield.filter((card) => card.tapped).length;
+      state.zones.battlefield.forEach((card) => {
+        card.tapped = false;
+      });
+      Object.keys(state.mana).forEach((color) => {
+        state.mana[color] = 0;
+      });
+      const card = state.zones.library.pop();
+      if (card) {
+        card.zone = 'hand';
+        card.faceDown = false;
+        state.zones.hand.push(card);
+      }
+      state.turn += 1;
+      return { tappedCount, drewCard: Boolean(card) };
+    }, (result) => `Turn ${state.turn}. Untapped ${result.tappedCount} card${result.tappedCount === 1 ? '' : 's'}${result.drewCard ? ' and drew a card.' : '. Library is empty.'}`, 'Next Turn');
   }
 
   function setLifeFromInput() {
@@ -1310,6 +1364,16 @@
     lifeInput.value = String(state.life);
   }
 
+  function renderManaAndTurn() {
+    manaButtons.forEach((button) => {
+      const countEl = button.querySelector('strong');
+      if (countEl) {
+        countEl.textContent = String(state.mana[button.dataset.manaColor] || 0);
+      }
+    });
+    turnNumberEl.textContent = String(state.turn);
+  }
+
   function renderDebugSnapshot() {
     if (!debugOutputEl) {
       return;
@@ -1374,7 +1438,10 @@
       return true;
     }
 
-    return state.life !== 40 || Object.values(state.commanderTaxByName).some((value) => Number(value) > 0);
+    return state.life !== 40
+      || state.turn !== 1
+      || Object.values(state.mana).some((value) => Number(value) > 0)
+      || Object.values(state.commanderTaxByName).some((value) => Number(value) > 0);
   }
 
   function renderAll() {
@@ -1388,6 +1455,7 @@
       touchMoveModeInput.checked = state.touchMoveMode;
     }
     renderLife();
+    renderManaAndTurn();
     renderHand();
     renderBattlefield();
     renderInspectedZoneCards();
@@ -1872,6 +1940,15 @@
     lifeMinusButton.addEventListener('click', () => adjustLife(-1));
     lifePlusButton.addEventListener('click', () => adjustLife(1));
     lifeInput.addEventListener('change', setLifeFromInput);
+    manaButtons.forEach((button) => {
+      button.addEventListener('click', () => adjustMana(button.dataset.manaColor, 1));
+      button.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        adjustMana(button.dataset.manaColor, -1);
+      });
+    });
+    clearManaButton.addEventListener('click', clearMana);
+    nextTurnButton.addEventListener('click', advanceTurn);
 
     counterTypeInput?.addEventListener('change', () => {
       const isCustom = counterTypeInput.value === 'custom';

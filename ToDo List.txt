@@ -27,9 +27,9 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Ability to send a card to front or back of the field stack, i.e. put an equipment behind a creature
 
-Add a floating mana tracker
+[x] Add a floating mana tracker
 
-Add turn tracker, and advancing turn does untap and draw automatically
+[x] Add turn tracker, and advancing turn does untap and draw automatically
 
 Change red/green inactive/active dots to be a check or x instead
 

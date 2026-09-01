@@ -50,6 +50,20 @@
               <input id="playtest-life" type="number" value="40" min="0" aria-label="Life total" />
               <button id="playtest-life-plus" type="button" aria-label="Increase life">+</button>
             </div>
+            <div class="playtest-mana-tracker" aria-label="Mana tracker">
+              <span>Mana</span>
+              <button data-mana-color="white" type="button" title="Add white mana">W <strong>0</strong></button>
+              <button data-mana-color="blue" type="button" title="Add blue mana">U <strong>0</strong></button>
+              <button data-mana-color="black" type="button" title="Add black mana">B <strong>0</strong></button>
+              <button data-mana-color="red" type="button" title="Add red mana">R <strong>0</strong></button>
+              <button data-mana-color="green" type="button" title="Add green mana">G <strong>0</strong></button>
+              <button data-mana-color="colorless" type="button" title="Add colorless mana">C <strong>0</strong></button>
+              <button id="playtest-clear-mana" type="button" title="Clear mana pool">Clear</button>
+            </div>
+            <div class="playtest-turn-tracker" aria-label="Turn tracker">
+              <span>Turn <strong id="playtest-turn-number">1</strong></span>
+              <button id="playtest-next-turn" type="button">Next Turn</button>
+            </div>
             <div class="playtest-battlefield-hint">Battlefield</div>
             <div id="playtest-battlefield-drop" class="playtest-battlefield-drop" aria-label="Battlefield drop area">
               <div id="playtest-battlefield-cards" class="playtest-battlefield-cards"></div>

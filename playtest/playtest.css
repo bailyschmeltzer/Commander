@@ -305,6 +305,57 @@ button:disabled {
   z-index: 5;
 }
 
+.playtest-mana-tracker,
+.playtest-turn-tracker {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 4px 6px;
+  border: 1px solid rgba(27, 27, 27, 0.75);
+  border-radius: 8px;
+  background: rgba(247, 249, 255, 0.94);
+  box-shadow: 0 4px 10px rgba(28, 31, 42, 0.15);
+  z-index: 5;
+}
+
+.playtest-mana-tracker {
+  top: 60px;
+  left: 12px;
+}
+
+.playtest-turn-tracker {
+  top: 108px;
+  left: 12px;
+}
+
+.playtest-mana-tracker > span,
+.playtest-turn-tracker > span {
+  color: var(--playtest-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.playtest-mana-tracker button,
+.playtest-turn-tracker button {
+  min-width: 29px;
+  min-height: 29px;
+  padding: 2px 4px;
+  font-size: 0.68rem;
+}
+
+.playtest-mana-tracker button strong {
+  display: block;
+  font-size: 0.62rem;
+}
+
+#playtest-clear-mana,
+#playtest-next-turn {
+  min-width: auto;
+  padding-inline: 7px;
+}
+
 .playtest-life-label {
   padding: 0 4px;
   color: var(--playtest-muted);
@@ -942,7 +993,7 @@ button:disabled {
   }
 
   .playtest-zone-drawer {
-    top: 78px;
+    top: 154px;
   }
 }
 
@@ -974,6 +1025,16 @@ button:disabled {
 
   .playtest-life-tracker {
     top: 8px;
+    left: 8px;
+  }
+
+  .playtest-mana-tracker {
+    top: 54px;
+    left: 8px;
+  }
+
+  .playtest-turn-tracker {
+    top: 100px;
     left: 8px;
   }
 }
