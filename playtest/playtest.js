@@ -37,6 +37,7 @@
   const selectedNameEl = document.getElementById('playtest-selected-name');
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
   const toggleFaceButton = document.getElementById('playtest-toggle-face');
+  const createTokenCopyButton = document.getElementById('playtest-create-token-copy');
   const counterTypeInput = document.getElementById('playtest-counter-type');
   const counterCustomInput = document.getElementById('playtest-counter-custom');
   const counterAddButton = document.getElementById('playtest-counter-add');
@@ -795,6 +796,7 @@
 
     toggleTapButton.disabled = !hasSelection;
     toggleFaceButton.disabled = !hasSelection;
+    createTokenCopyButton.disabled = !hasSelection;
     counterAddButton.disabled = !hasSelection;
     counterRemoveButton.disabled = !hasSelection;
     moveZoneButtons.forEach((button) => {
@@ -1456,6 +1458,33 @@
     tokenImageInput.value = '';
   }
 
+  function createTokenCopyOfSelectedCard() {
+    const card = getSelectedCard();
+    if (!card) {
+      return;
+    }
+
+    commitMutation(() => {
+      const spawn = getSpawnCoordinates();
+      state.zones.battlefield.push({
+        instanceId: makeId(),
+        name: card.name,
+        imageUri: card.imageUri,
+        imageSmallUri: card.imageSmallUri,
+        typeLine: card.typeLine,
+        scryfallUri: card.scryfallUri,
+        isToken: true,
+        isCommanderCard: false,
+        tapped: false,
+        faceDown: card.faceDown,
+        counters: {},
+        zone: 'battlefield',
+        x: spawn.x,
+        y: spawn.y,
+      });
+    }, `Created a token copy of ${card.name}.`, 'Copy Token');
+  }
+
   function shouldIgnoreShortcutTarget(target) {
     if (!(target instanceof HTMLElement)) {
       return false;
@@ -1644,6 +1673,7 @@
 
     toggleTapButton.addEventListener('click', () => toggleSelectedTapState(false));
     toggleFaceButton.addEventListener('click', toggleSelectedFaceState);
+    createTokenCopyButton.addEventListener('click', createTokenCopyOfSelectedCard);
     counterAddButton.addEventListener('click', () => adjustSelectedCounter(1));
     counterRemoveButton.addEventListener('click', () => adjustSelectedCounter(-1));
     commanderCastButton.addEventListener('click', incrementCommanderCast);

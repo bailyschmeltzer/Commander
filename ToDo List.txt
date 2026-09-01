@@ -9,7 +9,7 @@ Couple things to add:
 [x] Moving cards while looking or scrying or surveiling do not pull more cards in i.e. if i scry 3 and choose to send 2 to the bottom, 
 i should only see the 1 card i have not chosen, it should NOT pull in new cards to see
 
-Button to create token copy
+[x] Button to create token copy
 
 Set keywords and power toughness during token creation
 
