@@ -9112,12 +9112,15 @@ function applyDeckBuilderCardArt(cardId, print) {
   persistDeckBuilderRecord(nextDeck, 'Card art updated.');
 }
 
-async function selectDeckCardByName(cardName) {
+async function selectDeckCardByName(cardName, deckCardId = '') {
   try {
     const card = await fetchDeckCardByName(cardName);
     if (card) {
       deckBuilderSelectedCard = card;
       deckBuilderSelectedFaceIndex = 0;
+      if (deckCardId && card.cardFaces?.length > 1) {
+        applyDeckBuilderCardArt(deckCardId, card);
+      }
       persistDeckBuilderSelectedCard(card);
       // Hide search results and show selection panel
       if (deckBuilderSearchResults) {
@@ -10087,6 +10090,7 @@ async function selectDeckBuilderSearchResult(name) {
       setDeckBuilderSearchStatus('That is a token card. Use Token Search to add it to the token pool.', 'error');
       return;
     }
+    deckBuilderSelectedFaceIndex = 0;
     deckBuilderSelectedCard = card;
     persistDeckBuilderSelectedCard(deckBuilderSelectedCard);
     renderDeckBuilderSelection();
@@ -15879,6 +15883,8 @@ if (deckBuilderCards) {
         }
       } else {
         deckBuilderSelectedDeckCardId = cardId;
+        deckBuilderSelectedFaceIndex = 0;
+        void selectDeckCardByName(deckCardRow.dataset.cardName || '', cardId);
       }
       const deck = ensureActiveDeckBuilderRecord();
       if (deck) {
