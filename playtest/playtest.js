@@ -648,7 +648,10 @@
     state.libraryPreviewMode = mode;
     renderAll();
     saveSession();
-    setStatus(`${mode} the top ${amount} card${amount === 1 ? '' : 's'} of your library.`);
+    const placementHint = mode === 'Scrying'
+      ? ' Select a card, then choose Top or Bottom. Place cards in the order you want them to resolve, with the last Top choice becoming the top card.'
+      : '';
+    setStatus(`${mode} the top ${amount} card${amount === 1 ? '' : 's'} of your library.${placementHint}`);
   }
 
   function initializeOpeningHand(size) {
@@ -790,6 +793,16 @@
       && state.inspectedZone !== 'battlefield';
     zoneToTopButton.disabled = !selectedInInspectedZone;
     zoneToBottomButton.disabled = !selectedInInspectedZone;
+
+    const isScrying = state.inspectedZone === 'library' && state.libraryPreviewMode === 'Scrying';
+    zoneToTopButton.textContent = isScrying ? 'Put on Top' : 'Top';
+    zoneToBottomButton.textContent = isScrying ? 'Put on Bottom' : 'Bottom';
+    zoneToTopButton.title = isScrying
+      ? 'Place the selected scryed card on top of your library'
+      : 'Move the selected card to the top of this zone';
+    zoneToBottomButton.title = isScrying
+      ? 'Place the selected scryed card on the bottom of your library'
+      : 'Move the selected card to the bottom of this zone';
 
     const commanderCard = hasSelection && isCommanderLikeCard(card);
     commanderCastButton.disabled = !commanderCard;

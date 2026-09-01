@@ -1,3 +1,44 @@
-ToDo List
+Couple things to add:
 
-- Remove deck URL panels
+[x] Scry should give each card the option to place the card top deck or bottom of deck, and the order if scrying multiple.
+
+Surveil should do the exact same, but instead of bottom deck, to graveyard.
+
+The look and scry buttons need the formatting fixed
+
+Moving cards while looking or scrying or surveiling do not pull more cards in i.e. if i scry 3 and choose to send 2 to the bottom, 
+i should only see the 1 card i have not chosen, it should NOT pull in new cards to see
+
+Button to create token copy
+
+Set keywords and power toughness during token creation
+
+Tokens going to exile or grave or hard should automatically be removed completely
+
+an opened zone, i.e. library, commander, etc should auto close if i click elsewhere into the battlefield
+
+The commander should be able to be click and dragged out of the command zone instead of needing to open the command zone
+
+Commander tax should be displayed below the command zone
+
+Cards that move from the battlefield to anywhere else should automatically lose all counters
+
+Add an emblem creator for planeswalker abilities
+
+Ability to send a card to front or back of the field stack, i.e. put an equipment behind a creature
+
+Add a floating mana tracker
+
+Add turn tracker, and advancing turn does untap and draw automatically
+
+Change red/green inactive/active dots to be a check or x instead
+
+click (not holding) a single card in play field to tap or untap
+
+slow down hold to change on life counters in live game. 1 full second should tick by 5
+
+Fix admin logs shortcut not showing for admins on all pages
+
+Dual sided cards should be able to flip, but image and description text in the deck builder
+
+Harden importing from rate limiting
