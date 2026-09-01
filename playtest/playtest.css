@@ -504,6 +504,12 @@ button:disabled {
   gap: 5px;
 }
 
+.playtest-library-preview-controls {
+  display: grid;
+  grid-template-columns: minmax(44px, 0.7fr) repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
 .playtest-counter-row input:last-child {
   grid-column: auto;
 }
@@ -516,11 +522,11 @@ button:disabled {
   grid-column: span 2;
 }
 
-#playtest-library-look-count {
-  min-width: 0;
-}
-
 @media (max-width: 460px) {
+  .playtest-library-preview-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   #playtest-library-look-count {
     grid-column: 1 / -1;
   }
