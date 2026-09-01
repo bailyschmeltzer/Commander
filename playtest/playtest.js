@@ -1054,12 +1054,20 @@
     } else if (card.isToken && !card.imageUri && !card.imageSmallUri) {
       const tokenFace = document.createElement('div');
       const tokenColors = card.tokenColors?.length ? card.tokenColors : ['colorless'];
+      const tokenColorValues = {
+        colorless: '#69737a',
+        white: '#d6c985',
+        blue: '#246b9b',
+        black: '#29252b',
+        red: '#ad3d31',
+        green: '#397844',
+      };
       tokenFace.className = 'playtest-token-face';
-      tokenFace.style.setProperty('--token-colors', tokenColors.map((color, index) => {
+      tokenFace.style.background = `linear-gradient(135deg, ${tokenColors.map((color, index) => {
         const start = Math.round((index / tokenColors.length) * 100);
         const end = Math.round(((index + 1) / tokenColors.length) * 100);
-        return `var(--token-${color}) ${start}% ${end}%`;
-      }).join(', '));
+        return `${tokenColorValues[color] || tokenColorValues.colorless} ${start}% ${end}%`;
+      }).join(', ')})`;
       tokenFace.textContent = card.name;
       cardEl.appendChild(tokenFace);
     } else {

@@ -520,17 +520,24 @@ button:disabled {
 
 .playtest-token-color-picker {
   display: grid;
-  grid-column: span 2;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
+.playtest-token-create-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
 .playtest-token-color-picker label {
   display: grid;
-  min-height: 30px;
+  width: 100%;
+  aspect-ratio: 1;
   place-items: center;
   border: 2px solid transparent;
-  border-radius: 50%;
+  border-radius: 5px;
   color: #fff;
   cursor: pointer;
   font-size: 0.72rem;
@@ -678,16 +685,6 @@ button:disabled {
   line-height: 1.2;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.48);
-  background: linear-gradient(135deg, var(--token-colors));
-}
-
-.playtest-token-face {
-  --token-colorless: #69737a;
-  --token-white: #d6c985;
-  --token-blue: #246b9b;
-  --token-black: #29252b;
-  --token-red: #ad3d31;
-  --token-green: #397844;
 }
 
 .playtest-token-color-badge {
