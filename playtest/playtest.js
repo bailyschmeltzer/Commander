@@ -1056,7 +1056,7 @@
   function createCardElement(card, contextZone) {
     const cardEl = document.createElement('article');
     cardEl.className = `playtest-card ${card.isEmblem ? 'playtest-emblem' : ''} ${contextZone === 'battlefield' ? 'battlefield' : ''}${card.tapped ? ' is-tapped' : ''}${state.selectedCardId === card.instanceId ? ' is-selected' : ''}`;
-    cardEl.draggable = !card.isEmblem;
+    cardEl.draggable = true;
     cardEl.dataset.instanceId = card.instanceId;
     cardEl.dataset.zone = contextZone;
 
