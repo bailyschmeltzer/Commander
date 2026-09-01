@@ -31,7 +31,6 @@
 
   const tokenNameInput = document.getElementById('playtest-token-name');
   const tokenCountInput = document.getElementById('playtest-token-count');
-  const tokenColorInputs = Array.from(document.querySelectorAll('#playtest-token-color-picker input'));
   const tokenPowerInput = document.getElementById('playtest-token-power');
   const tokenToughnessInput = document.getElementById('playtest-token-toughness');
   const tokenKeywordsInput = document.getElementById('playtest-token-keywords');
@@ -1504,7 +1503,8 @@
 
     const count = Number(tokenCountInput.value);
     const amount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
-    const tokenColors = tokenColorInputs.filter((input) => input.checked).map((input) => input.value);
+    const tokenColors = Array.from(document.querySelectorAll('#playtest-token-color-picker input:checked'))
+      .map((input) => input.value);
     const power = String(tokenPowerInput.value || '').trim();
     const toughness = String(tokenToughnessInput.value || '').trim();
     const keywords = String(tokenKeywordsInput.value || '')
@@ -1546,7 +1546,7 @@
 
     tokenNameInput.value = '';
     tokenCountInput.value = '1';
-    tokenColorInputs.forEach((input) => {
+    document.querySelectorAll('#playtest-token-color-picker input').forEach((input) => {
       input.checked = false;
     });
     tokenPowerInput.value = '';
