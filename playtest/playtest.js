@@ -1071,6 +1071,17 @@
       cardEl.appendChild(image);
     }
 
+    if (card.isToken) {
+      const colorBadge = document.createElement('span');
+      const tokenColors = card.tokenColors?.length ? card.tokenColors : ['colorless'];
+      colorBadge.className = 'playtest-token-color-badge';
+      colorBadge.textContent = tokenColors
+        .map((color) => ({ white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', colorless: 'C' }[color] || color))
+        .join('');
+      colorBadge.title = tokenColors.join(', ');
+      cardEl.appendChild(colorBadge);
+    }
+
     const counters = summarizeCounters(card);
     if (counters) {
       const counterChip = document.createElement('span');
