@@ -31,7 +31,7 @@
 
   const tokenNameInput = document.getElementById('playtest-token-name');
   const tokenCountInput = document.getElementById('playtest-token-count');
-  const tokenColorInput = document.getElementById('playtest-token-color');
+  const tokenColorInputs = Array.from(document.querySelectorAll('#playtest-token-color-picker input'));
   const tokenPowerInput = document.getElementById('playtest-token-power');
   const tokenToughnessInput = document.getElementById('playtest-token-toughness');
   const tokenKeywordsInput = document.getElementById('playtest-token-keywords');
@@ -482,7 +482,9 @@
       scryfallUri: String(base.scryfallUri || '').trim(),
       isToken: Boolean(base.isToken),
       isCopy: Boolean(base.isCopy),
-      tokenColor: String(base.tokenColor || '').trim(),
+      tokenColors: Array.isArray(base.tokenColors)
+        ? base.tokenColors.map((color) => String(color || '').trim()).filter(Boolean)
+        : base.tokenColor ? [String(base.tokenColor).trim()] : [],
       isCommanderCard: Boolean(options?.isCommanderCard),
       power: String(base.power || '').trim(),
       toughness: String(base.toughness || '').trim(),
@@ -517,7 +519,9 @@
       scryfallUri: String(card.scryfallUri || '').trim(),
       isToken: Boolean(card.isToken),
       isCopy: Boolean(card.isCopy),
-      tokenColor: String(card.tokenColor || '').trim(),
+      tokenColors: Array.isArray(card.tokenColors)
+        ? card.tokenColors.map((color) => String(color || '').trim()).filter(Boolean)
+        : card.tokenColor ? [String(card.tokenColor).trim()] : [],
       isCommanderCard: Boolean(card.isCommanderCard),
       power: String(card.power || '').trim(),
       toughness: String(card.toughness || '').trim(),
@@ -1047,6 +1051,17 @@
       back.className = 'playtest-card-back';
       back.textContent = 'Face Down Card';
       cardEl.appendChild(back);
+    } else if (card.isToken && !card.imageUri && !card.imageSmallUri) {
+      const tokenFace = document.createElement('div');
+      const tokenColors = card.tokenColors?.length ? card.tokenColors : ['colorless'];
+      tokenFace.className = 'playtest-token-face';
+      tokenFace.style.setProperty('--token-colors', tokenColors.map((color, index) => {
+        const start = Math.round((index / tokenColors.length) * 100);
+        const end = Math.round(((index + 1) / tokenColors.length) * 100);
+        return `var(--token-${color}) ${start}% ${end}%`;
+      }).join(', '));
+      tokenFace.textContent = card.name;
+      cardEl.appendChild(tokenFace);
     } else {
       const image = document.createElement('img');
       image.src = card.imageUri || card.imageSmallUri || '';
@@ -1470,7 +1485,7 @@
 
     const count = Number(tokenCountInput.value);
     const amount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
-    const tokenColor = String(tokenColorInput.value || 'colorless');
+    const tokenColors = tokenColorInputs.filter((input) => input.checked).map((input) => input.value);
     const power = String(tokenPowerInput.value || '').trim();
     const toughness = String(tokenToughnessInput.value || '').trim();
     const keywords = String(tokenKeywordsInput.value || '')
@@ -1491,7 +1506,7 @@
           scryfallUri: '',
           isToken: true,
           isCopy: false,
-          tokenColor,
+          tokenColors: [...tokenColors],
           isCommanderCard: false,
           power,
           toughness,
@@ -1512,7 +1527,9 @@
 
     tokenNameInput.value = '';
     tokenCountInput.value = '1';
-    tokenColorInput.value = 'colorless';
+    tokenColorInputs.forEach((input) => {
+      input.checked = false;
+    });
     tokenPowerInput.value = '';
     tokenToughnessInput.value = '';
     tokenKeywordsInput.value = '';
@@ -1540,7 +1557,7 @@
         scryfallUri: card.scryfallUri,
         isToken: true,
         isCopy: true,
-        tokenColor: card.tokenColor,
+        tokenColors: [...card.tokenColors],
         isCommanderCard: false,
         power: card.power,
         toughness: card.toughness,

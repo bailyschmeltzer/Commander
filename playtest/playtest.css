@@ -518,6 +518,37 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.playtest-token-color-picker {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.playtest-token-color-picker label {
+  display: grid;
+  min-height: 30px;
+  place-items: center;
+  border: 1px solid #8d96a9;
+  border-radius: 5px;
+  background: var(--playtest-panel-strong);
+  color: var(--playtest-ink);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.playtest-token-color-picker input {
+  position: absolute;
+  opacity: 0;
+}
+
+.playtest-token-color-picker label:has(input:checked) {
+  border-color: var(--playtest-accent);
+  background: var(--playtest-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--playtest-accent);
+}
+
 .playtest-counter-row #playtest-token-color {
   grid-column: span 2;
 }
@@ -646,15 +677,17 @@ button:disabled {
   line-height: 1.2;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.48);
+  background: linear-gradient(135deg, var(--token-colors));
 }
 
-.playtest-token-face[data-color="colorless"] { background: #69737a; }
-.playtest-token-face[data-color="white"] { background: #d6c985; color: #24251f; text-shadow: none; }
-.playtest-token-face[data-color="blue"] { background: #246b9b; }
-.playtest-token-face[data-color="black"] { background: #29252b; }
-.playtest-token-face[data-color="red"] { background: #ad3d31; }
-.playtest-token-face[data-color="green"] { background: #397844; }
-.playtest-token-face[data-color="multicolor"] { background: linear-gradient(135deg, #d6c985 0 20%, #246b9b 20% 40%, #29252b 40% 60%, #ad3d31 60% 80%, #397844 80%); }
+.playtest-token-face {
+  --token-colorless: #69737a;
+  --token-white: #d6c985;
+  --token-blue: #246b9b;
+  --token-black: #29252b;
+  --token-red: #ad3d31;
+  --token-green: #397844;
+}
 
 .playtest-card-back {
   display: grid;
