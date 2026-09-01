@@ -33,7 +33,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Change red/green inactive/active dots to be a check or x instead
 
-click (not holding) a single card in play field to tap or untap
+[x] click (not holding) a single card in play field to tap or untap
 
 slow down hold to change on life counters in live game. 1 full second should tick by 5
 

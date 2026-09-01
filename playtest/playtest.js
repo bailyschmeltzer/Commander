@@ -1223,6 +1223,14 @@
 
     cardEl.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (contextZone === 'battlefield' && !card.isEmblem) {
+        commitMutation(() => {
+          card.tapped = !card.tapped;
+          state.selectedCardId = card.instanceId;
+          return card.tapped;
+        }, (isTapped) => isTapped ? `${card.name} tapped.` : `${card.name} untapped.`, 'Tap State');
+        return;
+      }
       state.selectedCardId = card.instanceId;
       renderAll();
       saveSession();
