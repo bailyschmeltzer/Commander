@@ -631,6 +631,13 @@
     }
 
     state.libraryPreviewIds = state.libraryPreviewIds.filter((previewId) => previewId !== instanceId);
+    if (card.isToken && located.zone === 'battlefield' && nextZone !== 'battlefield') {
+      if (state.selectedCardId === instanceId) {
+        state.selectedCardId = '';
+      }
+      return true;
+    }
+
     card.zone = nextZone;
 
     if (nextZone === 'battlefield') {

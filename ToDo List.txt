@@ -13,7 +13,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Set keywords and power toughness during token creation
 
-Tokens going to exile or grave or hard should automatically be removed completely
+[x] Tokens going to exile or grave or hard should automatically be removed completely
 
 an opened zone, i.e. library, commander, etc should auto close if i click elsewhere into the battlefield
 
