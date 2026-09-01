@@ -1843,6 +1843,18 @@
     libraryScryButton?.addEventListener('click', () => previewLibrary('Scrying'));
     librarySurveilButton?.addEventListener('click', () => previewLibrary('Surveilling'));
 
+    battlefieldDrop.addEventListener('click', () => {
+      if (!state.inspectedZoneOpen) {
+        return;
+      }
+      state.inspectedZoneOpen = false;
+      state.libraryPreviewCount = 0;
+      state.libraryPreviewMode = '';
+      state.libraryPreviewIds = [];
+      renderAll();
+      saveSession();
+    });
+
     document.body.addEventListener('click', (event) => {
       if (event.target.closest('.playtest-card, .playtest-tools-panel, .playtest-zone-stack, .playtest-zone-drawer')) {
         return;
