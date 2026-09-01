@@ -38,6 +38,7 @@
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
   const toggleFaceButton = document.getElementById('playtest-toggle-face');
   const createTokenCopyButton = document.getElementById('playtest-create-token-copy');
+  const tokenCopyNonlegendaryInput = document.getElementById('playtest-token-copy-nonlegendary');
   const counterTypeInput = document.getElementById('playtest-counter-type');
   const counterCustomInput = document.getElementById('playtest-counter-custom');
   const counterAddButton = document.getElementById('playtest-counter-add');
@@ -477,6 +478,7 @@
       typeLine: String(base.typeLine || '').trim(),
       scryfallUri: String(base.scryfallUri || '').trim(),
       isToken: Boolean(base.isToken),
+      isCopy: Boolean(base.isCopy),
       isCommanderCard: Boolean(options?.isCommanderCard),
       tapped: false,
       faceDown: false,
@@ -507,6 +509,7 @@
       typeLine: String(card.typeLine || '').trim(),
       scryfallUri: String(card.scryfallUri || '').trim(),
       isToken: Boolean(card.isToken),
+      isCopy: Boolean(card.isCopy),
       isCommanderCard: Boolean(card.isCommanderCard),
       tapped: Boolean(card.tapped),
       faceDown: Boolean(card.faceDown),
@@ -797,6 +800,7 @@
     toggleTapButton.disabled = !hasSelection;
     toggleFaceButton.disabled = !hasSelection;
     createTokenCopyButton.disabled = !hasSelection;
+    tokenCopyNonlegendaryInput.disabled = !hasSelection;
     counterAddButton.disabled = !hasSelection;
     counterRemoveButton.disabled = !hasSelection;
     moveZoneButtons.forEach((button) => {
@@ -1040,9 +1044,10 @@
 
     const meta = document.createElement('div');
     meta.className = 'playtest-card-meta';
+    const cardLabel = card.isCopy ? `Copy: ${card.name}` : card.name;
     meta.innerHTML = card.faceDown
       ? `<span>Face down</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`
-      : `<span>${escapeHtml(card.name)}</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`;
+      : `<span>${escapeHtml(cardLabel)}</span><span>${card.tapped ? 'Tapped' : 'Ready'}</span>`;
     cardEl.appendChild(meta);
 
     cardEl.addEventListener('click', (event) => {
@@ -1442,6 +1447,7 @@
           typeLine: 'Token',
           scryfallUri: '',
           isToken: true,
+          isCopy: false,
           isCommanderCard: false,
           tapped: false,
           faceDown: false,
@@ -1464,6 +1470,11 @@
       return;
     }
 
+    const isNonlegendary = Boolean(tokenCopyNonlegendaryInput?.checked);
+    const typeLine = isNonlegendary
+      ? card.typeLine.replace(/\bLegendary\s*/i, '').trim()
+      : card.typeLine;
+
     commitMutation(() => {
       const spawn = getSpawnCoordinates();
       state.zones.battlefield.push({
@@ -1471,18 +1482,21 @@
         name: card.name,
         imageUri: card.imageUri,
         imageSmallUri: card.imageSmallUri,
-        typeLine: card.typeLine,
+        typeLine,
         scryfallUri: card.scryfallUri,
         isToken: true,
+        isCopy: true,
         isCommanderCard: false,
         tapped: false,
         faceDown: card.faceDown,
-        counters: {},
+        counters: { ...card.counters },
         zone: 'battlefield',
         x: spawn.x,
         y: spawn.y,
       });
-    }, `Created a token copy of ${card.name}.`, 'Copy Token');
+    }, `Created ${isNonlegendary ? 'a nonlegendary ' : 'a '}token copy of ${card.name}.`, 'Copy Token');
+
+    tokenCopyNonlegendaryInput.checked = false;
   }
 
   function shouldIgnoreShortcutTarget(target) {
