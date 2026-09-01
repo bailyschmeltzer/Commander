@@ -13771,7 +13771,7 @@ function renderPodRankings(games) {
     .map((row) => {
       const { entry, streakEntry } = row;
       const form = playerRecentForm.get(entry.name) || [];
-      const formDots = form.map((r) => `<span class="form-dot form-dot--${r === 'W' ? 'win' : 'loss'}" title="${r === 'W' ? 'Win' : 'Loss'}"></span>`).join('');
+      const formDots = form.map((r) => `<span class="form-dot form-dot--${r === 'W' ? 'win' : 'loss'}" title="${r === 'W' ? 'Win' : 'Loss'}">${r === 'W' ? 'W' : 'L'}</span>`).join('');
       return `
       <tr>
         <td>${row.rank}</td>
