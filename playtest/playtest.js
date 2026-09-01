@@ -819,6 +819,66 @@
       state.zones.exile = [];
       state.zones.command = commandCards;
     }, `Loaded ${deck.name}. Library ready with ${libraryCards.length} cards.${state.shuffleSeed ? ` Seed: ${state.shuffleSeed}.` : ''}`, 'Load Deck');
+
+    void hydrateLoadedDeckCardFaces(deckId, expandedCards.map((card) => card.name));
+  }
+
+  async function hydrateLoadedDeckCardFaces(deckId, cardNames) {
+    const uniqueNames = [...new Set(cardNames.map((name) => String(name || '').trim()).filter(Boolean))];
+    if (!uniqueNames.length) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/deck-cards-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: uniqueNames }),
+        cache: 'no-store',
+      });
+      if (!response.ok || state.deckId !== deckId) {
+        return;
+      }
+
+      const payload = await response.json();
+      const facesByName = new Map((Array.isArray(payload?.cards) ? payload.cards : [])
+        .map((entry) => {
+          const name = String(entry?.name || '').trim().toLowerCase();
+          const cardFaces = Array.isArray(entry?.card?.cardFaces) ? entry.card.cardFaces : [];
+          return [name, cardFaces];
+        })
+        .filter(([name, cardFaces]) => name && cardFaces.length > 1));
+
+      if (!facesByName.size) {
+        return;
+      }
+
+      let changed = false;
+      zoneNames.forEach((zone) => {
+        state.zones[zone].forEach((card) => {
+          const cardFaces = facesByName.get(String(card.name || '').trim().toLowerCase());
+          if (!cardFaces || card.cardFaces.length > 1) {
+            return;
+          }
+          card.cardFaces = cardFaces.map((face) => ({
+            name: String(face?.name || '').trim(),
+            typeLine: String(face?.typeLine || '').trim(),
+            oracleText: String(face?.oracleText || '').trim(),
+            imageUri: String(face?.imageLargeUri || face?.imageUri || '').trim(),
+            imageSmallUri: String(face?.imageUri || '').trim(),
+          }));
+          card.faceIndex = 0;
+          changed = true;
+        });
+      });
+
+      if (changed) {
+        renderAll();
+        saveSession();
+      }
+    } catch {
+      // The deck remains fully playable if optional face metadata cannot load.
+    }
   }
 
   function adjustLife(delta) {
