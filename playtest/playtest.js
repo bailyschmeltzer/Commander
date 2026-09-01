@@ -559,8 +559,8 @@
   }
 
   function getSpawnCoordinates() {
-    const x = 60 + Math.random() * (DEFAULT_CANVAS_WIDTH - 210);
-    const y = 40 + Math.random() * (DEFAULT_CANVAS_HEIGHT - 230);
+    const x = 100 + Math.random() * 780;
+    const y = 90 + Math.random() * 260;
     return { x, y };
   }
 
@@ -1471,9 +1471,10 @@
       .filter(Boolean);
 
     commitMutation(() => {
+      let newestTokenId = '';
       for (let i = 0; i < amount; i += 1) {
         const spawn = getSpawnCoordinates();
-        state.zones.battlefield.push({
+        const token = {
           instanceId: makeId(),
           name,
           imageUri,
@@ -1492,8 +1493,12 @@
           zone: 'battlefield',
           x: spawn.x,
           y: spawn.y,
-        });
+        };
+        state.zones.battlefield.push(token);
+        newestTokenId = token.instanceId;
       }
+      state.inspectedZoneOpen = false;
+      state.selectedCardId = newestTokenId;
     }, `Created ${amount} ${name} token${amount === 1 ? '' : 's'} on battlefield.`);
 
     tokenNameInput.value = '';
