@@ -164,7 +164,15 @@
             <input id="playtest-token-name" type="text" placeholder="Token name" aria-label="Token name" />
             <div class="playtest-counter-row">
               <input id="playtest-token-count" type="number" min="1" value="1" aria-label="Token quantity" />
-              <input id="playtest-token-image" type="url" placeholder="Image URL (optional)" aria-label="Token image URL" />
+              <select id="playtest-token-color" aria-label="Token color">
+                <option value="colorless">Colorless</option>
+                <option value="white">White</option>
+                <option value="blue">Blue</option>
+                <option value="black">Black</option>
+                <option value="red">Red</option>
+                <option value="green">Green</option>
+                <option value="multicolor">Multicolor</option>
+              </select>
             </div>
             <div class="playtest-token-stats-row">
               <input id="playtest-token-power" type="number" placeholder="Power" aria-label="Token power" />

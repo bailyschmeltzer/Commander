@@ -518,7 +518,7 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
-.playtest-counter-row #playtest-token-image {
+.playtest-counter-row #playtest-token-color {
   grid-column: span 2;
 }
 
@@ -633,6 +633,28 @@ button:disabled {
   object-fit: cover;
   background: #e2e5eb;
 }
+
+.playtest-token-face {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 14px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.48);
+}
+
+.playtest-token-face[data-color="colorless"] { background: #69737a; }
+.playtest-token-face[data-color="white"] { background: #d6c985; color: #24251f; text-shadow: none; }
+.playtest-token-face[data-color="blue"] { background: #246b9b; }
+.playtest-token-face[data-color="black"] { background: #29252b; }
+.playtest-token-face[data-color="red"] { background: #ad3d31; }
+.playtest-token-face[data-color="green"] { background: #397844; }
+.playtest-token-face[data-color="multicolor"] { background: linear-gradient(135deg, #d6c985 0 20%, #246b9b 20% 40%, #29252b 40% 60%, #ad3d31 60% 80%, #397844 80%); }
 
 .playtest-card-back {
   display: grid;
