@@ -89,6 +89,7 @@
     inspectedZoneOpen: false,
     libraryPreviewCount: 0,
     libraryPreviewMode: '',
+    libraryPreviewIds: [],
     mulliganCount: 0,
     openingHandSize: 7,
     shuffleSeed: '',
@@ -159,6 +160,9 @@
       inspectedZone: state.inspectedZone,
       inspectedZoneSearch: state.inspectedZoneSearch,
       inspectedZoneOpen: state.inspectedZoneOpen,
+      libraryPreviewCount: state.libraryPreviewCount,
+      libraryPreviewMode: state.libraryPreviewMode,
+      libraryPreviewIds: [...state.libraryPreviewIds],
       mulliganCount: state.mulliganCount,
       openingHandSize: state.openingHandSize,
       shuffleSeed: state.shuffleSeed,
@@ -181,6 +185,11 @@
     state.inspectedZone = zoneNames.includes(snapshot.inspectedZone) ? snapshot.inspectedZone : 'graveyard';
     state.inspectedZoneSearch = String(snapshot.inspectedZoneSearch || '');
     state.inspectedZoneOpen = Boolean(snapshot.inspectedZoneOpen);
+    state.libraryPreviewCount = Number.isFinite(Number(snapshot.libraryPreviewCount)) ? Math.max(0, Number(snapshot.libraryPreviewCount)) : 0;
+    state.libraryPreviewMode = String(snapshot.libraryPreviewMode || '');
+    state.libraryPreviewIds = Array.isArray(snapshot.libraryPreviewIds)
+      ? snapshot.libraryPreviewIds.map((instanceId) => String(instanceId || '')).filter(Boolean)
+      : [];
     state.mulliganCount = Number.isFinite(Number(snapshot.mulliganCount)) ? Math.max(0, Number(snapshot.mulliganCount)) : 0;
     state.openingHandSize = Number.isFinite(Number(snapshot.openingHandSize)) ? Math.max(0, Number(snapshot.openingHandSize)) : 7;
     state.shuffleSeed = String(snapshot.shuffleSeed || '');
@@ -603,6 +612,7 @@
       return false;
     }
 
+    state.libraryPreviewIds = state.libraryPreviewIds.filter((previewId) => previewId !== instanceId);
     card.zone = nextZone;
 
     if (nextZone === 'battlefield') {
@@ -646,6 +656,7 @@
     state.inspectedZoneSearch = '';
     state.libraryPreviewCount = amount;
     state.libraryPreviewMode = mode;
+    state.libraryPreviewIds = state.zones.library.slice(-amount).map((card) => card.instanceId);
     renderAll();
     saveSession();
     const placementHint = mode === 'Scrying'
@@ -943,6 +954,7 @@
       } else {
         zoneCards.unshift(card);
       }
+      state.libraryPreviewIds = state.libraryPreviewIds.filter((previewId) => previewId !== card.instanceId);
     }, toTop ? `Moved ${card.name} to top of ${state.inspectedZone}.` : `Moved ${card.name} to bottom of ${state.inspectedZone}.`);
   }
 
@@ -1083,7 +1095,9 @@
 
     const normalizedSearch = state.inspectedZoneSearch.toLowerCase();
     const previewCards = state.inspectedZone === 'library' && state.libraryPreviewCount > 0
-      ? cards.slice(-state.libraryPreviewCount)
+      ? state.libraryPreviewIds
+        .map((instanceId) => cards.find((card) => card.instanceId === instanceId))
+        .filter(Boolean)
       : cards;
     const visibleCards = normalizedSearch
       ? previewCards.filter((card) => card.name.toLowerCase().includes(normalizedSearch) || card.typeLine.toLowerCase().includes(normalizedSearch))
@@ -1665,6 +1679,7 @@
         state.inspectedZoneOpen = true;
         state.libraryPreviewCount = 0;
         state.libraryPreviewMode = '';
+        state.libraryPreviewIds = [];
         renderAll();
         saveSession();
       });
