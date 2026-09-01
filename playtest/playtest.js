@@ -35,6 +35,9 @@
   const tokenToughnessInput = document.getElementById('playtest-token-toughness');
   const tokenKeywordsInput = document.getElementById('playtest-token-keywords');
   const createTokenButton = document.getElementById('playtest-create-token');
+  const emblemNameInput = document.getElementById('playtest-emblem-name');
+  const emblemTextInput = document.getElementById('playtest-emblem-text');
+  const createEmblemButton = document.getElementById('playtest-create-emblem');
 
   const selectedNameEl = document.getElementById('playtest-selected-name');
   const toggleTapButton = document.getElementById('playtest-toggle-tap');
@@ -482,6 +485,8 @@
       scryfallUri: String(base.scryfallUri || '').trim(),
       isToken: Boolean(base.isToken),
       isCopy: Boolean(base.isCopy),
+      isEmblem: Boolean(base.isEmblem),
+      rulesText: String(base.rulesText || '').trim(),
       tokenColors: Array.isArray(base.tokenColors)
         ? base.tokenColors.map((color) => String(color || '').trim()).filter(Boolean)
         : base.tokenColor ? [String(base.tokenColor).trim()] : [],
@@ -519,6 +524,8 @@
       scryfallUri: String(card.scryfallUri || '').trim(),
       isToken: Boolean(card.isToken),
       isCopy: Boolean(card.isCopy),
+      isEmblem: Boolean(card.isEmblem),
+      rulesText: String(card.rulesText || '').trim(),
       tokenColors: Array.isArray(card.tokenColors)
         ? card.tokenColors.map((color) => String(color || '').trim()).filter(Boolean)
         : card.tokenColor ? [String(card.tokenColor).trim()] : [],
@@ -828,14 +835,15 @@
       ? `${card.name}${card.isToken ? ' (Token)' : ''}`
       : 'No card selected.';
 
-    toggleTapButton.disabled = !hasSelection;
-    toggleFaceButton.disabled = !hasSelection;
-    createTokenCopyButton.disabled = !hasSelection;
+    const canManageCard = hasSelection && !card.isEmblem;
+    toggleTapButton.disabled = !canManageCard;
+    toggleFaceButton.disabled = !canManageCard;
+    createTokenCopyButton.disabled = !canManageCard;
     tokenCopyNonlegendaryInput.disabled = !hasSelection;
-    counterAddButton.disabled = !hasSelection;
-    counterRemoveButton.disabled = !hasSelection;
+    counterAddButton.disabled = !canManageCard;
+    counterRemoveButton.disabled = !canManageCard;
     moveZoneButtons.forEach((button) => {
-      button.disabled = !hasSelection;
+      button.disabled = !canManageCard;
     });
 
     const selectedInInspectedZone = hasSelection
@@ -1047,8 +1055,8 @@
 
   function createCardElement(card, contextZone) {
     const cardEl = document.createElement('article');
-    cardEl.className = `playtest-card ${contextZone === 'battlefield' ? 'battlefield' : ''}${card.tapped ? ' is-tapped' : ''}${state.selectedCardId === card.instanceId ? ' is-selected' : ''}`;
-    cardEl.draggable = true;
+    cardEl.className = `playtest-card ${card.isEmblem ? 'playtest-emblem' : ''} ${contextZone === 'battlefield' ? 'battlefield' : ''}${card.tapped ? ' is-tapped' : ''}${state.selectedCardId === card.instanceId ? ' is-selected' : ''}`;
+    cardEl.draggable = !card.isEmblem;
     cardEl.dataset.instanceId = card.instanceId;
     cardEl.dataset.zone = contextZone;
 
@@ -1062,7 +1070,12 @@
       cardEl.style.top = `${top}px`;
     }
 
-    if (card.faceDown) {
+    if (card.isEmblem) {
+      const emblemFace = document.createElement('div');
+      emblemFace.className = 'playtest-emblem-face';
+      emblemFace.innerHTML = `<strong>${escapeHtml(card.name)}</strong><span>${escapeHtml(card.rulesText)}</span>`;
+      cardEl.appendChild(emblemFace);
+    } else if (card.faceDown) {
       const back = document.createElement('div');
       back.className = 'playtest-card-back';
       back.textContent = 'Face Down Card';
@@ -1582,6 +1595,48 @@
     tokenKeywordsInput.value = '';
   }
 
+  function createEmblemOnBattlefield() {
+    const name = String(emblemNameInput.value || '').trim();
+    const rulesText = String(emblemTextInput.value || '').trim();
+    if (!name || !rulesText) {
+      setStatus('Enter an emblem name and ability text first.');
+      return;
+    }
+
+    commitMutation(() => {
+      const spawn = getSpawnCoordinates();
+      const emblem = {
+        instanceId: makeId(),
+        name,
+        imageUri: '',
+        imageSmallUri: '',
+        typeLine: 'Emblem',
+        scryfallUri: '',
+        isToken: false,
+        isCopy: false,
+        isEmblem: true,
+        rulesText,
+        tokenColors: [],
+        isCommanderCard: false,
+        power: '',
+        toughness: '',
+        keywords: [],
+        tapped: false,
+        faceDown: false,
+        counters: {},
+        zone: 'battlefield',
+        x: spawn.x,
+        y: spawn.y,
+      };
+      state.zones.battlefield.push(emblem);
+      state.inspectedZoneOpen = false;
+      state.selectedCardId = emblem.instanceId;
+    }, `Created ${name} emblem.`, 'Create Emblem');
+
+    emblemNameInput.value = '';
+    emblemTextInput.value = '';
+  }
+
   function createTokenCopyOfSelectedCard() {
     const card = getSelectedCard();
     if (!card) {
@@ -1806,6 +1861,7 @@
     });
 
     createTokenButton.addEventListener('click', createTokensOnBattlefield);
+    createEmblemButton.addEventListener('click', createEmblemOnBattlefield);
 
     toggleTapButton.addEventListener('click', () => toggleSelectedTapState(false));
     toggleFaceButton.addEventListener('click', toggleSelectedFaceState);

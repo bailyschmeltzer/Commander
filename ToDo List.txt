@@ -23,7 +23,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Cards that move from the battlefield to anywhere else should automatically lose all counters
 
-Add an emblem creator for planeswalker abilities
+[x] Add an emblem creator for planeswalker abilities
 
 Ability to send a card to front or back of the field stack, i.e. put an equipment behind a creature
 
