@@ -17,7 +17,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] an opened zone, i.e. library, commander, etc should auto close if i click elsewhere into the battlefield
 
-The commander should be able to be click and dragged out of the command zone instead of needing to open the command zone
+[x] The commander should be able to be click and dragged out of the command zone instead of needing to open the command zone
 
 Commander tax should be displayed below the command zone
 

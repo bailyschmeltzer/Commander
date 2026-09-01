@@ -254,6 +254,14 @@ button:disabled {
   background-size: cover;
 }
 
+#zone-pile-command[draggable="true"] {
+  cursor: grab;
+}
+
+#zone-pile-command[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 .playtest-zone.active {
   border-color: var(--playtest-accent);
   background: #e1e7f8;

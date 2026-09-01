@@ -1221,6 +1221,7 @@
     renderZonePile(zonePileGraveyard, state.zones.graveyard, false);
     renderZonePile(zonePileExile, state.zones.exile, false);
     renderZonePile(zonePileCommand, state.zones.command, false);
+    zonePileCommand.draggable = state.zones.command.length > 0;
   }
 
   function renderZonePile(pileElement, cards, showBack) {
@@ -1884,6 +1885,17 @@
           return moveCardToZone(instanceId, zone);
         }, `Moved card to ${zone}.`, 'Move Card');
       });
+    });
+
+    zonePileCommand.addEventListener('dragstart', (event) => {
+      const commander = state.zones.command[state.zones.command.length - 1];
+      if (!commander) {
+        event.preventDefault();
+        return;
+      }
+      event.stopPropagation();
+      event.dataTransfer.setData('text/plain', commander.instanceId);
+      event.dataTransfer.effectAllowed = 'move';
     });
 
     imageModalClose.addEventListener('click', closeImageModal);
