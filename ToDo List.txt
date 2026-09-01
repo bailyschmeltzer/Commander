@@ -37,7 +37,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] slow down hold to change on life counters in live game. 1 full second should tick by 5
 
-Fix admin logs shortcut not showing for admins on all pages
+[x] Fix admin logs shortcut not showing for admins on all pages
 
 Dual sided cards should be able to flip, but image and description text in the deck builder
 
