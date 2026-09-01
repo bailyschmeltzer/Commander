@@ -1229,11 +1229,15 @@
     renderZonePile(zonePileCommand, state.zones.command, false);
     zonePileCommand.draggable = state.zones.command.length > 0;
 
-    const commanderTaxes = state.zones.command
+    const commandersWithTax = state.zones.command
       .filter(isCommanderLikeCard)
-      .map((card) => `${card.name}: +${Number(state.commanderTaxByName[getCommanderTaxKey(card)] || 0) * 2}`);
-    commandZoneTaxEl.hidden = !commanderTaxes.length;
-    commandZoneTaxEl.textContent = commanderTaxes.join(' | ');
+      .map((card) => ({
+        name: card.name,
+        tax: Number(state.commanderTaxByName[getCommanderTaxKey(card)] || 0) * 2,
+      }));
+    commandZoneTaxEl.hidden = !commandersWithTax.length;
+    commandZoneTaxEl.textContent = `Tax ${commandersWithTax.map((commander) => `+${commander.tax}`).join(' | ')}`;
+    commandZoneTaxEl.title = commandersWithTax.map((commander) => `${commander.name}: +${commander.tax}`).join(' | ');
   }
 
   function renderZonePile(pileElement, cards, showBack) {
