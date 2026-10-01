@@ -1,0 +1,84 @@
+.records-helper-text {
+  margin-top: 0;
+  color: #5d6884;
+}
+
+.records-table {
+  table-layout: fixed;
+}
+
+.records-table th,
+.records-table td {
+  vertical-align: top;
+  overflow: visible;
+}
+
+.records-table th {
+  overflow: hidden;
+}
+
+.records-table input,
+.records-table textarea {
+  width: 100%;
+}
+
+.records-table .combined-input-wrapper,
+.records-table .lookup-input {
+  min-width: 0;
+}
+
+.records-table .combined-input-wrapper {
+  z-index: 1;
+}
+
+.records-table .combined-input-wrapper:focus-within {
+  z-index: 25;
+}
+
+.record-title-cell {
+  min-width: 140px;
+}
+
+.record-value-cell {
+  min-width: 84px;
+}
+
+.record-unit-cell {
+  min-width: 100px;
+}
+
+.record-commander-cell {
+  min-width: 44px;
+}
+
+.record-badge,
+.record-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #40527c;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.custom-record-form {
+  display: grid;
+  gap: 8px;
+}
+
+.record-lookup-wrapper .lookup-input {
+  padding-right: 42px;
+}
+
+.record-commander-cell .dropdown-button {
+  padding: 8px 7px;
+}
+
+.records-table textarea {
+  min-height: 72px;
+}

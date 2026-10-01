@@ -1,0 +1,103 @@
+.page-game-tracker .player-table th:nth-child(2),
+.page-game-tracker .player-table td:nth-child(2) {
+  width: 19%;
+}
+
+.page-game-tracker .player-table th:nth-child(3),
+.page-game-tracker .player-table td:nth-child(3),
+.page-game-tracker .player-table th:nth-child(4),
+.page-game-tracker .player-table td:nth-child(4) {
+  width: 8%;
+}
+
+.page-game-tracker .player-table th:nth-child(5),
+.page-game-tracker .player-table td:nth-child(5) {
+  width: 10%;
+}
+
+.page-game-tracker .player-table th:nth-child(6),
+.page-game-tracker .player-table td:nth-child(6) {
+  width: 39%;
+}
+
+@media (max-width: 900px) {
+  .page-game-tracker #game-form .player-table,
+  .page-game-tracker #game-form .player-table tbody,
+  .page-game-tracker #game-form .player-table tr,
+  .page-game-tracker #game-form .player-table td {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker #game-form .player-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .page-game-tracker .player-table tbody {
+    gap: 10px;
+  }
+
+  .page-game-tracker .player-table tr {
+    padding: 10px;
+  }
+
+  .page-game-tracker .player-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 5px 0;
+  }
+
+  .page-game-tracker .player-table td::before {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .page-game-tracker .player-table .combined-input-wrapper,
+  .page-game-tracker .player-table input,
+  .page-game-tracker .player-table textarea,
+  .page-game-tracker .player-table select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker .player-table textarea {
+    min-height: 72px;
+  }
+
+  .page-game-tracker .player-table td:nth-child(2),
+  .page-game-tracker .player-table td:nth-child(3),
+  .page-game-tracker .player-table td:nth-child(4),
+  .page-game-tracker .player-table td:nth-child(5),
+  .page-game-tracker .player-table td:nth-child(6) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-game-tracker .player-table,
+  .page-game-tracker .player-table tbody,
+  .page-game-tracker .player-table tr,
+  .page-game-tracker .player-table td {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .page-game-tracker .player-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .page-game-tracker .player-table tr {
+    padding: 8px;
+  }
+
+  .page-game-tracker .player-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

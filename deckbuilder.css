@@ -1,0 +1,904 @@
+.deck-builder-hero-actions {
+  margin-top: 14px;
+}
+
+.deck-builder-layout {
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.deck-builder-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.deck-builder-meta-card,
+.deck-builder-search-card,
+.deck-builder-cards-card {
+  min-width: 0;
+}
+
+.deck-builder-cards-card {
+  grid-column: 2;
+  align-self: stretch;
+}
+
+.deck-builder-search-card,
+.deck-builder-meta-card {
+  grid-column: 1;
+}
+
+.deck-builder-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
+  gap: 12px;
+}
+
+.deck-builder-name-field {
+  grid-column: 1 / -1;
+}
+
+.deck-builder-rotation-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #2f3a57;
+  margin-top: 6px;
+}
+
+.deck-builder-rotation-toggle input {
+  width: 16px;
+  height: 16px;
+}
+
+.deck-builder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.deck-builder-title-row h1 {
+  margin: 0;
+}
+
+.deck-builder-access-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #aaaaaa;
+  background: #fff6de;
+  color: #7b5a00;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.deck-builder-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.deck-builder-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.deck-builder-discard-button {
+  color: #b91c1c;
+  border-color: #aaaaaa;
+}
+
+.deck-builder-discard-button:hover {
+  background: #fef2f2;
+}
+
+.deck-builder-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #aaaaaa;
+  border-radius: 999px;
+  background: #f7f9ff;
+}
+
+.deck-builder-count-label {
+  color: #586584;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.deck-builder-save-status,
+.deck-builder-search-status {
+  margin: 0;
+}
+
+.deck-builder-validation {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.deck-builder-mana-curve-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 10px;
+  align-items: end;
+  min-height: 220px;
+}
+
+.deck-builder-curve-bar {
+  display: grid;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  justify-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #233252;
+}
+
+.deck-builder-curve-bar:disabled {
+  cursor: default;
+}
+
+.deck-builder-curve-bar:not(:disabled) {
+  cursor: pointer;
+}
+
+.deck-builder-curve-bar:not(:disabled):hover .deck-builder-curve-column,
+.deck-builder-curve-bar:not(:disabled):focus-visible .deck-builder-curve-column {
+  background: linear-gradient(180deg, #2f6ee5 0%, #1947aa 100%);
+  transform: translateY(-2px);
+}
+
+.deck-builder-curve-bar:focus-visible {
+  outline: 2px solid #2547a8;
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.deck-builder-curve-bar.is-empty {
+  color: #8d98b2;
+}
+
+.deck-builder-curve-count,
+.deck-builder-curve-label {
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.deck-builder-curve-column {
+  width: 100%;
+  min-height: 10px;
+  border-radius: 12px 12px 6px 6px;
+  background: linear-gradient(180deg, #6f96eb 0%, #3257ba 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.deck-builder-curve-bar.is-empty .deck-builder-curve-column {
+  background: #d8deec;
+  box-shadow: none;
+}
+
+.deck-validation-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #aaaaaa;
+  background: #f8faff;
+  color: #33446a;
+  font-weight: 600;
+}
+
+.deck-validation-success {
+  border-color: #aaaaaa;
+  background: #eefaf3;
+  color: #1d7a43;
+}
+
+.deck-validation-error {
+  border-color: #aaaaaa;
+  background: #fff3f1;
+  color: #a44033;
+}
+
+.deck-validation-neutral {
+  border-color: #aaaaaa;
+  background: #f4f7ff;
+  color: #35508d;
+}
+
+.deck-builder-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.deck-search-result {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid #aaaaaa;
+  border-radius: 14px;
+  background: #fbfcff;
+  color: #22304f;
+  font-weight: 700;
+}
+
+.deck-search-result:hover {
+  background: #f2f6ff;
+}
+
+.deck-builder-selection {
+  margin-top: 16px;
+}
+
+.deck-builder-selection > p,
+.deck-builder-empty-copy {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed #d2d9ec;
+  border-radius: 14px;
+  background: #fbfcff;
+  color: #54607d;
+}
+
+.deck-builder-text-list {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid #aaaaaa;
+  border-radius: 10px;
+  background: #f8faff;
+  color: #1f2742;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.deck-builder-text-list:focus {
+  outline: none;
+  border-color: #aaaaaa;
+  background: #fff;
+}
+
+.deck-builder-precon-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.deck-builder-precon-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-builder-lookup-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-builder-lookup-wrapper .dropdown-menu {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+
+.deck-builder-import-export-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.deck-builder-export-print-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  margin: 0 0 8px;
+  color: #3e4f73;
+}
+
+.deck-builder-export-print-option input {
+  margin: 0;
+}
+
+.deck-builder-import-status {
+  margin: 0;
+  font-size: 0.83rem;
+  min-height: 1.2em;
+}
+
+.deck-card-preview {
+  display: grid;
+  grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #000000;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%);
+}
+
+.deck-card-preview-image {
+  width: 100%;
+  max-height: 230px;
+  object-fit: contain;
+  border: 1px solid #aaaaaa;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.deck-card-preview-copy h3 {
+  margin: 4px 0 8px;
+}
+
+.deck-card-preview-kicker,
+.deck-card-preview-meta {
+  margin: 0;
+}
+
+.deck-card-preview-kicker {
+  color: #5a6888;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deck-card-preview-meta {
+  color: #485673;
+}
+
+.deck-card-preview-rules-text,
+.deck-card-rules-text {
+  margin-top: 10px;
+  color: #34415f;
+  line-height: 1.55;
+}
+
+.deck-card-preview-actions {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.deck-card-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.deck-card-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.deck-card-badge-banned {
+  background: #ffe8e4;
+  color: #a44033;
+}
+
+.deck-card-badge-gamechanger {
+  background: #e8f0ff;
+  color: #3455aa;
+}
+
+.deck-builder-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.deck-builder-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #000000;
+  border-radius: 16px;
+  background: #fbfcff;
+}
+
+.deck-builder-group-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.deck-builder-group-cards--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.deck-builder-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deck-builder-group-header h3,
+.deck-builder-group-header p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.deck-builder-group-header p {
+  color: #5d6884;
+  font-weight: 700;
+}
+
+.deck-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #aaaaaa;
+  border-radius: 10px;
+  background: #ffffff;
+  flex-wrap: wrap;
+}
+
+.deck-card-row[data-card-name] {
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.deck-card-row[data-card-name]:hover {
+  background-color: #f5f7fc;
+  border-color: #aaaaaa;
+  box-shadow: 0 4px 12px rgba(24, 36, 68, 0.08);
+}
+
+.deck-card-row.is-banned {
+  border-color: #aaaaaa;
+  background: #fff5f3;
+}
+
+.deck-card-row.is-illegal {
+  border-color: #aaaaaa;
+  background: #fffbee;
+}
+
+.deck-card-row.is-illegal .deck-card-name {
+  color: #7a5c00;
+}
+
+.deck-card-row.is-selected {
+  align-items: flex-start;
+  background-color: #f0f4ff;
+  border-color: #aaaaaa;
+  grid-column: 1 / -1;
+}
+
+.deck-card-row.is-commander {
+  align-items: flex-start;
+}
+
+.deck-card-row-media {
+  flex: 0 0 96px;
+}
+
+.deck-card-row-image {
+  display: block;
+  width: 96px;
+  height: auto;
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #aaaaaa;
+  box-shadow: 0 10px 22px rgba(24, 36, 68, 0.12);
+}
+
+.deck-card-row-main {
+  min-width: 0;
+  flex: 1 1 0;
+  display: grid;
+  gap: 4px;
+}
+
+.deck-card-row-copy {
+  min-width: 0;
+}
+
+.deck-card-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.deck-card-row-actions-land {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-token-quantity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  padding: 0 0.35rem;
+  border-radius: 0.35rem;
+  background: #f3f5fb;
+  color: #28334a;
+  font-weight: 600;
+}
+
+.deck-card-art-picker {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #aaaaaa;
+}
+
+.deck-card-art-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #54607d;
+}
+
+.deck-card-art-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 108px);
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.deck-card-art-option {
+  border: 1px solid #aaaaaa;
+  border-radius: 6px;
+  background: #fbfcff;
+  width: 108px;
+  height: 150px;
+  padding: 0;
+  display: block;
+  text-align: center;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.deck-card-art-option img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.deck-card-art-option span {
+  display: none;
+}
+
+.deck-card-art-multi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.deck-card-art-multi-count {
+  font-size: 0.8rem;
+  color: #54607d;
+}
+
+.deck-card-art-option--selected {
+  border-color: #3a56d4;
+  box-shadow: 0 0 0 2px #3a56d4;
+  background: #eef1fc;
+}
+
+.deck-card-art-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.deck-card-art-option:active,
+.deck-card-art-option:active:disabled {
+  background: #dfe8f8;
+  border-color: #3a56d4;
+}
+
+.deck-land-minus,
+.deck-land-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #aaaaaa;
+  border-radius: 8px;
+  background: #f5f7fc;
+  color: #2a3560;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.deck-land-minus:hover,
+.deck-land-plus:hover {
+  background: #e8eeff;
+  border-color: #aaaaaa;
+}
+
+.deck-land-count {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #1f2742;
+  min-width: 28px;
+  text-align: center;
+}
+
+.deck-land-quick-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #aaaaaa;
+}
+
+.deck-land-quick-add-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #5a6783;
+  font-weight: 600;
+}
+
+.deck-land-quick-add {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.deck-card-name,
+.deck-card-meta {
+  margin: 0;
+}
+
+.deck-card-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f2742;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-card-count {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #42536b;
+}
+
+.deck-card-meta {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: #5a6783;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-builder-breakdown-card {
+  grid-column: 1 / -1;
+}
+
+.deck-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.deck-breakdown-section h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1c1f2a;
+}
+
+.deck-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.deck-breakdown-table td {
+  padding: 4px 0;
+  color: #1c1f2a;
+}
+
+.deck-breakdown-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-left: 12px !important;
+}
+
+.deck-breakdown-total td {
+  font-weight: 700;
+  border-top: 1px solid #aaaaaa;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.deck-curve-chart {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  height: 116px;
+}
+
+.deck-curve-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.deck-curve-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.deck-curve-count {
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-bottom: 2px;
+  color: #555b70;
+  min-height: 12px;
+}
+
+.deck-curve-bar {
+  width: 100%;
+  background: #4353ff;
+  border-radius: 3px 3px 0 0;
+  min-height: 0;
+}
+
+.deck-curve-label {
+  font-size: 0.75rem;
+  color: #66708f;
+  text-align: center;
+  padding-top: 4px;
+  line-height: 1.2;
+}
+
+@media (max-width: 900px) {
+  .page-deckbuilder .deck-builder-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-deckbuilder .deck-builder-left-col,
+  .page-deckbuilder .deck-builder-cards-card,
+  .page-deckbuilder .deck-builder-search-card,
+  .page-deckbuilder .deck-builder-meta-card {
+    grid-column: auto;
+  }
+
+  .page-deckbuilder .deck-builder-group-cards,
+  .page-deckbuilder .deck-builder-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-deckbuilder .deck-builder-summary-row,
+  .page-deckbuilder .deck-builder-group-header,
+  .page-deckbuilder .deck-card-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-deckbuilder .deck-card-row-actions,
+  .page-deckbuilder .deck-card-row-actions button,
+  .page-deckbuilder .page-action-link {
+    width: 100%;
+  }
+
+  .page-deckbuilder .deck-card-row-media,
+  .page-deckbuilder .deck-card-row-image {
+    width: min(100%, 220px);
+  }
+}
+
+@media (max-width: 720px) {
+  .deck-builder-precon-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .deck-builder-precon-row .secondary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .deck-card-art-picker {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .deck-card-art-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .deck-card-art-option {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 63 / 88;
+  }
+
+  .deck-card-art-option img {
+    aspect-ratio: 63 / 88;
+  }
+
+  .deck-card-art-multi-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .deck-card-art-multi-count {
+    text-align: center;
+  }
+
+  .deck-card-art-multi-apply {
+    width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 560px) {
+  .deck-card-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card-preview-image {
+    width: min(100%, 220px);
+    justify-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .deck-card-art-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

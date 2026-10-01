@@ -1,0 +1,110 @@
+.rankings-summary {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 18px;
+}
+
+.rankings-helper-text {
+  margin-top: 0;
+  color: #5f6882;
+}
+
+.rankings-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.rankings-split-grid h3 {
+  margin: 0 0 12px;
+}
+
+.page-rankings .rankings-table {
+  table-layout: auto;
+}
+
+.rankings-table th,
+.rankings-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-rankings .rankings-main-table .rankings-games-column,
+.page-rankings .rankings-main-table .rankings-games-cell {
+  width: 4ch;
+  max-width: 4ch;
+  text-align: center;
+}
+
+.page-rankings .rankings-table th:nth-child(2),
+.page-rankings .rankings-table td:nth-child(2),
+.page-rankings .rankings-table th:nth-child(3),
+.page-rankings .rankings-table td:nth-child(3),
+.page-rankings .rankings-table th:nth-child(4),
+.page-rankings .rankings-table td:nth-child(4),
+.page-rankings .rankings-table th:nth-child(5),
+.page-rankings .rankings-table td:nth-child(5) {
+  width: auto;
+}
+
+.page-rankings .rankings-table th:last-child,
+.page-rankings .rankings-table td:last-child {
+  white-space: nowrap;
+}
+
+.form-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.form-dot {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #ffffff;
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.form-dot--win {
+  background: #1d7a43;
+}
+
+.form-dot--loss {
+  background: #c0392b;
+}
+
+@media (max-width: 900px) {
+  .rankings-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-rankings .rankings-main-table td:last-child::before {
+    content: 'Recent Performance';
+    white-space: nowrap;
+    hyphens: none;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .page-rankings .rankings-main-table td:last-child {
+    grid-template-columns: minmax(132px, 164px) minmax(0, 1fr);
+    word-break: normal;
+  }
+
+  .page-rankings .rankings-table td {
+    grid-template-columns: minmax(132px, 164px) minmax(0, 1fr);
+  }
+
+  .page-rankings .rankings-main-table td.rankings-games-cell {
+    width: 100% !important;
+    max-width: none;
+    text-align: left;
+  }
+}

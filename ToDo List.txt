@@ -41,4 +41,15 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Dual sided cards should be able to flip, but image and description text in the deck builder
 
+Segment each page's code, like we did for the playtester, including CSS. minimalize code in app.js
+
+Fix issues where on desktop only, data is failing to load for long periods when changing pages
+
+Fix issue where deck changes are not always being saved. Would it be worth changing automatic saves to manual?
+
 Harden importing from rate limiting
+
+Add a page for recording prerelease and draft information
+
+
+
