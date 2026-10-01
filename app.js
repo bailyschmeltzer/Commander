@@ -12111,6 +12111,7 @@ function setupSyncUi() {
   }
 
   [syncUserInput, syncTokenInput].forEach((input) => {
+    input?.addEventListener('input', updateSyncControls);
     input?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         handleSyncConnect(event);
