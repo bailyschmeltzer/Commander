@@ -124,6 +124,7 @@ const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
 const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
 const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
 const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
+const deckBuilderSaveButton = document.getElementById('deck-builder-save');
 const liveGameForm = document.getElementById('live-game-form');
 const liveGameDateInput = document.getElementById('live-game-date');
 const liveStartingLifeInput = document.getElementById('live-starting-life');
@@ -282,6 +283,7 @@ let commanderBuilderKeywordSearchTerm = '';
 let commanderBuilderSelectedKeywords = [];
 let activeDeckBuilderId = '';
 let activeDeckBuilderRecord = null;
+let deckBuilderHasUnsavedChanges = false;
 let deckBuilderSearchRequestId = 0;
 let deckBuilderSearchTimer = null;
 let deckBuilderSearchLoading = false;
@@ -6958,6 +6960,7 @@ function applyDeckBuilderAccessState(deck) {
   if (deckBuilderDiscardButton) {
     deckBuilderDiscardButton.hidden = isReadOnly || !deck?.id || isDeckUsedInGame(deck);
   }
+  updateDeckBuilderSaveButton();
 }
 
 function isDeckUsedInGame(deck) {
@@ -7170,26 +7173,31 @@ function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
     if (requestedDeck) {
       activeDeckBuilderId = requestedDeck.id;
       activeDeckBuilderRecord = requestedDeck;
+      deckBuilderHasUnsavedChanges = false;
+      updateDeckBuilderSaveButton();
       return requestedDeck;
     }
   }
 
   if (shouldCreateNew) {
     const newDeck = createEmptyDeckRecord();
-    saveDecks([...loadDecks(), newDeck]);
+    // Defer persistence — the deck is only stored once the user presses Save Deck.
     activeDeckBuilderId = newDeck.id;
     activeDeckBuilderRecord = newDeck;
+    deckBuilderHasUnsavedChanges = true;
+    updateDeckBuilderSaveButton();
     window.history.replaceState({}, '', getDeckBuilderHref(newDeck.id));
     return newDeck;
   }
 
   if (createIfMissing) {
     const newDeck = createEmptyDeckRecord();
-    saveDecks([...loadDecks(), newDeck]);
     activeDeckBuilderId = newDeck.id;
     activeDeckBuilderRecord = newDeck;
+    deckBuilderHasUnsavedChanges = true;
+    updateDeckBuilderSaveButton();
     window.history.replaceState({}, '', getDeckBuilderHref(newDeck.id));
-    setDeckBuilderSaveStatus('Started a new deck.', 'neutral');
+    setDeckBuilderSaveStatus('Started a new deck. Press Save Deck to keep it.', 'neutral');
     return newDeck;
   }
 
@@ -7247,17 +7255,19 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
     ...ownedDeck,
     updatedAt: new Date().toISOString(),
   });
-  const existingDecks = loadDecks();
-  const nextDecks = existingDecks.some((deck) => deck.id === normalizedDeck.id)
-    ? existingDecks.map((deck) => (deck.id === normalizedDeck.id ? normalizedDeck : deck))
-    : [...existingDecks, normalizedDeck];
 
-  saveDecks(nextDecks, {
-    deferPersist: false,
-    delay: 0,
-  });
+  // Stage in memory only — the deck is written to storage/cloud when the user
+  // presses Save Deck (saveActiveDeckBuilderDeck). Leaving the page without
+  // saving discards these staged changes.
   activeDeckBuilderId = normalizedDeck.id;
   activeDeckBuilderRecord = normalizedDeck;
+  appState = normalizeAppStateData({
+    ...appState,
+    decks: (Array.isArray(appState.decks) && appState.decks.some((deck) => deck.id === normalizedDeck.id))
+      ? appState.decks.map((deck) => (deck.id === normalizedDeck.id ? normalizedDeck : deck))
+      : [...(Array.isArray(appState.decks) ? appState.decks : []), normalizedDeck],
+  });
+  deckBuilderHasUnsavedChanges = true;
 
   if (typeof normalizedDeck.powerLevel === 'number' && normalizedDeck.commander?.name) {
     setCommanderExpectedPower(normalizedDeck.commander.name, normalizedDeck.powerLevel);
@@ -7266,6 +7276,7 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
   updateDeckBuilderUndoButton();
+  updateDeckBuilderSaveButton();
 
   if (deckBuilderPage) {
     const activeDeck = applyDeckBuilderDraftMeta(ensureActiveDeckBuilderRecord() || null);
@@ -7281,6 +7292,71 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   }
 
   refresh();
+}
+
+function hasUnsavedDeckBuilderChanges() {
+  return deckBuilderHasUnsavedChanges;
+}
+
+function updateDeckBuilderSaveButton() {
+  if (!deckBuilderSaveButton) {
+    return;
+  }
+  const deck = activeDeckBuilderRecord;
+  const readOnly = deck ? !canCurrentUserEditDeck(deck) : true;
+  deckBuilderSaveButton.disabled = readOnly || !deckBuilderHasUnsavedChanges;
+  deckBuilderSaveButton.classList.toggle('has-unsaved-changes', deckBuilderHasUnsavedChanges && !readOnly);
+}
+
+async function saveActiveDeckBuilderDeck() {
+  const deck = ensureActiveDeckBuilderRecord();
+  if (!deck) {
+    return;
+  }
+
+  if (!canCurrentUserEditDeck(deck)) {
+    setDeckBuilderSaveStatus(getDeckReadOnlyMessage(deck), 'error');
+    return;
+  }
+
+  // Merge any pending meta edits (name/owner/power/in-rotation) captured from inputs.
+  const stagedDeck = applyDeckBuilderDraftMeta(deck);
+  const normalizedDeck = normalizeDeckRecord({
+    ...stagedDeck,
+    updatedAt: new Date().toISOString(),
+  });
+
+  const existingDecks = loadDecks();
+  const nextDecks = existingDecks.some((entry) => entry.id === normalizedDeck.id)
+    ? existingDecks.map((entry) => (entry.id === normalizedDeck.id ? normalizedDeck : entry))
+    : [...existingDecks, normalizedDeck];
+
+  saveDecks(nextDecks, { deferPersist: false, delay: 0 });
+  flushQueuedDeckPersist({ force: true });
+
+  activeDeckBuilderId = normalizedDeck.id;
+  activeDeckBuilderRecord = normalizedDeck;
+  deckBuilderHasUnsavedChanges = false;
+
+  if (typeof normalizedDeck.powerLevel === 'number' && normalizedDeck.commander?.name) {
+    setCommanderExpectedPower(normalizedDeck.commander.name, normalizedDeck.powerLevel);
+  }
+  linkDeckListToDeck(normalizedDeck);
+  setDeckBuilderSaveStatus('Deck saved.', 'success');
+  updateDeckBuilderSaveButton();
+
+  if (syncQueueTimer) {
+    clearTimeout(syncQueueTimer);
+    syncQueueTimer = null;
+  }
+  if (hasSyncCredentials() && !syncConflictInfo) {
+    try {
+      await pushCloudState();
+      setDeckBuilderSaveStatus('Deck saved and synced.', 'success');
+    } catch (_) {
+      setDeckBuilderSaveStatus('Deck saved locally. Cloud sync will retry.', 'muted');
+    }
+  }
 }
 
 function isBasicLand(card) {
@@ -9231,10 +9307,9 @@ function queueDeckBuilderMetaSave() {
     clearTimeout(deckBuilderSaveTimer);
   }
 
+  // Stage metadata edits in memory only; persisted on Save Deck.
   deckBuilderSaveTimer = setTimeout(() => {
     deckBuilderSaveTimer = null;
-    // Send the owner display name; the server resolves it to the correct userId
-    // via the full member list (matchKeys), so no client-side userId derivation needed.
     persistDeckBuilderRecord({
       ...deck,
       name: capturedName,
@@ -9242,7 +9317,7 @@ function queueDeckBuilderMetaSave() {
       ownerUserId: deck.ownerUserId || '',
       powerLevel: capturedPower,
       inRotation: capturedInRotation,
-    }, 'Deck details saved.');
+    }, 'Unsaved changes', 'muted');
   }, DECK_BUILDER_META_SAVE_DEBOUNCE_MS);
 }
 

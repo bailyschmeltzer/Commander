@@ -17,6 +17,7 @@
   const preconSelect = document.getElementById('deck-builder-precon');
   const preconLoadButton = document.getElementById('deck-builder-precon-load');
   const discardButton = document.getElementById('deck-builder-discard');
+  const saveButton = document.getElementById('deck-builder-save');
   const undoButton = document.getElementById('deck-builder-undo');
   const manaCurve = document.getElementById('deck-builder-mana-curve');
   const backToDecksLink = document.querySelector('.page-deckbuilder .page-action-link[href="decklists.html"], .page-deck-builder .page-action-link[href="decklists.html"]');
@@ -323,6 +324,8 @@
     window.location.href = 'decklists.html';
   });
 
+  saveButton?.addEventListener('click', async () => await saveActiveDeckBuilderDeck());
+
   undoButton?.addEventListener('click', async () => await undoDeckBuilderChange());
 
   manaCurve?.addEventListener('click', async (event) => {
@@ -332,19 +335,17 @@
     if (Number.isFinite(manaValue)) await showDeckBuilderManaValueCards(manaValue);
   });
 
-  backToDecksLink?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    flushQueuedDeckPersist({ force: true });
-    if (syncQueueTimer) {
-      clearTimeout(syncQueueTimer);
-      syncQueueTimer = null;
+  window.addEventListener('beforeunload', (event) => {
+    if (typeof hasUnsavedDeckBuilderChanges === 'function' && hasUnsavedDeckBuilderChanges()) {
+      event.preventDefault();
+      event.returnValue = '';
     }
-    if (hasSyncCredentials() && !syncConflictInfo) {
-      try {
-        await Promise.race([pushCloudState(), new Promise((resolve) => setTimeout(resolve, 1200))]);
-      } catch (_) {
-        // Navigation should still proceed; sync can retry later.
-      }
+  });
+
+  backToDecksLink?.addEventListener('click', (event) => {
+    // Navigating away without pressing Save Deck discards any pending changes.
+    if (hasUnsavedDeckBuilderChanges()) {
+      setDeckBuilderSaveStatus('Unsaved changes discarded.', 'muted');
     }
     window.location.href = backToDecksLink.getAttribute('href') || 'decklists.html';
   });

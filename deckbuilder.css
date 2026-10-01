@@ -104,6 +104,16 @@
   background: #fef2f2;
 }
 
+#deck-builder-save.has-unsaved-changes {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+#deck-builder-save.has-unsaved-changes:hover {
+  background: #eff6ff;
+}
+
 .deck-builder-count-chip {
   display: inline-flex;
   align-items: center;
