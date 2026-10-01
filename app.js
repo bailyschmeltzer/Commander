@@ -12396,6 +12396,66 @@ function resetForm() {
   dateInput.valueAsDate = new Date();
 }
 
+if (liveSourceOptions) {
+  liveSourceOptions.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-source-id]');
+    if (!button) {
+      return;
+    }
+
+    hideLiveSourcePrompt(button.dataset.sourceId || '');
+  });
+}
+
+if (liveSourceCancelButton) {
+  liveSourceCancelButton.addEventListener('click', () => {
+    hideLiveSourcePrompt(null);
+  });
+}
+
+if (liveModalCancelButton) {
+  liveModalCancelButton.addEventListener('click', () => {
+    hideLiveModal(null);
+  });
+}
+
+if (liveModalConfirmButton) {
+  liveModalConfirmButton.addEventListener('click', () => {
+    if (!liveModalConfig) {
+      hideLiveModal(true);
+      return;
+    }
+
+    const activeControl = getActiveLiveModalControl();
+    if (!activeControl) {
+      hideLiveModal(true);
+      return;
+    }
+
+    const rawValue = activeControl.value;
+    const validationResult = typeof liveModalConfig.validate === 'function'
+      ? liveModalConfig.validate(rawValue)
+      : { value: rawValue };
+
+    if (validationResult && validationResult.error) {
+      setLiveModalError(validationResult.error);
+      activeControl.focus();
+      return;
+    }
+
+    hideLiveModal(validationResult && Object.prototype.hasOwnProperty.call(validationResult, 'value') ? validationResult.value : rawValue);
+  });
+}
+
+if (liveModalInput) {
+  liveModalInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      liveModalConfirmButton?.click();
+    }
+  });
+}
+
 if (cardImageModalCloseButton) {
   cardImageModalCloseButton.addEventListener('click', () => {
     closeCardImageModal();
