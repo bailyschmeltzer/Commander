@@ -12380,6 +12380,7 @@ function setupSyncUi() {
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
     syncHasLoadedCloudState = false;
+    syncInFlight = true;
     clearSyncAuthenticatedUser();
     updateSyncMetadata();
     clearSyncConflict();
@@ -12389,28 +12390,36 @@ function setupSyncUi() {
 
     try {
       applyStoredSyncSession(user, token);
-      setSyncUiCollapsed(true);
+      syncConnectionState = 'connecting';
+      setSyncUiCollapsed(false);
+      refreshSyncStatus();
 
-      if (navigator.onLine) {
-        void cloudRequest('/api/session', {
-          method: 'POST',
-          body: JSON.stringify({ user, token }),
-          timeoutMs: 900,
-        }).then((sessionPayload) => {
-          if (sessionPayload?.auth) {
-            updateSyncAuthenticatedUser(sessionPayload.auth || null);
-            refreshSyncStatus();
-          }
-          void pullCloudState().catch(() => null);
-        }).catch(() => null);
+      if (!navigator.onLine) {
+        throw new Error('You appear to be offline. Check your connection and try again.');
       }
+
+      const sessionPayload = await cloudRequest('/api/session', {
+        method: 'POST',
+        body: JSON.stringify({ user, token }),
+        timeoutMs: 5000,
+      });
+      if (!sessionPayload?.auth) {
+        throw new Error('The server did not confirm this login. Check the display name and access code.');
+      }
+
+      updateSyncAuthenticatedUser(sessionPayload.auth);
+      await pullCloudState();
+      setSyncUiCollapsed(true);
     } catch (error) {
-      syncConnectionState = 'local';
+      syncConnectionState = 'configured';
       clearSyncAuthenticatedUser();
       syncLastErrorMessage = error.message;
+      setSyncUiCollapsed(false);
       refreshSyncStatus();
     } finally {
+      syncInFlight = false;
       updateSyncControls();
+      refreshSyncStatus();
     }
   };
 
