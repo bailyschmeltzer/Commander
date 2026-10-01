@@ -7197,6 +7197,17 @@ function ensureActiveDeckBuilderRecord({ createIfMissing = false } = {}) {
   const shouldCreateNew = getQueryParam('new') === '1';
 
   if (requestedDeckId) {
+    // If we already have this deck open with staged (unsaved) edits in memory,
+    // return the in-memory record — reloading from storage here would discard
+    // the user's pending changes (the partial-save bug).
+    if (
+      activeDeckBuilderRecord
+      && activeDeckBuilderRecord.id === requestedDeckId
+      && deckBuilderHasUnsavedChanges
+    ) {
+      return activeDeckBuilderRecord;
+    }
+
     const requestedDeck = loadDecks().find((deck) => deck.id === requestedDeckId) || null;
     if (requestedDeck) {
       activeDeckBuilderId = requestedDeck.id;
@@ -7306,20 +7317,12 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   updateDeckBuilderUndoButton();
   updateDeckBuilderSaveButton();
 
+  // Re-render the deck builder in place. Do NOT call refresh() here — refresh()
+  // re-runs ensureActiveDeckBuilderRecord(), which for a ?deckId= URL reloads the
+  // deck from storage and would discard these staged edits before Save is pressed.
   if (deckBuilderPage) {
-    const activeDeck = applyDeckBuilderDraftMeta(ensureActiveDeckBuilderRecord() || null);
-    if (activeDeck) {
-      renderDeckBuilderBreakdown(activeDeck);
-    }
-    renderDeckBuilderCards(activeDeck || normalizedDeck);
-  }
-
-  if (skipFullRefresh && deckBuilderPage) {
     renderDeckBuilderPage();
-    return;
   }
-
-  refresh();
 }
 
 function hasUnsavedDeckBuilderChanges() {

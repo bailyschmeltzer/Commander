@@ -45,9 +45,9 @@ Segment each page's code, like we did for the playtester, including CSS. minimal
 
 Fix issues where on desktop only, data is failing to load for long periods when changing pages
 
-Fix issue where deck changes are not always being saved. Would it be worth changing automatic saves to manual?
+[x] Fix issue where deck changes are not always being saved. Would it be worth changing automatic saves to manual?
 
-Harden importing from rate limiting
+[x] Harden importing from rate limiting
 
 Add a page for recording prerelease and draft information
 
