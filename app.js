@@ -10,6 +10,7 @@ const SYNC_USER_STORAGE_KEY = 'commanderTrackerSyncUser';
 const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const SYNC_PENDING_CHANGES_STORAGE_KEY = 'commanderTrackerSyncPendingChanges';
+const SYNC_REVISION_STORAGE_KEY = 'commanderTrackerSyncRevision';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
@@ -1710,6 +1711,22 @@ function updateSyncMetadata({ revision = 0, updatedAt = '', updatedBy = '' } = {
   syncCloudRevision = Number.isFinite(Number(revision)) ? Number(revision) : 0;
   syncCloudUpdatedAt = String(updatedAt || '').trim();
   syncCloudUpdatedBy = String(updatedBy || '').trim();
+
+  // Persist the newest cloud revision we have seen so a stale edge-cached read on
+  // the NEXT page load cannot silently overwrite newer local data (Cloudflare KV
+  // reads can be served stale for a while after a write).
+  if (syncCloudRevision > 0) {
+    writeLocalStorageValue(SYNC_REVISION_STORAGE_KEY, String(syncCloudRevision));
+  } else {
+    removeLocalStorageValue(SYNC_REVISION_STORAGE_KEY);
+  }
+}
+
+function restorePersistedSyncRevision() {
+  const stored = Number.parseInt(String(readLocalStorageValue(SYNC_REVISION_STORAGE_KEY) || '').trim(), 10);
+  if (Number.isFinite(stored) && stored > 0 && stored > syncCloudRevision) {
+    syncCloudRevision = stored;
+  }
 }
 
 function updateSyncAuthenticatedUser(auth = null) {
@@ -2087,7 +2104,7 @@ async function resolveSyncConflict(conflict = syncConflictInfo) {
   refreshSyncStatus();
 
   try {
-    await pullCloudState();
+    await pullCloudState({ force: true });
     setSyncUiCollapsed(true);
     refreshSyncStatus();
   } catch (error) {
@@ -2097,7 +2114,7 @@ async function resolveSyncConflict(conflict = syncConflictInfo) {
   }
 }
 
-async function pullCloudState() {
+async function pullCloudState({ force = false } = {}) {
   syncConnectionState = 'connecting';
   syncLastErrorMessage = '';
   updateSyncControls();
@@ -2108,6 +2125,33 @@ async function pullCloudState() {
     const statePayload = payload?.state && typeof payload.state === 'object'
       ? payload.state
       : payload;
+    updateSyncAuthenticatedUser(payload?.auth || statePayload?.auth || null);
+
+    const pulledRevision = Number.isFinite(Number(payload?.revision ?? statePayload?.revision))
+      ? Number(payload?.revision ?? statePayload?.revision)
+      : 0;
+
+    // Guard against stale edge-cached KV reads: if the cloud just returned an OLDER
+    // revision than the newest one this device has already seen, applying it would
+    // wipe newer local data (the "my update disappeared for minutes" loop). Keep
+    // local state and treat the connection as healthy; the next real sync reconciles.
+    if (!force && pulledRevision < syncCloudRevision) {
+      syncConnectionState = 'connected';
+      syncHasLoadedCloudState = true;
+      syncLastErrorMessage = '';
+      refreshSyncStatus();
+      refresh();
+      syncDebugLogs.unshift({
+        timestamp: new Date().toISOString(),
+        event: 'Skipped stale cloud read',
+        decks: Array.isArray(appState.decks) ? appState.decks.length : 0,
+        lists: Array.isArray(appState.deckLists) ? appState.deckLists.length : 0,
+        user: `cloud rev ${pulledRevision} < local rev ${syncCloudRevision}`,
+      });
+      renderSyncDebugLog();
+      return;
+    }
+
     const games = Array.isArray(statePayload?.games) ? statePayload.games : [];
     const powerLevels = statePayload?.powerLevels && typeof statePayload.powerLevels === 'object' ? statePayload.powerLevels : {};
     const deckLists = Array.isArray(statePayload?.deckLists) ? statePayload.deckLists : [];
@@ -2115,7 +2159,6 @@ async function pullCloudState() {
     const records = Array.isArray(statePayload?.records) ? statePayload.records : [];
     const activeGame = statePayload?.activeGame && typeof statePayload.activeGame === 'object' ? statePayload.activeGame : null;
     const activeGameUndo = Array.isArray(statePayload?.activeGameUndo) ? statePayload.activeGameUndo : [];
-    updateSyncAuthenticatedUser(payload?.auth || statePayload?.auth || null);
     updateSyncMetadata({
       revision: payload?.revision ?? statePayload?.revision,
       updatedAt: payload?.updatedAt ?? statePayload?.updatedAt,
@@ -2354,6 +2397,7 @@ async function pushCloudState() {
   try {
     const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, {
       method: 'PUT',
+      timeoutMs: 10000,
       headers: {
         'X-State-Revision': String(syncCloudRevision),
       },
@@ -12933,9 +12977,18 @@ document.addEventListener('visibilitychange', async () => {
   }
 
   if (document.visibilityState === 'visible') {
-    checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
-    if (hasSyncCredentials()) {
+    // On mobile the tab is suspended/resumed rather than reloaded, so bypass the
+    // 15s freshness cache (force) and auto-pull any newer cloud revision when local
+    // has no unsynced pending changes AND no unsaved deck-builder draft in progress.
+    // This keeps resumed data accurate without requiring the app to be closed and
+    // reopened, while never pulling over in-progress edits.
+    const hasLocalChanges = syncPendingChanges || deckBuilderHasUnsavedChanges;
+    await checkCloudStateFreshness({ autoPull: !hasLocalChanges, force: true });
+    if (hasSyncCredentials() && !syncPendingChanges) {
       await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
+    } else if (hasSyncCredentials()) {
+      // Local has unsynced changes — push them rather than pulling over them.
+      queueCloudSync(0);
     }
   }
 });
@@ -12945,9 +12998,12 @@ window.addEventListener('pagehide', () => {
 });
 
 window.addEventListener('focus', async () => {
-  checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState() });
-  if (hasSyncCredentials()) {
+  const hasLocalChanges = syncPendingChanges || deckBuilderHasUnsavedChanges;
+  await checkCloudStateFreshness({ autoPull: !hasLocalChanges, force: true });
+  if (hasSyncCredentials() && !syncPendingChanges) {
     await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
+  } else if (hasSyncCredentials()) {
+    queueCloudSync(0);
   }
 });
 
@@ -13124,6 +13180,7 @@ async function restorePersistedSyncSession() {
 
 async function initializeApp() {
   appState = loadLocalState();
+  restorePersistedSyncRevision();
   setSyncPendingChanges(loadSyncPendingChangesState());
   activeGameState = loadActiveGameState();
   activeGameUndoState = loadActiveGameUndoState();
