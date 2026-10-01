@@ -212,6 +212,7 @@ if (deckBuilderTokenSearchStatus) {
 }
 
 let historySortKey = 'date';
+let editingGameId = null;
 let rankingsCommanderIdentityLoading = false;
 let rankingsCommanderIdentityRequestId = 0;
 const commanderIdentityAttemptedKeys = new Set();
