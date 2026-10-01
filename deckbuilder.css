@@ -114,6 +114,21 @@
   background: #eff6ff;
 }
 
+#deck-builder-save.save-confirm-flash {
+  animation: deck-builder-save-flash 1.2s ease-out;
+}
+
+@keyframes deck-builder-save-flash {
+  0% {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 .deck-builder-count-chip {
   display: inline-flex;
   align-items: center;

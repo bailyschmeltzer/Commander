@@ -284,6 +284,7 @@ let commanderBuilderSelectedKeywords = [];
 let activeDeckBuilderId = '';
 let activeDeckBuilderRecord = null;
 let deckBuilderHasUnsavedChanges = false;
+let deckBuilderSaveConfirmTimer = null;
 let deckBuilderSearchRequestId = 0;
 let deckBuilderSearchTimer = null;
 let deckBuilderSearchLoading = false;
@@ -7099,6 +7100,33 @@ function setDeckBuilderSaveStatus(message, tone = 'muted') {
   deckBuilderSaveStatus.classList.add(`status-${tone}`);
 }
 
+function flashDeckBuilderSaveConfirmation(message) {
+  setDeckBuilderSaveStatus(message, 'success');
+
+  if (deckBuilderSaveConfirmTimer) {
+    clearTimeout(deckBuilderSaveConfirmTimer);
+    deckBuilderSaveConfirmTimer = null;
+  }
+
+  if (deckBuilderSaveButton) {
+    deckBuilderSaveButton.classList.remove('save-confirm-flash');
+    // Restart the CSS animation if the user saves again quickly.
+    void deckBuilderSaveButton.offsetWidth;
+    deckBuilderSaveButton.classList.add('save-confirm-flash');
+  }
+
+  deckBuilderSaveConfirmTimer = setTimeout(() => {
+    deckBuilderSaveConfirmTimer = null;
+    if (deckBuilderSaveButton) {
+      deckBuilderSaveButton.classList.remove('save-confirm-flash');
+    }
+    // Only revert to the idle label if nothing newer has replaced the message.
+    if (!deckBuilderHasUnsavedChanges) {
+      setDeckBuilderSaveStatus('Changes saved locally.', 'muted');
+    }
+  }, 2600);
+}
+
 function setDeckBuilderSearchStatus(message, tone = 'muted') {
   if (!deckBuilderSearchStatus) {
     return;
@@ -7342,7 +7370,7 @@ async function saveActiveDeckBuilderDeck() {
     setCommanderExpectedPower(normalizedDeck.commander.name, normalizedDeck.powerLevel);
   }
   linkDeckListToDeck(normalizedDeck);
-  setDeckBuilderSaveStatus('Deck saved.', 'success');
+  flashDeckBuilderSaveConfirmation('✓ Deck saved.');
   updateDeckBuilderSaveButton();
 
   if (syncQueueTimer) {
@@ -7352,7 +7380,7 @@ async function saveActiveDeckBuilderDeck() {
   if (hasSyncCredentials() && !syncConflictInfo) {
     try {
       await pushCloudState();
-      setDeckBuilderSaveStatus('Deck saved and synced.', 'success');
+      flashDeckBuilderSaveConfirmation('✓ Deck saved and synced.');
     } catch (_) {
       setDeckBuilderSaveStatus('Deck saved locally. Cloud sync will retry.', 'muted');
     }
