@@ -505,6 +505,131 @@ async function validateCommanderEntries(rows, { allowExactCardLookup = true } = 
   return '';
 }
 
+function normalizeIdentityLabel(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getIdentityKey(value) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  return normalizedValue ? normalizedValue.toLocaleLowerCase() : '';
+}
+
+function normalizeSyncUserKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function getIdentityDisplayScore(value) {
+  const stringValue = String(value || '');
+  const normalizedValue = normalizeIdentityLabel(value);
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  let score = 0;
+  if (normalizedValue !== normalizedValue.toLocaleLowerCase()) score += 2;
+  if (/\b[A-Z]/.test(normalizedValue)) score += 1;
+  if (/[^a-zA-Z0-9\s]/.test(stringValue)) score += 2;
+  return score;
+}
+
+function recordIdentityVariant(bucketMap, value) {
+  const normalizedValue = normalizeIdentityLabel(value);
+  const identityKey = getIdentityKey(normalizedValue);
+  const rawValue = String(value || '').trim();
+  if (!identityKey || !rawValue) return;
+
+  if (!bucketMap.has(identityKey)) {
+    bucketMap.set(identityKey, new Map());
+  }
+
+  const variants = bucketMap.get(identityKey);
+  variants.set(rawValue, (variants.get(rawValue) || 0) + 1);
+}
+
+function buildCanonicalIdentityMap(bucketMap) {
+  const canonicalMap = new Map();
+
+  bucketMap.forEach((variants, identityKey) => {
+    let preferredValue = '';
+    let preferredCount = -1;
+    let preferredScore = -1;
+
+    variants.forEach((count, value) => {
+      const displayScore = getIdentityDisplayScore(value);
+      const shouldReplace = displayScore > preferredScore
+        || (displayScore === preferredScore && count > preferredCount)
+        || (displayScore === preferredScore && count === preferredCount && value.localeCompare(preferredValue) < 0);
+
+      if (shouldReplace) {
+        preferredValue = value;
+        preferredCount = count;
+        preferredScore = displayScore;
+      }
+    });
+
+    canonicalMap.set(identityKey, preferredValue);
+  });
+
+  return canonicalMap;
+}
+
+function buildCanonicalIdentityMapFromValues(values) {
+  const bucketMap = new Map();
+  (Array.isArray(values) ? values : []).forEach((value) => {
+    recordIdentityVariant(bucketMap, value);
+  });
+  return buildCanonicalIdentityMap(bucketMap);
+}
+
+function canonicalizeIdentityValue(value, canonicalMap) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) return '';
+  return canonicalMap?.get(getIdentityKey(rawValue)) || rawValue;
+}
+
+function getStringEditDistance(a, b) {
+  const aLength = a.length;
+  const bLength = b.length;
+  if (!aLength) return bLength;
+  if (!bLength) return aLength;
+
+  const row = Array.from({ length: bLength + 1 }, (_, index) => index);
+  let previousRow;
+
+  for (let i = 1; i <= aLength; i += 1) {
+    previousRow = row.slice();
+    row[0] = i;
+    for (let j = 1; j <= bLength; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(
+        previousRow[j] + 1,
+        row[j - 1] + 1,
+        previousRow[j - 1] + cost,
+      );
+    }
+  }
+
+  return row[bLength];
+}
+
+function getStringSimilarity(a, b) {
+  const normalizedA = String(a || '').trim().toLowerCase();
+  const normalizedB = String(b || '').trim().toLowerCase();
+  if (!normalizedA || !normalizedB) return 0;
+
+  const distance = getStringEditDistance(normalizedA, normalizedB);
+  return 1 - (distance / Math.max(normalizedA.length, normalizedB.length));
+}
+
 function normalizeIdentityList(value, canonicalMap) {
   const values = Array.isArray(value) ? value : String(value || '').split(',');
   return values
