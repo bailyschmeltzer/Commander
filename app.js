@@ -447,6 +447,98 @@ function getStorageWarningMessage() {
   return storageErrorMessage || '';
 }
 
+function getExactKnownCommander(rawCommander, knownCommanders) {
+  const commanderKey = getIdentityKey(rawCommander);
+  if (!commanderKey) {
+    return '';
+  }
+
+  return (Array.isArray(knownCommanders) ? knownCommanders : [])
+    .find((commander) => getIdentityKey(commander) === commanderKey) || '';
+}
+
+function getBestCommanderSuggestion(rawCommander, knownCommanders) {
+  const inputKey = getIdentityKey(rawCommander);
+  if (!inputKey) {
+    return '';
+  }
+
+  let best = { score: 0, commander: '' };
+  (Array.isArray(knownCommanders) ? knownCommanders : []).forEach((commander) => {
+    const candidateKey = getIdentityKey(commander);
+    const score = getStringSimilarity(inputKey, candidateKey);
+    if (score > best.score) {
+      best = { score, commander };
+    }
+  });
+
+  return best.score >= 0.75 ? best.commander : '';
+}
+
+async function fetchDeckCardByNameWithFallback(name) {
+  if (!name || !name.trim()) {
+    return null;
+  }
+
+  try {
+    const card = await fetchDeckCardByName(name);
+    if (card) {
+      return card;
+    }
+  } catch (error) {
+    // Fall through to search fallback when exact lookup fails.
+  }
+
+  try {
+    const results = await fetchDeckSearchResultsList(name);
+    if (!results.length) {
+      return null;
+    }
+
+    for (let i = 0; i < Math.min(results.length, 5); i += 1) {
+      const candidate = results[i];
+      if (!candidate) {
+        continue;
+      }
+
+      try {
+        const card = await fetchDeckCardByName(candidate);
+        if (card) {
+          return card;
+        }
+      } catch (error) {
+        // Ignore individual candidate lookup failures.
+      }
+    }
+  } catch (error) {
+    // Ignore search fallback failures.
+  }
+
+  return null;
+}
+
+async function resolveCommanderInput(rawCommander, knownCommanders) {
+  if (!rawCommander || !rawCommander.trim()) {
+    return '';
+  }
+
+  try {
+    const card = await fetchDeckCardByNameWithFallback(rawCommander);
+    if (card?.name) {
+      return card.name;
+    }
+  } catch (error) {
+    // Ignore lookup failures during validation.
+  }
+
+  const exactKnown = getExactKnownCommander(rawCommander, knownCommanders);
+  if (exactKnown) {
+    return exactKnown;
+  }
+
+  return '';
+}
+
 async function canonicalizeCommanderInputValue(rawCommander) {
   const knownCommandersList = getKnownCommanderOptions();
   const resolvedCardName = await resolveCommanderInput(rawCommander, knownCommandersList);
