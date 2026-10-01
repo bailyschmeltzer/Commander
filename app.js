@@ -212,7 +212,98 @@ if (deckBuilderTokenSearchStatus) {
 }
 
 let historySortKey = 'date';
+let historySortDescending = true;
 let editingGameId = null;
+let knownPlayers = [];
+let knownCommanders = [];
+let commanderSortColumn = 'games';
+let commanderSortDescending = true;
+const tableSortState = {
+  rankingsMain: { column: 'rank', descending: false },
+  playerStats: { column: 'games', descending: true },
+  commanderStats: { column: 'games', descending: true },
+  recentPlayerTrends: { column: 'points', descending: true },
+  recentCommanderTrends: { column: 'points', descending: true },
+  playerStreaks: { column: 'currentWins', descending: true },
+  commanderStreaks: { column: 'currentWins', descending: true },
+  decks: { column: 'updatedAt', descending: true },
+};
+let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] };
+let syncQueueTimer = null;
+let syncRetryTimer = null;
+let syncInFlight = false;
+let syncBootstrapInFlight = false;
+let syncRetryCount = 0;
+let syncPendingChanges = false;
+let syncLastSuccessAt = null;
+let syncConnectionState = 'local';
+let syncLastErrorMessage = '';
+let syncCloudRevision = 0;
+let syncCloudUpdatedAt = '';
+let syncCloudUpdatedBy = '';
+let syncHasLoadedCloudState = false;
+let syncQueuedGamesOnly = null;
+let syncAuthenticatedUserId = '';
+let syncAuthenticatedDisplayName = '';
+let syncAuthenticatedRole = '';
+let authAuditLogs = [];
+let syncDebugLogs = [];
+let authAuditLoading = false;
+let authAuditLastLoadedAt = 0;
+let authAuditLoadedForUserId = '';
+let authAuditFilterState = { result: 'all', action: 'all', user: '', from: '', to: '' };
+let authAuditPageSize = 10;
+let authAuditCurrentPage = 1;
+let registeredAccounts = [];
+let registeredAccountsLoading = false;
+let registeredAccountsLastLoadedAt = 0;
+let registeredAccountsLoadedForUserId = '';
+let syncConflictInfo = null;
+let syncMetadataCheckInFlight = false;
+let syncLastFreshnessCheckAt = 0;
+let storageErrorMessage = '';
+let syncStateMutationVersion = 0;
+let syncDecksMutationVersion = 0;
+let historyQueryFiltersApplied = false;
+let deckSelectorSpinTimer = null;
+let deckSelectorRotation = 0;
+let commanderIdentityPrefetchInFlight = false;
+let commanderIdentityPrefetchRequestId = 0;
+let commanderBuilderQueryKey = '';
+let commanderBuilderLoading = false;
+let commanderBuilderRequestId = 0;
+let commanderBuilderLastCardName = '';
+let commanderBuilderMode = 'identity';
+let commanderBuilderKeywordsLoading = false;
+let commanderBuilderKeywordsLoaded = false;
+let commanderBuilderKeywordErrorMessage = '';
+let commanderBuilderKeywordCatalog = [];
+let commanderBuilderKeywordSearchTerm = '';
+let commanderBuilderSelectedKeywords = [];
+let activeDeckBuilderId = '';
+let activeDeckBuilderRecord = null;
+let deckBuilderSearchRequestId = 0;
+let deckBuilderSearchTimer = null;
+let deckBuilderSearchLoading = false;
+let deckBuilderSearchResultsState = [];
+let deckBuilderTokenSearchRequestId = 0;
+let deckBuilderTokenSearchTimer = null;
+let deckBuilderTokenSearchLoading = false;
+let deckBuilderTokenSearchResultsState = [];
+let deckBuilderSelectedCard = null;
+let deckBuilderSelectedDeckCardId = null;
+let deckBuilderSelectedFaceIndex = 0;
+let deckBuilderSaveTimer = null;
+let deckBuilderArtPickerCardId = '';
+let deckBuilderArtPickerState = { status: 'idle', cardId: '', options: [], message: '' };
+let deckBuilderCommanderPrefill = '';
+let deckBuilderBasicLandWarmPromise = null;
+let deckBuilderHoldTimerId = null;
+let deckBuilderHoldIntervalId = null;
+let deckBuilderMutationQueue = Promise.resolve();
+let deckListOracleBackfillRan = false;
+let deckLibraryPlayerFilterDefaulted = false;
+let historyPlayerFilterDefaulted = false;
 let rankingsCommanderIdentityLoading = false;
 let rankingsCommanderIdentityRequestId = 0;
 const commanderIdentityAttemptedKeys = new Set();
@@ -237,6 +328,7 @@ const LIVE_HOLD_REPEAT_START_DELAY_MS = 1000;
 const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
 const LIVE_HOLD_ADJUSTMENT_STEP = 5;
 const LIVE_HOLD_ADJUSTMENT_INTERVAL_MS = 170;
+let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
 let pageExitFlushStamp = 0;
@@ -264,6 +356,97 @@ const COMMANDER_BUILDER_COLOR_OPTIONS = [
   { code: 'R', label: 'Red' },
   { code: 'G', label: 'Green' },
 ];
+
+function parseJsonSafe(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function getDerivedCacheBucket(games) {
+  if (!Array.isArray(games)) {
+    return {};
+  }
+
+  if (!derivedGamesCache.has(games)) {
+    derivedGamesCache.set(games, {});
+  }
+
+  return derivedGamesCache.get(games);
+}
+
+function readLocalStorageValue(key) {
+  storageErrorMessage = '';
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return null;
+    }
+
+    const value = globalThis.localStorage.getItem(key);
+    return value === null ? null : value;
+  } catch (error) {
+    storageErrorMessage = `Storage is unavailable: ${error.message}`;
+    return null;
+  }
+}
+
+function writeLocalStorageValue(key, value) {
+  storageErrorMessage = '';
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      throw new Error('localStorage is unavailable');
+    }
+
+    globalThis.localStorage.setItem(key, String(value));
+    return true;
+  } catch (error) {
+    storageErrorMessage = `Couldn’t save to storage: ${error.message}`;
+    return false;
+  }
+}
+
+function removeLocalStorageValue(key) {
+  storageErrorMessage = '';
+
+  try {
+    if (typeof globalThis === 'undefined' || !globalThis.localStorage) {
+      return true;
+    }
+
+    globalThis.localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    storageErrorMessage = `Couldn’t clear storage: ${error.message}`;
+    return false;
+  }
+}
+
+function loadSyncPendingChangesState() {
+  return readLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY) === 'true';
+}
+
+function setSyncPendingChanges(value) {
+  syncPendingChanges = Boolean(value);
+
+  if (syncPendingChanges) {
+    writeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY, 'true');
+    return;
+  }
+
+  removeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY);
+}
+
+function getSyncCredentialAgeDays() {
+  return null;
+}
+
+function getStorageWarningMessage() {
+  return storageErrorMessage || '';
+}
 
 async function canonicalizeCommanderInputValue(rawCommander) {
   const knownCommandersList = getKnownCommanderOptions();
