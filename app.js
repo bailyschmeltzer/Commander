@@ -10075,6 +10075,356 @@ function getCommanderBuilderMode() {
   const value = String(selectedInput?.value || '').trim().toLowerCase();
   return value === 'keywords' || value === 'both' ? value : 'identity';
 }
+
+function normalizeCommanderBuilderKeyword(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function getSelectedCommanderBuilderKeywords() {
+  return commanderBuilderSelectedKeywords.slice();
+}
+
+function getSelectedCommanderBuilderIdentity() {
+  const selectedValues = getCommanderBuilderInputs()
+    .filter((input) => input.checked)
+    .map((input) => String(input.value || '').trim().toUpperCase())
+    .filter(Boolean);
+
+  if (!selectedValues.length) {
+    return '';
+  }
+
+  // Colorless is exclusive. If mixed with colors, treat as invalid selection.
+  if (selectedValues.includes('C')) {
+    return selectedValues.length === 1 ? 'c' : '';
+  }
+
+  const order = ['W', 'U', 'B', 'R', 'G'];
+  const normalized = order.filter((code) => selectedValues.includes(code)).join('');
+  return normalized.toLowerCase();
+}
+
+function getCommanderBuilderQuery() {
+  const mode = getCommanderBuilderMode();
+  if (mode === 'keywords') {
+    const keywords = getSelectedCommanderBuilderKeywords();
+    return keywords.length ? { mode, keywords } : null;
+  }
+
+  if (mode === 'both') {
+    const keywords = getSelectedCommanderBuilderKeywords();
+    if (!keywords.length) {
+      return null;
+    }
+
+    const identity = getSelectedCommanderBuilderIdentity();
+    return identity ? { mode, keywords, identity } : null;
+  }
+
+  const identity = getSelectedCommanderBuilderIdentity();
+  return identity ? { mode, identity } : null;
+}
+
+function getCommanderBuilderQueryKey(query) {
+  if (!query || typeof query !== 'object') {
+    return '';
+  }
+
+  if (query.mode === 'keywords' || query.mode === 'both') {
+    const keywordKey = (query.keywords || []).map((keyword) => normalizeCommanderBuilderKeyword(keyword).toLowerCase()).join('|');
+    const identityKey = String(query.identity || '').trim().toLowerCase();
+    return `${query.mode}:${keywordKey}:identity:${identityKey || 'any'}`;
+  }
+
+  return `identity:${String(query.identity || '').trim().toLowerCase()}`;
+}
+
+function getCommanderBuilderCriteriaLabel(query) {
+  if (!query || typeof query !== 'object') {
+    return '';
+  }
+
+  if (query.mode === 'keywords' || query.mode === 'both') {
+    const keywordLabel = (query.keywords || []).join(', ');
+    const identityLabel = query.identity ? getCommanderIdentityLabel(query.identity) : '';
+    return identityLabel ? `${keywordLabel} within ${identityLabel}` : keywordLabel;
+  }
+
+  return getCommanderIdentityLabel(query.identity);
+}
+
+function getCommanderBuilderTagLabel(query) {
+  if (!query || typeof query !== 'object') {
+    return '';
+  }
+
+  return query.mode === 'keywords' || query.mode === 'both'
+    ? `Keywords: ${getCommanderBuilderCriteriaLabel(query)}`
+    : getCommanderBuilderCriteriaLabel(query);
+}
+
+function getCommanderBuilderIdlePlaceholder(mode = getCommanderBuilderMode()) {
+  if (mode === 'keywords') {
+    return 'Select at least one keyword ability to get started.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose a color identity and at least one keyword ability to get started.';
+  }
+
+  return 'Choose a color identity to get started.';
+}
+
+function getCommanderBuilderIdleCount(mode = getCommanderBuilderMode()) {
+  if (mode === 'keywords') {
+    return 'Choose keyword abilities to load the pool.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose colors and keyword abilities to load the pool.';
+  }
+
+  return 'Choose colors to load the pool.';
+}
+
+function getCommanderBuilderIdleStatus(mode = getCommanderBuilderMode()) {
+  if (mode === 'keywords') {
+    return 'Select at least one keyword ability, then roll for a commander.';
+  }
+
+  if (mode === 'both') {
+    return 'Choose an exact color identity and at least one keyword ability, then roll for a commander.';
+  }
+
+  return 'Choose at least one color, or select Colorless, then roll for a commander.';
+}
+
+function getCommanderBuilderReadyPlaceholder(query) {
+  if (!query || typeof query !== 'object') {
+    return getCommanderBuilderIdlePlaceholder();
+  }
+
+  return query.mode === 'keywords' || query.mode === 'both'
+    ? `Roll to load a commander that matches ${getCommanderBuilderCriteriaLabel(query)}.`
+    : `Roll to load a random ${getCommanderBuilderCriteriaLabel(query)} commander.`;
+}
+
+function getCommanderBuilderReadyCount(query) {
+  if (!query || typeof query !== 'object') {
+    return getCommanderBuilderIdleCount();
+  }
+
+  return query.mode === 'keywords' || query.mode === 'both'
+    ? `Ready to search ${query.keywords.length} keyword abil${query.keywords.length === 1 ? 'ity' : 'ities'}.`
+    : `Ready to load ${getCommanderBuilderCriteriaLabel(query)} commanders.`;
+}
+
+function getCommanderBuilderReadyStatus(query) {
+  if (!query || typeof query !== 'object') {
+    return getCommanderBuilderIdleStatus();
+  }
+
+  return query.mode === 'keywords' || query.mode === 'both'
+    ? `Roll to load commanders matching ${getCommanderBuilderCriteriaLabel(query)}.`
+    : `Roll to load the ${getCommanderBuilderCriteriaLabel(query)} pool.`;
+}
+
+function buildCommanderBuilderKeywordCatalog(payload) {
+  const seen = new Set();
+
+  return (Array.isArray(payload?.keywordAbilities) ? payload.keywordAbilities : [])
+    .map((name) => ({ name: normalizeCommanderBuilderKeyword(name), category: 'ability' }))
+    .filter(({ name }) => name)
+    .filter(({ name }) => {
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => compareTextValues(left.name, right.name));
+}
+
+function getCommanderBuilderKeywordCategoryLabel(category) {
+  if (category === 'action') {
+    return 'Action';
+  }
+
+  if (category === 'word') {
+    return 'Ability Word';
+  }
+
+  return 'Ability';
+}
+
+function renderCommanderBuilderKeywordSelection() {
+  if (!commanderBuilderKeywordSelection) {
+    return;
+  }
+
+  if (!commanderBuilderSelectedKeywords.length) {
+    commanderBuilderKeywordSelection.innerHTML = '<p class="commander-builder-keyword-empty status-muted">No keyword abilities selected yet.</p>';
+    return;
+  }
+
+  commanderBuilderKeywordSelection.innerHTML = commanderBuilderSelectedKeywords.map((keyword) => `
+    <button type="button" class="commander-builder-selected-keyword" data-remove-commander-keyword="${escapeHtml(keyword)}" aria-label="Remove ${escapeHtml(keyword)}">
+      <span>${escapeHtml(keyword)}</span>
+      <span aria-hidden="true">×</span>
+    </button>`).join('');
+}
+
+function renderCommanderBuilderKeywordCatalog() {
+  if (!commanderBuilderKeywordGrid || !commanderBuilderKeywordStatus) {
+    return;
+  }
+
+  const normalizedSearch = commanderBuilderKeywordSearchTerm.toLowerCase();
+  const filteredKeywords = commanderBuilderKeywordCatalog.filter(({ name }) => name.toLowerCase().includes(normalizedSearch));
+
+  if (commanderBuilderKeywordsLoading && !commanderBuilderKeywordCatalog.length) {
+    commanderBuilderKeywordStatus.textContent = 'Loading keyword ability catalog...';
+    commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-muted';
+    commanderBuilderKeywordGrid.innerHTML = '<p class="status-muted">Loading keyword ability catalog...</p>';
+    renderCommanderBuilderKeywordSelection();
+    return;
+  }
+
+  if (commanderBuilderKeywordErrorMessage && !commanderBuilderKeywordCatalog.length) {
+    commanderBuilderKeywordStatus.textContent = commanderBuilderKeywordErrorMessage;
+    commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-error';
+    commanderBuilderKeywordGrid.innerHTML = '<p class="status-error">Keyword ability search is unavailable right now.</p>';
+    renderCommanderBuilderKeywordSelection();
+    return;
+  }
+
+  if (!filteredKeywords.length) {
+    commanderBuilderKeywordStatus.textContent = commanderBuilderKeywordCatalog.length
+      ? 'No keyword abilities match your search.'
+      : 'No keyword abilities are available right now.';
+    commanderBuilderKeywordStatus.className = `commander-builder-keyword-status ${commanderBuilderKeywordCatalog.length ? 'status-muted' : 'status-error'}`;
+    commanderBuilderKeywordGrid.innerHTML = '<p class="status-muted">Try a different keyword ability search.</p>';
+    renderCommanderBuilderKeywordSelection();
+    return;
+  }
+
+  commanderBuilderKeywordStatus.textContent = `Showing ${filteredKeywords.length} of ${commanderBuilderKeywordCatalog.length} keyword abilities.`;
+  commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-muted';
+  commanderBuilderKeywordGrid.innerHTML = filteredKeywords.map(({ name, category }) => {
+    const isSelected = commanderBuilderSelectedKeywords.includes(name);
+    return `
+      <label class="commander-builder-keyword-option${isSelected ? ' is-selected' : ''}">
+        <input type="checkbox" name="commander-builder-keyword" value="${escapeHtml(name)}"${isSelected ? ' checked' : ''} />
+        <span class="commander-builder-keyword-name">${escapeHtml(name)}</span>
+        <span class="commander-builder-keyword-badge commander-builder-keyword-badge-${escapeHtml(category)}">${escapeHtml(getCommanderBuilderKeywordCategoryLabel(category))}</span>
+      </label>`;
+  }).join('');
+  renderCommanderBuilderKeywordSelection();
+}
+
+async function loadCommanderBuilderKeywordCatalog() {
+  if (!commanderBuilderKeywordGrid || commanderBuilderKeywordsLoading || commanderBuilderKeywordsLoaded) {
+    return;
+  }
+
+  commanderBuilderKeywordsLoading = true;
+  commanderBuilderKeywordErrorMessage = '';
+  renderCommanderBuilderKeywordCatalog();
+
+  try {
+    const requestUrl = new URL(KEYWORDS_ENDPOINT, window.location.origin);
+    requestUrl.searchParams.set('_', String(Date.now()));
+    const response = await fetch(requestUrl.toString(), {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to load keywords (${response.status}).`);
+    }
+
+    const payload = await response.json();
+    commanderBuilderKeywordCatalog = buildCommanderBuilderKeywordCatalog(payload);
+    commanderBuilderKeywordsLoaded = true;
+  } catch (error) {
+    commanderBuilderKeywordErrorMessage = error instanceof Error ? error.message : 'Unable to load keyword catalog right now.';
+  } finally {
+    commanderBuilderKeywordsLoading = false;
+    renderCommanderBuilderKeywordCatalog();
+    updateCommanderBuilderControls();
+  }
+}
+
+function toggleCommanderBuilderKeyword(keyword, isSelected) {
+  const normalizedKeyword = normalizeCommanderBuilderKeyword(keyword);
+  if (!normalizedKeyword) {
+    return;
+  }
+
+  if (isSelected) {
+    if (!commanderBuilderSelectedKeywords.includes(normalizedKeyword)) {
+      commanderBuilderSelectedKeywords = [...commanderBuilderSelectedKeywords, normalizedKeyword];
+    }
+  } else {
+    commanderBuilderSelectedKeywords = commanderBuilderSelectedKeywords.filter((value) => value !== normalizedKeyword);
+  }
+
+  renderCommanderBuilderKeywordCatalog();
+}
+
+function updateCommanderBuilderModeUi() {
+  commanderBuilderMode = getCommanderBuilderMode();
+  const showIdentityPanel = commanderBuilderMode === 'identity' || commanderBuilderMode === 'both';
+  const showKeywordPanel = commanderBuilderMode === 'keywords' || commanderBuilderMode === 'both';
+
+  if (commanderBuilderIdentityPanel) {
+    commanderBuilderIdentityPanel.hidden = !showIdentityPanel;
+  }
+
+  if (commanderBuilderIdentityTitle) {
+    commanderBuilderIdentityTitle.textContent = commanderBuilderMode === 'both'
+      ? 'Pick an Exact Color Identity'
+      : 'Pick an Exact Color Identity';
+  }
+
+  if (commanderBuilderIdentityCopy) {
+    commanderBuilderIdentityCopy.textContent = commanderBuilderMode === 'both'
+      ? 'This stays exact. Choosing blue and black only returns Dimir commanders that also match your selected keyword abilities.'
+      : 'The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.';
+  }
+
+  if (commanderBuilderKeywordPanel) {
+    commanderBuilderKeywordPanel.hidden = !showKeywordPanel;
+  }
+
+  if (showKeywordPanel) {
+    void loadCommanderBuilderKeywordCatalog();
+  }
+}
+
+function syncCommanderBuilderPreviewState() {
+  const mode = getCommanderBuilderMode();
+  const query = getCommanderBuilderQuery();
+  const queryKey = getCommanderBuilderQueryKey(query);
+
+  if (!query) {
+    renderCommanderBuilderPlaceholder(getCommanderBuilderIdlePlaceholder(mode));
+    setCommanderBuilderCount(getCommanderBuilderIdleCount(mode));
+    setCommanderBuilderStatus(getCommanderBuilderIdleStatus(mode), 'muted');
+    updateCommanderBuilderControls();
+    return;
+  }
+
+  if (queryKey !== commanderBuilderQueryKey) {
+    renderCommanderBuilderPlaceholder(getCommanderBuilderReadyPlaceholder(query));
+    setCommanderBuilderCount(getCommanderBuilderReadyCount(query));
+    setCommanderBuilderStatus(getCommanderBuilderReadyStatus(query), 'neutral');
+  }
+
+  updateCommanderBuilderControls();
+}
+
 const BASIC_LAND_NAMES = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 
 // Renders a list of deck card rows, grouping unlimited-copy cards into stacked rows with +/- counters.
