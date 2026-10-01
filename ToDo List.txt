@@ -51,5 +51,6 @@ Harden importing from rate limiting
 
 Add a page for recording prerelease and draft information
 
+Collapse rename info into a single button until pushed
 
-
+Fix keyword glossary to show scryfall information and not "Search on scryfall"

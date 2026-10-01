@@ -92,17 +92,6 @@
   font-weight: 700;
 }
 
-.history-drilldown-link {
-  color: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.history-drilldown-link:hover {
-  color: #1c4fb7;
-}
-
 .history-game-table {
   width: 100%;
   border-collapse: collapse;
