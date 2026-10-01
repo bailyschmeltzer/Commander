@@ -328,7 +328,6 @@ const LIVE_HOLD_REPEAT_START_DELAY_MS = 1000;
 const LIVE_HOLD_REPEAT_INTERVAL_MS = 90;
 const LIVE_HOLD_ADJUSTMENT_STEP = 5;
 const LIVE_HOLD_ADJUSTMENT_INTERVAL_MS = 170;
-let liveMeasurementTimerId = null;
 let activeGamePersistTimer = null;
 let decksPersistTimer = null;
 let pageExitFlushStamp = 0;
