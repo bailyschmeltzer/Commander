@@ -406,7 +406,7 @@
       }
     });
 
-    state.deckCatalog = [...decksById.values()];
+    state.deckCatalog = [...decksById.values()].sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' }));
   }
 
   async function refreshDeckCatalogFromCloud() {

@@ -655,9 +655,36 @@ button[type="submit"] {
   color: #1c4fb7;
 }
 
+.identity-rename-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.identity-rename-header h2 {
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .identity-rename-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .identity-rename-header .secondary-button {
+    align-self: flex-start;
+  }
+}
+
 .identity-rename-form {
   display: grid;
   gap: 8px;
+}
+
+.identity-rename-form[hidden] {
+  display: none;
 }
 
 .identity-rename-status {

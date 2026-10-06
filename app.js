@@ -12826,6 +12826,20 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+const playerRenameToggleButton = document.getElementById('player-rename-toggle');
+
+if (playerRenameToggleButton && playerRenameForm) {
+  playerRenameToggleButton.addEventListener('click', () => {
+    const isOpening = playerRenameForm.hidden;
+    playerRenameForm.hidden = !isOpening;
+    playerRenameToggleButton.setAttribute('aria-expanded', String(isOpening));
+    playerRenameToggleButton.textContent = isOpening ? 'Hide rename player' : 'Rename player…';
+    if (isOpening) {
+      playerRenameCurrentInput?.focus();
+    }
+  });
+}
+
 if (playerRenameForm) {
   if (playerRenameStatus) {
     playerRenameStatus.setAttribute('role', 'status');

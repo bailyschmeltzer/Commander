@@ -63,9 +63,12 @@
       <!-- Primary page content. -->
       <main>
         <section class="card">
-          <h2>Rename Player</h2>
-          <p class="records-helper-text">Use this when a player should truly move to a different name. It rewrites saved games, deck ownership, records, and any live game saved on this device.</p>
-          <form id="player-rename-form" class="identity-rename-form" autocomplete="off">
+          <div class="identity-rename-header">
+            <h2>Rename Player</h2>
+            <button type="button" id="player-rename-toggle" class="secondary-button" aria-expanded="false" aria-controls="player-rename-form">Rename player…</button>
+          </div>
+          <form id="player-rename-form" class="identity-rename-form" autocomplete="off" hidden>
+            <p class="records-helper-text">Use this when a player should truly move to a different name. It rewrites saved games, deck ownership, records, and any live game saved on this device.</p>
             <div class="field-grid">
               <div class="field">
                 <label for="player-rename-current">Current name</label>
