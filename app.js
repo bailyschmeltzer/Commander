@@ -443,6 +443,10 @@ function setSyncPendingChanges(value) {
   removeLocalStorageValue(SYNC_PENDING_CHANGES_STORAGE_KEY);
 }
 
+function hasLoadedCloudState() {
+  return syncHasLoadedCloudState;
+}
+
 function getSyncCredentialAgeDays() {
   return null;
 }
@@ -7396,11 +7400,11 @@ function persistDeckBuilderRecord(nextDeck, statusMessage = 'Saved locally.', to
   });
   deckBuilderHasUnsavedChanges = true;
 
-  if (typeof normalizedDeck.powerLevel === 'number' && normalizedDeck.commander?.name) {
-    setCommanderExpectedPower(normalizedDeck.commander.name, normalizedDeck.powerLevel);
-  }
+  // NOTE: do NOT call linkDeckListToDeck() or setCommanderExpectedPower() here.
+  // Both persist to storage and queue a cloud sync immediately, which would bypass
+  // the Save button and let a mid-edit sync pull overwrite the staged edits.
+  // They run once, on the committed deck, inside saveActiveDeckBuilderDeck().
 
-  linkDeckListToDeck(normalizedDeck);
   setDeckBuilderSaveStatus(statusMessage, tone);
   updateDeckBuilderUndoButton();
   updateDeckBuilderSaveButton();
@@ -13060,8 +13064,11 @@ window.addEventListener('pagehide', () => {
 });
 
 window.addEventListener('focus', async () => {
+  // Focus fires on every desktop alt-tab/window click, so use the cached (non-forced)
+  // freshness check here — only a real tab suspend/resume (visibilitychange) forces an
+  // immediate check. This avoids a burst of metadata pulls while rapidly editing decks.
   const hasLocalChanges = syncPendingChanges || deckBuilderHasUnsavedChanges;
-  await checkCloudStateFreshness({ autoPull: !hasLocalChanges, force: true });
+  checkCloudStateFreshness({ autoPull: !hasLocalChanges });
   if (hasSyncCredentials() && !syncPendingChanges) {
     await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
   } else if (hasSyncCredentials()) {

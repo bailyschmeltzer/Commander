@@ -5,9 +5,49 @@
   const clearFiltersButton = document.getElementById('deck-library-player-filter-clear');
   const tableBody = document.getElementById('deck-library-body');
   let playerFilterDefaulted = false;
+  let cloudWaitStartAt = 0;
+  let cloudWaitTimer = null;
 
   function render() {
     if (!tableBody) return;
+
+    // While connected and the cloud state hasn't resolved yet, show a loading row
+    // instead of painting local cache. This prevents the deck list from briefly (or
+    // misleadingly) showing stale/empty local data before the authoritative cloud
+    // pull completes and re-renders with fresh data. Bounded: if the fetch hangs or
+    // fails, fall back to local data after a few seconds so it never hangs forever.
+    const stillResolving = typeof hasLoadedCloudState === 'function'
+      && !hasLoadedCloudState()
+      && typeof hasSyncCredentials === 'function'
+      && hasSyncCredentials()
+      && navigator.onLine;
+
+    if (stillResolving) {
+      if (!cloudWaitStartAt) {
+        cloudWaitStartAt = Date.now();
+      }
+      const elapsed = Date.now() - cloudWaitStartAt;
+      if (elapsed < 4000) {
+        tableBody.innerHTML = '<tr><td colspan="7">Loading decks…</td></tr>';
+        updateSortableTableIndicators('decks');
+        // Re-render when the wait window expires so we fall back to local data even
+        // if the cloud fetch never resolves (otherwise this could hang on "Loading…").
+        if (!cloudWaitTimer) {
+          cloudWaitTimer = setTimeout(() => {
+            cloudWaitTimer = null;
+            render();
+          }, 4000 - elapsed + 50);
+        }
+        return;
+      }
+      // Timed out waiting — fall through and render local data rather than hang.
+    } else {
+      cloudWaitStartAt = 0;
+      if (cloudWaitTimer) {
+        clearTimeout(cloudWaitTimer);
+        cloudWaitTimer = null;
+      }
+    }
 
     const currentUserId = getCurrentSyncUserId();
     const sortState = getTableSort('decks', 'updatedAt', true);
