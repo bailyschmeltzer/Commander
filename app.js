@@ -1712,21 +1712,63 @@ function updateSyncMetadata({ revision = 0, updatedAt = '', updatedBy = '' } = {
   syncCloudUpdatedAt = String(updatedAt || '').trim();
   syncCloudUpdatedBy = String(updatedBy || '').trim();
 
-  // Persist the newest cloud revision we have seen so a stale edge-cached read on
-  // the NEXT page load cannot silently overwrite newer local data (Cloudflare KV
-  // reads can be served stale for a while after a write).
+  // Persist the newest cloud revision we have seen (plus when we saw it) so a stale
+  // edge-cached read on the NEXT page load cannot silently overwrite newer local data
+  // (Cloudflare KV reads can be served stale for a while after a write).
   if (syncCloudRevision > 0) {
-    writeLocalStorageValue(SYNC_REVISION_STORAGE_KEY, String(syncCloudRevision));
+    writeLocalStorageValue(SYNC_REVISION_STORAGE_KEY, JSON.stringify({
+      revision: syncCloudRevision,
+      recordedAt: Date.now(),
+    }));
   } else {
     removeLocalStorageValue(SYNC_REVISION_STORAGE_KEY);
   }
 }
 
-function restorePersistedSyncRevision() {
-  const stored = Number.parseInt(String(readLocalStorageValue(SYNC_REVISION_STORAGE_KEY) || '').trim(), 10);
-  if (Number.isFinite(stored) && stored > 0 && stored > syncCloudRevision) {
-    syncCloudRevision = stored;
+function readPersistedSyncRevisionEntry() {
+  const rawValue = String(readLocalStorageValue(SYNC_REVISION_STORAGE_KEY) || '').trim();
+  if (!rawValue) {
+    return null;
   }
+
+  // Backward compatible with the original plain-number format. Those entries have no
+  // trustworthy timestamp, so report them as expired (recordedAt 0) — this lets any
+  // client currently stuck on local cache resync from the cloud immediately.
+  const plainNumber = Number.parseInt(rawValue, 10);
+  if (Number.isFinite(plainNumber) && String(plainNumber) === rawValue) {
+    return { revision: plainNumber, recordedAt: 0 };
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    const revision = Number.parseInt(String(parsed?.revision ?? ''), 10);
+    const recordedAt = Number(parsed?.recordedAt);
+    if (Number.isFinite(revision) && revision > 0) {
+      return { revision, recordedAt: Number.isFinite(recordedAt) ? recordedAt : 0 };
+    }
+  } catch (error) {
+    // Fall through.
+  }
+  return null;
+}
+
+function restorePersistedSyncRevision() {
+  const entry = readPersistedSyncRevisionEntry();
+  if (entry && entry.revision > syncCloudRevision) {
+    syncCloudRevision = entry.revision;
+  }
+}
+
+// The stale-read guard is only trustworthy while a KV edge-cache read could still be
+// serving a pre-write value. Past that window, a cloud revision lower than our stored
+// one means a genuine desync (e.g. a backup restore) and the cloud must win so the
+// client self-heals instead of showing local cache forever.
+function isStaleReadGuardActive() {
+  const entry = readPersistedSyncRevisionEntry();
+  if (!entry || entry.revision <= 0) {
+    return false;
+  }
+  return Date.now() - entry.recordedAt < 5 * 60 * 1000;
 }
 
 function updateSyncAuthenticatedUser(auth = null) {
@@ -2132,10 +2174,12 @@ async function pullCloudState({ force = false } = {}) {
       : 0;
 
     // Guard against stale edge-cached KV reads: if the cloud just returned an OLDER
-    // revision than the newest one this device has already seen, applying it would
-    // wipe newer local data (the "my update disappeared for minutes" loop). Keep
-    // local state and treat the connection as healthy; the next real sync reconciles.
-    if (!force && pulledRevision < syncCloudRevision) {
+    // revision than the newest one this device saw moments ago, applying it would
+    // wipe newer local data (the "my update disappeared for minutes" loop). The guard
+    // is time-bounded — past the KV staleness window a lower cloud revision means a
+    // real desync (e.g. backup restore) and the cloud state is applied so the client
+    // resyncs instead of showing local cache indefinitely.
+    if (!force && pulledRevision < syncCloudRevision && isStaleReadGuardActive()) {
       syncConnectionState = 'connected';
       syncHasLoadedCloudState = true;
       syncLastErrorMessage = '';
@@ -12883,9 +12927,27 @@ function flushStateForPageExit({ forceSync = false } = {}) {
   }
 
   pageExitFlushStamp = now;
+
+  // Only keepalive-push on exit when there were genuinely unsynced local changes.
+  // Pushing unchanged state still bumps the cloud revision, but the keepalive
+  // response is ignored — so the client never learns the new revision, and the next
+  // save fails with a phantom 409 "changed on another device" conflict that freezes
+  // sync and leaves pages showing stale local data.
+  const hadPendingLocalChanges = syncPendingChanges
+    || Boolean(decksPersistTimer)
+    || Boolean(activeGamePersistTimer);
+
   flushQueuedActiveGamePersist();
   flushQueuedDeckPersist({ force: true, queueSync: false });
   persistLocalState(appState);
+
+  if (!hadPendingLocalChanges) {
+    // The flushes above mark pending unconditionally; undo that when nothing was
+    // actually waiting to sync, so the next page load doesn't attempt a phantom push.
+    setSyncPendingChanges(false);
+    return;
+  }
+
   if (hasSyncCredentials()) {
     setSyncPendingChanges(true);
     syncLastErrorMessage = '';
@@ -13172,7 +13234,10 @@ async function restorePersistedSyncSession() {
       updateSyncAuthenticatedUser(sessionPayload.auth || null);
       refreshSyncStatus();
     }
-    void pullCloudState().catch(() => null);
+    // Never pull over unsynced local changes — the bootstrap handles those with a push.
+    if (!syncPendingChanges) {
+      void pullCloudState().catch(() => null);
+    }
   }).catch(() => null);
 
   return true;
@@ -13246,6 +13311,36 @@ async function initializeApp() {
     }
 
     if (!hasSyncCredentials() || !navigator.onLine) {
+      return;
+    }
+
+    // If this device has unsynced local changes, reconcile them rather than blindly
+    // pulling cloud state over them (a pull replaces appState wholesale). A keepalive
+    // push on the previous page's exit may already have landed and bumped the cloud
+    // revision — its response is ignored, so we can't tell locally. Check metadata:
+    // if the cloud moved ahead, the changes are already up there and we just pull to
+    // resync; otherwise we push the pending local state.
+    if (syncPendingChanges) {
+      try {
+        const metadata = await fetchCloudStateMetadata();
+        if (metadata.revision > syncCloudRevision) {
+          // Record the newer revision first so a stale edge-cached state body in the
+          // pull below (older than the metadata we just read) is rejected by the
+          // stale-read guard instead of wiping the pending local changes.
+          updateSyncMetadata(metadata);
+          await pullCloudState();
+        } else {
+          await pushCloudState();
+        }
+      } catch (error) {
+        // Leave the pending flag set so the next opportunity retries.
+        refreshSyncStatus();
+        return;
+      }
+
+      restoreEditModeIfNeeded();
+      setSyncUiCollapsed(false);
+      refreshSyncStatus();
       return;
     }
 
