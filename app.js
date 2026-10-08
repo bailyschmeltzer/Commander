@@ -2227,6 +2227,9 @@ async function pullCloudState({ force = false } = {}) {
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
+    // A pull can also surface empty "Untitled Deck" records that were pushed before
+    // the page-exit leak was fixed; prune them and let the deferred sync clean KV.
+    pruneStaleEmptyDeckRecords({ deferCloudSync: true });
     refresh();
     syncDebugLogs.unshift({
       timestamp: new Date().toISOString(),
@@ -2931,6 +2934,68 @@ function flushQueuedDeckPersist({ force = false, queueSync = true } = {}) {
     syncLastErrorMessage = '';
     refreshSyncStatus();
   }
+}
+
+const STALE_EMPTY_DECK_PRUNE_AGE_MS = 15 * 60 * 1000;
+
+function isEmptyUntitledDeckRecord(deck) {
+  const name = String(deck?.name || '').trim();
+  if (name && name !== 'Untitled Deck') {
+    return false;
+  }
+
+  return !deck?.commander
+    && !deck?.secondCommander
+    && !(Array.isArray(deck?.cards) && deck.cards.length)
+    && !(Array.isArray(deck?.maybeboard) && deck.maybeboard.length)
+    && !(Array.isArray(deck?.tokens) && deck.tokens.length);
+}
+
+// Removes empty "Untitled Deck" records the user never chose to save. Older builds
+// leaked these into local storage when a page exited with unsaved deck-builder
+// staging; they then rendered on the Decks page indefinitely even though they were
+// never synced to the cloud KV. Only records old enough to be abandoned are touched
+// and the deck currently open in the builder is never pruned. Returns true when any
+// records were removed.
+function pruneStaleEmptyDeckRecords({ deferCloudSync = false } = {}) {
+  const decks = loadDecks();
+  if (!decks.length) {
+    return false;
+  }
+
+  const currentUserId = getCurrentSyncUserId();
+  const currentOwnerKey = getIdentityKey(getCurrentSyncDisplayName());
+  const hasSyncIdentity = Boolean(currentUserId || currentOwnerKey);
+  const now = Date.now();
+
+  const keptDecks = decks.filter((deck) => {
+    if (!deck || deck.id === activeDeckBuilderId || !isEmptyUntitledDeckRecord(deck)) {
+      return true;
+    }
+
+    if (hasSyncIdentity) {
+      const ownerUserId = String(deck?.ownerUserId || '').trim().toLowerCase();
+      const ownedByCurrentUser = ownerUserId
+        ? ownerUserId === currentUserId
+        : Boolean(currentOwnerKey) && getIdentityKey(deck?.owner || '') === currentOwnerKey;
+      if (!ownedByCurrentUser) {
+        return true;
+      }
+    }
+
+    const createdAtMs = Date.parse(deck?.createdAt || '');
+    const ageMs = Number.isFinite(createdAtMs) ? now - createdAtMs : Number.POSITIVE_INFINITY;
+    return ageMs < STALE_EMPTY_DECK_PRUNE_AGE_MS;
+  });
+
+  if (keptDecks.length === decks.length) {
+    return false;
+  }
+
+  saveDecks(keptDecks, deferCloudSync
+    ? { deferPersist: true, delay: DECKS_PERSIST_DEBOUNCE_MS }
+    : { deferPersist: false, delay: 0 });
+  return true;
 }
 
 function normalizeList(value) {
@@ -12946,6 +13011,26 @@ function flushStateForPageExit({ forceSync = false } = {}) {
 
   pageExitFlushStamp = now;
 
+  // Discard uncommitted deck-builder staging BEFORE anything below persists state.
+  // The builder stages edits into appState.decks in memory only — leaving the page
+  // without Save Deck is supposed to discard them — but this exit flush was writing
+  // them into localStorage. That leak is how never-saved "Untitled Deck" records
+  // ended up on the Decks page even though they were never synced to the cloud KV.
+  if (deckBuilderHasUnsavedChanges && activeDeckBuilderId) {
+    const storedDecks = parseJsonSafe(readLocalStorageValue(DECKS_STORAGE_KEY) || '', []);
+    const storedDecksById = new Map(
+      (Array.isArray(storedDecks) ? storedDecks : [])
+        .map((deck) => [String(deck?.id || ''), deck])
+        .filter(([deckId]) => deckId),
+    );
+    appState = normalizeAppStateData({
+      ...appState,
+      decks: (Array.isArray(appState.decks) ? appState.decks : [])
+        .map((deck) => (deck && deck.id === activeDeckBuilderId ? storedDecksById.get(deck.id) || null : deck))
+        .filter(Boolean),
+    });
+  }
+
   // Only keepalive-push on exit when there were genuinely unsynced local changes.
   // Pushing unchanged state still bumps the cloud revision, but the keepalive
   // response is ignored — so the client never learns the new revision, and the next
@@ -13329,6 +13414,14 @@ async function initializeApp() {
     // navigation does not force a fresh login prompt.
     if (hasSyncCredentials()) {
       void restorePersistedSyncSession().catch(() => null);
+    }
+
+    // Clean up empty "Untitled Deck" records that leaked into storage from unsaved
+    // deck-builder sessions. Stored sync credentials are applied synchronously by the
+    // restore call above, so ownership matching works here even before the cloud
+    // session resolves.
+    if (pruneStaleEmptyDeckRecords()) {
+      refresh();
     }
 
     if (!hasSyncCredentials() || !navigator.onLine) {
