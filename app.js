@@ -2167,7 +2167,11 @@ async function pullCloudState({ force = false } = {}) {
   refreshSyncStatus();
 
   try {
-    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET', timeoutMs: 1500 });
+    // The full state payload is large (games + decks + decklists with card data),
+    // and the abort stays armed through body download. A 1.5s budget aborted
+    // legitimate pulls on slower connections, leaving every page on stale local
+    // cache indefinitely. Give the pull a budget comparable to the push (10s).
+    const payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET', timeoutMs: 15000 });
     const statePayload = payload?.state && typeof payload.state === 'object'
       ? payload.state
       : payload;
