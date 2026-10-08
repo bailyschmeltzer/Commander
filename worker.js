@@ -2190,7 +2190,9 @@ export default {
     }
 
     if (url.pathname === '/api/state') {
-      const shouldAuditStateAuth = request.method === 'GET';
+      // Meta-only freshness polls run in the background every 30s per open tab;
+      // auditing each one would flood the auth log. Full state GETs are audited.
+      const shouldAuditStateAuth = request.method === 'GET' && url.searchParams.get('meta') !== '1';
       const auth = await hasValidAuth(request, env);
       if (!auth.ok) {
         if (shouldAuditStateAuth) {

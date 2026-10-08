@@ -2288,7 +2288,7 @@ async function refreshSessionStatus() {
   }
 
   try {
-    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 400 });
+    const payload = await cloudRequest('/api/session', { method: 'GET', timeoutMs: 10000 });
     if (payload?.auth) {
       updateSyncAuthenticatedUser(payload.auth || null);
       syncConnectionState = 'connected';
@@ -2357,7 +2357,10 @@ function pushCloudStateKeepalive({ force = false } = {}) {
 }
 
 async function fetchCloudStateMetadata() {
-  const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET', timeoutMs: 1000 });
+  // Tiny payload, but keep the timeout generous: this check gates every
+  // fast-path decision, and a false abort reads as "no update" and leaves
+  // pages stale until the next refresh.
+  const payload = await cloudRequest(CLOUD_SYNC_METADATA_ENDPOINT, { method: 'GET', timeoutMs: 10000 });
   updateSyncAuthenticatedUser(payload.auth || null);
   return {
     revision: Number.isFinite(Number(payload?.revision)) ? Number(payload.revision) : 0,
@@ -13192,6 +13195,36 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
+// Poll cloud freshness while the page stays open so changes made on another
+// device (or tab) show up without a manual refresh. Each tick is a tiny metadata
+// fetch; the full multi-MB state is only downloaded when the cloud revision
+// actually moved. Never auto-pull while the user has unsynced local changes, a
+// deck-builder session open, or focus inside a form field — a completed pull
+// re-renders the page via refresh(), which rebuilds form rows and would destroy
+// unsaved input mid-edit.
+window.setInterval(() => {
+  if (
+    document.visibilityState !== 'visible'
+    || !navigator.onLine
+    || !hasSyncCredentials()
+    || !syncHasLoadedCloudState
+    || syncConflictInfo
+  ) {
+    return;
+  }
+
+  const focusedElement = document.activeElement;
+  const userIsEditing = focusedElement instanceof HTMLElement
+    && focusedElement.matches('input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable="true"]');
+
+  const hasLocalChanges = syncPendingChanges
+    || deckBuilderHasUnsavedChanges
+    || Boolean(activeDeckBuilderId)
+    || userIsEditing;
+
+  void checkCloudStateFreshness({ autoPull: !hasLocalChanges });
+}, 30000);
+
 window.addEventListener('pagehide', () => {
   flushStateForPageExit({ forceSync: true });
 });
@@ -13385,16 +13418,14 @@ async function restorePersistedSyncSession() {
   void cloudRequest('/api/session', {
     method: 'POST',
     body: JSON.stringify({ user: storedUser, token: storedToken }),
-    timeoutMs: 900,
+    timeoutMs: 10000,
   }).then((sessionPayload) => {
     if (sessionPayload?.auth) {
       updateSyncAuthenticatedUser(sessionPayload.auth || null);
       refreshSyncStatus();
     }
-    // Never pull over unsynced local changes — the bootstrap handles those with a push.
-    if (!syncPendingChanges) {
-      void pullCloudState().catch(() => null);
-    }
+    // No pull here — the page-load bootstrap owns pulling (metadata-first), so a
+    // second full-state download from this callback would just double bandwidth.
   }).catch(() => null);
 
   return true;
@@ -13510,6 +13541,30 @@ async function initializeApp() {
       setSyncUiCollapsed(false);
       refreshSyncStatus();
       return;
+    }
+
+    // No pending local changes — before downloading the full (multi-MB) state
+    // payload, check the tiny metadata endpoint. When the cloud baseline matches
+    // this device's last synced revision, the local cache IS the cloud state:
+    // mark it authoritative and skip the download so page loads stay fast.
+    try {
+      const metadata = await fetchCloudStateMetadata();
+      if (!isCloudStateDesynced(metadata) && hasAnyStateData(appState)) {
+        updateSyncMetadata(metadata);
+        syncHasLoadedCloudState = true;
+        syncConnectionState = 'connected';
+        syncLastErrorMessage = '';
+        restoreEditModeIfNeeded();
+        setSyncUiCollapsed(false);
+        refreshSyncStatus();
+        return;
+      }
+
+      // Cloud moved — record the revision now so a stale edge-cached body in the
+      // pull below is rejected by the stale-read guard instead of wiping state.
+      updateSyncMetadata(metadata);
+    } catch (error) {
+      // Metadata check failed — fall through to the pull-based bootstrap.
     }
 
     const succeeded = await retryCloudBootstrap();
