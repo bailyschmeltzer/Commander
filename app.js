@@ -1838,6 +1838,30 @@ function hasNewerCloudRevision(metadata) {
   return Number.isFinite(revision) && revision > syncCloudRevision;
 }
 
+// True when the cloud state is on a different baseline than this device's local
+// state, meaning a blind push of local state could overwrite newer cloud data.
+// Covers both revision directions: cloud ahead (another device synced) and cloud
+// rolled BACK (a KV backup restore lowers the revision below what this device last
+// saw). Also catches the corner case where the revision matches but the cloud copy
+// was rewritten after we last saw it — impossible through normal writes, since
+// every write bumps the revision, so it only happens after a restore/rollback.
+function isCloudStateDesynced(metadata) {
+  if (!metadata) {
+    return false;
+  }
+
+  const revision = Number(metadata.revision);
+  if (Number.isFinite(revision) && revision !== syncCloudRevision) {
+    return true;
+  }
+
+  const updatedAtMs = Date.parse(String(metadata.updatedAt || ''));
+  const entry = readPersistedSyncRevisionEntry();
+  return Number.isFinite(updatedAtMs)
+    && Boolean(entry?.recordedAt)
+    && updatedAtMs > entry.recordedAt + 60000;
+}
+
 function describeSyncConflict(conflict = syncConflictInfo) {
   if (!conflict) {
     return 'Cloud state changed on another device.';
@@ -2295,7 +2319,13 @@ function pushCloudStateKeepalive({ force = false } = {}) {
     return;
   }
 
-  if (!force && !syncHasLoadedCloudState) {
+  // Never keepalive-push before this session has loaded cloud state — not even on
+  // a forced page-exit flush. The persisted local cache can be older than the
+  // cloud (e.g. after a KV backup restore), and if its stored revision happens to
+  // match the restored one, the worker would accept the stale state and silently
+  // overwrite newer cloud data. Unsynced changes stay in local storage and
+  // reconcile on the next page load instead.
+  if (!syncHasLoadedCloudState) {
     return;
   }
 
@@ -13309,9 +13339,26 @@ function setupSyncUi() {
 
       clearSyncRetryTimer();
       syncRetryCount = 0;
-      setSyncPendingChanges(true);
       syncLastErrorMessage = '';
       refreshSyncStatus();
+
+      // Reconcile instead of blindly pushing: if the cloud baseline has moved in
+      // either direction since our last sync (another device pushed, or a KV
+      // restore rolled the revision back), local state is stale — pull the
+      // authoritative cloud state rather than overwriting it.
+      try {
+        const metadata = await fetchCloudStateMetadata();
+        if (isCloudStateDesynced(metadata)) {
+          updateSyncMetadata(metadata);
+          await pullCloudState({ force: true });
+          return;
+        }
+      } catch (error) {
+        // Metadata check failed; fall through to the push — the worker's revision
+        // guard still protects the cloud (a 409 conflict prompts a pull instead).
+      }
+
+      setSyncPendingChanges(true);
       await pushCloudState();
     });
   }
@@ -13441,12 +13488,15 @@ async function initializeApp() {
     if (syncPendingChanges) {
       try {
         const metadata = await fetchCloudStateMetadata();
-        if (metadata.revision > syncCloudRevision) {
-          // Record the newer revision first so a stale edge-cached state body in the
-          // pull below (older than the metadata we just read) is rejected by the
-          // stale-read guard instead of wiping the pending local changes.
+        if (isCloudStateDesynced(metadata)) {
+          // The cloud baseline moved in EITHER direction — another device pushed,
+          // or a KV restore rolled the revision back below ours. Either way the
+          // pending local state was built against a different cloud baseline, so
+          // pushing it would silently overwrite whatever is up there now. Pull the
+          // authoritative cloud state instead (forced, so a rolled-back revision
+          // can't trip the stale-read guard).
           updateSyncMetadata(metadata);
-          await pullCloudState();
+          await pullCloudState({ force: true });
         } else {
           await pushCloudState();
         }
