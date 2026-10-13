@@ -1,0 +1,4780 @@
+{
+  "activeGame": null,
+  "activeGameUndo": [],
+  "deckLists": [],
+  "decks": [],
+  "games": [
+    {
+      "date": "2026-03-12",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "11154073-69a9-42bd-a8a4-527486b2012d",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Pantlaza, Sun-Favored",
+          "actorPlayer": "Baily",
+          "targetPlayer": "",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-03-12",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 14.",
+            "numericValue": 14,
+            "source": "game",
+            "value": "14"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 16
+      },
+      "notes": "Jumbo Cactuar go brrrr\nNew high score of 10,000 damage dealt directly to Greg\nJumbo Cactuar got 2 kills, totally about 20,000 damage dealt to life as another record",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "player": "Greg"
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "commanderRaw": "Pantlaza Sun Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "commanderRaw": "Zimone Mystery Unraveler",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 14
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "commanderRaw": "Kyler Sigardian Emissary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 15
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "commanderRaw": "Maralen Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": 16
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Tyler",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-11-08",
+      "finishOrder": [
+        "Tyler",
+        "Andrew",
+        "Baily",
+        "Sevin"
+      ],
+      "id": "f8625a26-13ca-461a-8f39-48c608e649f7",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Sevin",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Tyler",
+          "turnKilled": null
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Tyler",
+        "Andrew",
+        "Baily",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-11-29",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Steve"
+      ],
+      "id": "38418659-4c87-4693-8612-9c6d2537e245",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Steve"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Steve",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2025-12-10",
+      "finishOrder": [
+        "Sevin",
+        "Andrew",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "b2d91cb7-3621-4ee9-9032-054616b5b854",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Ms. Bumbleflower",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Sevin",
+        "Greg",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2025-12-21",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Greg"
+      ],
+      "id": "bda32d00-df15-4bc0-a138-defea5bafe42",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2025-12-21",
+      "finishOrder": [
+        "Greg",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "74b6bb45-a078-4f31-9094-3afc6d12d4d2",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-01-03",
+      "finishOrder": [
+        "Andrew",
+        "Greg",
+        "Sevin",
+        "Baily",
+        "Tyler"
+      ],
+      "id": "03cf7e17-4e73-485c-83c3-6412395d406f",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Greg",
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-03",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Andrew",
+        "Greg",
+        "Baily"
+      ],
+      "id": "70fff8fb-7b75-4979-9d21-29e824f40c04",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Tyler",
+            "Greg",
+            "Baily"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-23",
+      "finishOrder": [
+        "Sevin",
+        "Andrew",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "1ba07f1b-948e-48dd-a01c-d76171a3fe11",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Korvold, Fae-Cursed King",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Andrew",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-01-29",
+      "finishOrder": [
+        "Andrew",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ],
+      "id": "8f7afbb0-671b-4799-a285-afdb7af2cc61",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-26",
+      "finishOrder": [
+        "Steve",
+        "Andrew",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "3156096b-c19a-46d2-8639-f410975f493b",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Andrew"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Steve",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-02-26",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Steve"
+      ],
+      "id": "5a9e5246-09aa-431d-bdb2-76d74a8fca25",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Steve"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Steve",
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Steve",
+          "turnKilled": null
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Steve",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-27",
+      "finishOrder": [
+        "Baily",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ],
+      "id": "fe363d0f-f8af-455b-a249-ea7cc0fb345a",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Baily"
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Giada, Font of Hope",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg",
+        "Andrew"
+      ],
+      "id": "7d853894-5aff-493c-89df-2b53d8b6eda5",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "Eldrazi go brrrr",
+      "playerCommanders": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "player": "Baily"
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "player": "Andrew"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Zhulodok, Void Gorger",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Greg",
+            "Tyler",
+            "Andrew"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Giada, Font of Hope",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Andrew",
+        "Sevin",
+        "Greg",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Baily",
+        "Tyler",
+        "Sevin",
+        "Greg"
+      ],
+      "id": "2abe2ca7-fcc2-46c3-b1a7-f17988aabf2e",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Hashaton, Scarab's Fist",
+          "actorPlayer": "Tyler",
+          "targetPlayer": "",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-02-28",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 10.",
+            "numericValue": 10,
+            "source": "game",
+            "value": "10"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 12
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "commanderRaw": "Teval the Balanced Scale",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "commanderRaw": "Ms Bumbleflower",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 10
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "commanderRaw": "Maralen Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "commanderRaw": "Hashaton Scarab s Fist",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 12
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-02-28",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "883ee3d3-e989-4a3a-8076-c93f52c45739",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Sevin",
+        "Lawrence",
+        "Baily"
+      ],
+      "id": "d60f5796-0166-4bc3-a1a0-2d6ebe04b029",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Teval, the Balanced Scale",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence",
+            "Baily"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Marneus Calgar",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Lawrence"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Lawrence",
+        "Steve"
+      ],
+      "id": "643a99ac-beec-4831-9527-45ca9a225642",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "Steve took a new record of over 6000 damage to life",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Marneus Calgar",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Lawrence",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence",
+            "Baily",
+            "Steve"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Steve",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Lawrence",
+        "Sevin",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-03-07",
+      "finishOrder": [
+        "Steve",
+        "Lawrence",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "d36a38bb-bbe2-488a-9c3a-916cbed4a7a6",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "player": "Steve"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": null
+        },
+        {
+          "commander": "\u00c9owyn, Shieldmaiden",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence",
+            "Sevin",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Steve",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Lawrence",
+        "Steve"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Tyler",
+        "Greg",
+        "Sevin",
+        "Baily"
+      ],
+      "id": "3b2ebad9-1569-4271-a136-1a50bc418737",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Kianne, Corrupted Memory",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Kianne, Corrupted Memory",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Toph, the First Metalbender",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Greg"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Greg"
+      ],
+      "id": "c27d4034-ba9f-4f94-99ee-3fd3fa6ecf54",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Maralen, Fae Ascendant",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "",
+          "turnNumber": null
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-03-20",
+            "holder": "",
+            "notes": "Baily was eliminated on turn 9.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 10
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "The Wise Mothman",
+          "commanderRaw": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "commanderRaw": "Inspirit Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "commanderRaw": "Maralen Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Baily"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "commanderRaw": "Y shtola Night s Blessed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-03-20",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "5d5d4738-e5ef-41f8-80a2-198cecaa7d1c",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": null,
+        "recordStats": null,
+        "startingPlayer": "",
+        "turnNumber": null
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "player": "Greg"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Tyler",
+            "Greg"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": null
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-04-02",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Brandon",
+        "Greg",
+        "Baily"
+      ],
+      "id": "ca3ff618-9d89-49cf-a223-14654c4d38ba",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Mister Negative",
+          "actorPlayer": "Baily",
+          "targetPlayer": "",
+          "turnNumber": 6
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-04-02",
+            "holder": "",
+            "notes": "Baily was eliminated on turn 9.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 11
+      },
+      "notes": "First Blood = Baily (Reduced Sevin's health from 40 to 10 on Turn 6)\nTyler mana fucked again\nHearthhull popped off doubling power",
+      "playerCommanders": [
+        {
+          "commander": "Mister Negative",
+          "player": "Baily"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "player": "Brandon"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Mister Negative",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Baily",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 10
+        },
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Greg",
+            "Tyler",
+            "Brandon"
+          ],
+          "kills": 4,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Brandon",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Sevin",
+        "Tyler",
+        "Brandon"
+      ]
+    },
+    {
+      "date": "2026-04-02",
+      "finishOrder": [
+        "Brandon",
+        "Baily",
+        "Sevin",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "005557a3-2649-41cb-919c-13cb78171d31",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Inspirit, Flagship Vessel",
+          "actorPlayer": "Greg",
+          "targetPlayer": "",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-04-02",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 8.",
+            "numericValue": 8,
+            "source": "game",
+            "value": "8"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 12
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Jodah, the Unifier",
+          "player": "Baily"
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "player": "Brandon"
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Jodah, the Unifier",
+          "commanderRaw": "Jodah, the Unifier",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": 12
+        },
+        {
+          "commander": "Scion of the Ur-Dragon",
+          "commanderRaw": "Scion of the Ur-Dragon",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Brandon",
+          "turnKilled": null
+        },
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "commanderRaw": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 5,
+          "player": "Greg",
+          "turnKilled": 8
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "commanderRaw": "Magus Lucea Kane",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 4,
+          "player": "Tyler",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "commanderRaw": "Maralen, Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 12
+        }
+      ],
+      "players": [
+        "Baily",
+        "Brandon",
+        "Greg",
+        "Tyler",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-04-17",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Tyler",
+        "Baily"
+      ],
+      "id": "c6bd872a-81be-4451-988d-6310992d0602",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Dina, Essence Brewer",
+          "actorPlayer": "Greg",
+          "targetPlayer": "Sevin",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-04-17",
+            "holder": "",
+            "notes": "Baily was eliminated on turn 7.",
+            "numericValue": 7,
+            "source": "game",
+            "value": "7"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 7
+      },
+      "notes": "First player: Tyler \u00b7 Greg drew first blood on Sevin on turn 4 \u00b7 Kill leader: Sevin (3) \u00b7 Finish order: 1. Sevin | 2. Greg | 3. Tyler | 4. Baily\n\nSevin used an artifact and his commander to sacrifice 13 lands and deal 26 damage to everybody",
+      "playerCommanders": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "player": "Greg"
+        },
+        {
+          "commander": "Saheeli, Radiant Creator",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Jodah, the Unifier",
+          "player": "Baily"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "commanderRaw": "Hearthhull, the Worldseed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Tyler",
+            "Greg"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "commanderRaw": "Dina, Essence Brewer",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Saheeli, Radiant Creator",
+          "commanderRaw": "Saheeli, Radiant Creator",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Jodah, the Unifier",
+          "commanderRaw": "Jodah, the Unifier",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Baily",
+          "turnKilled": 7
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Greg",
+        "Tyler",
+        "Baily"
+      ]
+    },
+    {
+      "date": "2026-04-29",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Greg"
+      ],
+      "id": "5068e8f0-4878-4cd5-9aff-eab655fb0b78",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Rootha, Mastering the Moment",
+          "actorPlayer": "Baily",
+          "targetPlayer": "Greg",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-04-29",
+            "holder": "",
+            "notes": "Baily was eliminated on turn 11.",
+            "numericValue": 11,
+            "source": "game",
+            "value": "11"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 11
+      },
+      "notes": "First player: Greg \u00b7 Baily drew first blood on Greg on turn 3 \u00b7 Kill leader: Sevin (1) \u00b7 Finish order: 1. Sevin | 2. Baily | 3. Greg",
+      "playerCommanders": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "player": "Baily"
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "player": "Greg"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "commanderRaw": "Ovika, Enigma Goliath",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "commanderRaw": "Rootha, Mastering the Moment",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "commanderRaw": "Kilo, Apogee Mind",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": 11
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Baily",
+        "Greg"
+      ]
+    },
+    {
+      "date": "2026-04-29",
+      "finishOrder": [
+        "Greg",
+        "Baily",
+        "Sevin"
+      ],
+      "id": "6438ef3c-05b2-4960-9edc-a67c49263dab",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 50,
+        "eventCount": 90,
+        "firstBlood": {
+          "actorCommander": "Dina, Essence Brewer",
+          "actorPlayer": "Greg",
+          "targetPlayer": "Sevin",
+          "turnNumber": 2
+        },
+        "recordStats": {
+          "durationMinutes": 50,
+          "fastestElimination": {
+            "commander": "Pantlaza, Sun-Favored",
+            "date": "2026-04-29",
+            "holder": "Baily",
+            "notes": "Eliminated Sevin.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          },
+          "highestLifeLossHit": {
+            "commander": "Dina, Essence Brewer",
+            "date": "2026-04-29",
+            "holder": "Greg",
+            "notes": "Hit Sevin to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Dina, Essence Brewer",
+            "date": "2026-04-29",
+            "holder": "Greg",
+            "notes": "Starting life total.",
+            "numericValue": 40,
+            "source": "game",
+            "value": "40"
+          },
+          "highestSingleHit": {
+            "commander": "The Mimeoplasm",
+            "date": "2026-04-29",
+            "holder": "Sevin",
+            "notes": "Hit Greg with commander damage.",
+            "numericValue": 18,
+            "source": "game",
+            "value": "18"
+          },
+          "mostCommanderDamage": {
+            "commander": "The Mimeoplasm",
+            "date": "2026-04-29",
+            "holder": "Sevin",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 35,
+            "source": "game",
+            "value": "35"
+          }
+        },
+        "startingPlayer": "Greg",
+        "turnNumber": 10
+      },
+      "notes": "First player: Greg \u00b7 Greg drew first blood on Sevin on turn 2 \u00b7 Kill leader: Greg (1) \u00b7 Finish order: 1. Greg | 2. Baily | 3. Sevin",
+      "playerCommanders": [
+        {
+          "commander": "Dina, Essence Brewer",
+          "player": "Greg"
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Dina, Essence Brewer",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": 10
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 9
+        }
+      ],
+      "players": [
+        "Greg",
+        "Baily",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-04-29",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Baily"
+      ],
+      "id": "981af4d9-436a-4d13-abad-7e8638383f02",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Inspirit, Flagship Vessel",
+          "actorPlayer": "Greg",
+          "targetPlayer": "",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-04-29",
+            "holder": "",
+            "notes": "Baily was eliminated on turn 11.",
+            "numericValue": 11,
+            "source": "game",
+            "value": "11"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 12
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "player": "Greg"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "player": "Baily"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Inspirit, Flagship Vessel",
+          "commanderRaw": "Inspirit, Flagship Vessel",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": 12
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "commanderRaw": "Maralen, Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg",
+            "Baily"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "commanderRaw": "Rootha, Mastering the Moment",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 11
+        }
+      ],
+      "players": [
+        "Greg",
+        "Sevin",
+        "Baily"
+      ]
+    },
+    {
+      "date": "2026-05-06",
+      "finishOrder": [
+        "Sevin",
+        "Baily",
+        "Greg",
+        "Tyler"
+      ],
+      "id": "482b74a2-6b5f-499f-80dd-4070cb12ae8a",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Rootha, Mastering the Moment",
+          "actorPlayer": "Baily",
+          "targetPlayer": "Greg",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-05-06",
+            "holder": "",
+            "notes": "Tyler was eliminated on turn 6.",
+            "numericValue": 6,
+            "source": "game",
+            "value": "6"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 9
+      },
+      "notes": "First player: Sevin \u00b7 Baily drew first blood on Greg on turn 4 \u00b7 Kill leader: Sevin (1) \u00b7 Finish order: 1. Sevin | 2. Baily | 3. Greg | 4. Tyler",
+      "playerCommanders": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "player": "Baily"
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "player": "Greg"
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "commanderRaw": "Ovika, Enigma Goliath",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Greg",
+            "Baily"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Rootha, Mastering the Moment",
+          "commanderRaw": "Rootha, Mastering the Moment",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Zimone, Mystery Unraveler",
+          "commanderRaw": "Zimone, Mystery Unraveler",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "commanderRaw": "Chishiro, the Shattered Blade",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Tyler",
+          "turnKilled": 6
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Baily",
+        "Greg",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-05-07",
+      "finishOrder": [
+        "Baily",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ],
+      "id": "2a720646-dbdf-46ca-80d1-f6d926523c58",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Kilo, Apogee Mind",
+          "actorPlayer": "Greg",
+          "targetPlayer": "Sevin",
+          "turnNumber": 2
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-05-07",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 7.",
+            "numericValue": 7,
+            "source": "game",
+            "value": "7"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 8
+      },
+      "notes": "First player: Greg \u00b7 Greg drew first blood on Sevin on turn 2 \u00b7 Kill leader: Baily (2) \u00b7 Finish order: 1. Baily | 2. Tyler | 3. Greg | 4. Sevin\nFinal turn, Tyler had 95 life and Baily had 7. Baily was able to drop Etali, Raegisaur Alpha, Zacama, and Akroma's Will to deal 96 flying damage to Tyler to steal the game",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "player": "Greg"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "commanderRaw": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "commanderRaw": "Caesar, Legion's Emperor",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 8
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "commanderRaw": "Kilo, Apogee Mind",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": 7
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "commanderRaw": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin",
+          "turnKilled": 7
+        }
+      ],
+      "players": [
+        "Baily",
+        "Tyler",
+        "Greg",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-05-29",
+      "finishOrder": [
+        "Tyler",
+        "Lawrence",
+        "Baily",
+        "Sevin"
+      ],
+      "id": "4c3755c9-dfb1-4e42-8cf8-4a1670c8f882",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 117,
+        "eventCount": 370,
+        "firstBlood": {
+          "actorCommander": "Y'shtola, Night's Blessed",
+          "actorPlayer": "Tyler",
+          "targetPlayer": "Lawrence",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "durationMinutes": 117,
+          "fastestElimination": {
+            "commander": "Y'shtola, Night's Blessed",
+            "date": "2026-05-29",
+            "holder": "Tyler",
+            "notes": "Eliminated Lawrence.",
+            "numericValue": 11,
+            "source": "game",
+            "value": "11"
+          },
+          "highestLifeLossHit": {
+            "commander": "Y'shtola, Night's Blessed",
+            "date": "2026-05-29",
+            "holder": "Tyler",
+            "notes": "Hit Lawrence to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Y'shtola, Night's Blessed",
+            "date": "2026-05-29",
+            "holder": "Tyler",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 47,
+            "source": "game",
+            "value": "47"
+          },
+          "highestSingleHit": {
+            "commander": "Teval, the Balanced Scale",
+            "date": "2026-05-29",
+            "holder": "Baily",
+            "notes": "Hit Tyler with commander damage.",
+            "numericValue": 4,
+            "source": "game",
+            "value": "4"
+          },
+          "mostCommanderDamage": {
+            "commander": "Y'shtola, Night's Blessed",
+            "date": "2026-05-29",
+            "holder": "Tyler",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 35,
+            "source": "game",
+            "value": "35"
+          }
+        },
+        "startingPlayer": "Tyler",
+        "turnNumber": 11
+      },
+      "notes": "First player: Tyler \u00b7 Tyler drew first blood on Lawrence on turn 3 \u00b7 Kill leader: Tyler (3) \u00b7 Finish order: 1. Tyler | 2. Lawrence | 3. Baily | 4. Sevin",
+      "playerCommanders": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Mathas, Fiend Seeker",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Y'shtola, Night's Blessed",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Baily",
+            "Lawrence"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Tyler",
+          "turnKilled": null
+        },
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Teval, the Balanced Scale",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Mathas, Fiend Seeker",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Sevin",
+          "turnKilled": 11
+        }
+      ],
+      "players": [
+        "Tyler",
+        "Lawrence",
+        "Baily",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-05-30",
+      "finishOrder": [
+        "Sevin",
+        "Lawrence",
+        "Baily",
+        "Tyler"
+      ],
+      "id": "3270a890-2a92-44a6-969e-5a6ec3de8f98",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 84,
+        "eventCount": 129,
+        "firstBlood": {
+          "actorCommander": "Ovika, Enigma Goliath",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "Tyler",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "durationMinutes": 84,
+          "fastestElimination": {
+            "commander": "Ovika, Enigma Goliath",
+            "date": "2026-05-30",
+            "holder": "Sevin",
+            "notes": "Eliminated Lawrence.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          },
+          "highestLifeLossHit": {
+            "commander": "Ovika, Enigma Goliath",
+            "date": "2026-05-30",
+            "holder": "Sevin",
+            "notes": "Hit Tyler to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Jodah, the Unifier",
+            "date": "2026-05-30",
+            "holder": "Baily",
+            "notes": "Starting life total.",
+            "numericValue": 40,
+            "source": "game",
+            "value": "40"
+          },
+          "highestSingleHit": {
+            "commander": "Ms. Bumbleflower",
+            "date": "2026-05-30",
+            "holder": "Tyler",
+            "notes": "Hit Lawrence with commander damage.",
+            "numericValue": 13,
+            "source": "game",
+            "value": "13"
+          },
+          "mostCommanderDamage": {
+            "commander": "Ms. Bumbleflower",
+            "date": "2026-05-30",
+            "holder": "Tyler",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 13,
+            "source": "game",
+            "value": "13"
+          }
+        },
+        "startingPlayer": "Lawrence",
+        "turnNumber": 9
+      },
+      "notes": "First player: Lawrence \u00b7 Sevin drew first blood on Tyler on turn 4 \u00b7 Kill leader: Sevin (2) \u00b7 Finish order: 1. Sevin | 2. Lawrence | 3. Baily | 4. Tyler \u00b7 Goblin impact tremors go brrrrr",
+      "playerCommanders": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Jodah, the Unifier",
+          "player": "Baily"
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Ovika, Enigma Goliath",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Lawrence"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Jodah, the Unifier",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Ms. Bumbleflower",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Tyler",
+          "turnKilled": 9
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Lawrence",
+        "Baily",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-06-10",
+      "finishOrder": [
+        "Lawrence",
+        "Tyler",
+        "Sevin"
+      ],
+      "id": "9af58884-d708-415d-8cc5-b053edaf800d",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Felothar the Steadfast",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "Tyler",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-06-10",
+            "holder": "",
+            "notes": "Sevin was eliminated on turn 6.",
+            "numericValue": 6,
+            "source": "game",
+            "value": "6"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 7
+      },
+      "notes": "First player: Lawrence \u00b7 Sevin drew first blood on Tyler on turn 1 \u00b7 Kill leader: Lawrence (1) \u00b7 Finish order: 1. Lawrence | 2. Tyler | 3. Sevin \u00b7 Tyler Mathemagics KO on Sevin, Lawrence KOd with combat damage next turn.",
+      "playerCommanders": [
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Zimone, Infinite Analyst",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "player": "Sevin"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Shilgengar, Sire of Famine",
+          "commanderRaw": "Shilgengar, Sire of Famine",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Lawrence",
+          "turnKilled": null
+        },
+        {
+          "commander": "Zimone, Infinite Analyst",
+          "commanderRaw": "Zimone, Infinite Analyst",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Felothar the Steadfast",
+          "commanderRaw": "Felothar the Steadfast",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 6
+        }
+      ],
+      "players": [
+        "Lawrence",
+        "Tyler",
+        "Sevin"
+      ]
+    },
+    {
+      "date": "2026-06-11",
+      "finishOrder": [
+        "Lawrence",
+        "Sevin",
+        "Tyler"
+      ],
+      "id": "034539e6-ca48-4041-99d1-76cb00a33307",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Saheeli, Radiant Creator",
+          "actorPlayer": "Tyler",
+          "targetPlayer": "Sevin",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-06-11",
+            "holder": "",
+            "notes": "Tyler was eliminated on turn 5.",
+            "numericValue": 5,
+            "source": "game",
+            "value": "5"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 9
+      },
+      "notes": "First player: Tyler \u00b7 Tyler drew first blood on Sevin on turn 4 \u00b7 Kill leader: Lawrence (1) \u00b7 Finish order: 1. Lawrence | 2. Sevin | 3. Tyler \u00b7 Tyler got taken out by Mimeoplasm on turn 5, Lawrence was able to remove and build a token army",
+      "playerCommanders": [
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Saheeli, Radiant Creator",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Marneus Calgar",
+          "commanderRaw": "Marneus Calgar",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Lawrence",
+          "turnKilled": null
+        },
+        {
+          "commander": "The Mimeoplasm",
+          "commanderRaw": "The Mimeoplasm",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": 9
+        },
+        {
+          "commander": "Saheeli, Radiant Creator",
+          "commanderRaw": "Saheeli, Radiant Creator",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 5
+        }
+      ],
+      "players": [
+        "Lawrence",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-06-18",
+      "finishOrder": [
+        "Craig",
+        "Tyler",
+        "Baily",
+        "Greg"
+      ],
+      "id": "1fb81483-b73a-4097-bb75-1d51e0bbacf8",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "The Wise Mothman",
+          "actorPlayer": "Baily",
+          "targetPlayer": "Greg",
+          "turnNumber": 6
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-06-18",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 8.",
+            "numericValue": 8,
+            "source": "game",
+            "value": "8"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 12
+      },
+      "notes": "First player: Greg \u00b7 Baily drew first blood on Greg on turn 6 \u00b7 Kill leader: Craig (2) \u00b7 Finish order: 1. Craig | 2. Tyler | 3. Baily | 4. Greg",
+      "playerCommanders": [
+        {
+          "commander": "Surgeon General Commander",
+          "player": "Craig"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        },
+        {
+          "commander": "The Wise Mothman",
+          "player": "Baily"
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "player": "Greg"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Surgeon General Commander",
+          "commanderRaw": "Surgeon General Commander",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Craig",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "commanderRaw": "Hashaton, Scarab's Fist",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 12
+        },
+        {
+          "commander": "The Wise Mothman",
+          "commanderRaw": "The Wise Mothman",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg"
+          ],
+          "kills": 1,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 12
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "commanderRaw": "Kilo, Apogee Mind",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 8
+        }
+      ],
+      "players": [
+        "Craig",
+        "Tyler",
+        "Baily",
+        "Greg"
+      ]
+    },
+    {
+      "date": "2026-06-19",
+      "finishOrder": [
+        "Baily",
+        "Greg",
+        "Tyler",
+        "Craig"
+      ],
+      "id": "661c8084-d9ac-4bff-9a0c-fd5b330e3425",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 68,
+        "eventCount": 148,
+        "firstBlood": {
+          "actorCommander": "Mister Negative",
+          "actorPlayer": "Baily",
+          "targetPlayer": "Tyler",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "durationMinutes": 68,
+          "fastestElimination": {
+            "commander": "Mister Negative",
+            "date": "2026-06-19",
+            "holder": "Baily",
+            "notes": "Eliminated Craig.",
+            "numericValue": 10,
+            "source": "game",
+            "value": "10"
+          },
+          "highestLifeLossHit": {
+            "commander": "Kyler, Sigardian Emissary",
+            "date": "2026-06-19",
+            "holder": "Tyler",
+            "notes": "Hit Tyler to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Sidar Jabari of Zhalfir",
+            "date": "2026-06-19",
+            "holder": "Craig",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 54,
+            "source": "game",
+            "value": "54"
+          },
+          "highestSingleHit": {
+            "commander": "Sidar Jabari of Zhalfir",
+            "date": "2026-06-19",
+            "holder": "Craig",
+            "notes": "Hit Baily with commander damage.",
+            "numericValue": 4,
+            "source": "game",
+            "value": "4"
+          },
+          "mostCommanderDamage": {
+            "commander": "Sidar Jabari of Zhalfir",
+            "date": "2026-06-19",
+            "holder": "Craig",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 21,
+            "source": "game",
+            "value": "21"
+          }
+        },
+        "startingPlayer": "Greg",
+        "turnNumber": 12
+      },
+      "notes": "First player: Greg \u00b7 Baily drew first blood on Tyler on turn 3 \u00b7 Kill leader: Baily (3) \u00b7 Finish order: 1. Baily | 2. Greg | 3. Tyler | 4. Craig \u00b7 Life swap go brrrr",
+      "playerCommanders": [
+        {
+          "commander": "Mister Negative",
+          "player": "Baily"
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "player": "Greg"
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Sidar Jabari of Zhalfir",
+          "player": "Craig"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Mister Negative",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Craig",
+            "Tyler",
+            "Greg"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": 12
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Sidar Jabari of Zhalfir",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Craig",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Baily",
+        "Greg",
+        "Tyler",
+        "Craig"
+      ]
+    },
+    {
+      "date": "2026-06-25",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Andrew"
+      ],
+      "id": "77d74d2f-0969-4e84-aca0-e2954e4b0c0a",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 83,
+        "eventCount": 177,
+        "firstBlood": {
+          "actorCommander": "Prismari, the Inspiration",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "Andrew",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "durationMinutes": 83,
+          "fastestElimination": {
+            "commander": "Prismari, the Inspiration",
+            "date": "2026-06-25",
+            "holder": "Sevin",
+            "notes": "Eliminated Tyler.",
+            "numericValue": 7,
+            "source": "game",
+            "value": "7"
+          },
+          "highestLifeLossHit": {
+            "commander": "Chatterfang, Squirrel General",
+            "date": "2026-06-25",
+            "holder": "Andrew",
+            "notes": "Hit Andrew to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Chatterfang, Squirrel General",
+            "date": "2026-06-25",
+            "holder": "Andrew",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 53,
+            "source": "game",
+            "value": "53"
+          },
+          "highestSingleHit": {
+            "commander": "Prismari, the Inspiration",
+            "date": "2026-06-25",
+            "holder": "Sevin",
+            "notes": "Hit Andrew with commander damage.",
+            "numericValue": 28,
+            "source": "game",
+            "value": "28"
+          },
+          "mostCommanderDamage": {
+            "commander": "Prismari, the Inspiration",
+            "date": "2026-06-25",
+            "holder": "Sevin",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 28,
+            "source": "game",
+            "value": "28"
+          }
+        },
+        "startingPlayer": "Andrew",
+        "turnNumber": 7
+      },
+      "notes": "First player: Andrew \u00b7 Sevin drew first blood on Andrew on turn 4 \u00b7 Kill leader: Sevin (3) \u00b7 Finish order: 1. Sevin | 2. Tyler | 3. Baily | 4. Andrew",
+      "playerCommanders": [
+        {
+          "commander": "Prismari, the Inspiration",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "player": "Baily"
+        },
+        {
+          "commander": "Chatterfang, Squirrel General",
+          "player": "Andrew"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Prismari, the Inspiration",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Baily",
+            "Tyler"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Chishiro, the Shattered Blade",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Fire Lord Azula",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Baily",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Chatterfang, Squirrel General",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Andrew",
+          "turnKilled": 7
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Tyler",
+        "Baily",
+        "Andrew"
+      ]
+    },
+    {
+      "date": "2026-06-26",
+      "finishOrder": [
+        "Andrew",
+        "Baily",
+        "Sevin",
+        "Tyler"
+      ],
+      "id": "1da606dd-6ba9-4c1b-9739-20e67b35d748",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 58,
+        "eventCount": 189,
+        "firstBlood": {
+          "actorCommander": "Mathas, Fiend Seeker",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "Andrew",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "durationMinutes": 58,
+          "fastestElimination": {
+            "commander": "Chatterfang, Squirrel General",
+            "date": "2026-06-26",
+            "holder": "Andrew",
+            "notes": "Eliminated Baily.",
+            "numericValue": 8,
+            "source": "game",
+            "value": "8"
+          },
+          "highestLifeLossHit": {
+            "commander": "Mathas, Fiend Seeker",
+            "date": "2026-06-26",
+            "holder": "Sevin",
+            "notes": "Hit Andrew to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Mathas, Fiend Seeker",
+            "date": "2026-06-26",
+            "holder": "Sevin",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 43,
+            "source": "game",
+            "value": "43"
+          },
+          "highestSingleHit": {
+            "commander": "Teval, the Balanced Scale",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Hit Tyler with commander damage.",
+            "numericValue": 8,
+            "source": "game",
+            "value": "8"
+          },
+          "mostCommanderDamage": {
+            "commander": "Teval, the Balanced Scale",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 14,
+            "source": "game",
+            "value": "14"
+          }
+        },
+        "startingPlayer": "Andrew",
+        "turnNumber": 8
+      },
+      "notes": "First player: Andrew \u00b7 Sevin drew first blood on Andrew on turn 4 \u00b7 Kill leader: Baily (2) \u00b7 Finish order: 1. Andrew | 2. Baily | 3. Sevin | 4. Tyler",
+      "playerCommanders": [
+        {
+          "commander": "Chatterfang, Squirrel General",
+          "player": "Andrew"
+        },
+        {
+          "commander": "Teval, the Balanced Scale",
+          "player": "Baily"
+        },
+        {
+          "commander": "Mathas, Fiend Seeker",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Ghyrson Starn, Kelermorph",
+          "player": "Tyler"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Chatterfang, Squirrel General",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Baily"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Andrew",
+          "turnKilled": null
+        },
+        {
+          "commander": "Teval, the Balanced Scale",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Tyler",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 2,
+          "player": "Baily",
+          "turnKilled": 8
+        },
+        {
+          "commander": "Mathas, Fiend Seeker",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 8
+        },
+        {
+          "commander": "Ghyrson Starn, Kelermorph",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Tyler",
+          "turnKilled": 8
+        }
+      ],
+      "players": [
+        "Andrew",
+        "Baily",
+        "Sevin",
+        "Tyler"
+      ]
+    },
+    {
+      "date": "2026-06-26",
+      "finishOrder": [
+        "Baily",
+        "Sevin",
+        "Andrew"
+      ],
+      "id": "4b6ea9cc-3020-4b01-9410-09bce37c094a",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 48,
+        "eventCount": 134,
+        "firstBlood": {
+          "actorCommander": "Krenko, Mob Boss",
+          "actorPlayer": "Andrew",
+          "targetPlayer": "Baily",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "durationMinutes": 48,
+          "fastestElimination": {
+            "commander": "Pantlaza, Sun-Favored",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Eliminated Andrew.",
+            "numericValue": 7,
+            "source": "game",
+            "value": "7"
+          },
+          "highestLifeLossHit": {
+            "commander": "Krenko, Mob Boss",
+            "date": "2026-06-26",
+            "holder": "Andrew",
+            "notes": "Hit Baily to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Pantlaza, Sun-Favored",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 46,
+            "source": "game",
+            "value": "46"
+          },
+          "highestSingleHit": {
+            "commander": "Pantlaza, Sun-Favored",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Hit Sevin with commander damage.",
+            "numericValue": 4,
+            "source": "game",
+            "value": "4"
+          },
+          "mostCommanderDamage": {
+            "commander": "Pantlaza, Sun-Favored",
+            "date": "2026-06-26",
+            "holder": "Baily",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 4,
+            "source": "game",
+            "value": "4"
+          }
+        },
+        "startingPlayer": "Andrew",
+        "turnNumber": 8
+      },
+      "notes": "First player: Andrew \u00b7 Andrew drew first blood on Baily on turn 4 \u00b7 Kill leader: Baily (2) \u00b7 Finish order: 1. Baily | 2. Sevin | 3. Andrew",
+      "playerCommanders": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "player": "Baily"
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Krenko, Mob Boss",
+          "player": "Andrew"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Pantlaza, Sun-Favored",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Andrew",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Baily",
+          "turnKilled": null
+        },
+        {
+          "commander": "Maralen, Fae Ascendant",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": 8
+        },
+        {
+          "commander": "Krenko, Mob Boss",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Andrew",
+          "turnKilled": 7
+        }
+      ],
+      "players": [
+        "Baily",
+        "Sevin",
+        "Andrew"
+      ]
+    },
+    {
+      "date": "2026-07-10",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Lawrence"
+      ],
+      "id": "d467c9f6-9953-4f0c-b719-cc380a5464c4",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Kilo, Apogee Mind",
+          "actorPlayer": "Greg",
+          "targetPlayer": "Lawrence",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-07-10",
+            "holder": "",
+            "notes": "Lawrence was eliminated on turn 9.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 10
+      },
+      "notes": "First player: Lawrence \u00b7 Greg drew first blood on Lawrence on turn 4 \u00b7 Kill leader: Sevin (2) \u00b7 Finish order: 1. Sevin | 2. Greg | 3. Lawrence\n\nQuandrix killed Lawrence with commander damage. Greg died shortly after.",
+      "playerCommanders": [
+        {
+          "commander": "Quandrix, the Proof",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "player": "Greg"
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Quandrix, the Proof",
+          "commanderRaw": "Quandrix, the Proof",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence",
+            "Greg"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Kilo, Apogee Mind",
+          "commanderRaw": "Kilo, Apogee Mind",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": 10
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "commanderRaw": "Zaxara, the Exemplary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Lawrence",
+          "turnKilled": 9
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Greg",
+        "Lawrence"
+      ]
+    },
+    {
+      "date": "2026-07-10",
+      "finishOrder": [
+        "Greg",
+        "Lawrence",
+        "Sevin"
+      ],
+      "id": "7e4f8123-524c-4de1-b813-8b2770eaf9b6",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "actorPlayer": "Greg",
+          "targetPlayer": "",
+          "turnNumber": null
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-07-10",
+            "holder": "",
+            "notes": "Lawrence was eliminated on turn 7.",
+            "numericValue": 7,
+            "source": "game",
+            "value": "7"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 7
+      },
+      "notes": "Kefka infinite combo with drawing cards and losing life when cards are drawn.",
+      "playerCommanders": [
+        {
+          "commander": "Quandrix, the Proof",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "player": "Greg"
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Quandrix, the Proof",
+          "commanderRaw": "Quandrix, the Proof",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Sevin",
+          "turnKilled": 7
+        },
+        {
+          "commander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "commanderRaw": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Sevin",
+            "Lawrence"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Greg",
+          "turnKilled": null
+        },
+        {
+          "commander": "Zaxara, the Exemplary",
+          "commanderRaw": "Zaxara, the Exemplary",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": 7
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Greg",
+        "Lawrence"
+      ]
+    },
+    {
+      "date": "2026-07-10",
+      "finishOrder": [
+        "Lawrence",
+        "Sevin",
+        "Greg"
+      ],
+      "id": "522f794a-6636-45d3-8397-3a92985398c9",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Dina, Essence Brewer",
+          "actorPlayer": "Greg",
+          "targetPlayer": "",
+          "turnNumber": null
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-07-10",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 9.",
+            "numericValue": 9,
+            "source": "game",
+            "value": "9"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 10
+      },
+      "notes": "Shortened life total. Lawrence built a saproling army that pinged Greg and Sevin to death quickly",
+      "playerCommanders": [
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Quandrix, the Proof",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "player": "Greg"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "commanderRaw": "Slimefoot, the Stowaway",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg",
+            "Sevin"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Lawrence",
+          "turnKilled": null
+        },
+        {
+          "commander": "Quandrix, the Proof",
+          "commanderRaw": "Quandrix, the Proof",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": 10
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "commanderRaw": "Dina, Essence Brewer",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Greg",
+          "turnKilled": 9
+        }
+      ],
+      "players": [
+        "Lawrence",
+        "Sevin",
+        "Greg"
+      ]
+    },
+    {
+      "date": "2026-07-17",
+      "finishOrder": [
+        "Sevin",
+        "Lawrence",
+        "Tyler",
+        "Greg"
+      ],
+      "id": "044faad0-1388-410a-81bb-c94c96cb7f4f",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": 136,
+        "eventCount": 176,
+        "firstBlood": {
+          "actorCommander": "Dina, Essence Brewer",
+          "actorPlayer": "Greg",
+          "targetPlayer": "Sevin",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "durationMinutes": 136,
+          "fastestElimination": {
+            "commander": "Marneus Calgar",
+            "date": "2026-07-17",
+            "holder": "Lawrence",
+            "notes": "Eliminated Greg.",
+            "numericValue": 10,
+            "source": "game",
+            "value": "10"
+          },
+          "highestLifeLossHit": {
+            "commander": "Dina, Essence Brewer",
+            "date": "2026-07-17",
+            "holder": "Greg",
+            "notes": "Hit Sevin to life.",
+            "numericValue": 1,
+            "source": "game",
+            "value": "1"
+          },
+          "highestLifeTotal": {
+            "commander": "Marneus Calgar",
+            "date": "2026-07-17",
+            "holder": "Lawrence",
+            "notes": "Highest life reached in a live game.",
+            "numericValue": 42,
+            "source": "game",
+            "value": "42"
+          },
+          "highestSingleHit": {
+            "commander": "Quandrix, the Proof",
+            "date": "2026-07-17",
+            "holder": "Sevin",
+            "notes": "Hit Greg with commander damage.",
+            "numericValue": 6,
+            "source": "game",
+            "value": "6"
+          },
+          "mostCommanderDamage": {
+            "commander": "Quandrix, the Proof",
+            "date": "2026-07-17",
+            "holder": "Sevin",
+            "notes": "Total commander damage dealt in one live game.",
+            "numericValue": 12,
+            "source": "game",
+            "value": "12"
+          }
+        },
+        "startingPlayer": "Lawrence",
+        "turnNumber": 11
+      },
+      "notes": "First player: Lawrence \u00b7 Greg drew first blood on Sevin on turn 4 \u00b7 Kill leader: Lawrence (2) \u00b7 Finish order: 1. Sevin | 2. Lawrence | 3. Tyler | 4. Greg",
+      "playerCommanders": [
+        {
+          "commander": "Quandrix, the Proof",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Marneus Calgar",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "player": "Greg"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Quandrix, the Proof",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Marneus Calgar",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Greg",
+            "Tyler"
+          ],
+          "kills": 2,
+          "place": 2,
+          "player": "Lawrence",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Magus Lucea Kane",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Dina, Essence Brewer",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Greg",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Lawrence",
+        "Tyler",
+        "Greg"
+      ]
+    },
+    {
+      "date": "2026-07-17",
+      "finishOrder": [
+        "Sevin",
+        "Greg",
+        "Tyler",
+        "Lawrence"
+      ],
+      "id": "cb594f0c-5df9-4097-906a-2bb9e87c6dc5",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Prismari, the Inspiration",
+          "actorPlayer": "Sevin",
+          "targetPlayer": "",
+          "turnNumber": 4
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-07-17",
+            "holder": "",
+            "notes": "Greg was eliminated on turn 6.",
+            "numericValue": 6,
+            "source": "game",
+            "value": "6"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 6
+      },
+      "notes": "Table killed by Traumatic Critique dealing 116 damage to each player (copied with storm 12 times)",
+      "playerCommanders": [
+        {
+          "commander": "Prismari, the Inspiration",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "player": "Lawrence"
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "player": "Greg"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Prismari, the Inspiration",
+          "commanderRaw": "Prismari, the Inspiration",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [
+            "Lawrence",
+            "Tyler",
+            "Greg"
+          ],
+          "kills": 3,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Slimefoot, the Stowaway",
+          "commanderRaw": "Slimefoot, the Stowaway",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 4,
+          "player": "Lawrence",
+          "turnKilled": 6
+        },
+        {
+          "commander": "Caesar, Legion's Emperor",
+          "commanderRaw": "Caesar, Legion's Emperor",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Tyler",
+          "turnKilled": 6
+        },
+        {
+          "commander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "commanderRaw": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Greg",
+          "turnKilled": 6
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Lawrence",
+        "Tyler",
+        "Greg"
+      ]
+    }
+  ],
+  "powerLevels": {},
+  "records": [],
+  "revision": 3617,
+  "updatedAt": "2026-10-12T17:39:43.598Z",
+  "updatedBy": "Baily"
+}
