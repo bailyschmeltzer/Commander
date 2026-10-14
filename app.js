@@ -2484,8 +2484,8 @@ async function verifyPendingStateCoversCloud() {
     revision: Number.isFinite(Number(payload?.revision ?? statePayload?.revision))
       ? Number(payload?.revision ?? statePayload?.revision)
       : 0,
-    updatedAt: String(payload?.updatedAt ?? statePayload?.updatedAt || '').trim(),
-    updatedBy: String(payload?.updatedBy ?? statePayload?.updatedBy || '').trim(),
+    updatedAt: String((payload?.updatedAt ?? statePayload?.updatedAt) || '').trim(),
+    updatedBy: String((payload?.updatedBy ?? statePayload?.updatedBy) || '').trim(),
   };
   const missingFromLocal = countCloudItemsMissingFromLocal(statePayload?.games, appState.games)
     + countCloudItemsMissingFromLocal(statePayload?.deckLists, appState.deckLists)
