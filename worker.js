@@ -2363,6 +2363,68 @@ export default {
           }, 409);
         }
 
+        // Regression guard: a payload that drops many existing entries almost always
+        // comes from a device holding a stale local snapshot. Its revision marker can
+        // be current (metadata-only polls keep it fresh without downloading content),
+        // so the revision check above passes while the content would regress the
+        // cloud. Block and route the client through its conflict flow (which pulls
+        // the authoritative state) unless the destructive-overwrite header is set
+        // explicitly. Live payloads preserve the other collections server-side, so
+        // only games are regression-checked for them.
+        if (!allowDestructiveOverwrite && currentHasData && incomingHasData) {
+          const countMissingEntries = (currentEntries, incomingEntries) => {
+            if (!currentEntries.length) {
+              return 0;
+            }
+
+            const incomingIds = new Set(
+              incomingEntries
+                .map((entry) => getTextValue(entry?.id))
+                .filter(Boolean),
+            );
+            return currentEntries.reduce((missing, entry) => {
+              const id = getTextValue(entry?.id);
+              return id && !incomingIds.has(id) ? missing + 1 : missing;
+            }, 0);
+          };
+
+          const regressionReasons = [];
+          const checkCollectionRegression = (label, currentEntries, incomingEntries) => {
+            if (currentEntries.length >= 3 && incomingEntries.length === 0) {
+              regressionReasons.push(`${label} would drop from ${currentEntries.length} to 0`);
+              return;
+            }
+
+            const missing = countMissingEntries(currentEntries, incomingEntries);
+            if (missing > 10) {
+              regressionReasons.push(`${label} would drop ${missing} of ${currentEntries.length} existing entries`);
+            }
+          };
+
+          checkCollectionRegression('games', currentGames, games);
+          if (hasFullPayloadShape) {
+            checkCollectionRegression('deck lists', currentDeckLists, deckLists);
+            checkCollectionRegression('decks', currentDecks, decks);
+            checkCollectionRegression('records', currentRecords, records);
+
+            const currentPowerLevelCount = Object.keys(currentPowerLevels).length;
+            if (currentPowerLevelCount >= 3 && Object.keys(powerLevels).length === 0) {
+              regressionReasons.push(`power levels would drop from ${currentPowerLevelCount} to 0`);
+            }
+          }
+
+          if (regressionReasons.length) {
+            return jsonResponse({
+              error: `Blocked a sync that would delete cloud data (${regressionReasons.join('; ')}). Pull the latest cloud state and retry.`,
+              conflict: {
+                revision: currentRevision,
+                updatedAt: String(currentState?.updatedAt || '').trim(),
+                updatedBy: String(currentState?.updatedBy || '').trim(),
+              },
+            }, 409);
+          }
+        }
+
         const updatedAt = new Date().toISOString();
         const nextRevision = currentRevision + 1;
         const nextState = hasFullPayloadShape

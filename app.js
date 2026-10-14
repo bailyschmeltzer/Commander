@@ -244,6 +244,11 @@ let syncCloudRevision = 0;
 let syncCloudUpdatedAt = '';
 let syncCloudUpdatedBy = '';
 let syncHasLoadedCloudState = false;
+// True only after this session has actually applied (pull) or written (push) the
+// cloud state. The bootstrap fast path and metadata-only polls can mark the local
+// cache as revision-current without ever downloading content, so a false value
+// here means the local content itself is unverified even when revisions match.
+let syncLocalContentVerified = false;
 let syncQueuedGamesOnly = null;
 let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
@@ -2252,6 +2257,7 @@ async function pullCloudState({ force = false } = {}) {
     }
     setSyncPendingChanges(false);
     syncHasLoadedCloudState = true;
+    syncLocalContentVerified = true;
     syncConnectionState = 'connected';
     syncLastErrorMessage = '';
     syncLastSuccessAt = new Date().toISOString();
@@ -2271,6 +2277,7 @@ async function pullCloudState({ force = false } = {}) {
     if (error.status === 401) {
       clearSyncAuthenticatedUser();
       syncHasLoadedCloudState = false;
+      syncLocalContentVerified = false;
     }
     syncConnectionState = getCurrentSyncUserId() ? 'configured' : 'local';
     throw error;
@@ -2440,19 +2447,115 @@ function scheduleSyncRetry(errorMessage) {
   }, retryDelay);
 }
 
+// Revision equality does not prove content equality: background metadata polls
+// advance syncCloudRevision without downloading state, so a device can hold a
+// stale local snapshot while its revision marker looks current. Before pushing
+// pending changes from an unverified baseline, confirm the local state actually
+// contains every item the cloud has — otherwise the push would overwrite the
+// cloud with the stale snapshot.
+function countCloudItemsMissingFromLocal(cloudEntries, localEntries) {
+  if (!Array.isArray(cloudEntries) || !cloudEntries.length) {
+    return 0;
+  }
+
+  const localIds = new Set(
+    (Array.isArray(localEntries) ? localEntries : [])
+      .map((entry) => String(entry?.id || '').trim())
+      .filter(Boolean),
+  );
+  return cloudEntries.reduce((missing, entry) => {
+    const id = String(entry?.id || '').trim();
+    return id && !localIds.has(id) ? missing + 1 : missing;
+  }, 0);
+}
+
+async function verifyPendingStateCoversCloud() {
+  let payload;
+  try {
+    payload = await cloudRequest(CLOUD_SYNC_ENDPOINT, { method: 'GET', timeoutMs: 15000 });
+  } catch (error) {
+    return { outcome: 'unknown', error };
+  }
+
+  const statePayload = payload?.state && typeof payload.state === 'object'
+    ? payload.state
+    : payload;
+  const metadata = {
+    revision: Number.isFinite(Number(payload?.revision ?? statePayload?.revision))
+      ? Number(payload?.revision ?? statePayload?.revision)
+      : 0,
+    updatedAt: String(payload?.updatedAt ?? statePayload?.updatedAt || '').trim(),
+    updatedBy: String(payload?.updatedBy ?? statePayload?.updatedBy || '').trim(),
+  };
+  const missingFromLocal = countCloudItemsMissingFromLocal(statePayload?.games, appState.games)
+    + countCloudItemsMissingFromLocal(statePayload?.deckLists, appState.deckLists)
+    + countCloudItemsMissingFromLocal(statePayload?.decks, appState.decks)
+    + countCloudItemsMissingFromLocal(statePayload?.records, appState.records);
+
+  // Small gaps are treated as intentional local deletes (the app deletes entries
+  // one at a time); the worker-side regression guard remains the backstop for
+  // anything larger.
+  return {
+    outcome: missingFromLocal > 3 ? 'pull' : 'push',
+    metadata,
+    missingFromLocal,
+  };
+}
+
 async function pushCloudState() {
   if (!hasSyncCredentials() || syncInFlight || syncConflictInfo) {
     return;
   }
 
-  if (!syncHasLoadedCloudState && !syncPendingChanges) {
-    try {
-      await pullCloudState();
-    } catch (error) {
-      setSyncPendingChanges(true);
-      syncLastErrorMessage = `${error.message}. Sync is blocked until latest cloud state loads.`;
-      refreshSyncStatus();
-      return;
+  if (!syncLocalContentVerified) {
+    if (!syncPendingChanges) {
+      try {
+        await pullCloudState();
+      } catch (error) {
+        setSyncPendingChanges(true);
+        syncLastErrorMessage = `${error.message}. Sync is blocked until latest cloud state loads.`;
+        refreshSyncStatus();
+        return;
+      }
+
+      if (!syncLocalContentVerified) {
+        // The pull was skipped by the stale-read guard — without verified content
+        // this push could overwrite the cloud with a stale snapshot. Stay queued.
+        return;
+      }
+    } else {
+      // Hold syncInFlight during verification so a concurrent queueCloudSync
+      // can't slip a second unverified push through the GET window; any mutation
+      // queued meanwhile bumps the version counters and triggers a follow-up sync.
+      syncInFlight = true;
+      updateSyncControls();
+      let verification;
+      try {
+        verification = await verifyPendingStateCoversCloud();
+      } finally {
+        syncInFlight = false;
+        updateSyncControls();
+      }
+      if (verification.outcome === 'pull') {
+        if (verification.metadata.revision > 0) {
+          updateSyncMetadata(verification.metadata);
+        }
+        syncDebugLogs.unshift({
+          timestamp: new Date().toISOString(),
+          event: 'Blocked stale push',
+          decks: Array.isArray(appState.decks) ? appState.decks.length : 0,
+          lists: Array.isArray(appState.deckLists) ? appState.deckLists.length : 0,
+          user: `cloud holds ${verification.missingFromLocal} entries this device is missing`,
+        });
+        renderSyncDebugLog();
+        await resolveSyncConflict(verification.metadata);
+        return;
+      }
+      if (verification.outcome !== 'push') {
+        scheduleSyncRetry(verification.error?.message || 'Unable to verify cloud state before syncing.');
+        return;
+      }
+      syncLocalContentVerified = true;
     }
   }
 
@@ -2522,6 +2625,7 @@ async function pushCloudState() {
     }
     setSyncPendingChanges(stateChangedDuringFlight);
     syncHasLoadedCloudState = true;
+    syncLocalContentVerified = true;
     shouldQueueFollowUpSync = stateChangedDuringFlight;
     syncRetryCount = 0;
     syncLastErrorMessage = '';
@@ -13257,6 +13361,7 @@ function setupSyncUi() {
     syncConnectionState = 'local';
   }
   syncHasLoadedCloudState = false;
+  syncLocalContentVerified = false;
   updateSyncControls();
   refreshSyncStatus();
 
@@ -13278,6 +13383,7 @@ function setupSyncUi() {
     syncLastSuccessAt = null;
     syncLastErrorMessage = '';
     syncHasLoadedCloudState = false;
+    syncLocalContentVerified = false;
     syncInFlight = true;
     clearSyncAuthenticatedUser();
     updateSyncMetadata();
@@ -13346,6 +13452,7 @@ function setupSyncUi() {
       syncLastSuccessAt = null;
       syncLastErrorMessage = '';
       syncHasLoadedCloudState = false;
+      syncLocalContentVerified = false;
       updateSyncMetadata();
       appState = normalizeAppStateData({ games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] });
       activeGameState = null;
