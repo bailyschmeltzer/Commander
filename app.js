@@ -11,6 +11,7 @@ const SYNC_TOKEN_STORAGE_KEY = 'commanderTrackerSyncToken';
 const SYNC_CREDENTIAL_SET_AT_STORAGE_KEY = 'commanderTrackerSyncCredentialSetAt';
 const SYNC_PENDING_CHANGES_STORAGE_KEY = 'commanderTrackerSyncPendingChanges';
 const SYNC_REVISION_STORAGE_KEY = 'commanderTrackerSyncRevision';
+const SYNC_CONFLICT_BACKUP_STORAGE_KEY = 'commanderTrackerSyncConflictBackup';
 const CLOUD_SYNC_ENDPOINT = '/api/state';
 const CLOUD_SYNC_METADATA_ENDPOINT = '/api/state?meta=1';
 const COMMANDER_BUILDER_CACHE_STORAGE_KEY = 'commanderBuilderCacheV4';
@@ -2373,6 +2374,7 @@ async function fetchCloudStateMetadata() {
     revision: Number.isFinite(Number(payload?.revision)) ? Number(payload.revision) : 0,
     updatedAt: String(payload?.updatedAt || '').trim(),
     updatedBy: String(payload?.updatedBy || '').trim(),
+    counts: payload?.counts && typeof payload.counts === 'object' ? payload.counts : null,
   };
 }
 
@@ -2402,6 +2404,14 @@ async function checkCloudStateFreshness({ autoPull = false, force = false } = {}
       if (syncQueueTimer) {
         clearTimeout(syncQueueTimer);
         syncQueueTimer = null;
+      }
+      // The cloud moved ahead while this device has unsynced changes. When no
+      // fragile in-progress work exists (deck draft / live game), heal right away
+      // by pulling the authoritative cloud state instead of freezing sync behind
+      // a conflict notice.
+      if (canAutoPullOverLocalChanges()) {
+        await autoResolveConflictByPulling(metadata, 'cloud-moved-ahead');
+        return;
       }
       syncConflictInfo = metadata;
       syncLastErrorMessage = '';
@@ -2453,6 +2463,79 @@ function scheduleSyncRetry(errorMessage) {
 // pending changes from an unverified baseline, confirm the local state actually
 // contains every item the cloud has — otherwise the push would overwrite the
 // cloud with the stale snapshot.
+function getLocalStateCounts() {
+  return {
+    games: Array.isArray(appState.games) ? appState.games.length : 0,
+    deckLists: Array.isArray(appState.deckLists) ? appState.deckLists.length : 0,
+    decks: Array.isArray(appState.decks) ? appState.decks.length : 0,
+    records: Array.isArray(appState.records) ? appState.records.length : 0,
+    powerLevels: appState.powerLevels && typeof appState.powerLevels === 'object' && !Array.isArray(appState.powerLevels)
+      ? Object.keys(appState.powerLevels).length
+      : 0,
+  };
+}
+
+function localStateMatchesCloudCounts(counts) {
+  if (!counts || typeof counts !== 'object') {
+    // Older worker without counts — fall back to revision-only trust.
+    return true;
+  }
+
+  const local = getLocalStateCounts();
+  return ['games', 'deckLists', 'decks', 'records', 'powerLevels'].every((key) => {
+    const cloudCount = Number(counts[key]);
+    return !Number.isFinite(cloudCount) || cloudCount === local[key];
+  });
+}
+
+// When the cloud is authoritative (user is connected), local state should never
+// win silently. The only exceptions are in-progress work that a pull would
+// destroy mid-flight: an unsaved deck-builder draft or an active live game.
+function canAutoPullOverLocalChanges() {
+  return !deckBuilderHasUnsavedChanges && !activeGameState;
+}
+
+// Best-effort snapshot of the local state before an automatic pull replaces it,
+// so an auto-heal never destroys local edits irrecoverably.
+function stashLocalStateBeforeAutoPull(reason) {
+  try {
+    writeLocalStorageValue(SYNC_CONFLICT_BACKUP_STORAGE_KEY, JSON.stringify({
+      reason: String(reason || ''),
+      stashedAt: new Date().toISOString(),
+      state: appState,
+    }));
+  } catch (error) {
+    // localStorage quota is tight with a multi-MB state — the pull still proceeds.
+  }
+}
+
+async function autoResolveConflictByPulling(conflict, reason) {
+  stashLocalStateBeforeAutoPull(reason);
+  clearSyncConflict();
+  syncConnectionState = 'connecting';
+  refreshSyncStatus();
+
+  try {
+    await pullCloudState({ force: true });
+    setSyncUiCollapsed(true);
+    syncDebugLogs.unshift({
+      timestamp: new Date().toISOString(),
+      event: 'Auto-healed from cloud',
+      decks: Array.isArray(appState.decks) ? appState.decks.length : 0,
+      lists: Array.isArray(appState.deckLists) ? appState.deckLists.length : 0,
+      user: String(reason || ''),
+    });
+    renderSyncDebugLog();
+  } catch (error) {
+    // Pull failed — fall back to the manual conflict state so sync stays blocked
+    // rather than risking a blind push of the stale local state.
+    syncConflictInfo = conflict || syncConflictInfo;
+    syncLastErrorMessage = `${error.message}. Unable to pull the latest cloud state.`;
+  }
+
+  refreshSyncStatus();
+}
+
 function countCloudItemsMissingFromLocal(cloudEntries, localEntries) {
   if (!Array.isArray(cloudEntries) || !cloudEntries.length) {
     return 0;
@@ -2548,6 +2631,13 @@ async function pushCloudState() {
           user: `cloud holds ${verification.missingFromLocal} entries this device is missing`,
         });
         renderSyncDebugLog();
+        // The cloud provably holds entries this device lacks — the local baseline
+        // is stale. Heal automatically by pulling the authoritative state; only an
+        // in-progress deck draft or live game keeps the manual conflict prompt.
+        if (canAutoPullOverLocalChanges()) {
+          await autoResolveConflictByPulling(verification.metadata, 'stale-local-content');
+          return;
+        }
         await resolveSyncConflict(verification.metadata);
         return;
       }
@@ -2640,6 +2730,13 @@ async function pushCloudState() {
         updatedAt: error.body?.conflict?.updatedAt,
         updatedBy: error.body?.conflict?.updatedBy,
       });
+      // A 409 means this device's baseline diverged from the cloud. The cloud is
+      // authoritative whenever connected, so heal automatically — only a deck
+      // draft or live game in progress keeps the manual conflict prompt.
+      if (canAutoPullOverLocalChanges()) {
+        await autoResolveConflictByPulling(error.body?.conflict || null, 'push-revision-conflict');
+        return;
+      }
       await resolveSyncConflict(error.body?.conflict || null);
     } else {
       scheduleSyncRetry(error.message);
@@ -13660,12 +13757,15 @@ async function initializeApp() {
     }
 
     // No pending local changes — before downloading the full (multi-MB) state
-    // payload, check the tiny metadata endpoint. When the cloud baseline matches
-    // this device's last synced revision, the local cache IS the cloud state:
-    // mark it authoritative and skip the download so page loads stay fast.
+    // payload, check the tiny metadata endpoint. Trust the local cache only when
+    // BOTH the revision matches AND the collection sizes match: revision equality
+    // alone cannot prove content equality (metadata polls advance a device's
+    // revision without downloading state), which is how the 2026-10-12 stale push
+    // wiped the cloud. A count mismatch falls through to the full pull below, so
+    // stale devices heal automatically instead of silently using local data.
     try {
       const metadata = await fetchCloudStateMetadata();
-      if (!isCloudStateDesynced(metadata) && hasAnyStateData(appState)) {
+      if (!isCloudStateDesynced(metadata) && hasAnyStateData(appState) && localStateMatchesCloudCounts(metadata?.counts)) {
         updateSyncMetadata(metadata);
         syncHasLoadedCloudState = true;
         syncConnectionState = 'connected';

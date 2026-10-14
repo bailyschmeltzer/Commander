@@ -2238,6 +2238,19 @@ export default {
             revision: state.revision,
             updatedAt: state.updatedAt,
             updatedBy: state.updatedBy,
+            // Collection sizes let clients cheaply verify their local cache really
+            // matches the cloud content. Revision equality alone cannot prove that
+            // (metadata-only polls advance a device's revision without downloading
+            // state), which is how the 2026-10-12 stale-push wipe went unnoticed.
+            counts: {
+              games: Array.isArray(state.games) ? state.games.length : 0,
+              deckLists: state.deckLists.length,
+              decks: state.decks.length,
+              records: state.records.length,
+              powerLevels: state.powerLevels && typeof state.powerLevels === 'object' && !Array.isArray(state.powerLevels)
+                ? Object.keys(state.powerLevels).length
+                : 0,
+            },
             auth: buildAuthPayload(auth),
           }, 200);
         }
