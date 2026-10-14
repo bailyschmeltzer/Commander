@@ -13235,30 +13235,39 @@ function handleInternalPageNavigation(event) {
 
 document.addEventListener('click', handleInternalPageNavigation, true);
 
+// The live-tracker UI helpers (updateLiveViewportHeightVariable,
+// refreshLiveTrackerUi) live in livegame.js, which is only loaded on the live
+// game page. These global handlers run on every page, so without a guard every
+// resize/load/visualViewport event threw a ReferenceError on all other pages.
+function refreshLivePageUiIfAvailable() {
+  if (typeof updateLiveViewportHeightVariable === 'function') {
+    updateLiveViewportHeightVariable();
+  }
+  if (typeof refreshLiveTrackerUi === 'function') {
+    refreshLiveTrackerUi();
+  }
+}
+
 window.addEventListener('resize', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
-  updateLiveViewportHeightVariable();
-  refreshLiveTrackerUi();
+  refreshLivePageUiIfAvailable();
 });
 
 window.addEventListener('orientationchange', () => {
   closePrimaryMenu();
   closeLiveActionsMenu();
   window.setTimeout(() => {
-    updateLiveViewportHeightVariable();
-    refreshLiveTrackerUi();
+    refreshLivePageUiIfAvailable();
   }, 100);
 });
 
 window.addEventListener('load', () => {
-  updateLiveViewportHeightVariable();
-  refreshLiveTrackerUi();
+  refreshLivePageUiIfAvailable();
 });
 
 window.visualViewport?.addEventListener('resize', () => {
-  updateLiveViewportHeightVariable();
-  refreshLiveTrackerUi();
+  refreshLivePageUiIfAvailable();
 });
 
 window.addEventListener('online', async () => {
