@@ -151468,6 +151468,197 @@
         "Tyler",
         "Baily"
       ]
+    },
+    {
+      "date": "2026-10-16",
+      "finishOrder": [
+        "Tyler",
+        "Sevin",
+        "Lawrence"
+      ],
+      "id": "e3528e70-dbc6-484a-8a16-64cbeb3b13ab",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Isshin, Two Heavens as One",
+          "actorPlayer": "Lawrence",
+          "targetPlayer": "",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-10-16",
+            "holder": "",
+            "notes": "Lawrence was eliminated on turn 10.",
+            "numericValue": 10,
+            "source": "game",
+            "value": "10"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 10
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Isshin, Two Heavens as One",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "commanderRaw": "Hearthhull, the Worldseed",
+          "deckCommander": "Hearthhull, the Worldseed",
+          "deckId": "3663929b-8686-4e84-ad29-a67c8a658215",
+          "deckName": "Jund Landsac",
+          "killed": [],
+          "kills": 0,
+          "place": 2,
+          "player": "Sevin",
+          "turnKilled": 10
+        },
+        {
+          "commander": "Kyler, Sigardian Emissary",
+          "commanderRaw": "Kyler, Sigardian Emissary",
+          "deckCommander": "Kyler, Sigardian Emissary",
+          "deckId": "6669ce11-77fe-4e0e-b5b5-23fcc3290763",
+          "deckName": "Kyler",
+          "killed": [
+            "Sevin",
+            "Lawrence"
+          ],
+          "kills": 2,
+          "place": 1,
+          "player": "Tyler",
+          "turnKilled": null
+        },
+        {
+          "commander": "Isshin, Two Heavens as One",
+          "commanderRaw": "Isshin, Two Heavens as One",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Lawrence",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Tyler",
+        "Lawrence"
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "finishOrder": [
+        "Sevin",
+        "Tyler",
+        "Lawrence"
+      ],
+      "id": "8dba1b52-4016-4b86-a17e-d73eda2a57cf",
+      "liveSummary": {
+        "alternateLoseConditions": [],
+        "alternateWinCondition": "",
+        "durationMinutes": null,
+        "eventCount": null,
+        "firstBlood": {
+          "actorCommander": "Captain N'ghathrod",
+          "actorPlayer": "Lawrence",
+          "targetPlayer": "",
+          "turnNumber": 3
+        },
+        "recordStats": {
+          "fastestElimination": {
+            "commander": "",
+            "date": "2026-10-16",
+            "holder": "",
+            "notes": "Lawrence was eliminated on turn 10.",
+            "numericValue": 10,
+            "source": "game",
+            "value": "10"
+          }
+        },
+        "startingPlayer": "",
+        "turnNumber": 11
+      },
+      "notes": "",
+      "playerCommanders": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "player": "Sevin"
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "player": "Tyler"
+        },
+        {
+          "commander": "Captain N'ghathrod",
+          "player": "Lawrence"
+        }
+      ],
+      "playerRows": [
+        {
+          "commander": "Hearthhull, the Worldseed",
+          "commanderRaw": "Hearthhull, the Worldseed",
+          "deckCommander": "Hearthhull, the Worldseed",
+          "deckId": "3663929b-8686-4e84-ad29-a67c8a658215",
+          "deckName": "Jund Landsac",
+          "killed": [
+            "Tyler"
+          ],
+          "kills": 1,
+          "place": 1,
+          "player": "Sevin",
+          "turnKilled": null
+        },
+        {
+          "commander": "Hashaton, Scarab's Fist",
+          "commanderRaw": "Hashaton, Scarab's Fist",
+          "deckCommander": "Hashaton, Scarab's Fist",
+          "deckId": "767cfb49-786d-4a03-937f-ae8b89a0c32e",
+          "deckName": "Hashaton",
+          "killed": [
+            "Lawrence"
+          ],
+          "kills": 1,
+          "place": 2,
+          "player": "Tyler",
+          "turnKilled": 11
+        },
+        {
+          "commander": "Captain N'ghathrod",
+          "commanderRaw": "Captain N'ghathrod",
+          "deckCommander": "",
+          "deckId": "",
+          "deckName": "",
+          "killed": [],
+          "kills": 0,
+          "place": 3,
+          "player": "Lawrence",
+          "turnKilled": 10
+        }
+      ],
+      "players": [
+        "Sevin",
+        "Tyler",
+        "Lawrence"
+      ]
     }
   ],
   "powerLevels": {
@@ -151718,7 +151909,7 @@
       "value": "72"
     }
   ],
-  "revision": 3763,
-  "updatedAt": "2026-10-17T01:27:10.241Z",
-  "updatedBy": "Baily"
+  "revision": 3765,
+  "updatedAt": "2026-10-17T13:37:36.259Z",
+  "updatedBy": "Sevin"
 }
