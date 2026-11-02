@@ -2274,7 +2274,7 @@
     const groups = getDeckBuilderGroupedCards(deck);
     const summary = getDeckValidationSummary(deck);
     const colorViolationNames = new Set(
-      summary.colorViolations.map((violation) => getIdentityKey(violation.replace(/\s*\([^)]*\)$/, '').trim())
+      summary.colorViolations.map((violation) => getIdentityKey(violation.replace(/\s*\([^)]*\)$/, '').trim()))
     );
     const duplicateCardNames = new Set(
       summary.duplicates.map((name) => getIdentityKey(name))
