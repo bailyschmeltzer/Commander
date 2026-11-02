@@ -7,40 +7,40 @@
   let playerFilterDefaulted = false;
   let cloudWaitStartAt = 0;
   let cloudWaitTimer = null;
+  const CLOUD_WAIT_FALLBACK_MS = 1500;
 
   function render() {
     if (!tableBody) return;
 
-    // While connected and the cloud state hasn't resolved yet, show a loading row
-    // instead of painting local cache. This prevents the deck list from briefly (or
-    // misleadingly) showing stale/empty local data before the authoritative cloud
-    // pull completes and re-renders with fresh data. Bounded: if the fetch hangs or
-    // fails, fall back to local data after a few seconds so it never hangs forever.
-    const stillResolving = typeof hasLoadedCloudState === 'function'
-      && !hasLoadedCloudState()
-      && typeof hasSyncCredentials === 'function'
-      && hasSyncCredentials()
-      && navigator.onLine;
+    // When credentials are configured, show only cloud data. If the pull hangs or
+    // fails, replace the loading row with an unavailable message rather than cache.
+    const cloudRequired = typeof hasSyncCredentials === 'function' && hasSyncCredentials();
+    const cloudLoaded = typeof hasLoadedCloudState === 'function' && hasLoadedCloudState();
+    const stillResolving = cloudRequired && !cloudLoaded;
 
     if (stillResolving) {
       if (!cloudWaitStartAt) {
         cloudWaitStartAt = Date.now();
       }
       const elapsed = Date.now() - cloudWaitStartAt;
-      if (elapsed < 4000) {
+      if (elapsed < CLOUD_WAIT_FALLBACK_MS) {
         tableBody.innerHTML = '<tr><td colspan="7">Loading decks…</td></tr>';
         updateSortableTableIndicators('decks');
-        // Re-render when the wait window expires so we fall back to local data even
-        // if the cloud fetch never resolves (otherwise this could hang on "Loading…").
+        // Re-render when the wait window expires so a stalled cloud pull is visible.
         if (!cloudWaitTimer) {
           cloudWaitTimer = setTimeout(() => {
             cloudWaitTimer = null;
             render();
-          }, 4000 - elapsed + 50);
+          }, CLOUD_WAIT_FALLBACK_MS - elapsed + 50);
         }
         return;
       }
-      // Timed out waiting — fall through and render local data rather than hang.
+      const message = navigator.onLine
+        ? 'Cloud decks have not loaded. Check sync status and choose Sync now to retry.'
+        : 'Cloud decks cannot load while offline. Reconnect to view your decks.';
+      tableBody.innerHTML = `<tr><td colspan="7">${escapeHtml(message)}</td></tr>`;
+      updateSortableTableIndicators('decks');
+      return;
     } else {
       cloudWaitStartAt = 0;
       if (cloudWaitTimer) {

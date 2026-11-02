@@ -2093,6 +2093,9 @@ async function pullCloudState({ force = false } = {}) {
     // real desync (e.g. backup restore) and the cloud state is applied so the client
     // resyncs instead of showing local cache indefinitely.
     if (!force && pulledRevision < syncCloudRevision && isStaleReadGuardActive()) {
+      if (window.CommanderDeckLibrary?.hasView?.()) {
+        throw new Error('Cloud returned a stale state snapshot. Retrying the pull.');
+      }
       syncConnectionState = 'connected';
       syncHasLoadedCloudState = true;
       syncLastErrorMessage = '';
@@ -8527,6 +8530,7 @@ function setupSyncUi() {
     syncConnectionState = 'connecting';
     updateSyncControls();
     refreshSyncStatus();
+    window.CommanderDeckLibrary?.render?.();
 
     try {
       applyStoredSyncSession(user, token);
@@ -8786,14 +8790,16 @@ async function initializeApp() {
     try {
       const metadata = await fetchCloudStateMetadata();
       if (!isCloudStateDesynced(metadata) && hasAnyStateData(appState) && localStateMatchesCloudCounts(metadata?.counts)) {
-        updateSyncMetadata(metadata);
-        syncHasLoadedCloudState = true;
-        syncConnectionState = 'connected';
-        syncLastErrorMessage = '';
-        restoreEditModeIfNeeded();
-        setSyncUiCollapsed(false);
-        refreshSyncStatus();
-        return;
+        if (!window.CommanderDeckLibrary?.hasView?.()) {
+          updateSyncMetadata(metadata);
+          syncHasLoadedCloudState = true;
+          syncConnectionState = 'connected';
+          syncLastErrorMessage = '';
+          restoreEditModeIfNeeded();
+          setSyncUiCollapsed(false);
+          refreshSyncStatus();
+          return;
+        }
       }
 
       // Cloud moved — record the revision now so a stale edge-cached body in the
