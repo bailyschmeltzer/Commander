@@ -2,6 +2,7 @@
   const draftEntryForm = document.getElementById('draft-entry-form');
   const draftPlayerInput = document.getElementById('draft-player');
   const draftSetInput = document.getElementById('draft-set');
+  const draftSetStatus = document.getElementById('draft-set-status');
   const draftDateInput = document.getElementById('draft-date');
   const draftPlacementInput = document.getElementById('draft-placement');
   const draftWinsInput = document.getElementById('draft-wins');
@@ -12,6 +13,14 @@
   const draftSummaryEmpty = document.getElementById('draft-summary-empty');
   const draftResultsBody = document.getElementById('draft-results-body');
   const draftResultsEmpty = document.getElementById('draft-results-empty');
+  const draftFilterPlayer = document.getElementById('draft-filter-player');
+  const draftFilterSet = document.getElementById('draft-filter-set');
+  const draftClearFiltersButton = document.getElementById('draft-clear-filters');
+  const draftPodEvents = document.getElementById('draft-pod-events');
+  const draftPodPlayers = document.getElementById('draft-pod-players');
+  const draftPodRecord = document.getElementById('draft-pod-record');
+  const draftPodPoints = document.getElementById('draft-pod-points');
+  let officialSets = [];
   const colorOptions = [
     { code: 'W', name: 'White' },
     { code: 'U', name: 'Blue' },
@@ -33,6 +42,74 @@
 
   function getEventPoints(result) {
     return (result.wins * 3) + result.ties;
+  }
+
+  function getPlayerKey(player) {
+    return typeof getIdentityKey === 'function'
+      ? getIdentityKey(player)
+      : String(player || '').trim().toLocaleLowerCase();
+  }
+
+  function getResultSetCode(result) {
+    const storedCode = String(result.setCode || '').trim().toLowerCase();
+    if (storedCode) {
+      return storedCode;
+    }
+
+    const normalizedName = String(result.setName || '').trim().toLocaleLowerCase();
+    const matchingSet = officialSets.find((set) => set.name.toLocaleLowerCase() === normalizedName);
+    return matchingSet?.code || `legacy:${normalizedName}`;
+  }
+
+  function updateFilterOptions(results) {
+    if (draftFilterPlayer) {
+      const selectedPlayer = draftFilterPlayer.value;
+      const players = new Map();
+      results.forEach((result) => {
+        const key = getPlayerKey(result.player);
+        if (key && !players.has(key)) {
+          players.set(key, result.player);
+        }
+      });
+      const playerOptions = [...players.entries()].sort((first, second) => first[1].localeCompare(second[1]));
+      draftFilterPlayer.innerHTML = [
+        '<option value="">All players</option>',
+        ...playerOptions.map(([key, name]) => `<option value="${escapeHtml(key)}">${escapeHtml(name)}</option>`),
+      ].join('');
+      if (players.has(selectedPlayer)) {
+        draftFilterPlayer.value = selectedPlayer;
+      }
+    }
+
+    if (draftFilterSet) {
+      const selectedSet = draftFilterSet.value;
+      const setsByCode = new Map(officialSets.map((set) => [set.code, set.name]));
+      results.forEach((result) => {
+        const code = getResultSetCode(result);
+        if (!setsByCode.has(code)) {
+          setsByCode.set(code, result.setName || 'Unknown set');
+        }
+      });
+      const setOptions = [...setsByCode.entries()];
+      draftFilterSet.innerHTML = [
+        '<option value="">All sets</option>',
+        ...setOptions.map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`),
+      ].join('');
+      if (setsByCode.has(selectedSet)) {
+        draftFilterSet.value = selectedSet;
+      }
+    }
+  }
+
+  function getFilteredResults(results) {
+    const selectedPlayer = draftFilterPlayer?.value || '';
+    const selectedSet = draftFilterSet?.value || '';
+    return results.filter((result) => {
+      if (selectedPlayer && getPlayerKey(result.player) !== selectedPlayer) {
+        return false;
+      }
+      return !selectedSet || getResultSetCode(result) === selectedSet;
+    });
   }
 
   function formatRecord(wins, losses, ties) {
@@ -60,9 +137,7 @@
         return;
       }
 
-      const playerKey = typeof getIdentityKey === 'function'
-        ? getIdentityKey(player)
-        : player.toLocaleLowerCase();
+      const playerKey = getPlayerKey(player);
       if (!groups.has(playerKey)) {
         groups.set(playerKey, {
           player,
@@ -174,13 +249,77 @@
         <td><button type="button" class="draft-delete-button" data-draft-delete="${escapeHtml(result.id)}" aria-label="Delete ${escapeHtml(result.player)}'s ${escapeHtml(result.setName)} result">Delete</button></td>
       </tr>`).join('');
 
+    draftResultsEmpty.textContent = results.length ? 'No events match these filters.' : 'No events recorded yet.';
     draftResultsEmpty.hidden = sortedResults.length > 0;
   }
 
+  function renderPodOverview(results) {
+    if (!draftPodEvents) {
+      return;
+    }
+
+    const players = new Set(results.map((result) => getPlayerKey(result.player)).filter(Boolean));
+    const wins = results.reduce((total, result) => total + result.wins, 0);
+    const losses = results.reduce((total, result) => total + result.losses, 0);
+    const ties = results.reduce((total, result) => total + result.ties, 0);
+    const points = results.reduce((total, result) => total + getEventPoints(result), 0);
+    draftPodEvents.textContent = String(results.length);
+    draftPodPlayers.textContent = String(players.size);
+    draftPodRecord.textContent = formatRecord(wins, losses, ties);
+    draftPodPoints.textContent = String(points);
+  }
+
+  async function loadOfficialSets() {
+    if (!draftSetInput) {
+      return;
+    }
+
+    draftSetInput.disabled = true;
+    try {
+      const response = await fetch('/api/sets');
+      if (!response.ok) {
+        throw new Error(`Set request failed (${response.status}).`);
+      }
+
+      const payload = await response.json();
+      officialSets = (Array.isArray(payload?.sets) ? payload.sets : [])
+        .filter((set) => set?.code && set?.name)
+        .map((set) => ({
+          code: String(set.code).toLowerCase(),
+          name: String(set.name),
+          releasedAt: String(set.releasedAt || ''),
+        }));
+      if (!officialSets.length) {
+        throw new Error('The official set list was empty.');
+      }
+
+      draftSetInput.innerHTML = [
+        '<option value="">Select an official set</option>',
+        ...officialSets.map((set) => `<option value="${escapeHtml(set.code)}">${escapeHtml(set.name)}</option>`),
+      ].join('');
+      if (draftSetStatus) {
+        draftSetStatus.textContent = `${officialSets.length} official paper sets available.`;
+        draftSetStatus.className = 'status-muted';
+      }
+      render();
+    } catch (error) {
+      draftSetInput.innerHTML = '<option value="">Official sets unavailable</option>';
+      if (draftSetStatus) {
+        draftSetStatus.textContent = 'Could not load official sets. Check your connection and reload this page.';
+        draftSetStatus.className = 'status-error';
+      }
+    } finally {
+      draftSetInput.disabled = false;
+    }
+  }
+
   function render() {
-    const results = getDraftResults();
-    renderSummary(results);
-    renderResults(results);
+    const allResults = getDraftResults();
+    updateFilterOptions(allResults);
+    const filteredResults = getFilteredResults(allResults);
+    renderPodOverview(filteredResults);
+    renderSummary(filteredResults);
+    renderResults(filteredResults);
   }
 
   function setStatus(message, tone = 'muted') {
@@ -199,11 +338,14 @@
     const ties = Number(draftTiesInput?.value);
     const placement = Number(draftPlacementInput?.value);
     const player = String(draftPlayerInput?.value || '').trim();
-    const setName = String(draftSetInput?.value || '').trim();
+    const setCode = String(draftSetInput?.value || '').trim().toLowerCase();
+    const selectedSet = officialSets.find((set) => set.code === setCode);
+    const setName = selectedSet?.name || '';
 
     if (
       !player
       || !setName
+      || !setCode
       || !Number.isSafeInteger(wins) || wins < 0
       || !Number.isSafeInteger(losses) || losses < 0
       || !Number.isSafeInteger(ties) || ties < 0
@@ -220,6 +362,7 @@
       id: generateId(),
       date: draftDateInput?.value || getLocalDateValue(),
       player,
+      setCode,
       setName,
       wins,
       losses,
@@ -274,6 +417,14 @@
       }
       draftEntryForm.addEventListener('submit', handleEntrySubmit);
       draftResultsBody?.addEventListener('click', handleResultsClick);
+      draftFilterPlayer?.addEventListener('change', render);
+      draftFilterSet?.addEventListener('change', render);
+      draftClearFiltersButton?.addEventListener('click', () => {
+        if (draftFilterPlayer) draftFilterPlayer.value = '';
+        if (draftFilterSet) draftFilterSet.value = '';
+        render();
+      });
+      void loadOfficialSets();
     },
     render,
   };

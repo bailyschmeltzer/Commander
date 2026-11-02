@@ -1892,6 +1892,53 @@ export default {
     try {
       const response = await (async () => {
 
+    if (url.pathname === '/api/sets') {
+      if (request.method !== 'GET') {
+        return jsonResponse({ error: 'Method not allowed.' }, 405);
+      }
+
+      const cfCache = caches.default;
+      const cacheKey = new Request(request.url, { method: 'GET' });
+      const cachedResponse = await cfCache.match(cacheKey);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      try {
+        const response = await fetch('https://api.scryfall.com/sets', {
+          headers: getScryfallHeaders(),
+        });
+        if (!response.ok) {
+          const detail = response.status === 429
+            ? `Scryfall is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`
+            : `Scryfall set lookup failed (${response.status}).`;
+          throw new Error(detail);
+        }
+
+        const payload = await response.json();
+        const excludedSetTypes = new Set(['alchemy', 'minigame', 'memorabilia', 'promo', 'token', 'treasure_chest']);
+        const sets = (Array.isArray(payload?.data) ? payload.data : [])
+          .filter((set) => !set?.digital && !excludedSetTypes.has(getTextValue(set?.set_type).toLowerCase()))
+          .map((set) => ({
+            code: getTextValue(set?.code).toLowerCase(),
+            name: getTextValue(set?.name),
+            releasedAt: getTextValue(set?.released_at),
+          }))
+          .filter((set) => set.code && set.name)
+          .sort((first, second) => String(second.releasedAt).localeCompare(String(first.releasedAt)) || first.name.localeCompare(second.name));
+        const setsResponse = jsonResponse({ sets }, 200, {
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        });
+        await cfCache.put(cacheKey, setsResponse.clone());
+        return setsResponse;
+      } catch (error) {
+        return jsonResponse({
+          error: 'Unable to load the official set list right now.',
+          detail: error instanceof Error ? error.message : String(error),
+        }, 502);
+      }
+    }
+
     if (url.pathname === '/api/commanders') {
       if (request.method !== 'GET') {
         return jsonResponse({ error: 'Method not allowed.' }, 405);

@@ -69,7 +69,10 @@
               </div>
               <div class="field">
                 <label for="draft-set">Set</label>
-                <input id="draft-set" type="text" placeholder="Set name" required />
+                <select id="draft-set" required>
+                  <option value="">Loading official sets...</option>
+                </select>
+                <small id="draft-set-status" class="status-muted" role="status" aria-live="polite">Loading official sets...</small>
               </div>
               <div class="field">
                 <label for="draft-date">Date</label>
@@ -131,6 +134,31 @@
               <p id="draft-entry-status" class="draft-entry-status status-muted" role="status" aria-live="polite"></p>
             </div>
           </form>
+        </section>
+
+        <section class="card draft-filter-section" aria-labelledby="draft-filters-heading">
+          <h2 id="draft-filters-heading">Event filters</h2>
+          <div class="draft-filter-controls">
+            <div class="field">
+              <label for="draft-filter-player">Player</label>
+              <select id="draft-filter-player">
+                <option value="">All players</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="draft-filter-set">Set</label>
+              <select id="draft-filter-set">
+                <option value="">All sets</option>
+              </select>
+            </div>
+            <button type="button" id="draft-clear-filters" class="secondary-button">Clear filters</button>
+          </div>
+          <div class="draft-pod-overview" aria-live="polite">
+            <div><span>Events</span><strong id="draft-pod-events">0</strong></div>
+            <div><span>Players</span><strong id="draft-pod-players">0</strong></div>
+            <div><span>Pod record</span><strong id="draft-pod-record">0-0-0</strong></div>
+            <div><span>Total points</span><strong id="draft-pod-points">0</strong></div>
+          </div>
         </section>
 
         <section class="card draft-summary-section">

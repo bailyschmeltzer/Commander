@@ -826,6 +826,7 @@ function normalizeDraftResultEntry(entry, index, identityMaps) {
     id: String(entry.id || `draft-result-${index}`).trim() || generateId(),
     date: String(entry.date || '').trim(),
     player,
+    setCode: String(entry.setCode || '').trim().toLowerCase(),
     setName,
     wins,
     losses,
