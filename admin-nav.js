@@ -1,4 +1,13 @@
 (function () {
+  const pageSwitchGrid = document.querySelector('.page-switch-grid');
+  if (pageSwitchGrid && !pageSwitchGrid.querySelector('.page-link[href="drafts.html"]')) {
+    const draftsLink = document.createElement('a');
+    draftsLink.href = 'drafts.html';
+    draftsLink.className = 'page-link';
+    draftsLink.textContent = 'Draft & Prerelease';
+    pageSwitchGrid.appendChild(draftsLink);
+  }
+
   const user = String(localStorage.getItem('commanderTrackerSyncUser') || '').trim();
   const token = String(localStorage.getItem('commanderTrackerSyncToken') || '').trim();
   const adminLinks = Array.from(document.querySelectorAll('.page-link[href$="admin-logs.html"]'));

@@ -51,7 +51,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Makes decklists in playtester show alphabetically
 
-Add a page for recording prerelease and draft information
+[x] Add a page for recording prerelease and draft information
 
 [x] Collapse rename info into a single button until pushed
 
@@ -59,7 +59,7 @@ Add a page for recording prerelease and draft information
 
 Add tie option in the tracker (we make this within the menu as it is TECHNICALLY not a thing, but we can use depending on the situation) and account for this is stats and tracking
 
-Add the ability to actually change starting life
+[x] Add the ability to actually change starting life
 
 Continue to fix load delays
 

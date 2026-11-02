@@ -80,7 +80,7 @@ const tableSortState = {
   commanderStreaks: { column: 'currentWins', descending: true },
   decks: { column: 'updatedAt', descending: true },
 };
-let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] };
+let appState = { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], draftResults: [], activeGame: null, activeGameUndo: [] };
 let syncQueueTimer = null;
 let syncRetryTimer = null;
 let syncInFlight = false;
@@ -622,6 +622,7 @@ function buildAppStateIdentityMaps(state) {
   scanIdentityValues(Array.isArray(state?.games) ? state.games : [], recordPlayer, recordCommander, 'games');
   scanIdentityValues(Array.isArray(state?.deckLists) ? state.deckLists : [], recordPlayer, recordCommander, 'deckLists');
   scanIdentityValues(Array.isArray(state?.records) ? state.records : [], recordPlayer, recordCommander, 'records');
+  scanIdentityValues(Array.isArray(state?.draftResults) ? state.draftResults : [], recordPlayer, recordCommander, 'draftResults');
   Object.keys(state?.powerLevels && typeof state.powerLevels === 'object' ? state.powerLevels : {}).forEach(recordCommander);
 
   return {
@@ -796,6 +797,44 @@ function normalizeDeckRecord(entry) {
   };
 }
 
+function normalizeDraftResultEntry(entry, index, identityMaps) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const parseCount = (value) => {
+    const rawValue = String(value ?? '').trim();
+    const parsedValue = Number(rawValue);
+    return rawValue && Number.isSafeInteger(parsedValue) && parsedValue >= 0 ? parsedValue : null;
+  };
+  const player = canonicalizeIdentityValue(entry.player, identityMaps.playerMap);
+  const setName = String(entry.setName || '').trim();
+  const wins = parseCount(entry.wins);
+  const losses = parseCount(entry.losses);
+  const ties = parseCount(entry.ties);
+  const placement = Number(entry.placement);
+  if (!player || !setName || wins === null || losses === null || ties === null || !Number.isSafeInteger(placement) || placement < 1) {
+    return null;
+  }
+
+  const validColors = new Set(['W', 'U', 'B', 'R', 'G']);
+  const colors = [...new Set((Array.isArray(entry.colors) ? entry.colors : [])
+    .map((color) => String(color || '').trim().toUpperCase())
+    .filter((color) => validColors.has(color)))];
+
+  return {
+    id: String(entry.id || `draft-result-${index}`).trim() || generateId(),
+    date: String(entry.date || '').trim(),
+    player,
+    setName,
+    wins,
+    losses,
+    ties,
+    placement,
+    colors,
+  };
+}
+
 function normalizeAppStateData(state) {
   const baseState = {
     games: Array.isArray(state?.games) ? state.games : [],
@@ -803,6 +842,7 @@ function normalizeAppStateData(state) {
     deckLists: Array.isArray(state?.deckLists) ? state.deckLists : [],
     decks: Array.isArray(state?.decks) ? state.decks : [],
     records: Array.isArray(state?.records) ? state.records : [],
+    draftResults: Array.isArray(state?.draftResults) ? state.draftResults : [],
     activeGame: state?.activeGame && typeof state.activeGame === 'object' ? state.activeGame : null,
     activeGameUndo: Array.isArray(state?.activeGameUndo) ? state.activeGameUndo : [],
   };
@@ -824,6 +864,7 @@ function normalizeAppStateData(state) {
     deckLists: normalizeIdentityValues(baseState.deckLists, identityMaps, 'deckLists'),
     decks: baseState.decks.map(normalizeDeckRecord).filter(Boolean),
     records: normalizeIdentityValues(baseState.records, identityMaps, 'records'),
+    draftResults: baseState.draftResults.map((entry, index) => normalizeDraftResultEntry(entry, index, identityMaps)).filter(Boolean),
     activeGame: normalizeActiveGameStateData(baseState.activeGame),
     activeGameUndo: baseState.activeGameUndo.map((entry) => normalizeActiveGameStateData(entry)).filter(Boolean),
   };
@@ -992,6 +1033,11 @@ function renameAppStateIdentity(state, { type, sourceKey, replacementValue }) {
       replacementValue,
       type,
     }, 'records'),
+    draftResults: renameIdentityValues(Array.isArray(state?.draftResults) ? state.draftResults : [], {
+      sourceKey,
+      replacementValue,
+      type,
+    }, 'draftResults'),
   };
 }
 
@@ -1263,6 +1309,7 @@ function buildPersistedAppStatePayload(state) {
     deckLists: normalizedState.deckLists,
     decks: normalizedState.decks,
     records: normalizedState.records,
+    draftResults: normalizedState.draftResults,
     activeGame: normalizedState.activeGame,
     activeGameUndo: normalizedState.activeGameUndo,
   };
@@ -1311,6 +1358,7 @@ function loadLocalState() {
     deckLists: Array.isArray(legacyState.deckLists) ? legacyState.deckLists : [],
     decks: Array.isArray(legacyState.decks) ? legacyState.decks : [],
     records: Array.isArray(legacyState.records) ? legacyState.records : [],
+    draftResults: Array.isArray(legacyState.draftResults) ? legacyState.draftResults : [],
     activeGame: legacyState.activeGame && typeof legacyState.activeGame === 'object' ? legacyState.activeGame : null,
     activeGameUndo: Array.isArray(legacyState.activeGameUndo) ? legacyState.activeGameUndo : [],
   };
@@ -1334,6 +1382,7 @@ function hasAnyStateData(state = appState) {
     || (Array.isArray(normalizedState.deckLists) && normalizedState.deckLists.length > 0)
     || (Array.isArray(normalizedState.decks) && normalizedState.decks.length > 0)
     || (Array.isArray(normalizedState.records) && normalizedState.records.length > 0)
+    || (Array.isArray(normalizedState.draftResults) && normalizedState.draftResults.length > 0)
     || Boolean(normalizedState.activeGame)
     || (Array.isArray(normalizedState.activeGameUndo) && normalizedState.activeGameUndo.length > 0)
   );
@@ -2153,6 +2202,7 @@ function pushCloudStateKeepalive({ force = false } = {}) {
       deckLists: appState.deckLists,
       decks: appState.decks,
       records: appState.records,
+      draftResults: appState.draftResults,
       activeGame: appState.activeGame,
       activeGameUndo: appState.activeGameUndo,
     }),
@@ -2268,6 +2318,7 @@ function getLocalStateCounts() {
     deckLists: Array.isArray(appState.deckLists) ? appState.deckLists.length : 0,
     decks: Array.isArray(appState.decks) ? appState.decks.length : 0,
     records: Array.isArray(appState.records) ? appState.records.length : 0,
+    draftResults: Array.isArray(appState.draftResults) ? appState.draftResults.length : 0,
     powerLevels: appState.powerLevels && typeof appState.powerLevels === 'object' && !Array.isArray(appState.powerLevels)
       ? Object.keys(appState.powerLevels).length
       : 0,
@@ -2281,7 +2332,7 @@ function localStateMatchesCloudCounts(counts) {
   }
 
   const local = getLocalStateCounts();
-  return ['games', 'deckLists', 'decks', 'records', 'powerLevels'].every((key) => {
+  return ['games', 'deckLists', 'decks', 'records', 'draftResults', 'powerLevels'].every((key) => {
     const cloudCount = Number(counts[key]);
     return !Number.isFinite(cloudCount) || cloudCount === local[key];
   });
@@ -2372,7 +2423,8 @@ async function verifyPendingStateCoversCloud() {
   const missingFromLocal = countCloudItemsMissingFromLocal(statePayload?.games, appState.games)
     + countCloudItemsMissingFromLocal(statePayload?.deckLists, appState.deckLists)
     + countCloudItemsMissingFromLocal(statePayload?.decks, appState.decks)
-    + countCloudItemsMissingFromLocal(statePayload?.records, appState.records);
+    + countCloudItemsMissingFromLocal(statePayload?.records, appState.records)
+    + countCloudItemsMissingFromLocal(statePayload?.draftResults, appState.draftResults);
 
   // Small gaps are treated as intentional local deletes (the app deletes entries
   // one at a time); the worker-side regression guard remains the backstop for
@@ -2493,6 +2545,7 @@ async function pushCloudState() {
           deckLists: appState.deckLists,
           decks: appState.decks,
           records: appState.records,
+          draftResults: appState.draftResults,
           activeGame: appState.activeGame,
           activeGameUndo: appState.activeGameUndo,
         }),
@@ -3316,6 +3369,15 @@ function initializePrimaryMenu() {
     return;
   }
 
+  const pageSwitchGrid = pageSwitchPanel.querySelector('.page-switch-grid');
+  if (pageSwitchGrid && !pageSwitchGrid.querySelector('.page-link[href="drafts.html"]')) {
+    const draftsLink = document.createElement('a');
+    draftsLink.href = 'drafts.html';
+    draftsLink.className = 'page-link';
+    draftsLink.textContent = 'Draft & Prerelease';
+    pageSwitchGrid.appendChild(draftsLink);
+  }
+
   const currentPageName = getCurrentPageName();
   Array.from(pageSwitchPanel.querySelectorAll('.page-link')).forEach((link) => {
     const href = String(link.getAttribute('href') || '').trim().toLowerCase();
@@ -3972,6 +4034,25 @@ function saveRecords(records) {
   queueCloudSync();
 }
 
+function loadDraftResults() {
+  return Array.isArray(appState.draftResults) ? appState.draftResults.slice() : [];
+}
+
+function saveDraftResults(results) {
+  appState = normalizeAppStateData({
+    ...appState,
+    draftResults: Array.isArray(results) ? results : [],
+  });
+  persistLocalState(appState);
+  queueCloudSync();
+  refresh();
+}
+
+window.CommanderDraftData = {
+  load: loadDraftResults,
+  save: saveDraftResults,
+};
+
 function getGameById(id) {
   const games = loadGames();
   return games.find((game) => game.id === id) || null;
@@ -4340,6 +4421,12 @@ function updateFormDatalists(games) {
     }
     if (deck?.commander?.name) {
       commanders.push(deck.commander.name);
+    }
+  });
+
+  (Array.isArray(appState.draftResults) ? appState.draftResults : []).forEach((entry) => {
+    if (entry?.player) {
+      players.push(entry.player);
     }
   });
 
@@ -6003,6 +6090,7 @@ function refresh() {
     window.CommanderGameTracker?.hasView?.()
     || window.CommanderLiveGame?.hasView?.()
     || window.CommanderRecords?.hasView()
+    || window.CommanderDraftTracker?.hasView?.()
     || window.CommanderDeckBuilder?.hasView?.()
     || window.CommanderPlayerStats?.hasView?.()
     || window.CommanderStats?.hasView?.()
@@ -6015,6 +6103,7 @@ function refresh() {
   const hasDeckSelectorView = Boolean(window.CommanderDeckSelector?.hasView());
   const hasDeckBuilderView = Boolean(window.CommanderDeckBuilder?.hasView?.());
   const hasRecordsView = Boolean(window.CommanderRecords?.hasView());
+  const hasDraftTrackerView = Boolean(window.CommanderDraftTracker?.hasView?.());
   const hasLiveView = Boolean(window.CommanderLiveGame?.hasView?.());
   const shouldWarmCommanderIdentityCache = Boolean(
     hasRankingsView
@@ -6066,6 +6155,10 @@ function refresh() {
 
   if (hasRecordsView) {
     window.CommanderRecords.render();
+  }
+
+  if (hasDraftTrackerView) {
+    window.CommanderDraftTracker.render();
   }
 
   if (hasLiveView) {
@@ -6659,6 +6752,7 @@ async function initializeApp() {
   }
 
   window.CommanderLiveGame?.init?.();
+  window.CommanderDraftTracker?.init?.();
 
   refresh();
 

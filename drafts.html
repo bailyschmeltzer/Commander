@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Draft & Prerelease</title>
+    <meta name="theme-color" content="#f5f6fb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Commander" />
+    <link rel="icon" type="image/png" href="image.png" />
+    <link rel="shortcut icon" type="image/png" href="image.png" />
+    <link rel="apple-touch-icon" href="image.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="drafts.css" />
+  </head>
+  <body class="page-drafts">
+    <div class="app-shell">
+      <header>
+        <h1>Draft & Prerelease</h1>
+        <p>Record event results and compare player performance.</p>
+        <div class="sync-panel">
+          <div class="sync-row">
+            <input id="sync-user" type="text" placeholder="Display name" autocomplete="username" />
+            <input id="sync-token" type="password" placeholder="Pod access code" autocomplete="current-password" />
+            <button type="button" id="sync-connect" class="secondary-button">Connect</button>
+            <button type="button" id="sync-now" class="secondary-button">Sync now</button>
+            <button type="button" id="sync-disconnect" class="secondary-button">Disconnect</button>
+          </div>
+          <small id="sync-status" class="sync-status status-muted">Cloud sync not connected.</small>
+        </div>
+        <nav class="page-switch" aria-label="Primary">
+          <button type="button" class="page-switch-toggle secondary-button" aria-expanded="false">Browse Pages</button>
+          <div class="page-switch-panel">
+            <div class="page-switch-panel-header">
+              <p class="page-switch-kicker">Commander</p>
+              <h2>Browse the app</h2>
+              <p>Jump between tracking, stats, and deck tools from one clean menu.</p>
+            </div>
+            <div class="page-switch-grid">
+              <a href="index.html" class="page-link">Game Tracker</a>
+              <a href="livegame.html" class="page-link">Live Tracker</a>
+              <a href="rankings.html" class="page-link">Pod Rankings</a>
+              <a href="player.html" class="page-link">Player Stats</a>
+              <a href="commander.html" class="page-link">Commander Stats</a>
+              <a href="history.html" class="page-link">Full History</a>
+              <a href="decklists.html" class="page-link">Deck Lists</a>
+              <a href="deckselector.html" class="page-link">Deck Selector</a>
+              <a href="commanderbuilder.html" class="page-link">Commander Builder</a>
+              <a href="records.html" class="page-link">Pod Records</a>
+              <a href="drafts.html" class="page-link">Draft & Prerelease</a>
+              <a href="keywords.html" class="page-link">Keyword Glossary</a>
+              <a href="rulings.html" class="page-link">Card Rulings</a>
+              <a href="playtest.html" class="page-link">Playtest Lab</a>
+              <a href="admin-logs.html" class="page-link">Admin Logs</a>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="card draft-entry-section">
+          <h2>Record an event</h2>
+          <form id="draft-entry-form" class="draft-entry-form" autocomplete="off">
+            <div class="field-grid draft-entry-fields">
+              <div class="field">
+                <label for="draft-player">Player</label>
+                <input id="draft-player" type="text" list="player-list" placeholder="Player" required />
+              </div>
+              <div class="field">
+                <label for="draft-set">Set</label>
+                <input id="draft-set" type="text" placeholder="Set name" required />
+              </div>
+              <div class="field">
+                <label for="draft-date">Date</label>
+                <input id="draft-date" type="date" required />
+              </div>
+              <div class="field">
+                <label for="draft-placement">Placement</label>
+                <input id="draft-placement" type="number" min="1" step="1" placeholder="1" required />
+              </div>
+            </div>
+
+            <fieldset class="draft-record-fieldset">
+              <legend>Record <span>Wins - Losses - Ties</span></legend>
+              <div class="draft-record-fields">
+                <div class="field">
+                  <label for="draft-wins">Wins</label>
+                  <input id="draft-wins" type="number" min="0" step="1" value="0" required />
+                </div>
+                <div class="field">
+                  <label for="draft-losses">Losses</label>
+                  <input id="draft-losses" type="number" min="0" step="1" value="0" required />
+                </div>
+                <div class="field">
+                  <label for="draft-ties">Ties</label>
+                  <input id="draft-ties" type="number" min="0" step="1" value="0" required />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="draft-color-fieldset">
+              <legend>Colors played</legend>
+              <div class="draft-color-options">
+                <label class="draft-color-option draft-color-white">
+                  <input type="checkbox" name="draft-color" value="W" />
+                  <span class="draft-color-symbol" aria-hidden="true">W</span><span>White</span>
+                </label>
+                <label class="draft-color-option draft-color-blue">
+                  <input type="checkbox" name="draft-color" value="U" />
+                  <span class="draft-color-symbol" aria-hidden="true">U</span><span>Blue</span>
+                </label>
+                <label class="draft-color-option draft-color-black">
+                  <input type="checkbox" name="draft-color" value="B" />
+                  <span class="draft-color-symbol" aria-hidden="true">B</span><span>Black</span>
+                </label>
+                <label class="draft-color-option draft-color-red">
+                  <input type="checkbox" name="draft-color" value="R" />
+                  <span class="draft-color-symbol" aria-hidden="true">R</span><span>Red</span>
+                </label>
+                <label class="draft-color-option draft-color-green">
+                  <input type="checkbox" name="draft-color" value="G" />
+                  <span class="draft-color-symbol" aria-hidden="true">G</span><span>Green</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <datalist id="player-list"></datalist>
+            <div class="actions draft-entry-actions">
+              <button type="submit">Save result</button>
+              <p id="draft-entry-status" class="draft-entry-status status-muted" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+        </section>
+
+        <section class="card draft-summary-section">
+          <h2>Player summary</h2>
+          <div class="player-table-wrapper draft-table-wrapper">
+            <table class="player-table draft-summary-table">
+              <thead>
+                <tr>
+                  <th scope="col">Player</th>
+                  <th scope="col">Events</th>
+                  <th scope="col">Average record</th>
+                  <th scope="col">Average placement</th>
+                  <th scope="col">Best placement</th>
+                  <th scope="col">Best record</th>
+                  <th scope="col">Favorite colors</th>
+                  <th scope="col">Average points</th>
+                </tr>
+              </thead>
+              <tbody id="draft-summary-body"></tbody>
+            </table>
+            <p id="draft-summary-empty" class="draft-empty-state" hidden>No draft results recorded yet.</p>
+          </div>
+        </section>
+
+        <section class="card draft-results-section">
+          <h2>Recorded events</h2>
+          <div class="player-table-wrapper draft-table-wrapper">
+            <table class="player-table draft-results-table">
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Set</th>
+                  <th scope="col">Record</th>
+                  <th scope="col">Placement</th>
+                  <th scope="col">Colors</th>
+                  <th scope="col">Points</th>
+                  <th scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="draft-results-body"></tbody>
+            </table>
+            <p id="draft-results-empty" class="draft-empty-state" hidden>No events recorded yet.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="drafts.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
