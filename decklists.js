@@ -5,48 +5,24 @@
   const clearFiltersButton = document.getElementById('deck-library-player-filter-clear');
   const tableBody = document.getElementById('deck-library-body');
   let playerFilterDefaulted = false;
-  let cloudWaitStartAt = 0;
-  let cloudWaitTimer = null;
-  const CLOUD_WAIT_FALLBACK_MS = 1500;
 
   function render() {
     if (!tableBody) return;
 
-    // When credentials are configured, show only cloud data. If the pull hangs or
-    // fails, replace the loading row with an unavailable message rather than cache.
     const cloudRequired = typeof hasSyncCredentials === 'function' && hasSyncCredentials();
     const cloudLoaded = typeof hasLoadedCloudState === 'function' && hasLoadedCloudState();
-    const stillResolving = cloudRequired && !cloudLoaded;
-
-    if (stillResolving) {
-      if (!cloudWaitStartAt) {
-        cloudWaitStartAt = Date.now();
-      }
-      const elapsed = Date.now() - cloudWaitStartAt;
-      if (elapsed < CLOUD_WAIT_FALLBACK_MS) {
-        tableBody.innerHTML = '<tr><td colspan="7">Loading decks…</td></tr>';
-        updateSortableTableIndicators('decks');
-        // Re-render when the wait window expires so a stalled cloud pull is visible.
-        if (!cloudWaitTimer) {
-          cloudWaitTimer = setTimeout(() => {
-            cloudWaitTimer = null;
-            render();
-          }, CLOUD_WAIT_FALLBACK_MS - elapsed + 50);
-        }
-        return;
-      }
-      const message = navigator.onLine
-        ? 'Cloud decks have not loaded. Check sync status and choose Sync now to retry.'
-        : 'Cloud decks cannot load while offline. Reconnect to view your decks.';
+    if (cloudRequired && !cloudLoaded) {
+      const loadStatus = typeof getCloudStateLoadStatus === 'function'
+        ? getCloudStateLoadStatus()
+        : null;
+      const message = !navigator.onLine
+        ? 'Cloud decks cannot load while offline. Reconnect to view your decks.'
+        : loadStatus?.errorMessage
+          ? `Cloud decks could not be loaded: ${loadStatus.errorMessage}`
+          : 'Loading decks from cloud…';
       tableBody.innerHTML = `<tr><td colspan="7">${escapeHtml(message)}</td></tr>`;
       updateSortableTableIndicators('decks');
       return;
-    } else {
-      cloudWaitStartAt = 0;
-      if (cloudWaitTimer) {
-        clearTimeout(cloudWaitTimer);
-        cloudWaitTimer = null;
-      }
     }
 
     const currentUserId = getCurrentSyncUserId();

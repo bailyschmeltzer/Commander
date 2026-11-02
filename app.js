@@ -328,6 +328,18 @@ function hasLoadedCloudState() {
   return syncHasLoadedCloudState;
 }
 
+function getCloudStateLoadStatus() {
+  return {
+    loaded: syncHasLoadedCloudState,
+    loading: syncBootstrapInFlight || syncInFlight || syncConnectionState === 'connecting',
+    errorMessage: syncLastErrorMessage || (
+      syncConnectionState === 'local' && hasSyncCredentials()
+        ? 'Cloud session is not connected. Reconnect to load cloud decks.'
+        : ''
+    ),
+  };
+}
+
 function getSyncCredentialAgeDays() {
   return null;
 }
@@ -1863,7 +1875,19 @@ function getSyncStatusSnapshot() {
 function refreshSyncStatus() {
   const snapshot = getSyncStatusSnapshot();
   setSyncStatus(snapshot.message, snapshot.tone);
-  if (syncConnectionState === 'connected') {
+  const syncNeedsAttention = syncInFlight
+    || syncBootstrapInFlight
+    || syncConnectionState === 'connecting'
+    || syncPendingChanges
+    || Boolean(syncQueueTimer)
+    || Boolean(syncRetryTimer)
+    || Boolean(syncConflictInfo)
+    || snapshot.tone === 'error'
+    || (hasSyncCredentials() && !syncHasLoadedCloudState);
+
+  if (syncNeedsAttention) {
+    setSyncUiCollapsed(false);
+  } else if (syncConnectionState === 'connected') {
     setSyncUiCollapsed(true);
   }
   updateAdminLogsShortcutVisibility();
@@ -1883,7 +1907,9 @@ async function retryCloudBootstrap({ maxAttempts = 4, initialDelayMs = 1200 } = 
     return false;
   }
 
+  syncLastErrorMessage = '';
   setSyncBootstrapInFlight(true);
+  window.CommanderDeckLibrary?.render?.();
 
   let lastError = null;
   try {
@@ -1911,6 +1937,7 @@ async function retryCloudBootstrap({ maxAttempts = 4, initialDelayMs = 1200 } = 
     syncConnectionState = lastError.status === 401 ? 'local' : 'configured';
     syncLastErrorMessage = lastError.status === 401 ? '' : `${lastError.message}.`;
     refreshSyncStatus();
+    window.CommanderDeckLibrary?.render?.();
   }
 
   return false;
@@ -8555,6 +8582,7 @@ function setupSyncUi() {
       syncLastErrorMessage = error.message;
       setSyncUiCollapsed(false);
       refreshSyncStatus();
+      window.CommanderDeckLibrary?.render?.();
     } finally {
       syncInFlight = false;
       updateSyncControls();

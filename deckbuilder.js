@@ -1,5 +1,6 @@
 (function () {
   const allowsMultipleCopies = (card) => window.CommanderDeckRules.allowsMultipleCopies(card);
+  const getCardOracleTexts = (card) => window.CommanderDeckRules.getCardOracleTexts(card);
   const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
   const DECK_BUILDER_META_SAVE_DEBOUNCE_MS = 120;
   const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
@@ -2196,7 +2197,7 @@
     const unlimitedGroups = new Map();
     const regularCards = [];
     cards.forEach((card) => {
-      if (isUnlimitedCopiesCard(card)) {
+      if (window.CommanderDeckRules.isUnlimitedCopiesCard(card)) {
         const key = getIdentityKey(card.name);
         if (!unlimitedGroups.has(key)) unlimitedGroups.set(key, { name: card.name, typeLine: card.typeLine || '', cards: [] });
         unlimitedGroups.get(key).cards.push(card);
