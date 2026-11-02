@@ -50,41 +50,29 @@
       }
 
       let cursor = matchIndex + normalizedName.length;
-      while (true) {
-        while (/\s/.test(text[cursor] || '')) {
-          cursor += 1;
-        }
-        if (text[cursor] !== '{') {
-          break;
-        }
-        const symbolEnd = text.indexOf('}', cursor + 1);
-        if (symbolEnd < 0) {
-          break;
-        }
-        cursor = symbolEnd + 1;
+      const openingParen = text.indexOf('(', cursor);
+      if (openingParen < 0 || openingParen - cursor > 120) {
+        continue;
       }
-
-      const numberMatch = text.slice(cursor).match(/^\s+\d+\b/);
-      if (numberMatch) {
-        cursor += numberMatch[0].length;
+      const qualifier = text.slice(cursor, openingParen);
+      if (/\n|[()]/.test(qualifier) || !/^[\s\w{}+,'’.:—–-]*$/.test(qualifier)) {
+        continue;
       }
-      while (/\s/.test(text[cursor] || '')) {
-        cursor += 1;
-      }
-      if (text[cursor] !== '(') {
+      const firstPeriod = qualifier.indexOf('.');
+      if (firstPeriod >= 0 && qualifier.slice(firstPeriod + 1).trim()) {
         continue;
       }
 
-      const reminderStart = cursor + 1;
+      const reminderStart = openingParen + 1;
       let depth = 1;
-      cursor = reminderStart;
-      while (cursor < text.length && depth > 0) {
-        if (text[cursor] === '(') depth += 1;
-        if (text[cursor] === ')') depth -= 1;
-        cursor += 1;
+      let reminderEnd = reminderStart;
+      while (reminderEnd < text.length && depth > 0) {
+        if (text[reminderEnd] === '(') depth += 1;
+        if (text[reminderEnd] === ')') depth -= 1;
+        reminderEnd += 1;
       }
       if (depth === 0) {
-        const reminder = text.slice(reminderStart, cursor - 1).replace(/\s+/g, ' ').trim();
+        const reminder = text.slice(reminderStart, reminderEnd - 1).replace(/\s+/g, ' ').trim();
         if (reminder) {
           reminders.push(reminder);
         }
