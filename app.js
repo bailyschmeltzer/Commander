@@ -1822,16 +1822,13 @@ function refreshSyncStatus() {
   const syncNeedsAttention = syncInFlight
     || syncBootstrapInFlight
     || syncConnectionState === 'connecting'
-    || syncPendingChanges
-    || Boolean(syncQueueTimer)
-    || Boolean(syncRetryTimer)
     || Boolean(syncConflictInfo)
     || snapshot.tone === 'error'
     || (hasSyncCredentials() && !syncHasLoadedCloudState);
 
-  if (syncNeedsAttention) {
+  if (syncNeedsAttention || !hasSyncCredentials()) {
     setSyncUiCollapsed(false);
-  } else if (syncConnectionState === 'connected') {
+  } else {
     setSyncUiCollapsed(true);
   }
   updateAdminLogsShortcutVisibility();
@@ -2248,6 +2245,10 @@ async function checkCloudStateFreshness({ autoPull = false, force = false } = {}
       return;
     }
 
+    if (!autoPull && !syncPendingChanges) {
+      return;
+    }
+
     updateSyncMetadata(metadata);
 
     if (syncHasLoadedCloudState && syncPendingChanges) {
@@ -2270,21 +2271,13 @@ async function checkCloudStateFreshness({ autoPull = false, force = false } = {}
       return;
     }
 
-    if (autoPull) {
-      await pullCloudState();
-      setSyncUiCollapsed(true);
-      refreshSyncStatus();
-      return;
-    }
-
-    syncConnectionState = 'configured';
-    syncLastErrorMessage = '';
+    await pullCloudState();
     refreshSyncStatus();
   } catch (error) {
-    if (force) {
-      syncLastErrorMessage = error.message;
-      refreshSyncStatus();
+    if (error.status === 401) {
+      syncLastErrorMessage = 'Cloud authorization expired. Reconnect to continue syncing.';
     }
+    refreshSyncStatus();
   } finally {
     syncMetadataCheckInFlight = false;
   }
