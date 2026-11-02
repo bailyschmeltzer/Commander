@@ -41,7 +41,7 @@ i should only see the 1 card i have not chosen, it should NOT pull in new cards 
 
 [x] Dual sided cards should be able to flip, but image and description text in the deck builder
 
-Segment each page's code, like we did for the playtester, including CSS. minimalize code in app.js
+[x] Segment each page's code, like we did for the playtester, including CSS. minimalize code in app.js
 
 [x] Fix issues where on desktop only, data is failing to load for long periods when changing pages
 
@@ -55,7 +55,7 @@ Add a page for recording prerelease and draft information
 
 [x] Collapse rename info into a single button until pushed
 
-Fix keyword glossary to show scryfall information and not "Search on scryfall"
+[x] Fix keyword glossary to show scryfall information and not "Search on scryfall"
 
 Add tie option in the tracker (we make this within the menu as it is TECHNICALLY not a thing, but we can use depending on the situation) and account for this is stats and tracking
 

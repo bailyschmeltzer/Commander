@@ -9,6 +9,11 @@
   let allKeywords = [];
   let activeCategory = 'all';
   let searchQuery = '';
+  let scryfallObserver = null;
+  let scryfallRequestQueue = Promise.resolve();
+  let lastScryfallRequestAt = 0;
+  const scryfallDetailsCache = new Map();
+  const SCRYFALL_REQUEST_INTERVAL_MS = 110;
   const grid = document.getElementById('keyword-grid');
   const status = document.getElementById('keyword-status');
   const search = document.getElementById('keyword-search');
@@ -25,7 +30,126 @@
     return KEYWORD_DESCRIPTIONS[name.toLowerCase()] || null;
   }
 
+  function getScryfallCardDetails(name) {
+    const cacheKey = name.toLowerCase();
+    if (scryfallDetailsCache.has(cacheKey)) {
+      return scryfallDetailsCache.get(cacheKey);
+    }
+
+    const request = scryfallRequestQueue.then(async () => {
+      const waitMs = Math.max(0, SCRYFALL_REQUEST_INTERVAL_MS - (Date.now() - lastScryfallRequestAt));
+      if (waitMs) {
+        await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+      }
+      lastScryfallRequestAt = Date.now();
+      const escapedName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const requestUrl = new URL('https://api.scryfall.com/cards/search');
+      requestUrl.searchParams.set('q', `oracle:"${escapedName}"`);
+      requestUrl.searchParams.set('order', 'edhrec');
+      requestUrl.searchParams.set('unique', 'cards');
+      const response = await fetch(requestUrl.toString(), {
+        cache: 'force-cache',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        throw new Error(`Scryfall request failed (${response.status}).`);
+      }
+      const payload = await response.json();
+      const card = Array.isArray(payload.data) ? payload.data[0] : null;
+      if (!card) {
+        return null;
+      }
+      const firstFace = Array.isArray(card.card_faces) ? card.card_faces[0] : null;
+      const oracleText = String(card.oracle_text || (Array.isArray(card.card_faces)
+        ? card.card_faces.map((face) => face.oracle_text || '').filter(Boolean).join('\n\n')
+        : '')).trim();
+      return {
+        name: String(card.name || ''),
+        typeLine: String(card.type_line || firstFace?.type_line || ''),
+        oracleText,
+        imageUrl: String(card.image_uris?.small || firstFace?.image_uris?.small || ''),
+        scryfallUri: String(card.scryfall_uri || ''),
+        setName: String(card.set_name || ''),
+        rarity: String(card.rarity || ''),
+      };
+    });
+
+    scryfallRequestQueue = request.then(() => undefined, () => undefined);
+    scryfallDetailsCache.set(cacheKey, request);
+    return request;
+  }
+
+  function renderScryfallDetails(container, card) {
+    if (!card) {
+      container.innerHTML = '<p class="keyword-scryfall-status">No matching card details were returned.</p>';
+      return;
+    }
+    const imageMarkup = card.imageUrl
+      ? `<img class="keyword-scryfall-image" src="${escapeHtml(card.imageUrl)}" alt="${escapeHtml(card.name)}" loading="lazy" />`
+      : '';
+    const cardLink = card.scryfallUri
+      ? `<a class="keyword-scryfall-card-name" href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(card.name)}</a>`
+      : `<strong class="keyword-scryfall-card-name">${escapeHtml(card.name)}</strong>`;
+    const setDetails = [card.setName, card.rarity].filter(Boolean).join(' · ');
+    const rulesText = card.oracleText
+      ? escapeHtml(card.oracleText).replace(/\n/g, '<br />')
+      : 'No rules text available.';
+    container.innerHTML = `
+      <div class="keyword-scryfall-example">
+        ${imageMarkup}
+        <div class="keyword-scryfall-copy">
+          ${cardLink}
+          ${card.typeLine ? `<p class="keyword-scryfall-type">${escapeHtml(card.typeLine)}</p>` : ''}
+          ${setDetails ? `<p class="keyword-scryfall-set">${escapeHtml(setDetails)}</p>` : ''}
+          <p class="keyword-scryfall-oracle">${rulesText}</p>
+        </div>
+      </div>`;
+  }
+
+  async function loadScryfallDetails(container) {
+    const name = container.dataset.scryfallKeyword || '';
+    if (!name) {
+      return;
+    }
+    container.innerHTML = '<p class="keyword-scryfall-status">Loading Scryfall card information…</p>';
+    try {
+      const card = await getScryfallCardDetails(name);
+      if (container.isConnected) {
+        renderScryfallDetails(container, card);
+      }
+    } catch (error) {
+      scryfallDetailsCache.delete(name.toLowerCase());
+      if (container.isConnected) {
+        container.innerHTML = '<p class="keyword-scryfall-status">Scryfall card information is unavailable right now.</p>';
+      }
+    }
+  }
+
+  function observeScryfallDetails() {
+    scryfallObserver?.disconnect();
+    const containers = grid.querySelectorAll('[data-scryfall-keyword]');
+    if (!containers.length) {
+      return;
+    }
+    if (!('IntersectionObserver' in window)) {
+      containers.forEach((container) => void loadScryfallDetails(container));
+      return;
+    }
+    if (!scryfallObserver) {
+      scryfallObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            observer.unobserve(entry.target);
+            void loadScryfallDetails(entry.target);
+          }
+        });
+      }, { rootMargin: '240px' });
+    }
+    containers.forEach((container) => scryfallObserver.observe(container));
+  }
+
   function renderGrid() {
+    scryfallObserver?.disconnect();
     const filtered = allKeywords.filter((keyword) => {
       if (activeCategory !== 'all' && keyword.category !== activeCategory) return false;
       if (!searchQuery) return true;
@@ -48,11 +172,12 @@
           <strong class="keyword-card-name">${escapeHtml(keyword.name)}</strong>
           <span class="keyword-card-badge keyword-card-badge--${escapeHtml(keyword.category)}">${escapeHtml(CATEGORY_LABELS[keyword.category] || keyword.category)}</span>
         </div>
-        <p class="keyword-card-description">${keyword.description
+        <div class="keyword-card-description">${keyword.description
           ? escapeHtml(keyword.description)
-          : `<a class="keyword-rules-link" href="https://scryfall.com/search?q=oracle%3A%22${encodeURIComponent(keyword.name)}%22&order=edhrec" target="_blank" rel="noopener noreferrer">Search on Scryfall</a>`
-        }</p>
+          : `<div class="keyword-scryfall-details" data-scryfall-keyword="${escapeHtml(keyword.name)}" aria-live="polite"><p class="keyword-scryfall-status">Scryfall card information will load when visible.</p></div>`
+        }</div>
       </article>`).join('');
+    observeScryfallDetails();
   }
 
   function loadKeywordsFromLocal() {
