@@ -9,10 +9,10 @@
   let allKeywords = [];
   let activeCategory = 'all';
   let searchQuery = '';
-  let scryfallObserver = null;
+  let reminderObserver = null;
   let scryfallRequestQueue = Promise.resolve();
   let lastScryfallRequestAt = 0;
-  const scryfallDetailsCache = new Map();
+  const scryfallReminderCache = new Map();
   const SCRYFALL_REQUEST_INTERVAL_MS = 110;
   const grid = document.getElementById('keyword-grid');
   const status = document.getElementById('keyword-status');
@@ -30,10 +30,73 @@
     return KEYWORD_DESCRIPTIONS[name.toLowerCase()] || null;
   }
 
-  function getScryfallCardDetails(name) {
+  function extractKeywordReminder(oracleText, keywordName) {
+    const text = String(oracleText || '');
+    const normalizedText = text.toLowerCase();
+    const normalizedName = String(keywordName || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const reminders = [];
+    let searchFrom = 0;
+
+    while (normalizedName) {
+      const matchIndex = normalizedText.indexOf(normalizedName, searchFrom);
+      if (matchIndex < 0) {
+        break;
+      }
+      searchFrom = matchIndex + normalizedName.length;
+      const before = normalizedText[matchIndex - 1] || ' ';
+      const after = normalizedText[matchIndex + normalizedName.length] || ' ';
+      if (/[a-z0-9]/i.test(before) || /[a-z0-9]/i.test(after)) {
+        continue;
+      }
+
+      let cursor = matchIndex + normalizedName.length;
+      while (true) {
+        while (/\s/.test(text[cursor] || '')) {
+          cursor += 1;
+        }
+        if (text[cursor] !== '{') {
+          break;
+        }
+        const symbolEnd = text.indexOf('}', cursor + 1);
+        if (symbolEnd < 0) {
+          break;
+        }
+        cursor = symbolEnd + 1;
+      }
+
+      const numberMatch = text.slice(cursor).match(/^\s+\d+\b/);
+      if (numberMatch) {
+        cursor += numberMatch[0].length;
+      }
+      while (/\s/.test(text[cursor] || '')) {
+        cursor += 1;
+      }
+      if (text[cursor] !== '(') {
+        continue;
+      }
+
+      const reminderStart = cursor + 1;
+      let depth = 1;
+      cursor = reminderStart;
+      while (cursor < text.length && depth > 0) {
+        if (text[cursor] === '(') depth += 1;
+        if (text[cursor] === ')') depth -= 1;
+        cursor += 1;
+      }
+      if (depth === 0) {
+        const reminder = text.slice(reminderStart, cursor - 1).replace(/\s+/g, ' ').trim();
+        if (reminder) {
+          reminders.push(reminder);
+        }
+      }
+    }
+    return reminders;
+  }
+
+  function getScryfallReminderText(name) {
     const cacheKey = name.toLowerCase();
-    if (scryfallDetailsCache.has(cacheKey)) {
-      return scryfallDetailsCache.get(cacheKey);
+    if (scryfallReminderCache.has(cacheKey)) {
+      return scryfallReminderCache.get(cacheKey);
     }
 
     const request = scryfallRequestQueue.then(async () => {
@@ -55,101 +118,73 @@
         throw new Error(`Scryfall request failed (${response.status}).`);
       }
       const payload = await response.json();
-      const card = Array.isArray(payload.data) ? payload.data[0] : null;
-      if (!card) {
-        return null;
-      }
-      const firstFace = Array.isArray(card.card_faces) ? card.card_faces[0] : null;
-      const oracleText = String(card.oracle_text || (Array.isArray(card.card_faces)
-        ? card.card_faces.map((face) => face.oracle_text || '').filter(Boolean).join('\n\n')
-        : '')).trim();
-      return {
-        name: String(card.name || ''),
-        typeLine: String(card.type_line || firstFace?.type_line || ''),
-        oracleText,
-        imageUrl: String(card.image_uris?.small || firstFace?.image_uris?.small || ''),
-        scryfallUri: String(card.scryfall_uri || ''),
-        setName: String(card.set_name || ''),
-        rarity: String(card.rarity || ''),
-      };
+      const reminders = (Array.isArray(payload.data) ? payload.data : []).flatMap((card) => {
+        const texts = [card.oracle_text, ...(Array.isArray(card.card_faces) ? card.card_faces.map((face) => face.oracle_text) : [])];
+        return texts.flatMap((text) => extractKeywordReminder(text, name));
+      });
+      const reminderCounts = new Map();
+      reminders.forEach((reminder) => {
+        reminderCounts.set(reminder, (reminderCounts.get(reminder) || 0) + 1);
+      });
+      return [...reminderCounts.entries()]
+        .sort((first, second) => second[1] - first[1] || second[0].length - first[0].length)[0]?.[0] || '';
     });
 
     scryfallRequestQueue = request.then(() => undefined, () => undefined);
-    scryfallDetailsCache.set(cacheKey, request);
+    scryfallReminderCache.set(cacheKey, request);
     return request;
   }
 
-  function renderScryfallDetails(container, card) {
-    if (!card) {
-      container.innerHTML = '<p class="keyword-scryfall-status">No matching card details were returned.</p>';
-      return;
-    }
-    const imageMarkup = card.imageUrl
-      ? `<img class="keyword-scryfall-image" src="${escapeHtml(card.imageUrl)}" alt="${escapeHtml(card.name)}" loading="lazy" />`
-      : '';
-    const cardLink = card.scryfallUri
-      ? `<a class="keyword-scryfall-card-name" href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(card.name)}</a>`
-      : `<strong class="keyword-scryfall-card-name">${escapeHtml(card.name)}</strong>`;
-    const setDetails = [card.setName, card.rarity].filter(Boolean).join(' · ');
-    const rulesText = card.oracleText
-      ? escapeHtml(card.oracleText).replace(/\n/g, '<br />')
-      : 'No rules text available.';
-    container.innerHTML = `
-      <div class="keyword-scryfall-example">
-        ${imageMarkup}
-        <div class="keyword-scryfall-copy">
-          ${cardLink}
-          ${card.typeLine ? `<p class="keyword-scryfall-type">${escapeHtml(card.typeLine)}</p>` : ''}
-          ${setDetails ? `<p class="keyword-scryfall-set">${escapeHtml(setDetails)}</p>` : ''}
-          <p class="keyword-scryfall-oracle">${rulesText}</p>
-        </div>
-      </div>`;
+  function renderKeywordReminder(container, reminder) {
+    container.innerHTML = reminder
+      ? `<p class="keyword-reminder-text">${escapeHtml(reminder)}</p>`
+      : '<p class="keyword-reminder-status">No keyword reminder text found on Scryfall.</p>';
   }
 
-  async function loadScryfallDetails(container) {
+  async function loadKeywordReminder(container) {
     const name = container.dataset.scryfallKeyword || '';
     if (!name) {
       return;
     }
-    container.innerHTML = '<p class="keyword-scryfall-status">Loading Scryfall card information…</p>';
+    container.innerHTML = '<p class="keyword-reminder-status">Loading keyword reminder…</p>';
     try {
-      const card = await getScryfallCardDetails(name);
+      const reminder = await getScryfallReminderText(name);
       if (container.isConnected) {
-        renderScryfallDetails(container, card);
+        renderKeywordReminder(container, reminder);
       }
     } catch (error) {
-      scryfallDetailsCache.delete(name.toLowerCase());
+      scryfallReminderCache.delete(name.toLowerCase());
       if (container.isConnected) {
-        container.innerHTML = '<p class="keyword-scryfall-status">Scryfall card information is unavailable right now.</p>';
+        container.innerHTML = '<p class="keyword-reminder-status">Keyword reminder text is unavailable right now.</p>';
       }
     }
   }
 
-  function observeScryfallDetails() {
-    scryfallObserver?.disconnect();
+  function observeKeywordReminders() {
+    reminderObserver?.disconnect();
     const containers = grid.querySelectorAll('[data-scryfall-keyword]');
     if (!containers.length) {
       return;
     }
     if (!('IntersectionObserver' in window)) {
-      containers.forEach((container) => void loadScryfallDetails(container));
+      containers.forEach((container) => void loadKeywordReminder(container));
       return;
     }
-    if (!scryfallObserver) {
-      scryfallObserver = new IntersectionObserver((entries, observer) => {
+    if (!reminderObserver) {
+      reminderObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(entry.target);
-            void loadScryfallDetails(entry.target);
+            void loadKeywordReminder(entry.target);
           }
         });
       }, { rootMargin: '240px' });
     }
-    containers.forEach((container) => scryfallObserver.observe(container));
+    containers.forEach((container) => reminderObserver.observe(container));
   }
 
   function renderGrid() {
-    scryfallObserver?.disconnect();
+    reminderObserver?.disconnect();
     const filtered = allKeywords.filter((keyword) => {
       if (activeCategory !== 'all' && keyword.category !== activeCategory) return false;
       if (!searchQuery) return true;
@@ -174,10 +209,10 @@
         </div>
         <div class="keyword-card-description">${keyword.description
           ? escapeHtml(keyword.description)
-          : `<div class="keyword-scryfall-details" data-scryfall-keyword="${escapeHtml(keyword.name)}" aria-live="polite"><p class="keyword-scryfall-status">Scryfall card information will load when visible.</p></div>`
+          : `<div class="keyword-reminder" data-scryfall-keyword="${escapeHtml(keyword.name)}" aria-live="polite"><p class="keyword-reminder-status">Keyword reminder will load when visible.</p></div>`
         }</div>
       </article>`).join('');
-    observeScryfallDetails();
+    observeKeywordReminders();
   }
 
   function loadKeywordsFromLocal() {

@@ -112,66 +112,24 @@
   text-decoration: underline;
 }
 
-.keyword-scryfall-details {
+.keyword-reminder {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #d9deee;
 }
 
-.keyword-scryfall-status,
-.keyword-scryfall-type,
-.keyword-scryfall-set,
-.keyword-scryfall-oracle {
+.keyword-reminder-status,
+.keyword-reminder-text {
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.keyword-scryfall-example {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  align-items: start;
-  gap: 10px;
-}
-
-.keyword-scryfall-image {
-  display: block;
-  width: 64px;
-  aspect-ratio: 5 / 7;
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-.keyword-scryfall-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.keyword-scryfall-card-name {
-  color: #3040cc;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.keyword-scryfall-type,
-.keyword-scryfall-set,
-.keyword-scryfall-status {
+.keyword-reminder-status {
   color: #626b83;
 }
 
-.keyword-scryfall-oracle {
+.keyword-reminder-text {
   color: #3f4760;
-}
-
-@media (max-width: 420px) {
-  .keyword-scryfall-example {
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .keyword-scryfall-image {
-    width: 52px;
-  }
 }
