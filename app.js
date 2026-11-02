@@ -33,38 +33,8 @@ const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 0;
 const AUTH_AUDIT_REFRESH_INTERVAL_MS = 60 * 1000;
 
 // Cached DOM references used across all pages.
-const form = document.getElementById('game-form');
-const dateInput = document.getElementById('game-date');
-const playerTableBody = document.getElementById('player-table-body');
-const addPlayerRowButton = document.getElementById('add-player-row');
-const notesInput = document.getElementById('game-notes');
-const firstBloodPlayerInput = document.getElementById('game-first-blood-player');
-const firstBloodPlayerMenu = document.getElementById('game-first-blood-menu');
-const firstBloodTurnInput = document.getElementById('game-first-blood-turn');
-const winningTurnInput = document.getElementById('game-winning-turn');
-const summaryEl = document.getElementById('summary');
 const playerDatalist = document.getElementById('player-list');
 const commanderDatalist = document.getElementById('commander-list');
-const playerRenameForm = document.getElementById('player-rename-form');
-const playerRenameCurrentInput = document.getElementById('player-rename-current');
-const playerRenameNextInput = document.getElementById('player-rename-next');
-const playerRenameStatus = document.getElementById('player-rename-status');
-const playerRenameDatalist = document.getElementById('player-rename-list');
-const playerRenameMenu = document.getElementById('player-rename-menu');
-const commanderBuilderForm = document.getElementById('commander-builder-form');
-const commanderBuilderResult = document.getElementById('commander-builder-result');
-const commanderBuilderStatus = document.getElementById('commander-builder-status');
-const commanderBuilderCount = document.getElementById('commander-builder-count');
-const commanderBuilderRerollButton = document.getElementById('commander-builder-reroll');
-const commanderBuilderModeInputs = Array.from(document.querySelectorAll('input[name="commander-builder-mode"]'));
-const commanderBuilderIdentityPanel = document.getElementById('commander-builder-identity-panel');
-const commanderBuilderIdentityTitle = document.getElementById('commander-builder-identity-title');
-const commanderBuilderIdentityCopy = document.getElementById('commander-builder-identity-copy');
-const commanderBuilderKeywordPanel = document.getElementById('commander-builder-keyword-panel');
-const commanderBuilderKeywordSearch = document.getElementById('commander-builder-keyword-search');
-const commanderBuilderKeywordStatus = document.getElementById('commander-builder-keyword-status');
-const commanderBuilderKeywordGrid = document.getElementById('commander-builder-keyword-grid');
-const commanderBuilderKeywordSelection = document.getElementById('commander-builder-keyword-selection');
 const liveModalPrompt = document.getElementById('live-modal-prompt');
 const liveModalTitle = document.getElementById('live-modal-title');
 const liveModalCopy = document.getElementById('live-modal-copy');
@@ -94,14 +64,8 @@ if (syncStatus) {
   syncStatus.setAttribute('aria-live', 'polite');
 }
 
-if (commanderBuilderStatus) {
-  commanderBuilderStatus.setAttribute('role', 'status');
-  commanderBuilderStatus.setAttribute('aria-live', 'polite');
-}
-
 let historySortKey = 'date';
 let historySortDescending = true;
-let editingGameId = null;
 let knownPlayers = [];
 let knownCommanders = [];
 let commanderSortColumn = 'games';
@@ -147,24 +111,10 @@ let deckSelectorSpinTimer = null;
 let deckSelectorRotation = 0;
 let commanderIdentityPrefetchInFlight = false;
 let commanderIdentityPrefetchRequestId = 0;
-let commanderBuilderQueryKey = '';
-let commanderBuilderLoading = false;
-let commanderBuilderRequestId = 0;
-let commanderBuilderLastCardName = '';
-let commanderBuilderMode = 'identity';
-let commanderBuilderKeywordsLoading = false;
-let commanderBuilderKeywordsLoaded = false;
-let commanderBuilderKeywordErrorMessage = '';
-let commanderBuilderKeywordCatalog = [];
-let commanderBuilderKeywordSearchTerm = '';
-let commanderBuilderSelectedKeywords = [];
 let deckListOracleBackfillRan = false;
 let deckLibraryPlayerFilterDefaulted = false;
 let historyPlayerFilterDefaulted = false;
-let rankingsCommanderIdentityLoading = false;
-let rankingsCommanderIdentityRequestId = 0;
 const commanderIdentityAttemptedKeys = new Set();
-const rankingsCommanderIdentityAttemptedKeys = new Set();
 const deckBuilderSearchCache = new Map();
 const deckBuilderCardCache = new Map();
 let activeGameState = null;
@@ -1145,11 +1095,7 @@ function getKnownCommanderOptions() {
 }
 
 function renderIdentityRenameOptions() {
-  buildDatalistOptions(playerRenameDatalist, getKnownPlayerOptions());
-  if (playerRenameMenu) {
-    buildDropdownMenu(playerRenameMenu, getKnownPlayerOptions());
-    attachLookupWrapperHandlers(playerRenameForm || document);
-  }
+  window.CommanderPlayerStats?.updateRenameOptions?.(getKnownPlayerOptions());
   window.CommanderStats?.updateRenameOptions?.(getKnownCommanderOptions());
 }
 
@@ -2896,7 +2842,7 @@ function rerenderSortedTable(tableKey) {
     case 'recentCommanderTrends':
     case 'playerStreaks':
     case 'commanderStreaks':
-      renderRankingsPage(games);
+      window.CommanderRankings?.render(games);
       break;
     default:
       break;
@@ -3430,84 +3376,6 @@ function updateAdminLogsShortcutVisibility() {
   });
 }
 
-function createPlayerRow(data = {}) {
-  const row = document.createElement('tr');
-  const killedValue = Array.isArray(data.killed) ? data.killed.join(', ') : data.killed || '';
-
-  row.innerHTML = `
-    <td class="lookup-field-cell">
-      <div class="combined-input-wrapper">
-        <input class="lookup-input" type="text" name="player" list="player-list" placeholder="Player" required value="${escapeHtml(data.player || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-        <button type="button" class="dropdown-button player-dropdown-button" title="Show options">▼</button>
-        <div class="dropdown-menu player-dropdown-menu"></div>
-      </div>
-    </td>
-    <td class="lookup-field-cell">
-      <div class="combined-input-wrapper">
-        <input class="lookup-input" type="text" name="commander" list="commander-list" placeholder="Commander" value="${escapeHtml(data.commander || '')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-        <button type="button" class="dropdown-button commander-dropdown-button" title="Show options">▼</button>
-        <div class="dropdown-menu commander-dropdown-menu"></div>
-      </div>
-    </td>
-    <td><input type="number" name="place" min="1" step="1" value="${escapeHtml(data.place || '')}" placeholder="Place" /></td>
-    <td><input type="number" name="kills" min="0" step="1" value="${escapeHtml(data.kills || 0)}" placeholder="Kills" /></td>
-    <td><input type="number" name="turnKilled" min="1" step="1" value="${escapeHtml(data.turnKilled || '')}" placeholder="Turn" /></td>
-    <td><textarea name="killed" placeholder="Killed">${escapeHtml(killedValue)}</textarea></td>
-  `;
-
-  attachLookupWrapperHandlers(row);
-  return row;
-}
-
-function addPlayerRow(data = {}) {
-  const row = createPlayerRow(data);
-  playerTableBody.appendChild(row);
-  populateRowSelectors(row);
-}
-
-function removePlayerRow() {
-  const rows = playerTableBody.querySelectorAll('tr');
-  if (rows.length > 2) {
-    rows[rows.length - 1].remove();
-    playerTableBody.querySelectorAll('tr').forEach((r) => populateRowSelectors(r));
-  }
-}
-
-function resetPlayerTable() {
-  playerTableBody.innerHTML = '';
-  for (let i = 0; i < 4; i += 1) {
-    addPlayerRow();
-  }
-}
-
-function getPlayerRows() {
-  const playerMap = buildCanonicalIdentityMapFromValues(knownPlayers);
-  const commanderMap = buildCanonicalIdentityMapFromValues(knownCommanders);
-
-  return Array.from(playerTableBody.querySelectorAll('tr')).map((row) => {
-    const player = canonicalizeIdentityValue(row.querySelector('[name="player"]')?.value || '', playerMap);
-    const commanderRaw = row.querySelector('[name="commander"]')?.value || '';
-    const commander = canonicalizeIdentityValue(commanderRaw, commanderMap);
-    const placeRaw = row.querySelector('input[name="place"]').value.trim();
-    const killsRaw = row.querySelector('input[name="kills"]').value.trim();
-    const turnKilledRaw = row.querySelector('input[name="turnKilled"]').value.trim();
-    const killed = normalizeList(row.querySelector('[name="killed"]')?.value || '');
-
-    return {
-      player,
-      commanderRaw,
-      commander,
-      placeRaw,
-      killsRaw,
-      turnKilledRaw,
-      place: parseOptionalPositiveInteger(placeRaw),
-      kills: killsRaw ? parseOptionalNonNegativeInteger(killsRaw) : 0,
-      turnKilled: parseOptionalPositiveInteger(turnKilledRaw),
-      killed,
-    };
-  }).filter((row) => row.player);
-}
-
 function parseOptionalPositiveInteger(value) {
   const normalizedValue = String(value || '').trim();
   if (!normalizedValue) {
@@ -3526,29 +3394,6 @@ function parseOptionalNonNegativeInteger(value) {
 
   const parsedValue = Number(normalizedValue);
   return Number.isInteger(parsedValue) && parsedValue >= 0 ? parsedValue : null;
-}
-
-function sanitizeManualGameRows(rows) {
-  const playerBuckets = new Map();
-  const commanderBuckets = new Map();
-
-  rows.forEach((row) => {
-    recordIdentityVariant(playerBuckets, row.player);
-    recordIdentityVariant(commanderBuckets, row.commander);
-    row.killed.forEach((player) => {
-      recordIdentityVariant(playerBuckets, player);
-    });
-  });
-
-  const playerMap = buildCanonicalIdentityMap(playerBuckets);
-  const commanderMap = buildCanonicalIdentityMap(commanderBuckets);
-
-  return rows.map(({ placeRaw, killsRaw, turnKilledRaw, ...row }) => ({
-    ...row,
-    player: canonicalizeIdentityValue(row.player, playerMap),
-    commander: canonicalizeIdentityValue(row.commander, commanderMap),
-    killed: normalizeIdentityList(row.killed, playerMap),
-  })).map((row) => enrichSavedGamePlayerRow(row));
 }
 
 function enrichSavedGamePlayerRow(row = {}, decks = loadDecks()) {
@@ -3730,266 +3575,6 @@ function normalizeSavedGameEntry(game = {}, decks = []) {
 
 function buildCompactSavedGameEntry(game = {}) {
   return normalizeSavedGameEntry(game, loadDecks());
-}
-
-function validateManualGameEntry(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
-  if (rows.length < 2) {
-    return 'Please add at least two players before saving a game.';
-  }
-
-  const playerNameLookup = new Map();
-
-  for (const row of rows) {
-    const normalizedPlayer = row.player.toLocaleLowerCase();
-    if (playerNameLookup.has(normalizedPlayer)) {
-      return `Player names must be unique within a game. Duplicate entry: ${row.player}.`;
-    }
-    playerNameLookup.set(normalizedPlayer, row.player);
-
-    if (row.placeRaw && row.place === null) {
-      return `Place for ${row.player} must be a whole number greater than 0.`;
-    }
-
-    if (row.killsRaw && row.kills === null) {
-      return `Kills for ${row.player} must be a whole number 0 or greater.`;
-    }
-
-    if (row.turnKilledRaw && row.turnKilled === null) {
-      return `Turn killed for ${row.player} must be a whole number greater than 0.`;
-    }
-  }
-
-  if (!rows.every((row) => row.place !== null)) {
-    return 'Enter a finish place for every player before saving the game.';
-  }
-
-  const sortedPlaces = rows.map((row) => row.place).slice().sort((a, b) => a - b);
-  for (let index = 0; index < sortedPlaces.length; index += 1) {
-    if (sortedPlaces[index] !== index + 1) {
-      return `Finish places must be unique and run from 1 through ${rows.length}.`;
-    }
-  }
-
-  if (firstBloodPlayer && !playerNameLookup.has(firstBloodPlayer.toLocaleLowerCase())) {
-    return 'First blood must match one of the players in this game.';
-  }
-
-  if (firstBloodTurn && !firstBloodPlayer) {
-    return 'Enter the player who got first blood before adding a first blood turn.';
-  }
-
-  if (firstBloodTurn && winningTurn && firstBloodTurn > winningTurn) {
-    return 'First blood turn cannot be later than the winning turn.';
-  }
-
-  const rowsByPlayerName = new Map(
-    rows.map((row) => [row.player.toLocaleLowerCase(), row]),
-  );
-  const winnerRow = rows.find((row) => row.place === 1) || null;
-  const eliminatedRows = rows
-    .filter((row) => row.place !== 1)
-    .slice()
-    .sort((a, b) => b.place - a.place);
-
-  for (const row of eliminatedRows) {
-    if (row.turnKilled === null) {
-      return `${row.player} finished in place ${row.place} and must have an elimination turn.`;
-    }
-  }
-
-  for (let index = 1; index < eliminatedRows.length; index += 1) {
-    const earlierElimination = eliminatedRows[index - 1];
-    const laterElimination = eliminatedRows[index];
-
-    if (laterElimination.turnKilled < earlierElimination.turnKilled) {
-      return `${laterElimination.player} finished ahead of ${earlierElimination.player} but is marked eliminated earlier.`;
-    }
-  }
-
-  if (winningTurn && eliminatedRows.some((row) => row.turnKilled !== null && row.turnKilled > winningTurn)) {
-    return 'Winning turn cannot be earlier than any recorded elimination turn.';
-  }
-
-  if (firstBloodPlayer && firstBloodTurn) {
-    const firstBloodRow = rowsByPlayerName.get(firstBloodPlayer.toLocaleLowerCase()) || null;
-    if (firstBloodRow?.turnKilled !== null && firstBloodTurn > firstBloodRow.turnKilled) {
-      return `${firstBloodPlayer} cannot be credited with first blood on turn ${firstBloodTurn} after dying on turn ${firstBloodRow.turnKilled}.`;
-    }
-  }
-
-  const victimToKiller = new Map();
-  const maximumCreditedKills = winnerRow ? rows.length - 1 : Math.max(0, rows.length - 1);
-  let totalCreditedKills = 0;
-
-  for (const row of rows) {
-    const kills = typeof row.kills === 'number' ? row.kills : 0;
-    const killedPlayers = getCleanKilledList(row.killed);
-    const normalizedKilled = new Set();
-    const maxPossibleKills = rows.length - row.place;
-
-    if (kills > rows.length - 1) {
-      return `${row.player} cannot record more kills than there were opponents in the game.`;
-    }
-
-    if (kills > maxPossibleKills) {
-      return `${row.player} cannot record ${kills} kills from place ${row.place}.`;
-    }
-
-    if (row.place === rows.length && kills > 0) {
-      return `${row.player} finished last and must have 0 kills.`;
-    }
-
-    if (row.place === 1 && row.turnKilled !== null) {
-      return `${row.player} is marked as the winner and cannot also have a turn killed value.`;
-    }
-
-    for (const killedPlayer of killedPlayers) {
-      const normalizedKilledPlayer = killedPlayer.toLocaleLowerCase();
-
-      if (normalizedKilledPlayer === row.player.toLocaleLowerCase()) {
-        return `${row.player} cannot list themselves in the killed field.`;
-      }
-
-      if (!playerNameLookup.has(normalizedKilledPlayer)) {
-        return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
-      }
-
-      const killedRow = rowsByPlayerName.get(normalizedKilledPlayer);
-      if (!killedRow) {
-        return `${row.player} lists ${killedPlayer} as killed, but that player is not in this game.`;
-      }
-
-      if (victimToKiller.has(normalizedKilledPlayer)) {
-        return `${killedPlayer} is already credited as a kill for ${victimToKiller.get(normalizedKilledPlayer)}.`;
-      }
-
-      if (killedRow.place <= row.place) {
-        return `${row.player} cannot be credited with killing ${killedPlayer} because ${killedPlayer} finished ahead of them.`;
-      }
-
-      if (row.turnKilled !== null && killedRow.turnKilled !== null && killedRow.turnKilled > row.turnKilled) {
-        return `${row.player} cannot be credited with killing ${killedPlayer} on turn ${killedRow.turnKilled} after dying on turn ${row.turnKilled}.`;
-      }
-
-      if (normalizedKilled.has(normalizedKilledPlayer)) {
-        return `${row.player} lists ${killedPlayer} more than once in the killed field.`;
-      }
-
-      normalizedKilled.add(normalizedKilledPlayer);
-      victimToKiller.set(normalizedKilledPlayer, row.player);
-    }
-
-    if (killedPlayers.length > kills) {
-      return `${row.player} lists more killed players than their kill total.`;
-    }
-
-    totalCreditedKills += kills;
-  }
-
-  if (winnerRow && winnerRow.turnKilled !== null) {
-    return `${winnerRow.player} is marked as the winner and cannot also have an elimination turn.`;
-  }
-
-  if (totalCreditedKills > maximumCreditedKills) {
-    return `This game has ${totalCreditedKills} credited kills, but only ${maximumCreditedKills} eliminations were possible.`;
-  }
-
-  return '';
-}
-
-function getManualGameAdvisories(rows, { firstBloodPlayer, firstBloodTurn, winningTurn }) {
-  const advisories = [];
-  const rowsWithMissingCommander = rows.filter((row) => !normalizeIdentityLabel(row.commander));
-  const totalCreditedKills = rows.reduce((sum, row) => sum + (typeof row.kills === 'number' ? row.kills : 0), 0);
-  const winnerRow = rows.find((row) => row.place === 1) || null;
-
-  if (rowsWithMissingCommander.length) {
-    advisories.push(`Missing commander for ${rowsWithMissingCommander.map((row) => row.player).join(', ')}.`);
-  }
-
-  if (winnerRow && !winnerRow.commander) {
-    advisories.push(`Winner ${winnerRow.player} has no commander listed.`);
-  }
-
-  if (!firstBloodPlayer && !firstBloodTurn) {
-    advisories.push('No first blood was entered for this game.');
-  }
-
-  if (!winningTurn) {
-    advisories.push('No winning turn was entered for this game.');
-  }
-
-  if (rows.length >= 3 && totalCreditedKills === 0) {
-    advisories.push('No kill credit was recorded for any elimination.');
-  }
-
-  return advisories;
-}
-
-function buildManualGameRecordStats(rows, gameDate) {
-  const eliminatedRows = rows.filter((row) => typeof row.turnKilled === 'number' && row.turnKilled > 0);
-  if (!eliminatedRows.length) {
-    return null;
-  }
-
-  const fastestEliminationRow = eliminatedRows.slice().sort((a, b) => a.turnKilled - b.turnKilled || a.player.localeCompare(b.player))[0];
-  return {
-    fastestElimination: createRecordCandidate({
-      value: fastestEliminationRow.turnKilled,
-      holder: '',
-      commander: '',
-      date: gameDate,
-      notes: `${fastestEliminationRow.player} was eliminated on turn ${fastestEliminationRow.turnKilled}.`,
-    }),
-  };
-}
-
-function buildManualGameLiveSummary(rows, gameDate, firstBloodPlayer, firstBloodTurn, winningTurn) {
-  const normalizedFirstBloodPlayer = String(firstBloodPlayer || '').trim();
-  const normalizedFirstBloodTurn = parseOptionalPositiveInteger(firstBloodTurn);
-  const normalizedWinningTurn = parseOptionalPositiveInteger(winningTurn);
-  const firstBloodCommander = normalizedFirstBloodPlayer
-    ? rows.find((row) => row.player === normalizedFirstBloodPlayer)?.commander || ''
-    : '';
-  const recordStats = buildManualGameRecordStats(rows, gameDate);
-
-  if (!normalizedFirstBloodPlayer && !normalizedWinningTurn && !recordStats) {
-    return null;
-  }
-
-  return {
-    firstBlood: normalizedFirstBloodPlayer
-      ? {
-        actorPlayer: normalizedFirstBloodPlayer,
-        actorCommander: firstBloodCommander,
-        targetPlayer: '',
-        turnNumber: normalizedFirstBloodTurn,
-      }
-      : null,
-    recordStats,
-    turnNumber: normalizedWinningTurn,
-  };
-}
-
-function mergeEditedGameLiveSummary(existingLiveSummary, manualLiveSummary) {
-  if (!manualLiveSummary) {
-    return null;
-  }
-
-  const existingFirstBlood = existingLiveSummary?.firstBlood;
-  const manualFirstBlood = manualLiveSummary.firstBlood;
-
-  return {
-    ...manualLiveSummary,
-    firstBlood: manualFirstBlood
-      ? {
-        ...existingFirstBlood,
-        ...manualFirstBlood,
-        targetPlayer: manualFirstBlood.targetPlayer || existingFirstBlood?.targetPlayer || '',
-      }
-      : null,
-    recordStats: manualLiveSummary.recordStats || existingLiveSummary?.recordStats || null,
-  };
 }
 
 function createStatCard(title, body) {
@@ -4392,51 +3977,6 @@ function getGameById(id) {
   return games.find((game) => game.id === id) || null;
 }
 
-function setEditMode(game) {
-  if (!form || !game) {
-    return;
-  }
-
-  history.replaceState(null, '', 'index.html');
-  editingGameId = game.id;
-
-  dateInput.value = game.date || new Date().toISOString().slice(0, 10);
-  notesInput.value = game.notes || '';
-  if (firstBloodPlayerInput) {
-    firstBloodPlayerInput.value = game.liveSummary?.firstBlood?.actorPlayer || '';
-  }
-  if (firstBloodTurnInput) {
-    firstBloodTurnInput.value = game.liveSummary?.firstBlood?.turnNumber || '';
-  }
-  if (winningTurnInput) {
-    winningTurnInput.value = game.liveSummary?.turnNumber || '';
-  }
-
-  resetPlayerTable();
-  const existingRows = getGameRows(game);
-
-  playerTableBody.innerHTML = '';
-  existingRows.forEach((row) => {
-    addPlayerRow(row);
-  });
-
-  const submitButton = form.querySelector('button[type="submit"]');
-  if (submitButton) {
-    submitButton.textContent = 'Save changes';
-  }
-}
-
-function resetEditMode() {
-  editingGameId = null;
-  if (!form) {
-    return;
-  }
-  const submitButton = form.querySelector('button[type="submit"]');
-  if (submitButton) {
-    submitButton.textContent = 'Save game';
-  }
-}
-
 function deleteGame(gameId) {
   const games = loadGames();
   const remaining = games.filter((game) => game.id !== gameId);
@@ -4812,12 +4352,10 @@ function updateFormDatalists(games) {
   if (commanderDatalist) {
     buildDatalistOptions(commanderDatalist, window.CommanderLiveGame?.hasView?.() ? getLiveCommanderOptionValues() : knownCommanders);
   }
-  if (firstBloodPlayerMenu) {
-    buildDropdownMenu(firstBloodPlayerMenu, knownPlayers);
-  }
+  window.CommanderGameTracker?.updatePlayerOptions?.(knownPlayers);
 
   refreshRowSelectors();
-  attachLookupWrapperHandlers(form || document);
+  attachLookupWrapperHandlers(document);
   populateDeckBuilderLookupMenus();
   window.CommanderRecords?.populateLookupMenus();
 }
@@ -5532,426 +5070,6 @@ function renderDeckBuilderBreakdown(deck) {
   return window.CommanderDeckBuilder?.renderBreakdown?.(deck);
 }
 
-function getDeckOwnerGroups() {
-  const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
-  const deckListByDeckId = new Map();
-  const deckListByOwnerCommander = new Map();
-
-  deckLists.forEach((entry) => {
-    const deckId = String(entry.deckId || '').trim();
-    const ownerKey = getIdentityKey(entry.owner || '');
-    const commanderKey = getIdentityKey(entry.commander || '');
-
-    if (deckId && !deckListByDeckId.has(deckId)) {
-      deckListByDeckId.set(deckId, entry);
-    }
-
-    if (ownerKey && commanderKey) {
-      const compositeKey = `${ownerKey}::${commanderKey}`;
-      if (!deckListByOwnerCommander.has(compositeKey)) {
-        deckListByOwnerCommander.set(compositeKey, entry);
-      }
-    }
-  });
-
-  const selectorDecks = loadDecks()
-    .map(normalizeDeckRecord)
-    .filter((deck) => Boolean(deck?.commander?.name && deck?.owner))
-    .filter((deck) => deck.inRotation !== false)
-    .map((deck) => {
-      const ownerKey = getIdentityKey(deck.owner || '');
-      const commanderKey = getIdentityKey(deck.commander?.name || '');
-      const linkedDeckList = deckListByDeckId.get(deck.id)
-        || (ownerKey && commanderKey ? deckListByOwnerCommander.get(`${ownerKey}::${commanderKey}`) : null);
-
-      return {
-        id: deck.id,
-        deckId: deck.id,
-        owner: deck.owner,
-        commander: deck.commander.name,
-        url: String(linkedDeckList?.url || '').trim(),
-      };
-    });
-
-  return selectorDecks.reduce((groups, entry) => {
-    const owner = (entry.owner || '').trim();
-    if (!owner) {
-      return groups;
-    }
-
-    if (!groups[owner]) {
-      groups[owner] = [];
-    }
-
-    groups[owner].push(entry);
-    return groups;
-  }, {});
-}
-
-function getCommanderBuilderInputs() {
-  if (!commanderBuilderForm) {
-    return [];
-  }
-
-  return Array.from(commanderBuilderForm.querySelectorAll('input[name="commander-color"]'));
-}
-
-function getCommanderBuilderMode() {
-  const selectedInput = commanderBuilderModeInputs.find((input) => input.checked);
-  const value = String(selectedInput?.value || '').trim().toLowerCase();
-  return value === 'keywords' || value === 'both' ? value : 'identity';
-}
-
-function normalizeCommanderBuilderKeyword(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function getSelectedCommanderBuilderKeywords() {
-  return commanderBuilderSelectedKeywords.slice();
-}
-
-function getSelectedCommanderBuilderIdentity() {
-  const selectedValues = getCommanderBuilderInputs()
-    .filter((input) => input.checked)
-    .map((input) => String(input.value || '').trim().toUpperCase())
-    .filter(Boolean);
-
-  if (!selectedValues.length) {
-    return '';
-  }
-
-  // Colorless is exclusive. If mixed with colors, treat as invalid selection.
-  if (selectedValues.includes('C')) {
-    return selectedValues.length === 1 ? 'c' : '';
-  }
-
-  const order = ['W', 'U', 'B', 'R', 'G'];
-  const normalized = order.filter((code) => selectedValues.includes(code)).join('');
-  return normalized.toLowerCase();
-}
-
-function getCommanderBuilderQuery() {
-  const mode = getCommanderBuilderMode();
-  if (mode === 'keywords') {
-    const keywords = getSelectedCommanderBuilderKeywords();
-    return keywords.length ? { mode, keywords } : null;
-  }
-
-  if (mode === 'both') {
-    const keywords = getSelectedCommanderBuilderKeywords();
-    if (!keywords.length) {
-      return null;
-    }
-
-    const identity = getSelectedCommanderBuilderIdentity();
-    return identity ? { mode, keywords, identity } : null;
-  }
-
-  const identity = getSelectedCommanderBuilderIdentity();
-  return identity ? { mode, identity } : null;
-}
-
-function getCommanderBuilderQueryKey(query) {
-  if (!query || typeof query !== 'object') {
-    return '';
-  }
-
-  if (query.mode === 'keywords' || query.mode === 'both') {
-    const keywordKey = (query.keywords || []).map((keyword) => normalizeCommanderBuilderKeyword(keyword).toLowerCase()).join('|');
-    const identityKey = String(query.identity || '').trim().toLowerCase();
-    return `${query.mode}:${keywordKey}:identity:${identityKey || 'any'}`;
-  }
-
-  return `identity:${String(query.identity || '').trim().toLowerCase()}`;
-}
-
-function getCommanderBuilderCriteriaLabel(query) {
-  if (!query || typeof query !== 'object') {
-    return '';
-  }
-
-  if (query.mode === 'keywords' || query.mode === 'both') {
-    const keywordLabel = (query.keywords || []).join(', ');
-    const identityLabel = query.identity ? getCommanderIdentityLabel(query.identity) : '';
-    return identityLabel ? `${keywordLabel} within ${identityLabel}` : keywordLabel;
-  }
-
-  return getCommanderIdentityLabel(query.identity);
-}
-
-function getCommanderBuilderTagLabel(query) {
-  if (!query || typeof query !== 'object') {
-    return '';
-  }
-
-  return query.mode === 'keywords' || query.mode === 'both'
-    ? `Keywords: ${getCommanderBuilderCriteriaLabel(query)}`
-    : getCommanderBuilderCriteriaLabel(query);
-}
-
-function getCommanderBuilderIdlePlaceholder(mode = getCommanderBuilderMode()) {
-  if (mode === 'keywords') {
-    return 'Select at least one keyword ability to get started.';
-  }
-
-  if (mode === 'both') {
-    return 'Choose a color identity and at least one keyword ability to get started.';
-  }
-
-  return 'Choose a color identity to get started.';
-}
-
-function getCommanderBuilderIdleCount(mode = getCommanderBuilderMode()) {
-  if (mode === 'keywords') {
-    return 'Choose keyword abilities to load the pool.';
-  }
-
-  if (mode === 'both') {
-    return 'Choose colors and keyword abilities to load the pool.';
-  }
-
-  return 'Choose colors to load the pool.';
-}
-
-function getCommanderBuilderIdleStatus(mode = getCommanderBuilderMode()) {
-  if (mode === 'keywords') {
-    return 'Select at least one keyword ability, then roll for a commander.';
-  }
-
-  if (mode === 'both') {
-    return 'Choose an exact color identity and at least one keyword ability, then roll for a commander.';
-  }
-
-  return 'Choose at least one color, or select Colorless, then roll for a commander.';
-}
-
-function getCommanderBuilderReadyPlaceholder(query) {
-  if (!query || typeof query !== 'object') {
-    return getCommanderBuilderIdlePlaceholder();
-  }
-
-  return query.mode === 'keywords' || query.mode === 'both'
-    ? `Roll to load a commander that matches ${getCommanderBuilderCriteriaLabel(query)}.`
-    : `Roll to load a random ${getCommanderBuilderCriteriaLabel(query)} commander.`;
-}
-
-function getCommanderBuilderReadyCount(query) {
-  if (!query || typeof query !== 'object') {
-    return getCommanderBuilderIdleCount();
-  }
-
-  return query.mode === 'keywords' || query.mode === 'both'
-    ? `Ready to search ${query.keywords.length} keyword abil${query.keywords.length === 1 ? 'ity' : 'ities'}.`
-    : `Ready to load ${getCommanderBuilderCriteriaLabel(query)} commanders.`;
-}
-
-function getCommanderBuilderReadyStatus(query) {
-  if (!query || typeof query !== 'object') {
-    return getCommanderBuilderIdleStatus();
-  }
-
-  return query.mode === 'keywords' || query.mode === 'both'
-    ? `Roll to load commanders matching ${getCommanderBuilderCriteriaLabel(query)}.`
-    : `Roll to load the ${getCommanderBuilderCriteriaLabel(query)} pool.`;
-}
-
-function buildCommanderBuilderKeywordCatalog(payload) {
-  const seen = new Set();
-
-  return (Array.isArray(payload?.keywordAbilities) ? payload.keywordAbilities : [])
-    .map((name) => ({ name: normalizeCommanderBuilderKeyword(name), category: 'ability' }))
-    .filter(({ name }) => name)
-    .filter(({ name }) => {
-      const key = name.toLowerCase();
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    })
-    .sort((left, right) => compareTextValues(left.name, right.name));
-}
-
-function getCommanderBuilderKeywordCategoryLabel(category) {
-  if (category === 'action') {
-    return 'Action';
-  }
-
-  if (category === 'word') {
-    return 'Ability Word';
-  }
-
-  return 'Ability';
-}
-
-function renderCommanderBuilderKeywordSelection() {
-  if (!commanderBuilderKeywordSelection) {
-    return;
-  }
-
-  if (!commanderBuilderSelectedKeywords.length) {
-    commanderBuilderKeywordSelection.innerHTML = '<p class="commander-builder-keyword-empty status-muted">No keyword abilities selected yet.</p>';
-    return;
-  }
-
-  commanderBuilderKeywordSelection.innerHTML = commanderBuilderSelectedKeywords.map((keyword) => `
-    <button type="button" class="commander-builder-selected-keyword" data-remove-commander-keyword="${escapeHtml(keyword)}" aria-label="Remove ${escapeHtml(keyword)}">
-      <span>${escapeHtml(keyword)}</span>
-      <span aria-hidden="true">×</span>
-    </button>`).join('');
-}
-
-function renderCommanderBuilderKeywordCatalog() {
-  if (!commanderBuilderKeywordGrid || !commanderBuilderKeywordStatus) {
-    return;
-  }
-
-  const normalizedSearch = commanderBuilderKeywordSearchTerm.toLowerCase();
-  const filteredKeywords = commanderBuilderKeywordCatalog.filter(({ name }) => name.toLowerCase().includes(normalizedSearch));
-
-  if (commanderBuilderKeywordsLoading && !commanderBuilderKeywordCatalog.length) {
-    commanderBuilderKeywordStatus.textContent = 'Loading keyword ability catalog...';
-    commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-muted';
-    commanderBuilderKeywordGrid.innerHTML = '<p class="status-muted">Loading keyword ability catalog...</p>';
-    renderCommanderBuilderKeywordSelection();
-    return;
-  }
-
-  if (commanderBuilderKeywordErrorMessage && !commanderBuilderKeywordCatalog.length) {
-    commanderBuilderKeywordStatus.textContent = commanderBuilderKeywordErrorMessage;
-    commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-error';
-    commanderBuilderKeywordGrid.innerHTML = '<p class="status-error">Keyword ability search is unavailable right now.</p>';
-    renderCommanderBuilderKeywordSelection();
-    return;
-  }
-
-  if (!filteredKeywords.length) {
-    commanderBuilderKeywordStatus.textContent = commanderBuilderKeywordCatalog.length
-      ? 'No keyword abilities match your search.'
-      : 'No keyword abilities are available right now.';
-    commanderBuilderKeywordStatus.className = `commander-builder-keyword-status ${commanderBuilderKeywordCatalog.length ? 'status-muted' : 'status-error'}`;
-    commanderBuilderKeywordGrid.innerHTML = '<p class="status-muted">Try a different keyword ability search.</p>';
-    renderCommanderBuilderKeywordSelection();
-    return;
-  }
-
-  commanderBuilderKeywordStatus.textContent = `Showing ${filteredKeywords.length} of ${commanderBuilderKeywordCatalog.length} keyword abilities.`;
-  commanderBuilderKeywordStatus.className = 'commander-builder-keyword-status status-muted';
-  commanderBuilderKeywordGrid.innerHTML = filteredKeywords.map(({ name, category }) => {
-    const isSelected = commanderBuilderSelectedKeywords.includes(name);
-    return `
-      <label class="commander-builder-keyword-option${isSelected ? ' is-selected' : ''}">
-        <input type="checkbox" name="commander-builder-keyword" value="${escapeHtml(name)}"${isSelected ? ' checked' : ''} />
-        <span class="commander-builder-keyword-name">${escapeHtml(name)}</span>
-        <span class="commander-builder-keyword-badge commander-builder-keyword-badge-${escapeHtml(category)}">${escapeHtml(getCommanderBuilderKeywordCategoryLabel(category))}</span>
-      </label>`;
-  }).join('');
-  renderCommanderBuilderKeywordSelection();
-}
-
-async function loadCommanderBuilderKeywordCatalog() {
-  if (!commanderBuilderKeywordGrid || commanderBuilderKeywordsLoading || commanderBuilderKeywordsLoaded) {
-    return;
-  }
-
-  commanderBuilderKeywordsLoading = true;
-  commanderBuilderKeywordErrorMessage = '';
-  renderCommanderBuilderKeywordCatalog();
-
-  try {
-    const requestUrl = new URL(KEYWORDS_ENDPOINT, window.location.origin);
-    requestUrl.searchParams.set('_', String(Date.now()));
-    const response = await fetch(requestUrl.toString(), {
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Unable to load keywords (${response.status}).`);
-    }
-
-    const payload = await response.json();
-    commanderBuilderKeywordCatalog = buildCommanderBuilderKeywordCatalog(payload);
-    commanderBuilderKeywordsLoaded = true;
-  } catch (error) {
-    commanderBuilderKeywordErrorMessage = error instanceof Error ? error.message : 'Unable to load keyword catalog right now.';
-  } finally {
-    commanderBuilderKeywordsLoading = false;
-    renderCommanderBuilderKeywordCatalog();
-    updateCommanderBuilderControls();
-  }
-}
-
-function toggleCommanderBuilderKeyword(keyword, isSelected) {
-  const normalizedKeyword = normalizeCommanderBuilderKeyword(keyword);
-  if (!normalizedKeyword) {
-    return;
-  }
-
-  if (isSelected) {
-    if (!commanderBuilderSelectedKeywords.includes(normalizedKeyword)) {
-      commanderBuilderSelectedKeywords = [...commanderBuilderSelectedKeywords, normalizedKeyword];
-    }
-  } else {
-    commanderBuilderSelectedKeywords = commanderBuilderSelectedKeywords.filter((value) => value !== normalizedKeyword);
-  }
-
-  renderCommanderBuilderKeywordCatalog();
-}
-
-function updateCommanderBuilderModeUi() {
-  commanderBuilderMode = getCommanderBuilderMode();
-  const showIdentityPanel = commanderBuilderMode === 'identity' || commanderBuilderMode === 'both';
-  const showKeywordPanel = commanderBuilderMode === 'keywords' || commanderBuilderMode === 'both';
-
-  if (commanderBuilderIdentityPanel) {
-    commanderBuilderIdentityPanel.hidden = !showIdentityPanel;
-  }
-
-  if (commanderBuilderIdentityTitle) {
-    commanderBuilderIdentityTitle.textContent = commanderBuilderMode === 'both'
-      ? 'Pick an Exact Color Identity'
-      : 'Pick an Exact Color Identity';
-  }
-
-  if (commanderBuilderIdentityCopy) {
-    commanderBuilderIdentityCopy.textContent = commanderBuilderMode === 'both'
-      ? 'This stays exact. Choosing blue and black only returns Dimir commanders that also match your selected keyword abilities.'
-      : 'The selection is exact. Choosing blue and black only returns Dimir commanders, not mono-blue or Grixis options.';
-  }
-
-  if (commanderBuilderKeywordPanel) {
-    commanderBuilderKeywordPanel.hidden = !showKeywordPanel;
-  }
-
-  if (showKeywordPanel) {
-    void loadCommanderBuilderKeywordCatalog();
-  }
-}
-
-function syncCommanderBuilderPreviewState() {
-  const mode = getCommanderBuilderMode();
-  const query = getCommanderBuilderQuery();
-  const queryKey = getCommanderBuilderQueryKey(query);
-
-  if (!query) {
-    renderCommanderBuilderPlaceholder(getCommanderBuilderIdlePlaceholder(mode));
-    setCommanderBuilderCount(getCommanderBuilderIdleCount(mode));
-    setCommanderBuilderStatus(getCommanderBuilderIdleStatus(mode), 'muted');
-    updateCommanderBuilderControls();
-    return;
-  }
-
-  if (queryKey !== commanderBuilderQueryKey) {
-    renderCommanderBuilderPlaceholder(getCommanderBuilderReadyPlaceholder(query));
-    setCommanderBuilderCount(getCommanderBuilderReadyCount(query));
-    setCommanderBuilderStatus(getCommanderBuilderReadyStatus(query), 'neutral');
-  }
-
-  updateCommanderBuilderControls();
-}
-
-// Renders a list of deck card rows, grouping unlimited-copy cards into stacked rows with +/- counters.
 function getCommanderIdentityLabel(identity) {
   if (identity === 'c') {
     return 'Colorless';
@@ -5962,439 +5080,6 @@ function getCommanderIdentityLabel(identity) {
     .filter(({ code }) => codes.has(code))
     .map(({ label }) => label)
     .join(' / ');
-}
-
-function setCommanderBuilderStatus(message, tone = 'muted') {
-  if (!commanderBuilderStatus) {
-    return;
-  }
-
-  commanderBuilderStatus.textContent = message;
-  commanderBuilderStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
-  commanderBuilderStatus.classList.add(`status-${tone}`);
-}
-
-function setCommanderBuilderCount(message) {
-  if (!commanderBuilderCount) {
-    return;
-  }
-
-  commanderBuilderCount.textContent = message;
-}
-
-function loadCommanderBuilderCache() {
-  const raw = readLocalStorageValue(COMMANDER_BUILDER_CACHE_STORAGE_KEY);
-  const cache = parseJsonSafe(raw || '{}', {});
-  return cache && typeof cache === 'object' ? cache : {};
-}
-
-function saveCommanderBuilderCache(identity, cards) {
-  if (!identity) {
-    return;
-  }
-
-  const cache = loadCommanderBuilderCache();
-  cache[identity] = {
-    fetchedAt: Date.now(),
-    totalCards: Number.isFinite(Number(cards?.totalCards)) ? Number(cards.totalCards) : 0,
-  };
-  writeLocalStorageValue(COMMANDER_BUILDER_CACHE_STORAGE_KEY, JSON.stringify(cache));
-}
-
-function getCommanderBuilderCachedCards(identity, { allowExpired = false } = {}) {
-  if (!identity) {
-    return null;
-  }
-
-  const entry = loadCommanderBuilderCache()[identity];
-  if (!entry || !Number.isFinite(Number(entry.totalCards))) {
-    return null;
-  }
-
-  const fetchedAt = Number(entry.fetchedAt || 0);
-  const isFresh = Number.isFinite(fetchedAt) && (Date.now() - fetchedAt) < COMMANDER_BUILDER_CACHE_TTL_MS;
-  if (!allowExpired && !isFresh) {
-    return null;
-  }
-
-  return {
-    totalCards: Number(entry.totalCards),
-  };
-}
-
-async function fetchCommanderBuilderSelection(query) {
-  const queryKey = getCommanderBuilderQueryKey(query);
-  const cachedSummary = getCommanderBuilderCachedCards(queryKey);
-  const staleSummary = getCommanderBuilderCachedCards(queryKey, { allowExpired: true });
-  let response;
-  try {
-    const requestUrl = new URL(COMMANDER_BUILDER_ENDPOINT, window.location.origin);
-    requestUrl.searchParams.set('mode', query?.mode === 'keywords' || query?.mode === 'both' ? 'keywords' : 'identity');
-    if (query?.mode === 'keywords' || query?.mode === 'both') {
-      (query.keywords || []).forEach((keyword) => {
-        requestUrl.searchParams.append('keyword', keyword);
-      });
-      if (query.identity) {
-        requestUrl.searchParams.set('identity', query.identity);
-      }
-    } else {
-      requestUrl.searchParams.set('identity', query?.identity || '');
-    }
-    requestUrl.searchParams.set('_', String(Date.now()));
-    response = await fetch(requestUrl.toString(), {
-      cache: 'no-store',
-    });
-  } catch (error) {
-    if (staleSummary) {
-      throw new Error('Unable to refresh the commander pick right now. Try again in a moment.');
-    }
-    throw error;
-  }
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody?.detail) {
-        message = `${errorBody.error || 'Request failed'} ${errorBody.detail}`.trim();
-      } else if (errorBody?.error) {
-        message = errorBody.error;
-      }
-    } catch (error) {
-      // Keep default message.
-    }
-
-    throw new Error(message);
-  }
-
-  const payload = await response.json();
-  const selectedCard = payload?.card && payload.card.name && payload.card.scryfallUri ? payload.card : null;
-  const totalCards = Number.isFinite(Number(payload?.totalCards))
-    ? Number(payload.totalCards)
-    : Number(cachedSummary?.totalCards || staleSummary?.totalCards || 0);
-
-  saveCommanderBuilderCache(queryKey, { totalCards });
-
-  return {
-    card: selectedCard,
-    totalCards,
-    source: 'network',
-    identity: String(payload?.identity || query?.identity || '').trim().toLowerCase(),
-    keywords: Array.isArray(payload?.keywords) ? payload.keywords : (query?.keywords || []),
-    mode: query?.mode || (payload?.mode === 'keywords' ? 'keywords' : 'identity'),
-  };
-}
-
-function updateCommanderBuilderControls() {
-  const query = getCommanderBuilderQuery();
-  const queryKey = getCommanderBuilderQueryKey(query);
-  const submitButton = commanderBuilderForm?.querySelector('button[type="submit"]');
-
-  if (submitButton) {
-    submitButton.disabled = commanderBuilderLoading || !query;
-  }
-
-  if (commanderBuilderRerollButton) {
-    commanderBuilderRerollButton.disabled = commanderBuilderLoading || !query || commanderBuilderQueryKey !== queryKey;
-  }
-}
-
-function renderCommanderBuilderPlaceholder(message) {
-  if (!commanderBuilderResult) {
-    return;
-  }
-
-  commanderBuilderResult.innerHTML = `<p>${escapeHtml(message)}</p>`;
-}
-
-function formatCommanderBuilderRichText(text) {
-  return escapeHtml(String(text || '').trim()).replace(/\n/g, '<br />');
-}
-
-function getCommanderBuilderStatsLine(card) {
-  if (!card || typeof card !== 'object') {
-    return '';
-  }
-
-  const parts = [];
-  const power = String(card.power || '').trim();
-  const toughness = String(card.toughness || '').trim();
-  const loyalty = String(card.loyalty || '').trim();
-  const defense = String(card.defense || '').trim();
-
-  if (power || toughness) {
-    parts.push(`${escapeHtml(power || '?')}/${escapeHtml(toughness || '?')}`);
-  }
-
-  if (loyalty) {
-    parts.push(`Loyalty ${escapeHtml(loyalty)}`);
-  }
-
-  if (defense) {
-    parts.push(`Defense ${escapeHtml(defense)}`);
-  }
-
-  return parts.join(' · ');
-}
-
-function getCommanderBuilderImageSources(card) {
-  if (!card || typeof card !== 'object') {
-    return [];
-  }
-
-  const faceCards = Array.isArray(card.cardFaces) ? card.cardFaces : [];
-  const sources = [
-    card.imageUri,
-    card.imageLargeUri,
-    card.imagePngUri,
-    ...faceCards.flatMap((face) => [face.imageUri, face.imageLargeUri, face.imagePngUri]),
-  ];
-
-  return [...new Set(sources.map((value) => String(value || '').trim()).filter(Boolean))];
-}
-
-function attachCommanderBuilderImageFallback(card) {
-  if (!commanderBuilderResult || !card) {
-    return;
-  }
-
-  const image = commanderBuilderResult.querySelector('.commander-builder-image');
-  if (!(image instanceof HTMLImageElement)) {
-    return;
-  }
-
-  const sources = getCommanderBuilderImageSources(card);
-  if (!sources.length) {
-    image.closest('.commander-builder-media')?.remove();
-    return;
-  }
-
-  let sourceIndex = sources.findIndex((source) => source === image.src);
-  if (sourceIndex < 0) {
-    sourceIndex = 0;
-    image.src = sources[0];
-  }
-
-  image.addEventListener('error', () => {
-    sourceIndex += 1;
-    if (sourceIndex < sources.length) {
-      image.src = sources[sourceIndex];
-      return;
-    }
-
-    image.closest('.commander-builder-media')?.remove();
-  }, { once: false });
-}
-
-function renderCommanderBuilderResultCard(card, criteriaLabel, totalCards, source) {
-  if (!commanderBuilderResult || !card) {
-    return;
-  }
-
-  const safeName = escapeHtml(card.name);
-  const safeTypeLine = escapeHtml(card.typeLine || 'Commander-eligible card');
-  const safeManaCost = escapeHtml(card.manaCost || 'No mana cost');
-  const safeCriteriaLabel = escapeHtml(criteriaLabel || 'Commander');
-  const safePoolSize = escapeHtml(String(totalCards));
-  const imageSources = getCommanderBuilderImageSources(card);
-  const safeImageUri = escapeHtml(imageSources[0] || '');
-  const faceCards = Array.isArray(card.cardFaces) ? card.cardFaces : [];
-  const useFaceSections = faceCards.length > 1;
-  const fallbackFace = faceCards[0] || null;
-  const rulesText = String(card.oracleText || fallbackFace?.oracleText || '').trim();
-  const statsLine = getCommanderBuilderStatsLine(card) || getCommanderBuilderStatsLine(fallbackFace);
-  const sourceLabel = source === 'network'
-    ? 'Live Scryfall pool'
-    : source === 'cache'
-      ? 'Cached pool from this device'
-      : 'Cached pool from this device due to a fetch issue';
-  const imageMarkup = safeImageUri
-    ? `<div class="commander-builder-media"><img class="commander-builder-image" src="${safeImageUri}" alt="${safeName}" loading="lazy" /></div>`
-    : '';
-  const rulesMarkup = useFaceSections
-    ? faceCards.map((face) => {
-      const faceName = escapeHtml(face.name || card.name);
-      const faceTypeLine = escapeHtml(face.typeLine || '');
-      const faceManaCost = escapeHtml(face.manaCost || 'No mana cost');
-      const faceStats = getCommanderBuilderStatsLine(face);
-      const faceRulesText = String(face.oracleText || '').trim();
-
-      return `
-        <section class="commander-builder-rules-block commander-builder-face-block">
-          <div class="commander-builder-rules-header">
-            <h4>${faceName}</h4>
-            <p class="commander-builder-meta">${faceTypeLine || 'Commander face'}</p>
-          </div>
-          <p class="commander-builder-meta">Mana cost: ${faceManaCost}</p>
-          ${faceStats ? `<p class="commander-builder-stats">Stats: ${faceStats}</p>` : ''}
-          <div class="commander-builder-rules-text">${formatCommanderBuilderRichText(faceRulesText || 'No rules text available.')}</div>
-        </section>`;
-    }).join('')
-    : `
-      <section class="commander-builder-rules-block">
-        <div class="commander-builder-rules-header">
-          <h4>Card text</h4>
-        </div>
-        ${statsLine ? `<p class="commander-builder-stats">Stats: ${statsLine}</p>` : ''}
-        <div class="commander-builder-rules-text">${formatCommanderBuilderRichText(rulesText || 'No rules text available.')}</div>
-      </section>`;
-
-  commanderBuilderResult.innerHTML = `
-    <article class="commander-builder-result-card">
-      ${imageMarkup}
-      <div class="commander-builder-details">
-        <p class="commander-builder-tag">${safeCriteriaLabel}</p>
-        <h3>${buildCommanderDisplayHtml(card.name, safeName, card)}</h3>
-        <p class="commander-builder-meta">${safeTypeLine}</p>
-        <p class="commander-builder-meta">Mana cost: ${safeManaCost}</p>
-        <p class="commander-builder-pool">Pulled from ${safePoolSize} eligible commanders.</p>
-        ${rulesMarkup}
-        <p class="commander-builder-source">${escapeHtml(sourceLabel)}</p>
-        <div class="actions">
-          <a href="${escapeHtml(card.scryfallUri)}" target="_blank" rel="noopener noreferrer">View on Scryfall</a>
-          <a href="${escapeHtml(`deckbuilder.html?new=1&commander=${encodeURIComponent(card.name)}`)}">Build This Deck</a>
-        </div>
-      </div>
-    </article>`;
-
-  attachCommanderBuilderImageFallback(card);
-}
-
-function syncCommanderBuilderExclusiveSelection(changedInput) {
-  const allInputs = getCommanderBuilderInputs();
-  if (!changedInput || !allInputs.length) {
-    return;
-  }
-
-  if (changedInput.value === 'C' && changedInput.checked) {
-    allInputs.forEach((input) => {
-      if (input !== changedInput) {
-        input.checked = false;
-      }
-    });
-    return;
-  }
-
-  if (changedInput.checked) {
-    const colorlessInput = allInputs.find((input) => input.value === 'C');
-    if (colorlessInput) {
-      colorlessInput.checked = false;
-    }
-  }
-}
-
-async function runCommanderBuilderRoll() {
-  const mode = getCommanderBuilderMode();
-  const query = getCommanderBuilderQuery();
-  if (!query) {
-    renderCommanderBuilderPlaceholder(getCommanderBuilderIdlePlaceholder(mode));
-    setCommanderBuilderCount(getCommanderBuilderIdleCount(mode));
-    setCommanderBuilderStatus(getCommanderBuilderIdleStatus(mode), 'error');
-    updateCommanderBuilderControls();
-    return;
-  }
-
-  const queryKey = getCommanderBuilderQueryKey(query);
-  const criteriaLabel = getCommanderBuilderCriteriaLabel(query);
-
-  const requestId = commanderBuilderRequestId + 1;
-  commanderBuilderRequestId = requestId;
-  commanderBuilderLoading = true;
-  updateCommanderBuilderControls();
-  renderCommanderBuilderPlaceholder('Loading commanders...');
-  setCommanderBuilderStatus(
-    query.mode === 'keywords' || query.mode === 'both'
-      ? `Loading commanders matching ${criteriaLabel} from Scryfall...`
-      : `Loading ${criteriaLabel} commanders from Scryfall...`,
-    'neutral',
-  );
-
-  try {
-    const payload = await fetchCommanderBuilderSelection(query);
-    if (requestId !== commanderBuilderRequestId) {
-      return;
-    }
-
-    commanderBuilderQueryKey = queryKey;
-    setCommanderBuilderCount(`${payload.totalCards} eligible commanders`);
-
-    if (!payload.card || !payload.totalCards) {
-      commanderBuilderLastCardName = '';
-      renderCommanderBuilderPlaceholder(
-        query.mode === 'keywords' || query.mode === 'both'
-          ? `No commander-eligible cards were found matching ${criteriaLabel}.`
-          : `No commander-eligible cards were found for ${criteriaLabel}.`,
-      );
-      setCommanderBuilderStatus(
-        query.mode === 'keywords' || query.mode === 'both'
-          ? 'No commanders found for that keyword combination.'
-          : 'No commanders found for that exact color identity.',
-        'error',
-      );
-      return;
-    }
-
-    const selectedCard = payload.card;
-    commanderBuilderLastCardName = selectedCard?.name || '';
-    renderCommanderBuilderResultCard(selectedCard, getCommanderBuilderTagLabel(query), payload.totalCards, payload.source);
-    setCommanderBuilderStatus(`${commanderBuilderLastCardName} selected for ${criteriaLabel}.`, 'success');
-  } catch (error) {
-    if (requestId !== commanderBuilderRequestId) {
-      return;
-    }
-
-    commanderBuilderQueryKey = '';
-    commanderBuilderLastCardName = '';
-    renderCommanderBuilderPlaceholder('Unable to load commanders right now. Try again in a moment.');
-    setCommanderBuilderCount('Commander pool unavailable right now.');
-    setCommanderBuilderStatus(error instanceof Error ? error.message : 'Unable to load commanders right now.', 'error');
-  } finally {
-    if (requestId === commanderBuilderRequestId) {
-      commanderBuilderLoading = false;
-      updateCommanderBuilderControls();
-    }
-  }
-}
-
-function rerollCommanderBuilderCard() {
-  const query = getCommanderBuilderQuery();
-  const queryKey = getCommanderBuilderQueryKey(query);
-  if (!query || commanderBuilderQueryKey !== queryKey) {
-    setCommanderBuilderStatus('Load a commander pool for the current filter before rerolling.', 'error');
-    return;
-  }
-
-  runCommanderBuilderRoll();
-}
-
-function renderCommanderBuilder() {
-  if (!commanderBuilderForm || !commanderBuilderResult) {
-    return;
-  }
-
-  updateCommanderBuilderModeUi();
-  renderCommanderBuilderKeywordCatalog();
-
-  if (!commanderBuilderResult.dataset.initialized) {
-    renderCommanderBuilderPlaceholder(getCommanderBuilderIdlePlaceholder());
-    commanderBuilderResult.dataset.initialized = 'true';
-  }
-
-  if (!commanderBuilderStatus?.dataset.initialized) {
-    setCommanderBuilderStatus(getCommanderBuilderIdleStatus(), 'muted');
-    commanderBuilderStatus.dataset.initialized = 'true';
-  }
-
-  if (!commanderBuilderCount?.dataset.initialized) {
-    setCommanderBuilderCount(getCommanderBuilderIdleCount());
-    commanderBuilderCount.dataset.initialized = 'true';
-  }
-
-  if (commanderBuilderMode === 'keywords' || commanderBuilderMode === 'both') {
-    void loadCommanderBuilderKeywordCatalog();
-  }
-
-  syncCommanderBuilderPreviewState();
 }
 
 function getGameWinner(game) {
@@ -7186,75 +5871,6 @@ function warmCommanderIdentityDisplayCache(games = []) {
     });
 }
 
-function collectRankingsCommanderNames(games) {
-  const commanderNames = new Set();
-
-  buildPlayerRankingEntries(games).forEach((entry) => {
-    if (entry.favoriteCommander) {
-      commanderNames.add(entry.favoriteCommander);
-    }
-  });
-
-  buildCommanderRankingEntries(games).forEach((entry) => {
-    if (entry.name) {
-      commanderNames.add(entry.name);
-    }
-  });
-
-  buildStreakEntries(games, (row) => row.commander, 'commanderStreakEntries').forEach((entry) => {
-    if (entry.name) {
-      commanderNames.add(entry.name);
-    }
-  });
-
-  return Array.from(commanderNames);
-}
-
-function getPendingRankingsCommanderNames(games) {
-  return collectRankingsCommanderNames(games).filter((name) => {
-    const identityKey = getIdentityKey(name);
-    return identityKey && !getCachedCommanderCardByName(name) && !rankingsCommanderIdentityAttemptedKeys.has(identityKey);
-  });
-}
-
-function ensureRankingsCommanderIdentities(games) {
-  const pendingNames = getPendingRankingsCommanderNames(games);
-  if (!pendingNames.length) {
-    return false;
-  }
-
-  pendingNames.forEach((name) => rankingsCommanderIdentityAttemptedKeys.add(getIdentityKey(name)));
-  rankingsCommanderIdentityLoading = true;
-  window.CommanderRankings?.renderLoading();
-
-  const requestId = ++rankingsCommanderIdentityRequestId;
-  fetchDeckCardsByNamesBulk(pendingNames)
-    .catch(() => new Map())
-    .finally(() => {
-      if (requestId !== rankingsCommanderIdentityRequestId) {
-        return;
-      }
-      rankingsCommanderIdentityLoading = false;
-      renderRankingsPage(loadGames());
-      applyResponsiveTableLabels();
-    });
-
-  return true;
-}
-
-function renderRankingsPage(games) {
-  if (rankingsCommanderIdentityLoading) {
-    window.CommanderRankings?.renderLoading();
-    return;
-  }
-
-  if (games.length && ensureRankingsCommanderIdentities(games)) {
-    return;
-  }
-
-  window.CommanderRankings?.renderAll(games);
-}
-
 function applyResponsiveTableLabels() {
   const tables = document.querySelectorAll('.player-table, .history-game-table');
 
@@ -7381,66 +5997,14 @@ function handleSortableHeaderKeydown(event) {
   handleSortableHeaderClick(event);
 }
 
-function renderSummary(games) {
-  if (!summaryEl) {
-    return;
-  }
-
-  summaryEl.innerHTML = '';
-
-  if (!games.length) {
-    summaryEl.appendChild(createStatCard('No games yet', 'Add a game to start tracking commander results.'));
-    return;
-  }
-
-  const total = games.length;
-  const mostRecent = games
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date))[0].date;
-
-  const playerWins = {};
-  const commanderCount = {};
-
-  games.forEach((game) => {
-    if (game.finishOrder && game.finishOrder.length) {
-      const winner = game.finishOrder[0];
-      playerWins[winner] = (playerWins[winner] || 0) + 1;
-    }
-
-    const playerCommandersList = getGameRows(game).map(({ player, commander }) => ({ player, commander }));
-    playerCommandersList.forEach(({ commander }) => {
-      if (commander) {
-        commanderCount[commander] = (commanderCount[commander] || 0) + 1;
-      }
-    });
-  });
-
-  const bestPlayers = Object.entries(playerWins)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([player, wins]) => `${player} (${wins} wins)`)
-    .join(', ');
-
-  const bestCommanders = Object.entries(commanderCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([commander, count]) => `${buildCommanderTextHtml(commander)} (${count})`)
-    .join('<br />');
-
-  summaryEl.appendChild(createStatCard('Total games', total));
-  summaryEl.appendChild(createStatCard('Most recent game', mostRecent));
-  summaryEl.appendChild(createStatCard('Top winners', bestPlayers || 'No winners yet')); 
-  summaryEl.appendChild(createStatCard('Popular commanders', bestCommanders || 'No commander data yet'));
-}
-
 function refresh() {
   const games = loadGames();
   const shouldUpdateLookupCaches = Boolean(
-    form
+    window.CommanderGameTracker?.hasView?.()
     || window.CommanderLiveGame?.hasView?.()
     || window.CommanderRecords?.hasView()
     || window.CommanderDeckBuilder?.hasView?.()
-    || playerRenameForm
+    || window.CommanderPlayerStats?.hasView?.()
     || window.CommanderStats?.hasView?.()
     || window.CommanderHistory?.hasView()
   );
@@ -7464,12 +6028,10 @@ function refresh() {
     renderIdentityRenameOptions();
   }
 
-  if (summaryEl) {
-    renderSummary(games);
-  }
+  window.CommanderGameTracker?.renderSummary?.(games);
 
   if (hasRankingsView) {
-    renderRankingsPage(games);
+    window.CommanderRankings?.render(games);
   }
 
   if (window.CommanderPlayerStats?.hasView()) {
@@ -7517,12 +6079,6 @@ function refresh() {
   if (hasHistoryView || hasCommanderStatsView || hasRankingsView || hasDeckSelectorView) {
     void backfillDeckListCommanderOracleIds();
   }
-}
-
-function resetForm() {
-  form.reset();
-  resetPlayerTable();
-  dateInput.valueAsDate = new Date();
 }
 
 if (liveModalCancelButton) {
@@ -7618,37 +6174,6 @@ document.addEventListener('keydown', (event) => {
   }
 
 });
-
-const playerRenameToggleButton = document.getElementById('player-rename-toggle');
-
-if (playerRenameToggleButton && playerRenameForm) {
-  playerRenameToggleButton.addEventListener('click', () => {
-    const isOpening = playerRenameForm.hidden;
-    playerRenameForm.hidden = !isOpening;
-    playerRenameToggleButton.setAttribute('aria-expanded', String(isOpening));
-    playerRenameToggleButton.textContent = isOpening ? 'Hide rename player' : 'Rename player…';
-    if (isOpening) {
-      playerRenameCurrentInput?.focus();
-    }
-  });
-}
-
-if (playerRenameForm) {
-  if (playerRenameStatus) {
-    playerRenameStatus.setAttribute('role', 'status');
-    playerRenameStatus.setAttribute('aria-live', 'polite');
-  }
-
-  playerRenameForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await handleIdentityRenameSubmit({
-      type: 'player',
-      currentInput: playerRenameCurrentInput,
-      nextInput: playerRenameNextInput,
-      statusElement: playerRenameStatus,
-    });
-  });
-}
 
 document.querySelectorAll('[data-sort-table]').forEach((table) => {
   table.addEventListener('click', handleSortableHeaderClick);
@@ -8122,13 +6647,13 @@ async function initializeApp() {
     ? getQueryParam('commander') || ''
     : ''
 
-  if (form) {
-    resetForm();
+  if (window.CommanderGameTracker?.hasView?.()) {
+    window.CommanderGameTracker.resetForm();
     const editId = getQueryParam('editId');
     if (editId) {
       const game = getGameById(editId);
       if (game) {
-        setEditMode(game);
+        window.CommanderGameTracker.setEditMode(game);
       }
     }
   }
@@ -8138,7 +6663,7 @@ async function initializeApp() {
   refresh();
 
   const restoreEditModeIfNeeded = () => {
-    if (!form) {
+    if (!window.CommanderGameTracker?.hasView?.()) {
       return;
     }
 
@@ -8149,7 +6674,7 @@ async function initializeApp() {
 
     const game = getGameById(editId);
     if (game) {
-      setEditMode(game);
+      window.CommanderGameTracker.setEditMode(game);
     }
   };
 
@@ -8258,17 +6783,17 @@ async function initializeApp() {
 
 if (typeof window !== 'undefined') {
   window.CommanderBuilderPage = {
-    renderCommanderBuilder,
-    updateCommanderBuilderModeUi,
-    syncCommanderBuilderPreviewState,
-    syncCommanderBuilderExclusiveSelection,
-    toggleCommanderBuilderKeyword,
-    renderCommanderBuilderKeywordCatalog,
-    setCommanderBuilderKeywordSearchTerm: (value) => {
-      commanderBuilderKeywordSearchTerm = String(value || '').trim();
-    },
-    runCommanderBuilderRoll,
-    rerollCommanderBuilderCard,
+    escapeHtml,
+    compareTextValues,
+    getCommanderIdentityLabel,
+    buildCommanderDisplayHtml,
+    keywordsEndpoint: KEYWORDS_ENDPOINT,
+    commanderBuilderEndpoint: COMMANDER_BUILDER_ENDPOINT,
+    cacheStorageKey: COMMANDER_BUILDER_CACHE_STORAGE_KEY,
+    cacheTtlMs: COMMANDER_BUILDER_CACHE_TTL_MS,
+    parseJsonSafe,
+    readLocalStorageValue,
+    writeLocalStorageValue,
   };
 
 }

@@ -28,6 +28,54 @@
     return shuffled;
   }
 
+  function getDeckOwnerGroups() {
+    const deckLists = loadDeckLists().map(normalizeDeckListEntry).filter(Boolean);
+    const deckListByDeckId = new Map();
+    const deckListByOwnerCommander = new Map();
+    deckLists.forEach((entry) => {
+      const deckId = String(entry.deckId || '').trim();
+      const ownerKey = getIdentityKey(entry.owner || '');
+      const commanderKey = getIdentityKey(entry.commander || '');
+      if (deckId && !deckListByDeckId.has(deckId)) {
+        deckListByDeckId.set(deckId, entry);
+      }
+      if (ownerKey && commanderKey) {
+        const compositeKey = `${ownerKey}::${commanderKey}`;
+        if (!deckListByOwnerCommander.has(compositeKey)) {
+          deckListByOwnerCommander.set(compositeKey, entry);
+        }
+      }
+    });
+    const selectorDecks = loadDecks()
+      .map(normalizeDeckRecord)
+      .filter((deck) => Boolean(deck?.commander?.name && deck?.owner))
+      .filter((deck) => deck.inRotation !== false)
+      .map((deck) => {
+        const ownerKey = getIdentityKey(deck.owner || '');
+        const commanderKey = getIdentityKey(deck.commander?.name || '');
+        const linkedDeckList = deckListByDeckId.get(deck.id)
+          || (ownerKey && commanderKey ? deckListByOwnerCommander.get(`${ownerKey}::${commanderKey}`) : null);
+        return {
+          id: deck.id,
+          deckId: deck.id,
+          owner: deck.owner,
+          commander: deck.commander.name,
+          url: String(linkedDeckList?.url || '').trim(),
+        };
+      });
+    return selectorDecks.reduce((groups, entry) => {
+      const owner = (entry.owner || '').trim();
+      if (!owner) {
+        return groups;
+      }
+      if (!groups[owner]) {
+        groups[owner] = [];
+      }
+      groups[owner].push(entry);
+      return groups;
+    }, {});
+  }
+
   function getDeckSelectorPool(selectedOwners) {
     const ownerGroups = getDeckOwnerGroups();
     return shuffleList(selectedOwners.flatMap((owner) => ownerGroups[owner] || []));

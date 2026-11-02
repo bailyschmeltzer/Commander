@@ -7,6 +7,9 @@
   const streaksSummary = document.getElementById('streaks-summary');
   const playerStreaksBody = document.getElementById('player-streaks-body');
   const commanderStreaksBody = document.getElementById('commander-streaks-body');
+  let identityLoading = false;
+  let identityRequestId = 0;
+  const identityAttemptedKeys = new Set();
 
   function renderLoading() {
     if (summary) {
@@ -414,10 +417,64 @@
     updateSortableTableIndicators('commanderStreaks');
   }
 
+  function collectCommanderNames(games) {
+    const commanderNames = new Set();
+    buildPlayerRankingEntries(games).forEach((entry) => {
+      if (entry.favoriteCommander) {
+        commanderNames.add(entry.favoriteCommander);
+      }
+    });
+    buildCommanderRankingEntries(games).forEach((entry) => {
+      if (entry.name) {
+        commanderNames.add(entry.name);
+      }
+    });
+    buildStreakEntries(games, (row) => row.commander, 'commanderStreakEntries').forEach((entry) => {
+      if (entry.name) {
+        commanderNames.add(entry.name);
+      }
+    });
+    return Array.from(commanderNames);
+  }
+
+  function render(games) {
+    if (identityLoading) {
+      renderLoading();
+      return;
+    }
+    if (!games.length) {
+      renderAll(games);
+      return;
+    }
+    const pendingNames = collectCommanderNames(games).filter((name) => {
+      const identityKey = getIdentityKey(name);
+      return identityKey && !getCachedCommanderCardByName(name) && !identityAttemptedKeys.has(identityKey);
+    });
+    if (!pendingNames.length) {
+      renderAll(games);
+      return;
+    }
+    pendingNames.forEach((name) => identityAttemptedKeys.add(getIdentityKey(name)));
+    identityLoading = true;
+    renderLoading();
+    const requestId = ++identityRequestId;
+    fetchDeckCardsByNamesBulk(pendingNames)
+      .catch(() => new Map())
+      .finally(() => {
+        if (requestId !== identityRequestId) {
+          return;
+        }
+        identityLoading = false;
+        render(loadGames());
+        applyResponsiveTableLabels();
+      });
+  }
+
   window.CommanderRankings = {
     hasView: () => Boolean(summary || tableBody || recentPlayerBody || recentCommanderBody || playerStreaksBody || commanderStreaksBody),
     renderLoading,
     renderMain,
+    render,
     renderAll(games) {
       renderMain(games);
       renderRecentTrends(games);

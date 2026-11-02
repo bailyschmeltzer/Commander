@@ -1,5 +1,46 @@
 (function () {
   const tableBody = document.getElementById('player-stats-body');
+  const renameToggleButton = document.getElementById('player-rename-toggle');
+  const renameForm = document.getElementById('player-rename-form');
+  const renameCurrentInput = document.getElementById('player-rename-current');
+  const renameNextInput = document.getElementById('player-rename-next');
+  const renameStatus = document.getElementById('player-rename-status');
+  const renameDatalist = document.getElementById('player-rename-list');
+  const renameMenu = document.getElementById('player-rename-menu');
+
+  function updateRenameOptions(values) {
+    const options = Array.isArray(values) ? values : [];
+    buildDatalistOptions(renameDatalist, options);
+    if (renameMenu) {
+      buildDropdownMenu(renameMenu, options);
+      attachLookupWrapperHandlers(renameForm || document);
+    }
+  }
+
+  if (renameStatus) {
+    renameStatus.setAttribute('role', 'status');
+    renameStatus.setAttribute('aria-live', 'polite');
+  }
+
+  renameToggleButton?.addEventListener('click', () => {
+    const isOpening = renameForm.hidden;
+    renameForm.hidden = !isOpening;
+    renameToggleButton.setAttribute('aria-expanded', String(isOpening));
+    renameToggleButton.textContent = isOpening ? 'Hide rename player' : 'Rename player…';
+    if (isOpening) {
+      renameCurrentInput?.focus();
+    }
+  });
+
+  renameForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await handleIdentityRenameSubmit({
+      type: 'player',
+      currentInput: renameCurrentInput,
+      nextInput: renameNextInput,
+      statusElement: renameStatus,
+    });
+  });
 
   function getPlayerStatsData(games) {
     const cacheBucket = getDerivedCacheBucket(games);
@@ -199,7 +240,8 @@
   }
 
   window.CommanderPlayerStats = {
-    hasView: () => Boolean(tableBody),
+    hasView: () => Boolean(tableBody || renameForm),
+    updateRenameOptions,
     render,
   };
 })();
