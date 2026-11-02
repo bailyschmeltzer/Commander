@@ -2087,6 +2087,7 @@ async function pullCloudState({ force = false } = {}) {
     const deckLists = Array.isArray(statePayload?.deckLists) ? statePayload.deckLists : [];
     const decks = Array.isArray(statePayload?.decks) ? statePayload.decks : [];
     const records = Array.isArray(statePayload?.records) ? statePayload.records : [];
+    const draftResults = Array.isArray(statePayload?.draftResults) ? statePayload.draftResults : [];
     const activeGame = statePayload?.activeGame && typeof statePayload.activeGame === 'object' ? statePayload.activeGame : null;
     const activeGameUndo = Array.isArray(statePayload?.activeGameUndo) ? statePayload.activeGameUndo : [];
     updateSyncMetadata({
@@ -2095,7 +2096,7 @@ async function pullCloudState({ force = false } = {}) {
       updatedBy: payload?.updatedBy ?? statePayload?.updatedBy,
     });
     clearSyncConflict();
-    appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records, activeGame, activeGameUndo });
+    appState = normalizeAppStateData({ games, powerLevels, deckLists, decks, records, draftResults, activeGame, activeGameUndo });
     persistLocalState(appState);
     activeGameState = loadActiveGameState();
     activeGameUndoState = loadActiveGameUndoState();

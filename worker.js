@@ -2223,10 +2223,11 @@ export default {
 
       if (request.method === 'GET') {
         const raw = await env.POD_STATE.get(stateKey, 'json');
-        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], activeGame: null, activeGameUndo: [] };
+        const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], draftResults: [], activeGame: null, activeGameUndo: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
         state.decks = Array.isArray(state.decks) ? state.decks : [];
         state.records = Array.isArray(state.records) ? state.records : [];
+        state.draftResults = Array.isArray(state.draftResults) ? state.draftResults : [];
         state.activeGame = state.activeGame && typeof state.activeGame === 'object' ? state.activeGame : null;
         state.activeGameUndo = Array.isArray(state.activeGameUndo) ? state.activeGameUndo : [];
         state.revision = Number.isFinite(Number(state.revision)) ? Number(state.revision) : 0;
@@ -2247,6 +2248,7 @@ export default {
               deckLists: state.deckLists.length,
               decks: state.decks.length,
               records: state.records.length,
+              draftResults: state.draftResults.length,
               powerLevels: state.powerLevels && typeof state.powerLevels === 'object' && !Array.isArray(state.powerLevels)
                 ? Object.keys(state.powerLevels).length
                 : 0,
@@ -2297,6 +2299,8 @@ export default {
         const deckLists = Array.isArray(body.deckLists) ? body.deckLists : null;
         const decks = Array.isArray(body.decks) ? body.decks : null;
         const records = Array.isArray(body.records) ? body.records : null;
+        const hasDraftResultsField = Object.prototype.hasOwnProperty.call(body, 'draftResults');
+        const draftResults = Array.isArray(body.draftResults) ? body.draftResults : null;
         const activeGame = Object.prototype.hasOwnProperty.call(body, 'activeGame')
           ? (body.activeGame && typeof body.activeGame === 'object' ? body.activeGame : (body.activeGame === null ? null : undefined))
           : undefined;
@@ -2313,6 +2317,12 @@ export default {
         if (typeof games === 'undefined' || (hasFullPayloadShape && (!powerLevels || !deckLists || !decks || !records || typeof activeGame === 'undefined' || !activeGameUndo))) {
           return jsonResponse({
             error: 'Sync payload has invalid field types. Refresh the page and reconnect before syncing again.',
+          }, 409);
+        }
+
+        if (hasDraftResultsField && !draftResults) {
+          return jsonResponse({
+            error: 'Sync payload has invalid draft result data. Refresh the page and reconnect before syncing again.',
           }, 409);
         }
 
@@ -2335,6 +2345,7 @@ export default {
         const currentDeckLists = Array.isArray(currentState?.deckLists) ? currentState.deckLists : [];
         const currentDecks = Array.isArray(currentState?.decks) ? currentState.decks : [];
         const currentRecords = Array.isArray(currentState?.records) ? currentState.records : [];
+        const currentDraftResults = Array.isArray(currentState?.draftResults) ? currentState.draftResults : [];
         const currentActiveGame = currentState?.activeGame && typeof currentState.activeGame === 'object' ? currentState.activeGame : null;
         const currentActiveGameUndo = Array.isArray(currentState?.activeGameUndo) ? currentState.activeGameUndo : [];
 
@@ -2343,6 +2354,7 @@ export default {
           || deckLists.length > 0
           || decks.length > 0
           || records.length > 0
+          || (draftResults || currentDraftResults).length > 0
           || Boolean(activeGame)
           || activeGameUndo.length > 0;
         const currentHasData = currentGames.length > 0
@@ -2350,6 +2362,7 @@ export default {
           || currentDeckLists.length > 0
           || currentDecks.length > 0
           || currentRecords.length > 0
+          || currentDraftResults.length > 0
           || Boolean(currentActiveGame)
           || currentActiveGameUndo.length > 0;
         const allowDestructiveOverwrite = request.headers.get('X-Allow-Destructive-State-Overwrite') === '1';
@@ -2419,6 +2432,7 @@ export default {
             checkCollectionRegression('deck lists', currentDeckLists, deckLists);
             checkCollectionRegression('decks', currentDecks, decks);
             checkCollectionRegression('records', currentRecords, records);
+            checkCollectionRegression('draft results', currentDraftResults, draftResults || currentDraftResults);
 
             const currentPowerLevelCount = Object.keys(currentPowerLevels).length;
             if (currentPowerLevelCount >= 3 && Object.keys(powerLevels).length === 0) {
@@ -2457,6 +2471,7 @@ export default {
               deckLists,
               decks: normalizedDecks,
               records,
+              draftResults: draftResults || currentDraftResults,
               activeGame,
               activeGameUndo,
               revision: nextRevision,
@@ -2472,6 +2487,7 @@ export default {
             deckLists: Array.isArray(currentState?.deckLists) ? currentState.deckLists : [],
             decks: Array.isArray(currentState?.decks) ? currentState.decks : [],
             records: Array.isArray(currentState?.records) ? currentState.records : [],
+            draftResults: currentDraftResults,
             activeGame: typeof activeGame === 'undefined'
               ? (currentState?.activeGame && typeof currentState.activeGame === 'object' ? currentState.activeGame : null)
               : activeGame,
