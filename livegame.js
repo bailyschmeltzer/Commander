@@ -32,6 +32,7 @@ const liveSourceOptions = document.getElementById('live-source-options');
 const liveSourceCancelButton = document.getElementById('live-source-cancel');
 
 let liveSetupFirstPlayerId = null;
+let liveStartingLifeManuallySet = false;
 let liveGameCompletionInFlight = false;
 let liveHoldTimerId = null;
 let liveHoldIntervalId = null;
@@ -828,7 +829,7 @@ function renderLiveOrderPreview() {
   }
 
   const rows = getLiveSetupRows();
-  if (liveStartingLifeInput) {
+  if (liveStartingLifeInput && !liveStartingLifeManuallySet) {
     liveStartingLifeInput.value = rows.length === 2 ? '30' : '40';
   }
   if (!rows.length) {
@@ -1053,7 +1054,7 @@ async function startLiveGame() {
   }
 
   const requestedStartingLife = parseInt(liveStartingLifeInput?.value || '40', 10);
-  const startingLife = players.length === 2 ? 30 : requestedStartingLife;
+  const startingLife = requestedStartingLife;
   if (!startingLife || startingLife < 1) {
     await promptLiveAlert('Enter a valid starting life total.', 'Unable to start game');
     return;
@@ -1730,6 +1731,9 @@ async function abandonActiveGame() {
   });
 
   liveSourceCancelButton?.addEventListener('click', () => hideLiveSourcePrompt(null));
+  liveStartingLifeInput?.addEventListener('input', () => {
+    liveStartingLifeManuallySet = true;
+  });
   liveGamePlayerBody?.addEventListener('input', () => {
     updateLiveSetupSeatLabels();
     renderLiveOrderPreview();
