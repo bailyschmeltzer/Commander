@@ -68,11 +68,12 @@
                 <input id="draft-player" type="text" list="player-list" placeholder="Player" required />
               </div>
               <div class="field">
-                <label for="draft-set">Set</label>
-                <select id="draft-set" required>
-                  <option value="">Loading official sets...</option>
-                </select>
-                <small id="draft-set-status" class="status-muted" role="status" aria-live="polite">Loading official sets...</small>
+                <div class="draft-set-field-heading">
+                  <label for="draft-set">Set</label>
+                  <small id="draft-set-status" class="status-muted" role="status" aria-live="polite">Loading official sets...</small>
+                </div>
+                <input id="draft-set" type="search" list="draft-set-options" placeholder="Search official draft sets" autocomplete="off" required />
+                <datalist id="draft-set-options"></datalist>
               </div>
               <div class="field">
                 <label for="draft-date">Date</label>
@@ -147,9 +148,8 @@
             </div>
             <div class="field">
               <label for="draft-filter-set">Set</label>
-              <select id="draft-filter-set">
-                <option value="">All sets</option>
-              </select>
+              <input id="draft-filter-set" type="search" list="draft-filter-set-options" placeholder="All sets" autocomplete="off" />
+              <datalist id="draft-filter-set-options"></datalist>
             </div>
             <button type="button" id="draft-clear-filters" class="secondary-button">Clear filters</button>
           </div>

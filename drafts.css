@@ -8,6 +8,28 @@
   align-items: end;
 }
 
+.draft-set-field-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.draft-set-field-heading label {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+}
+
+.draft-set-field-heading small {
+  overflow: hidden;
+  color: #667085;
+  font-size: 0.72rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .draft-record-fieldset,
 .draft-color-fieldset {
   min-width: 0;

@@ -2,6 +2,7 @@
   const draftEntryForm = document.getElementById('draft-entry-form');
   const draftPlayerInput = document.getElementById('draft-player');
   const draftSetInput = document.getElementById('draft-set');
+  const draftSetOptions = document.getElementById('draft-set-options');
   const draftSetStatus = document.getElementById('draft-set-status');
   const draftDateInput = document.getElementById('draft-date');
   const draftPlacementInput = document.getElementById('draft-placement');
@@ -15,6 +16,7 @@
   const draftResultsEmpty = document.getElementById('draft-results-empty');
   const draftFilterPlayer = document.getElementById('draft-filter-player');
   const draftFilterSet = document.getElementById('draft-filter-set');
+  const draftFilterSetOptions = document.getElementById('draft-filter-set-options');
   const draftClearFiltersButton = document.getElementById('draft-clear-filters');
   const draftPodEvents = document.getElementById('draft-pod-events');
   const draftPodPlayers = document.getElementById('draft-pod-players');
@@ -50,17 +52,6 @@
       : String(player || '').trim().toLocaleLowerCase();
   }
 
-  function getResultSetCode(result) {
-    const storedCode = String(result.setCode || '').trim().toLowerCase();
-    if (storedCode) {
-      return storedCode;
-    }
-
-    const normalizedName = String(result.setName || '').trim().toLocaleLowerCase();
-    const matchingSet = officialSets.find((set) => set.name.toLocaleLowerCase() === normalizedName);
-    return matchingSet?.code || `legacy:${normalizedName}`;
-  }
-
   function updateFilterOptions(results) {
     if (draftFilterPlayer) {
       const selectedPlayer = draftFilterPlayer.value;
@@ -83,32 +74,31 @@
 
     if (draftFilterSet) {
       const selectedSet = draftFilterSet.value;
-      const setsByCode = new Map(officialSets.map((set) => [set.code, set.name]));
+      const setsByName = new Map(officialSets.map((set) => [set.name.toLocaleLowerCase(), set.name]));
       results.forEach((result) => {
-        const code = getResultSetCode(result);
-        if (!setsByCode.has(code)) {
-          setsByCode.set(code, result.setName || 'Unknown set');
+        const name = String(result.setName || '').trim();
+        const normalizedName = name.toLocaleLowerCase();
+        if (name && !setsByName.has(normalizedName)) {
+          setsByName.set(normalizedName, name);
         }
       });
-      const setOptions = [...setsByCode.entries()];
-      draftFilterSet.innerHTML = [
-        '<option value="">All sets</option>',
-        ...setOptions.map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`),
-      ].join('');
-      if (setsByCode.has(selectedSet)) {
-        draftFilterSet.value = selectedSet;
+      if (draftFilterSetOptions) {
+        draftFilterSetOptions.innerHTML = [...setsByName.values()]
+          .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+          .join('');
       }
+      draftFilterSet.value = selectedSet;
     }
   }
 
   function getFilteredResults(results) {
     const selectedPlayer = draftFilterPlayer?.value || '';
-    const selectedSet = draftFilterSet?.value || '';
+    const selectedSet = String(draftFilterSet?.value || '').trim().toLocaleLowerCase();
     return results.filter((result) => {
       if (selectedPlayer && getPlayerKey(result.player) !== selectedPlayer) {
         return false;
       }
-      return !selectedSet || getResultSetCode(result) === selectedSet;
+      return !selectedSet || String(result.setName || '').toLocaleLowerCase().includes(selectedSet);
     });
   }
 
@@ -293,17 +283,17 @@
         throw new Error('The official set list was empty.');
       }
 
-      draftSetInput.innerHTML = [
-        '<option value="">Select an official set</option>',
-        ...officialSets.map((set) => `<option value="${escapeHtml(set.code)}">${escapeHtml(set.name)}</option>`),
-      ].join('');
+      if (draftSetOptions) {
+        draftSetOptions.innerHTML = officialSets
+          .map((set) => `<option value="${escapeHtml(set.name)}"></option>`)
+          .join('');
+      }
       if (draftSetStatus) {
-        draftSetStatus.textContent = `${officialSets.length} official paper sets available.`;
+        draftSetStatus.textContent = `${officialSets.length} draftable sets`;
         draftSetStatus.className = 'status-muted';
       }
       render();
     } catch (error) {
-      draftSetInput.innerHTML = '<option value="">Official sets unavailable</option>';
       if (draftSetStatus) {
         draftSetStatus.textContent = 'Could not load official sets. Check your connection and reload this page.';
         draftSetStatus.className = 'status-error';
@@ -338,8 +328,9 @@
     const ties = Number(draftTiesInput?.value);
     const placement = Number(draftPlacementInput?.value);
     const player = String(draftPlayerInput?.value || '').trim();
-    const setCode = String(draftSetInput?.value || '').trim().toLowerCase();
-    const selectedSet = officialSets.find((set) => set.code === setCode);
+    const requestedSetName = String(draftSetInput?.value || '').trim();
+    const selectedSet = officialSets.find((set) => set.name.toLocaleLowerCase() === requestedSetName.toLocaleLowerCase());
+    const setCode = selectedSet?.code || '';
     const setName = selectedSet?.name || '';
 
     if (
@@ -418,7 +409,7 @@
       draftEntryForm.addEventListener('submit', handleEntrySubmit);
       draftResultsBody?.addEventListener('click', handleResultsClick);
       draftFilterPlayer?.addEventListener('change', render);
-      draftFilterSet?.addEventListener('change', render);
+      draftFilterSet?.addEventListener('input', render);
       draftClearFiltersButton?.addEventListener('click', () => {
         if (draftFilterPlayer) draftFilterPlayer.value = '';
         if (draftFilterSet) draftFilterSet.value = '';

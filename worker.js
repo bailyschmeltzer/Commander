@@ -1898,7 +1898,7 @@ export default {
       }
 
       const cfCache = caches.default;
-      const cacheKey = new Request(request.url, { method: 'GET' });
+      const cacheKey = new Request(`${url.origin}/api/sets?catalog=draftable-v2`, { method: 'GET' });
       const cachedResponse = await cfCache.match(cacheKey);
       if (cachedResponse) {
         return cachedResponse;
@@ -1916,9 +1916,20 @@ export default {
         }
 
         const payload = await response.json();
-        const excludedSetTypes = new Set(['alchemy', 'minigame', 'memorabilia', 'promo', 'token', 'treasure_chest']);
+        const draftableSetTypes = new Set(['core', 'draft_innovation', 'expansion', 'masters']);
+        const draftableFunnySetCodes = new Set(['ugl', 'unh', 'ust', 'unf']);
+        const currentYear = new Date().getUTCFullYear();
         const sets = (Array.isArray(payload?.data) ? payload.data : [])
-          .filter((set) => !set?.digital && !excludedSetTypes.has(getTextValue(set?.set_type).toLowerCase()))
+          .filter((set) => {
+            const code = getTextValue(set?.code).toLowerCase();
+            const setType = getTextValue(set?.set_type).toLowerCase();
+            const releaseYear = Number.parseInt(getTextValue(set?.released_at).slice(0, 4), 10);
+            return !set?.digital
+              && /^[a-z0-9]{3}$/.test(code)
+              && (draftableSetTypes.has(setType) || draftableFunnySetCodes.has(code))
+              && Number.isFinite(releaseYear)
+              && releaseYear <= currentYear;
+          })
           .map((set) => ({
             code: getTextValue(set?.code).toLowerCase(),
             name: getTextValue(set?.name),
