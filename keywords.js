@@ -13,6 +13,7 @@
   let scryfallRequestQueue = Promise.resolve();
   let lastScryfallRequestAt = 0;
   const scryfallReminderCache = new Map();
+  const keywordsWithoutReminder = new Set();
   const SCRYFALL_REQUEST_INTERVAL_MS = 110;
   const grid = document.getElementById('keyword-grid');
   const status = document.getElementById('keyword-status');
@@ -124,9 +125,12 @@
   }
 
   function renderKeywordReminder(container, reminder) {
-    container.innerHTML = reminder
-      ? `<p class="keyword-reminder-text">${escapeHtml(reminder)}</p>`
-      : '<p class="keyword-reminder-status">No keyword reminder text found on Scryfall.</p>';
+    if (!reminder) {
+      keywordsWithoutReminder.add((container.dataset.scryfallKeyword || '').toLowerCase());
+      renderGrid();
+      return;
+    }
+    container.innerHTML = `<p class="keyword-reminder-text">${escapeHtml(reminder)}</p>`;
   }
 
   async function loadKeywordReminder(container) {
@@ -174,6 +178,7 @@
   function renderGrid() {
     reminderObserver?.disconnect();
     const filtered = allKeywords.filter((keyword) => {
+      if (keywordsWithoutReminder.has(keyword.name.toLowerCase())) return false;
       if (activeCategory !== 'all' && keyword.category !== activeCategory) return false;
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
@@ -223,7 +228,9 @@
 
       const abilities = (data.keywordAbilities || []).map((name) => ({ name, category: 'ability', description: getDescriptionFor(name) }));
       const actions = (data.keywordActions || []).map((name) => ({ name, category: 'action', description: getDescriptionFor(name) }));
-      const words = (data.abilityWords || []).map((name) => ({ name, category: 'word', description: getDescriptionFor(name) }));
+      const words = (data.abilityWords || [])
+        .map((name) => ({ name, category: 'word', description: getDescriptionFor(name) }))
+        .filter((keyword) => keyword.description);
       const jargon = Object.entries(COMMON_TERMS).map(([key, description]) => ({ name: key.charAt(0).toUpperCase() + key.slice(1), category: 'jargon', description }));
       allKeywords = [...abilities, ...actions, ...words, ...jargon].sort((a, b) => a.name.localeCompare(b.name));
       status.textContent = '';
