@@ -437,6 +437,12 @@
     return Array.from(commanderNames);
   }
 
+  function renderAll(games) {
+    renderMain(games);
+    renderRecentTrends(games);
+    renderStreaks(games);
+  }
+
   function render(games) {
     if (identityLoading) {
       renderLoading();
@@ -475,10 +481,6 @@
     renderLoading,
     renderMain,
     render,
-    renderAll(games) {
-      renderMain(games);
-      renderRecentTrends(games);
-      renderStreaks(games);
-    },
+    renderAll,
   };
 })();
