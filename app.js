@@ -5670,7 +5670,7 @@ function getDeckValidationSummary(deck) {
   const unlimitedCopyKeys = new Set();
   [...normalizedDeck.cards, commander, secondCommander]
     .filter(Boolean)
-    .forEach((c) => { if (isUnlimitedCopiesCard(c)) unlimitedCopyKeys.add(getIdentityKey(c.name)); });
+    .forEach((c) => { if (window.CommanderDeckRules.isUnlimitedCopiesCard(c)) unlimitedCopyKeys.add(getIdentityKey(c.name)); });
 
   const duplicates = [];
   const seenCount = new Map();
@@ -5894,11 +5894,6 @@ function getDeckBuilderSyncState() {
 
 function hasUnsavedDeckBuilderChanges() {
   return window.CommanderDeckBuilder?.hasUnsavedDeckBuilderChanges?.() || false;
-}
-
-// Returns true if a card is allowed to appear more than once in a deck.
-function allowsMultipleCopies(card) {
-  return isBasicLand(card) || isUnlimitedCopiesCard(card);
 }
 
 function applyDeckBuilderDraftMeta(deck) {

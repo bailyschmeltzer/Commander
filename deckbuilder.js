@@ -1,4 +1,5 @@
 (function () {
+  const allowsMultipleCopies = (card) => window.CommanderDeckRules.allowsMultipleCopies(card);
   const DECK_BUILDER_SELECTED_CARD_STORAGE_KEY = 'deckBuilderSelectedCardDraft';
   const DECK_BUILDER_META_SAVE_DEBOUNCE_MS = 120;
   const DECK_CARD_ARTS_ENDPOINT = '/api/deck-card-arts';
