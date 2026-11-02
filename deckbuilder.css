@@ -25,6 +25,12 @@
   align-self: stretch;
 }
 
+@media (min-width: 901px) {
+  .page-deckbuilder .combined-input-wrapper .dropdown-button {
+    display: inline-flex;
+  }
+}
+
 .deck-builder-search-card,
 .deck-builder-meta-card {
   grid-column: 1;

@@ -32,7 +32,11 @@
   const deckBuilderImportButton = document.getElementById('deck-builder-import');
   const deckBuilderImportStatus = document.getElementById('deck-builder-import-status');
   const deckBuilderPreconSelect = document.getElementById('deck-builder-precon');
+  const deckBuilderPreconMenu = document.getElementById('deck-builder-precon-menu');
   const deckBuilderPreconLoadButton = document.getElementById('deck-builder-precon-load');
+  const deckBuilderSecretLairInput = document.getElementById('deck-builder-secret-lair');
+  const deckBuilderSecretLairMenu = document.getElementById('deck-builder-secret-lair-menu');
+  const deckBuilderSecretLairLoadButton = document.getElementById('deck-builder-secret-lair-load');
   const deckBuilderUndoButton = document.getElementById('deck-builder-undo');
   const deckBuilderDiscardButton = document.getElementById('deck-builder-discard');
   const deckBuilderSaveButton = document.getElementById('deck-builder-save');
@@ -76,6 +80,10 @@
   let deckBuilderHoldTimerId = null;
   let deckBuilderHoldIntervalId = null;
   let deckBuilderMutationQueue = Promise.resolve();
+  let deckBuilderPreconOptions = null;
+  let deckBuilderSecretLairOptions = null;
+  let deckBuilderPreconCatalogPromise = null;
+  let deckBuilderSecretLairCatalogPromise = null;
 
   function getDeckBuilderGroupedCards(deck) {
     const typeOrder = ['Creature', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Instant', 'Sorcery', 'Land', 'Other'];
@@ -340,6 +348,10 @@
     if (deckBuilderTokenSearchInput) deckBuilderTokenSearchInput.disabled = isReadOnly;
     if (deckBuilderImportButton) deckBuilderImportButton.disabled = isReadOnly;
     if (deckBuilderTextList) deckBuilderTextList.disabled = isReadOnly;
+    if (deckBuilderPreconSelect) deckBuilderPreconSelect.disabled = isReadOnly;
+    if (deckBuilderPreconLoadButton) deckBuilderPreconLoadButton.disabled = isReadOnly || !deckBuilderPreconSelect?.value;
+    if (deckBuilderSecretLairInput) deckBuilderSecretLairInput.disabled = isReadOnly;
+    if (deckBuilderSecretLairLoadButton) deckBuilderSecretLairLoadButton.disabled = isReadOnly || !deckBuilderSecretLairInput?.value;
     if (deckBuilderUndoButton) {
       deckBuilderUndoButton.disabled = isReadOnly || ((deckBuilderUndoStacks[deck?.id || ''] || []).length === 0);
     }
@@ -417,7 +429,7 @@
 
   function deckCardShowPartnerCommanderButton(deck, card) {
     if (!isCommanderEligibleCard(card)) return false;
-    if (!deck?.commander) return false;
+    if (!deck?.commander) return true;
     if (!cardHasPairingMechanic(deck.commander)) return false;
     if (!cardHasPairingMechanic(card)) return false;
     return true;
@@ -1099,12 +1111,21 @@
   }
 
   async function fetchPreconList() {
-    const res = await fetch('https://mtgjson.com/api/v5/DeckList.json');
-    if (!res.ok) throw new Error(`Failed to load precon list (${res.status})`);
-    const json = await res.json();
-    return (json.data || [])
-      .filter((deck) => deck.type === 'Commander Deck')
-      .sort((first, second) => second.releaseDate.localeCompare(first.releaseDate));
+    if (!deckBuilderPreconCatalogPromise) {
+      deckBuilderPreconCatalogPromise = fetch('https://mtgjson.com/api/v5/DeckList.json')
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`Failed to load precon list (${response.status})`);
+          return response.json();
+        })
+        .then((payload) => (Array.isArray(payload?.data) ? payload.data : [])
+          .filter((deck) => deck.type === 'Commander Deck' && deck.fileName)
+          .sort((first, second) => String(second.releaseDate || '').localeCompare(String(first.releaseDate || ''))))
+        .catch((error) => {
+          deckBuilderPreconCatalogPromise = null;
+          throw error;
+        });
+    }
+    return deckBuilderPreconCatalogPromise;
   }
 
   async function loadPreconDeckText(fileName) {
@@ -1122,6 +1143,149 @@
     lines.push('Deck:');
     (data.mainBoard || []).forEach((card) => lines.push(`${card.count || 1} ${card.name}`));
     return lines.join('\n');
+  }
+
+  async function fetchSecretLairCatalog() {
+    if (!deckBuilderSecretLairCatalogPromise) {
+      deckBuilderSecretLairCatalogPromise = fetch('https://mtgjson.com/api/v5/SLD.json')
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`Failed to load Secret Lair products (${response.status})`);
+          return response.json();
+        })
+        .then((payload) => {
+          const data = payload?.data || {};
+          const decksByName = new Map(
+            (Array.isArray(data.decks) ? data.decks : [])
+              .map((deck) => [getIdentityKey(deck?.name), deck])
+              .filter(([key]) => key)
+          );
+          const products = (Array.isArray(data.sealedProduct) ? data.sealedProduct : [])
+            .filter((product) => product.subtype === 'secret_lair')
+            .filter((product) => (product.contents?.deck || []).some((deck) => decksByName.has(getIdentityKey(deck?.name))))
+            .sort((first, second) => String(second.releaseDate || '').localeCompare(String(first.releaseDate || '')));
+          const cardsByUuid = new Map(
+            [...(data.cards || []), ...(data.tokens || [])]
+              .filter((card) => card?.uuid)
+              .map((card) => [String(card.uuid), card])
+          );
+          return { products, decksByName, cardsByUuid };
+        })
+        .catch((error) => {
+          deckBuilderSecretLairCatalogPromise = null;
+          throw error;
+        });
+    }
+    return deckBuilderSecretLairCatalogPromise;
+  }
+
+  function getMtgJsonDeckEntriesText(entries, cardsByUuid) {
+    return (Array.isArray(entries) ? entries : [])
+      .map((entry) => {
+        const card = cardsByUuid.get(String(entry?.uuid || ''));
+        const name = String(card?.name || entry?.name || '').trim();
+        const count = Number.isFinite(Number(entry?.count)) ? Math.max(1, Number(entry.count)) : 1;
+        return name ? `${count} ${name}` : '';
+      })
+      .filter(Boolean);
+  }
+
+  async function loadSecretLairDeckText(productName) {
+    const catalog = await fetchSecretLairCatalog();
+    const product = catalog.products.find((entry) => entry.name === productName);
+    if (!product) throw new Error('Secret Lair product was not found.');
+
+    const decks = (product.contents?.deck || [])
+      .map((entry) => catalog.decksByName.get(getIdentityKey(entry?.name)))
+      .filter(Boolean);
+    if (!decks.length) throw new Error('No card list was found for this Secret Lair product.');
+
+    const commanders = decks.flatMap((deck) => getMtgJsonDeckEntriesText(deck.commander, catalog.cardsByUuid));
+    const mainBoard = decks.flatMap((deck) => getMtgJsonDeckEntriesText(deck.mainBoard, catalog.cardsByUuid));
+    const maybeboard = decks.flatMap((deck) => getMtgJsonDeckEntriesText(deck.sideBoard, catalog.cardsByUuid));
+    const tokens = decks.flatMap((deck) => getMtgJsonDeckEntriesText(deck.tokens, catalog.cardsByUuid));
+    const lines = [];
+    if (commanders.length) lines.push('Commander:', ...commanders, '');
+    if (mainBoard.length) lines.push('Deck:', ...mainBoard);
+    if (maybeboard.length) lines.push('', 'Maybeboard:', ...maybeboard);
+    if (tokens.length) lines.push('', 'Tokens:', ...tokens);
+    if (!lines.length) throw new Error('No card list was found for this Secret Lair product.');
+    return lines.join('\n');
+  }
+
+  function renderDeckBuilderProductMenu(input, menu, options, { loading = false, errorMessage = '' } = {}) {
+    if (!input || !menu) return;
+    if (loading) {
+      menu.innerHTML = '<div class="dropdown-empty">Loading products…</div>';
+    } else if (errorMessage) {
+      menu.innerHTML = `<div class="dropdown-empty">${escapeHtml(errorMessage)}</div>`;
+    } else {
+      const query = String(input.value || '').trim().toLocaleLowerCase();
+      const matches = options.filter((option) => !query || option.label.toLocaleLowerCase().includes(query));
+      const visibleOptions = query ? matches : matches.slice(0, 100);
+      menu.innerHTML = visibleOptions.length
+        ? visibleOptions.map((option) => `<div class="dropdown-item" data-value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</div>`).join('')
+        : '<div class="dropdown-empty">No products match this search.</div>';
+      if (!query && matches.length > visibleOptions.length) {
+        menu.insertAdjacentHTML('beforeend', `<div class="dropdown-empty">Type to filter ${matches.length} products.</div>`);
+      }
+    }
+    syncMobileLookupSelect(menu.closest('.combined-input-wrapper'));
+  }
+
+  function getDeckBuilderPreconOptions(decks) {
+    return decks.map((deck) => ({
+      value: deck.fileName,
+      label: `${deck.name} (${deck.code})`,
+    }));
+  }
+
+  function getDeckBuilderSecretLairOptions(products) {
+    return products.map((product) => ({
+      value: product.name,
+      label: `${product.name}${product.releaseDate ? ` (${String(product.releaseDate).slice(0, 4)})` : ''}`,
+    }));
+  }
+
+  async function loadDeckBuilderPreconOptions() {
+    if (!deckBuilderPreconSelect || !deckBuilderPreconMenu) return;
+    renderDeckBuilderProductMenu(deckBuilderPreconSelect, deckBuilderPreconMenu, [], { loading: true });
+    try {
+      const options = getDeckBuilderPreconOptions(await fetchPreconList());
+      deckBuilderPreconOptions = options;
+      renderDeckBuilderProductMenu(deckBuilderPreconSelect, deckBuilderPreconMenu, options);
+      updateDeckBuilderProductLoadButtons();
+    } catch (error) {
+      renderDeckBuilderProductMenu(deckBuilderPreconSelect, deckBuilderPreconMenu, [], {
+        errorMessage: 'Precon catalog could not be loaded. Focus here to retry.',
+      });
+      setDeckBuilderImportStatus(error instanceof Error ? error.message : 'Failed to load precons.', 'error');
+    }
+  }
+
+  async function loadDeckBuilderSecretLairOptions() {
+    if (!deckBuilderSecretLairInput || !deckBuilderSecretLairMenu) return;
+    renderDeckBuilderProductMenu(deckBuilderSecretLairInput, deckBuilderSecretLairMenu, [], { loading: true });
+    try {
+      const catalog = await fetchSecretLairCatalog();
+      const options = getDeckBuilderSecretLairOptions(catalog.products);
+      deckBuilderSecretLairOptions = options;
+      renderDeckBuilderProductMenu(deckBuilderSecretLairInput, deckBuilderSecretLairMenu, options);
+      updateDeckBuilderProductLoadButtons();
+    } catch (error) {
+      renderDeckBuilderProductMenu(deckBuilderSecretLairInput, deckBuilderSecretLairMenu, [], {
+        errorMessage: 'Secret Lair catalog could not be loaded. Focus here to retry.',
+      });
+      setDeckBuilderImportStatus(error instanceof Error ? error.message : 'Failed to load Secret Lair products.', 'error');
+    }
+  }
+
+  function updateDeckBuilderProductLoadButtons() {
+    const deck = ensureActiveDeckBuilderRecord();
+    const isReadOnly = Boolean(deck) && !canCurrentUserEditDeck(deck);
+    const preconIsSelected = Boolean(deckBuilderPreconOptions?.some((option) => option.value === deckBuilderPreconSelect?.value));
+    const secretLairIsSelected = Boolean(deckBuilderSecretLairOptions?.some((option) => option.value === deckBuilderSecretLairInput?.value));
+    if (deckBuilderPreconLoadButton) deckBuilderPreconLoadButton.disabled = isReadOnly || !preconIsSelected;
+    if (deckBuilderSecretLairLoadButton) deckBuilderSecretLairLoadButton.disabled = isReadOnly || !secretLairIsSelected;
   }
 
   function setDeckBuilderSearchStatus(message, tone = 'muted') {
@@ -1530,7 +1694,10 @@
       return;
     }
 
-    const duplicateInDeck = deck.cards.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name));
+    const selectedDeckCard = deck.cards.find((entry) => entry.id === deckBuilderSelectedDeckCardId
+      && getIdentityKey(entry.name) === getIdentityKey(card.name)) || null;
+    const duplicateInDeck = deck.cards.some((entry) => getIdentityKey(entry.name) === getIdentityKey(card.name)
+      && entry.id !== selectedDeckCard?.id);
     if (duplicateInDeck) {
       await promptLiveAlert(`${card.name} is already in the main deck. Remove it there before setting it as commander.`, 'Duplicate card');
       return;
@@ -1538,7 +1705,11 @@
 
     if (!deck.commander) {
       const nextDeck = applyDeckBuilderDraftMeta(deck);
-      persistDeckBuilderRecord({ ...nextDeck, commander: card }, `${card.name} set as commander.`);
+      deckBuilderSelectedDeckCardId = null;
+      const nextCards = selectedDeckCard
+        ? deck.cards.filter((entry) => entry.id !== selectedDeckCard.id)
+        : deck.cards;
+      persistDeckBuilderRecord({ ...nextDeck, commander: card, cards: nextCards }, `${card.name} set as commander.`);
       return;
     }
 
@@ -2121,7 +2292,11 @@
           ? `<button type="button" class="history-delete-button deck-builder-remove-card" data-remove-commander="true"${isReadOnly ? ' disabled' : ''}>Remove</button>`
           : `<button type="button" class="history-delete-button deck-builder-remove-card" data-card-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Remove</button>`)
       : '';
-    const commanderAction = isExpanded && !options.isCommander && !options.fromMaybeboard && !options.fromTokens && Boolean(options.canSetCommander)
+    const commanderAction = (isExpanded || !options.deckHasCommander)
+      && !options.isCommander
+      && !options.fromMaybeboard
+      && !options.fromTokens
+      && Boolean(options.canSetCommander)
       ? `<button type="button" class="secondary-button deck-builder-set-row-commander" data-set-commander-id="${escapeHtml(card.id)}"${isReadOnly ? ' disabled' : ''}>Set as Commander</button>`
       : '';
     const addToDeckAction = isExpanded && options.fromMaybeboard
@@ -2212,6 +2387,7 @@
       isSelected: card.id === deckBuilderSelectedDeckCardId,
       isIllegal: isIllegalCard(card),
       canSetCommander: deckCardShowPartnerCommanderButton(deck, card),
+      deckHasCommander: Boolean(deck?.commander),
       showArtPicker: card.id === deckBuilderArtPickerCardId,
       readOnly: isReadOnly,
     })).join('');
@@ -3090,37 +3266,32 @@
     await importDeckFromText(textList.value);
   });
 
-  if (preconSelect) {
-    let preconListLoaded = false;
-    preconSelect.addEventListener('focus', async () => {
-      if (preconListLoaded) return;
-      const defaultOption = preconSelect.options[0];
-      defaultOption.textContent = 'Loading precons...';
-      defaultOption.disabled = true;
-      try {
-        const decks = await fetchPreconList();
-        preconListLoaded = true;
-        defaultOption.textContent = 'Select a precon...';
-        defaultOption.disabled = false;
-        decks.forEach((deck) => {
-          const option = document.createElement('option');
-          option.value = deck.fileName;
-          option.textContent = `${deck.name} (${deck.code})`;
-          preconSelect.appendChild(option);
-        });
-      } catch (_) {
-        defaultOption.textContent = 'Failed to load precons';
-        defaultOption.disabled = false;
-      }
-    });
-    preconSelect.addEventListener('change', () => {
-      if (preconLoadButton) preconLoadButton.disabled = !preconSelect.value;
-    });
-  }
+  deckBuilderPreconSelect?.addEventListener('focus', () => {
+    void loadDeckBuilderPreconOptions();
+  });
+  deckBuilderPreconSelect?.addEventListener('input', () => {
+    if (deckBuilderPreconOptions) {
+      renderDeckBuilderProductMenu(deckBuilderPreconSelect, deckBuilderPreconMenu, deckBuilderPreconOptions);
+      updateDeckBuilderProductLoadButtons();
+    } else {
+      void loadDeckBuilderPreconOptions();
+    }
+  });
+  deckBuilderSecretLairInput?.addEventListener('focus', () => {
+    void loadDeckBuilderSecretLairOptions();
+  });
+  deckBuilderSecretLairInput?.addEventListener('input', () => {
+    if (deckBuilderSecretLairOptions) {
+      renderDeckBuilderProductMenu(deckBuilderSecretLairInput, deckBuilderSecretLairMenu, deckBuilderSecretLairOptions);
+      updateDeckBuilderProductLoadButtons();
+    } else {
+      void loadDeckBuilderSecretLairOptions();
+    }
+  });
 
-  preconLoadButton?.addEventListener('click', async () => {
-    const fileName = preconSelect?.value;
-    if (!fileName) return;
+  deckBuilderPreconLoadButton?.addEventListener('click', async () => {
+    const fileName = deckBuilderPreconSelect?.value || '';
+    if (!deckBuilderPreconOptions?.some((option) => option.value === fileName)) return;
     preconLoadButton.disabled = true;
     setDeckBuilderImportStatus('Loading precon...', 'muted');
     try {
@@ -3130,7 +3301,23 @@
     } catch (error) {
       setDeckBuilderImportStatus(error instanceof Error ? error.message : 'Failed to load precon.', 'error');
     } finally {
-      preconLoadButton.disabled = false;
+      updateDeckBuilderProductLoadButtons();
+    }
+  });
+
+  deckBuilderSecretLairLoadButton?.addEventListener('click', async () => {
+    const productName = String(deckBuilderSecretLairInput?.value || '').trim();
+    if (!deckBuilderSecretLairOptions?.some((option) => option.value === productName)) return;
+    deckBuilderSecretLairLoadButton.disabled = true;
+    setDeckBuilderImportStatus('Loading Secret Lair product...', 'muted');
+    try {
+      const text = await loadSecretLairDeckText(productName);
+      if (deckBuilderTextList) deckBuilderTextList.value = text;
+      await importDeckFromText(text);
+    } catch (error) {
+      setDeckBuilderImportStatus(error instanceof Error ? error.message : 'Failed to load Secret Lair product.', 'error');
+    } finally {
+      updateDeckBuilderProductLoadButtons();
     }
   });
 
