@@ -1,6 +1,36 @@
 (function () {
   const searchInput = document.getElementById('commander-search');
   const tableBody = document.getElementById('commander-stats-body');
+  const renameForm = document.getElementById('commander-rename-form');
+  const renameCurrentInput = document.getElementById('commander-rename-current');
+  const renameNextInput = document.getElementById('commander-rename-next');
+  const renameStatus = document.getElementById('commander-rename-status');
+  const renameDatalist = document.getElementById('commander-rename-list');
+  const renameMenu = document.getElementById('commander-rename-menu');
+
+  function updateRenameOptions(values) {
+    const options = Array.isArray(values) ? values : [];
+    buildDatalistOptions(renameDatalist, options);
+    if (renameMenu) {
+      buildDropdownMenu(renameMenu, options);
+      attachLookupWrapperHandlers(renameForm || document);
+    }
+  }
+
+  if (renameStatus) {
+    renameStatus.setAttribute('role', 'status');
+    renameStatus.setAttribute('aria-live', 'polite');
+  }
+
+  renameForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await handleIdentityRenameSubmit({
+      type: 'commander',
+      currentInput: renameCurrentInput,
+      nextInput: renameNextInput,
+      statusElement: renameStatus,
+    });
+  });
 
   function getCommanderStatsData(games) {
     const cacheBucket = getDerivedCacheBucket(games);
@@ -289,5 +319,6 @@
   window.CommanderStats = {
     hasView: () => Boolean(tableBody),
     render,
+    updateRenameOptions,
   };
 })();

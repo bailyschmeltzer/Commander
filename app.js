@@ -51,36 +51,6 @@ const playerRenameNextInput = document.getElementById('player-rename-next');
 const playerRenameStatus = document.getElementById('player-rename-status');
 const playerRenameDatalist = document.getElementById('player-rename-list');
 const playerRenameMenu = document.getElementById('player-rename-menu');
-const authAuditSection = document.getElementById('auth-audit-section')
-  || document.querySelector('.page-admin-logs main .card');
-const authAuditStatus = document.getElementById('auth-audit-status');
-const authAuditList = document.getElementById('auth-audit-list');
-const authAuditRefreshButton = document.getElementById('auth-audit-refresh');
-const authAuditExportJsonButton = document.getElementById('auth-audit-export-json');
-const authAuditExportCsvButton = document.getElementById('auth-audit-export-csv');
-const authAuditFilterResultSelect = document.getElementById('auth-audit-filter-result');
-const authAuditFilterActionSelect = document.getElementById('auth-audit-filter-action');
-const authAuditFilterUserInput = document.getElementById('auth-audit-filter-user');
-const authAuditFilterFromInput = document.getElementById('auth-audit-filter-from');
-const authAuditFilterToInput = document.getElementById('auth-audit-filter-to');
-const authAuditFilterClearButton = document.getElementById('auth-audit-filter-clear');
-const authAuditPageSizeSelect = document.getElementById('auth-audit-page-size');
-const authAuditPagePrevButton = document.getElementById('auth-audit-page-prev');
-const authAuditPageNextButton = document.getElementById('auth-audit-page-next');
-const authAuditPageSummary = document.getElementById('auth-audit-page-summary');
-const syncDebugSection = document.getElementById('sync-debug-section');
-const syncDebugStatus = document.getElementById('sync-debug-status');
-const syncDebugList = document.getElementById('sync-debug-list');
-const syncDebugClearButton = document.getElementById('sync-debug-clear');
-const registeredAccountsSection = document.getElementById('registered-accounts-section');
-const registeredAccountsStatus = document.getElementById('registered-accounts-status');
-const registeredAccountsBody = document.getElementById('registered-accounts-body');
-const commanderRenameForm = document.getElementById('commander-rename-form');
-const commanderRenameCurrentInput = document.getElementById('commander-rename-current');
-const commanderRenameNextInput = document.getElementById('commander-rename-next');
-const commanderRenameStatus = document.getElementById('commander-rename-status');
-const commanderRenameDatalist = document.getElementById('commander-rename-list');
-const commanderRenameMenu = document.getElementById('commander-rename-menu');
 const commanderBuilderForm = document.getElementById('commander-builder-form');
 const commanderBuilderResult = document.getElementById('commander-builder-result');
 const commanderBuilderStatus = document.getElementById('commander-builder-status');
@@ -165,18 +135,7 @@ let syncQueuedGamesOnly = null;
 let syncAuthenticatedUserId = '';
 let syncAuthenticatedDisplayName = '';
 let syncAuthenticatedRole = '';
-let authAuditLogs = [];
 let syncDebugLogs = [];
-let authAuditLoading = false;
-let authAuditLastLoadedAt = 0;
-let authAuditLoadedForUserId = '';
-let authAuditFilterState = { result: 'all', action: 'all', user: '', from: '', to: '' };
-let authAuditPageSize = 10;
-let authAuditCurrentPage = 1;
-let registeredAccounts = [];
-let registeredAccountsLoading = false;
-let registeredAccountsLastLoadedAt = 0;
-let registeredAccountsLoadedForUserId = '';
 let syncConflictInfo = null;
 let syncMetadataCheckInFlight = false;
 let syncLastFreshnessCheckAt = 0;
@@ -1187,15 +1146,11 @@ function getKnownCommanderOptions() {
 
 function renderIdentityRenameOptions() {
   buildDatalistOptions(playerRenameDatalist, getKnownPlayerOptions());
-  buildDatalistOptions(commanderRenameDatalist, getKnownCommanderOptions());
   if (playerRenameMenu) {
     buildDropdownMenu(playerRenameMenu, getKnownPlayerOptions());
     attachLookupWrapperHandlers(playerRenameForm || document);
   }
-  if (commanderRenameMenu) {
-    buildDropdownMenu(commanderRenameMenu, getKnownCommanderOptions());
-    attachLookupWrapperHandlers(commanderRenameForm || document);
-  }
+  window.CommanderStats?.updateRenameOptions?.(getKnownCommanderOptions());
 }
 
 function getBestDeckListEntryForCommander(commanderName, entries) {
@@ -1687,14 +1642,7 @@ function updateSyncAuthenticatedUser(auth = null) {
 
 function clearSyncAuthenticatedUser() {
   updateSyncAuthenticatedUser(null);
-  authAuditLogs = [];
-  authAuditLoading = false;
-  authAuditLastLoadedAt = 0;
-  authAuditLoadedForUserId = '';
-  registeredAccounts = [];
-  registeredAccountsLoading = false;
-  registeredAccountsLastLoadedAt = 0;
-  registeredAccountsLoadedForUserId = '';
+  window.CommanderAdminLogs?.resetForUserChange?.();
   window.CommanderDeckLibrary?.resetFilterForUserChange();
   window.CommanderHistory?.resetPlayerFilterForUserChange();
 }
@@ -4496,539 +4444,14 @@ function deleteGame(gameId) {
   refresh();
 }
 
-function setAuthAuditStatus(message, tone = 'muted') {
-  if (!authAuditStatus) {
-    return;
-  }
-
-  authAuditStatus.textContent = message;
-  authAuditStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
-  authAuditStatus.classList.add(`status-${tone}`);
-}
-
-function formatAuthAuditTimestamp(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Unknown time';
-  }
-
-  return date.toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-function normalizeAuditDateInputValue(value) {
-  const normalized = String(value || '').trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
-}
-
-function updateAuthAuditFilterStateFromInputs() {
-  authAuditFilterState = {
-    result: authAuditFilterResultSelect?.value || 'all',
-    action: authAuditFilterActionSelect?.value || 'all',
-    user: String(authAuditFilterUserInput?.value || '').trim().toLowerCase(),
-    from: normalizeAuditDateInputValue(authAuditFilterFromInput?.value || ''),
-    to: normalizeAuditDateInputValue(authAuditFilterToInput?.value || ''),
-  };
-  authAuditCurrentPage = 1;
-}
-
-function resetAuthAuditFilters() {
-  if (authAuditFilterResultSelect) {
-    authAuditFilterResultSelect.value = 'all';
-  }
-  if (authAuditFilterActionSelect) {
-    authAuditFilterActionSelect.value = 'all';
-  }
-  if (authAuditFilterUserInput) {
-    authAuditFilterUserInput.value = '';
-  }
-  if (authAuditFilterFromInput) {
-    authAuditFilterFromInput.value = '';
-  }
-  if (authAuditFilterToInput) {
-    authAuditFilterToInput.value = '';
-  }
-  updateAuthAuditFilterStateFromInputs();
-}
-
-function getAuthAuditAction(entry) {
-  const explicitAction = String(entry?.action || '').trim().toLowerCase();
-  if (explicitAction) {
-    return explicitAction;
-  }
-
-  const path = String(entry?.path || '').trim().toLowerCase();
-  const reason = String(entry?.reason || '').trim().toLowerCase();
-  const status = Number(entry?.status || 0);
-
-  if (!entry?.success || status >= 400 || reason.includes('error') || reason.includes('failed') || reason.includes('invalid') || reason.includes('unable')) {
-    return 'error';
-  }
-
-  if (reason.startsWith('saved game:')) {
-    return 'game-save';
-  }
-  if (reason.startsWith('updated game:')) {
-    return 'game-update';
-  }
-  if (reason.startsWith('deleted game:')) {
-    return 'game-delete';
-  }
-  if (reason.startsWith('saved deck:')) {
-    return 'deck-save';
-  }
-  if (reason.startsWith('updated deck:')) {
-    return 'deck-update';
-  }
-  if (reason.startsWith('deleted deck:')) {
-    return 'deck-delete';
-  }
-
-  if (path.startsWith('/api/session') || reason.includes('authenticated') || reason.includes('authentication') || reason.includes('incorrect pod access code') || reason.includes('display name is required') || reason.includes('pod access code is required')) {
-    return 'authentication';
-  }
-
-  return 'authentication';
-}
-
-function updateAuthAuditPaginationState() {
-  const parsedPageSize = Number.parseInt(String(authAuditPageSizeSelect?.value || authAuditPageSize || '10'), 10);
-  authAuditPageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 10;
-  authAuditCurrentPage = Math.max(1, authAuditCurrentPage);
-}
-
-function getFilteredAuthAuditLogs(logs) {
-  if (!Array.isArray(logs) || !logs.length) {
-    return [];
-  }
-
-  const { result, action, user, from, to } = authAuditFilterState;
-  return logs.filter((entry) => {
-    const isSuccess = Boolean(entry?.success);
-    if (result === 'failed' && isSuccess) {
-      return false;
-    }
-    if (result === 'success' && !isSuccess) {
-      return false;
-    }
-
-    if (action !== 'all' && getAuthAuditAction(entry) !== action) {
-      return false;
-    }
-
-    if (user) {
-      const haystack = [
-        String(entry?.auth?.displayName || ''),
-        String(entry?.auth?.userId || ''),
-        String(entry?.user || ''),
-        String(entry?.normalizedUser || ''),
-      ].join(' ').toLowerCase();
-      if (!haystack.includes(user)) {
-        return false;
-      }
-    }
-
-    const isoDate = String(entry?.timestamp || '').slice(0, 10);
-    if (from && (!isoDate || isoDate < from)) {
-      return false;
-    }
-    if (to && (!isoDate || isoDate > to)) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
-function getAuthAuditStatusSummary() {
-  const visibleCount = getFilteredAuthAuditLogs(authAuditLogs).length;
-  return `Showing ${visibleCount} of ${authAuditLogs.length} stored authentication events.`;
-}
-
-function getPagedAuthAuditLogs(logs) {
-  const visibleLogs = getFilteredAuthAuditLogs(logs);
-  const totalPages = Math.max(1, Math.ceil(visibleLogs.length / authAuditPageSize));
-  authAuditCurrentPage = Math.min(Math.max(1, authAuditCurrentPage), totalPages);
-  const startIndex = (authAuditCurrentPage - 1) * authAuditPageSize;
-  const endIndex = startIndex + authAuditPageSize;
-
-  return {
-    visibleLogs,
-    pagedLogs: visibleLogs.slice(startIndex, endIndex),
-    totalPages,
-    startIndex,
-    endIndex: Math.min(endIndex, visibleLogs.length),
-  };
-}
-
-function updateAuthAuditPaginationControls(totalVisible = 0, totalPages = 1, startIndex = 0, endIndex = 0) {
-  if (authAuditPageSizeSelect) {
-    authAuditPageSizeSelect.value = String(authAuditPageSize);
-  }
-
-  if (authAuditPagePrevButton) {
-    authAuditPagePrevButton.disabled = authAuditCurrentPage <= 1 || totalVisible === 0;
-  }
-
-  if (authAuditPageNextButton) {
-    authAuditPageNextButton.disabled = authAuditCurrentPage >= totalPages || totalVisible === 0;
-  }
-
-  if (authAuditPageSummary) {
-    authAuditPageSummary.textContent = totalVisible
-      ? `Page ${authAuditCurrentPage} of ${totalPages} · ${startIndex + 1}-${endIndex} of ${totalVisible}`
-      : 'Page 1 of 1';
-  }
-}
-
-function updateAuthAuditStatusSummary(tone = 'neutral') {
-  if (!authAuditSection || authAuditSection.hidden) {
-    return;
-  }
-
-  setAuthAuditStatus(getAuthAuditStatusSummary(), tone);
-}
-
-function setRegisteredAccountsStatus(message, tone = 'muted') {
-  if (!registeredAccountsStatus) {
-    return;
-  }
-
-  registeredAccountsStatus.textContent = message;
-  registeredAccountsStatus.classList.remove('status-neutral', 'status-success', 'status-error', 'status-muted');
-  registeredAccountsStatus.classList.add(`status-${tone}`);
-}
-
-function renderRegisteredAccounts() {
-  if (!registeredAccountsSection || !registeredAccountsBody) {
-    return;
-  }
-
-  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
-    registeredAccountsSection.hidden = true;
-    registeredAccountsBody.innerHTML = '';
-    return;
-  }
-
-  registeredAccountsSection.hidden = false;
-
-  if (!registeredAccounts.length) {
-    registeredAccountsBody.innerHTML = '<tr><td colspan="4">No registered accounts found yet.</td></tr>';
-    applyResponsiveTableLabels();
-    return;
-  }
-
-  registeredAccountsBody.innerHTML = registeredAccounts.map((entry) => {
-    const displayName = entry?.displayName || 'Unknown';
-    const userId = entry?.userId || '';
-    const role = entry?.role || 'member';
-    const source = entry?.source || 'unknown';
-    return `
-      <tr>
-        <td>${escapeHtml(displayName)}</td>
-        <td>${escapeHtml(userId)}</td>
-        <td>${escapeHtml(role)}</td>
-        <td>${escapeHtml(source)}</td>
-      </tr>`;
-  }).join('');
-
-  applyResponsiveTableLabels();
-}
-
-async function refreshRegisteredAccounts({ force = false } = {}) {
-  if (!registeredAccountsSection || !registeredAccountsBody || !registeredAccountsStatus) {
-    return;
-  }
-
-  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
-    registeredAccountsSection.hidden = true;
-    registeredAccounts = [];
-    registeredAccountsLoadedForUserId = '';
-    registeredAccountsLastLoadedAt = 0;
-    setRegisteredAccountsStatus('Registered accounts are only visible to admins.', 'muted');
-    renderRegisteredAccounts();
-    return;
-  }
-
-  const currentUserId = getCurrentSyncUserId();
-  const now = Date.now();
-  const shouldRefresh = force
-    || registeredAccountsLoadedForUserId !== currentUserId
-    || !registeredAccounts.length
-    || now - registeredAccountsLastLoadedAt >= AUTH_AUDIT_REFRESH_INTERVAL_MS;
-
-  registeredAccountsSection.hidden = false;
-  renderRegisteredAccounts();
-  if (!shouldRefresh || registeredAccountsLoading) {
-    return;
-  }
-
-  registeredAccountsLoading = true;
-  setRegisteredAccountsStatus('Loading registered accounts...', 'neutral');
-
-  try {
-    const payload = await cloudRequest(REGISTERED_ACCOUNTS_ENDPOINT, { method: 'GET' });
-    registeredAccounts = Array.isArray(payload?.accounts) ? payload.accounts : [];
-    registeredAccountsLoadedForUserId = currentUserId;
-    registeredAccountsLastLoadedAt = Date.now();
-    setRegisteredAccountsStatus(`Showing ${registeredAccounts.length} registered account${registeredAccounts.length === 1 ? '' : 's'}.`, 'success');
-    renderRegisteredAccounts();
-  } catch (error) {
-    if (error?.status === 403) {
-      registeredAccounts = [];
-      renderRegisteredAccounts();
-      setRegisteredAccountsStatus('Connected as non-admin on the server. Sign in as Baily to view registered accounts.', 'error');
-      return;
-    }
-
-    setRegisteredAccountsStatus(`Unable to load registered accounts: ${error.message}`, 'error');
-  } finally {
-    registeredAccountsLoading = false;
-  }
-}
-
 function renderSyncDebugLog() {
-  if (!syncDebugList || !syncDebugStatus) {
-    return;
-  }
-
-  if (!syncDebugLogs.length) {
-    syncDebugStatus.textContent = 'No sync events yet.';
-    syncDebugStatus.className = 'sync-status status-muted';
-    syncDebugList.innerHTML = '<tr><td colspan="5" class="history-empty-state">No sync events yet.</td></tr>';
-    return;
-  }
-
-  syncDebugStatus.textContent = `Last sync: ${syncDebugLogs[0]?.timestamp || 'unknown'}`;
-  syncDebugStatus.className = 'sync-status status-success';
-  syncDebugList.innerHTML = syncDebugLogs.map((entry) => {
-    const timestamp = entry?.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown';
-    const event = entry?.event || 'Unknown event';
-    const decks = entry?.decks ?? '-';
-    const lists = entry?.lists ?? '-';
-    const user = entry?.user || 'Unknown';
-    return `
-      <tr>
-        <td>${escapeHtml(timestamp)}</td>
-        <td>${escapeHtml(event)}</td>
-        <td>${escapeHtml(String(decks))}</td>
-        <td>${escapeHtml(String(lists))}</td>
-        <td>${escapeHtml(user)}</td>
-      </tr>`;
-  }).join('');
-
-  applyResponsiveTableLabels();
+  window.CommanderAdminLogs?.renderSyncDebugLog?.(syncDebugLogs);
 }
 
-function buildAuthAuditExportBaseName() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  return `auth-audit-${y}${m}${d}-${hh}${mm}${ss}`;
-}
-
-function triggerFileDownload(filename, mimeType, content) {
-  const blob = new Blob([content], { type: mimeType });
-  const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(blobUrl);
-}
-
-function buildCsvCell(value) {
-  const text = String(value ?? '');
-  const escaped = text.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
-
-function exportFilteredAuthAuditAsJson() {
-  const logs = getFilteredAuthAuditLogs(authAuditLogs);
-  if (!logs.length) {
-    updateAuthAuditStatusSummary('muted');
-    return;
-  }
-
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    filters: { ...authAuditFilterState },
-    count: logs.length,
-    totalAvailable: authAuditLogs.length,
-    logs,
-  };
-  triggerFileDownload(`${buildAuthAuditExportBaseName()}.json`, 'application/json;charset=utf-8', `${JSON.stringify(payload, null, 2)}\n`);
-  setAuthAuditStatus(`Exported ${logs.length} authentication events to JSON.`, 'success');
-}
-
-function exportFilteredAuthAuditAsCsv() {
-  const logs = getFilteredAuthAuditLogs(authAuditLogs);
-  if (!logs.length) {
-    updateAuthAuditStatusSummary('muted');
-    return;
-  }
-
-  const header = [
-    'timestamp',
-    'action',
-    'result',
-    'reason',
-    'statusCode',
-    'method',
-    'path',
-    'displayName',
-    'userId',
-    'rawUser',
-    'normalizedUser',
-    'ip',
-    'tokenHint',
-    'authMode',
-    'userAgent',
-  ];
-  const lines = [header.map((value) => buildCsvCell(value)).join(',')];
-
-  logs.forEach((entry) => {
-    const row = [
-      entry?.timestamp || '',
-      getAuthAuditAction(entry),
-      entry?.success ? 'success' : 'failed',
-      entry?.reason || '',
-      Number.isFinite(Number(entry?.status)) ? Number(entry.status) : '',
-      entry?.method || '',
-      entry?.path || '',
-      entry?.auth?.displayName || '',
-      entry?.auth?.userId || '',
-      entry?.user || '',
-      entry?.normalizedUser || '',
-      entry?.ip || '',
-      entry?.tokenHint || '',
-      entry?.auth?.mode || '',
-      entry?.userAgent || '',
-    ];
-    lines.push(row.map((value) => buildCsvCell(value)).join(','));
-  });
-
-  triggerFileDownload(`${buildAuthAuditExportBaseName()}.csv`, 'text/csv;charset=utf-8', `${lines.join('\n')}\n`);
-  setAuthAuditStatus(`Exported ${logs.length} authentication events to CSV.`, 'success');
-}
-
-function renderAuthAuditLogs() {
-  if (!authAuditSection || !authAuditList) {
-    return;
-  }
-
-  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
-    authAuditSection.hidden = true;
-    authAuditList.innerHTML = '';
-    return;
-  }
-
-  authAuditSection.hidden = false;
-  updateAuthAuditPaginationState();
-  const { visibleLogs, pagedLogs, totalPages, startIndex, endIndex } = getPagedAuthAuditLogs(authAuditLogs);
-  updateAuthAuditPaginationControls(visibleLogs.length, totalPages, startIndex, endIndex);
-
-  if (!visibleLogs.length) {
-    authAuditList.innerHTML = '<p class="history-empty-state">No login attempts logged yet.</p>';
-    return;
-  }
-
-  authAuditList.innerHTML = pagedLogs.map((entry) => {
-    const status = entry?.success ? 'success' : 'failed';
-    const action = getAuthAuditAction(entry);
-    const reason = entry?.reason || (entry?.success ? 'Authenticated.' : 'Authentication failed.');
-    const who = entry?.auth?.displayName || entry?.user || 'Unknown user';
-    const userId = entry?.auth?.userId || entry?.normalizedUser || '';
-    const ip = entry?.ip || 'Unknown IP';
-    const method = entry?.method || 'UNKNOWN';
-    const path = entry?.path || '/api/state';
-    const statusCode = Number.isFinite(Number(entry?.status)) ? Number(entry.status) : 0;
-    const tokenHint = entry?.tokenHint || '';
-
-    return `
-      <article class="auth-audit-item auth-audit-item--${entry?.success ? 'success' : 'failed'}">
-        <div class="auth-audit-item-topline">
-          <strong>${escapeHtml(status.toUpperCase())}</strong>
-          <span>${escapeHtml(formatAuthAuditTimestamp(entry?.timestamp))}</span>
-        </div>
-        <p class="auth-audit-item-reason">${escapeHtml(reason)}</p>
-        <div class="auth-audit-item-meta">
-          <span class="history-item-fact">Action: ${escapeHtml(action)}</span>
-          <span class="history-item-fact">User: ${escapeHtml(who)}</span>
-          ${userId ? `<span class="history-item-fact">ID: ${escapeHtml(userId)}</span>` : ''}
-          <span class="history-item-fact">HTTP: ${escapeHtml(method)} ${escapeHtml(path)}</span>
-          ${statusCode ? `<span class="history-item-fact">Status: ${escapeHtml(String(statusCode))}</span>` : ''}
-          <span class="history-item-fact">IP: ${escapeHtml(ip)}</span>
-          ${tokenHint ? `<span class="history-item-fact">Token: ${escapeHtml(tokenHint)}</span>` : ''}
-        </div>
-      </article>`;
-  }).join('');
-}
-
-async function refreshAuthAuditLogs({ force = false } = {}) {
-  if (!authAuditSection || !authAuditList || !authAuditStatus) {
-    return;
-  }
-
-  if (!hasSyncCredentials() || !isCurrentSyncUserAdmin()) {
-    authAuditSection.hidden = true;
-    authAuditLogs = [];
-    authAuditLoadedForUserId = '';
-    authAuditLastLoadedAt = 0;
-    setAuthAuditStatus('Authentication audit logs are only visible to admins.', 'muted');
-    renderAuthAuditLogs();
-    return;
-  }
-
-  const currentUserId = getCurrentSyncUserId();
-  const now = Date.now();
-  const shouldRefresh = force
-    || authAuditLoadedForUserId !== currentUserId
-    || !authAuditLogs.length
-    || now - authAuditLastLoadedAt >= AUTH_AUDIT_REFRESH_INTERVAL_MS;
-
-  authAuditSection.hidden = false;
-  renderAuthAuditLogs();
-  if (!shouldRefresh || authAuditLoading) {
-    return;
-  }
-
-  authAuditLoading = true;
-  setAuthAuditStatus('Loading authentication logs...', 'neutral');
-
-  try {
-    const payload = await cloudRequest(`${AUTH_AUDIT_ENDPOINT}?limit=1000`, { method: 'GET' });
-    authAuditLogs = Array.isArray(payload?.logs) ? payload.logs : [];
-    authAuditCurrentPage = 1;
-    authAuditLoadedForUserId = currentUserId;
-    authAuditLastLoadedAt = Date.now();
-    updateAuthAuditStatusSummary('success');
-    renderAuthAuditLogs();
-  } catch (error) {
-    if (error?.status === 403) {
-      authAuditSection.hidden = false;
-      authAuditLogs = [];
-      renderAuthAuditLogs();
-      setAuthAuditStatus('Connected as non-admin on the server. Sign in as Baily with the matching pod credentials, then refresh logs.', 'error');
-      return;
-    }
-
-    setAuthAuditStatus(`Unable to load authentication logs: ${error.message}`, 'error');
-  } finally {
-    authAuditLoading = false;
-  }
-}
+window.getCommanderSyncDebugLogs = () => syncDebugLogs.slice();
+window.clearCommanderSyncDebugLogs = () => {
+  syncDebugLogs = [];
+};
 
 function escapeHtml(value) {
   return String(value || '')
@@ -8018,7 +7441,7 @@ function refresh() {
     || window.CommanderRecords?.hasView()
     || window.CommanderDeckBuilder?.hasView?.()
     || playerRenameForm
-    || commanderRenameForm
+    || window.CommanderStats?.hasView?.()
     || window.CommanderHistory?.hasView()
   );
   const hasRankingsView = Boolean(window.CommanderRankings?.hasView());
@@ -8029,7 +7452,6 @@ function refresh() {
   const hasDeckBuilderView = Boolean(window.CommanderDeckBuilder?.hasView?.());
   const hasRecordsView = Boolean(window.CommanderRecords?.hasView());
   const hasLiveView = Boolean(window.CommanderLiveGame?.hasView?.());
-  const hasAdminLogsView = Boolean(authAuditSection || registeredAccountsSection || document.body.classList.contains('page-admin-logs'));
   const shouldWarmCommanderIdentityCache = Boolean(
     hasRankingsView
     || hasHistoryView
@@ -8224,23 +7646,6 @@ if (playerRenameForm) {
       currentInput: playerRenameCurrentInput,
       nextInput: playerRenameNextInput,
       statusElement: playerRenameStatus,
-    });
-  });
-}
-
-if (commanderRenameForm) {
-  if (commanderRenameStatus) {
-    commanderRenameStatus.setAttribute('role', 'status');
-    commanderRenameStatus.setAttribute('aria-live', 'polite');
-  }
-
-  commanderRenameForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await handleIdentityRenameSubmit({
-      type: 'commander',
-      currentInput: commanderRenameCurrentInput,
-      nextInput: commanderRenameNextInput,
-      statusElement: commanderRenameStatus,
     });
   });
 }
@@ -8866,28 +8271,6 @@ if (typeof window !== 'undefined') {
     rerollCommanderBuilderCard,
   };
 
-  window.CommanderAdminLogs = {
-    refreshAuthAuditLogs,
-    refreshRegisteredAccounts,
-    renderAuthAuditLogs,
-    renderRegisteredAccounts,
-    renderSyncDebugLog,
-    updateAuthAuditFilterStateFromInputs,
-    updateAuthAuditPaginationState,
-    updateAuthAuditStatusSummary,
-    resetAuthAuditFilters,
-    exportFilteredAuthAuditAsJson,
-    exportFilteredAuthAuditAsCsv,
-    getAuthAuditState: () => ({
-      currentPage: authAuditCurrentPage,
-      setCurrentPage: (page) => {
-        authAuditCurrentPage = Math.max(1, Number(page) || 1);
-      },
-      clearSyncDebugLogs: () => {
-        syncDebugLogs = [];
-      },
-    }),
-  };
 }
 
 initializeApp();
