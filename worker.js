@@ -7,11 +7,13 @@ const CORS_HEADERS = {
 
 const SCRYFALL_AUTOCOMPLETE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SCRYFALL_CARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const SCRYFALL_KEYWORD_CATALOG_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const AUTH_AUDIT_LOG_KEY = 'pod:default:auth-audit-log';
 const AUTH_AUDIT_LOG_LIMIT = 1000;
 const SESSION_COOKIE_NAME = 'commanderSession';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const scryfallAutocompleteCache = new Map();
+const scryfallKeywordCatalogCache = new Map();
 const scryfallCardCache = new Map();
 const configuredMembersCache = new Map();
 const registeredPlayerKeysCache = new Map();
@@ -542,19 +544,45 @@ async function fetchDeckSearchResults(query) {
     return cachedResults;
   }
 
+  const staleResults = getStaleCachedValue(scryfallAutocompleteCache, cacheKey);
   const autocompleteUrl = new URL('https://api.scryfall.com/cards/autocomplete');
   autocompleteUrl.searchParams.set('q', query);
 
-  const response = await fetch(autocompleteUrl.toString(), {
-    headers: getScryfallHeaders(),
-  });
+  let response = null;
+  let fetchError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await fetch(autocompleteUrl.toString(), {
+        headers: getScryfallHeaders(),
+      });
+      fetchError = null;
+    } catch (error) {
+      fetchError = error;
+      if (attempt === 0) {
+        await waitFor(250);
+        continue;
+      }
+      break;
+    }
+    if (response.ok || response.status === 429 || response.status < 500 || attempt === 1) {
+      break;
+    }
+    await waitFor(250);
+  }
+
+  if (!response) {
+    if (staleResults) {
+      return staleResults;
+    }
+    throw new Error(`Scryfall autocomplete request failed: ${fetchError instanceof Error ? fetchError.message : 'network error'}.`);
+  }
 
   if (!response.ok) {
+    if (staleResults) {
+      return staleResults;
+    }
+
     if (response.status === 429) {
-      const fallbackResults = getStaleCachedValue(scryfallAutocompleteCache, cacheKey);
-      if (fallbackResults) {
-        return fallbackResults;
-      }
       throw new Error(`Scryfall autocomplete is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
     }
 
@@ -2850,31 +2878,70 @@ export default {
         return jsonResponse({ error: 'Method not allowed.' }, 405);
       }
 
-      try {
-        const [abilitiesRes, actionsRes, abilityWordsRes] = await Promise.all([
-          fetch('https://api.scryfall.com/catalog/keyword-abilities', { headers: getScryfallHeaders() }),
-          fetch('https://api.scryfall.com/catalog/keyword-actions', { headers: getScryfallHeaders() }),
-          fetch('https://api.scryfall.com/catalog/ability-words', { headers: getScryfallHeaders() }),
-        ]);
+      const cacheKey = new Request(`${url.origin}/api/keywords`, { method: 'GET' });
+      const cachedResponse = await caches.default.match(cacheKey);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
 
-        if (!abilitiesRes.ok || !actionsRes.ok || !abilityWordsRes.ok) {
-          throw new Error('Scryfall catalog request failed');
+      const staleCatalog = getStaleCachedValue(scryfallKeywordCatalogCache, 'catalog');
+      try {
+        const catalogPaths = [
+          'keyword-abilities',
+          'keyword-actions',
+          'ability-words',
+        ];
+        const catalogData = [];
+        for (const [index, catalogPath] of catalogPaths.entries()) {
+          if (index > 0) {
+            await waitFor(110);
+          }
+          let response = null;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              response = await fetch(`https://api.scryfall.com/catalog/${catalogPath}`, {
+                headers: getScryfallHeaders(),
+              });
+            } catch (error) {
+              if (attempt === 0) {
+                await waitFor(250);
+                continue;
+              }
+              throw error;
+            }
+
+            if (response.ok || response.status === 429 || response.status < 500 || attempt === 1) {
+              break;
+            }
+            await waitFor(250);
+          }
+
+          if (!response?.ok) {
+            if (response?.status === 429) {
+              throw new Error(`Scryfall catalog is temporarily rate-limited. Try again in about ${getRetryAfterSeconds(response)} seconds.`);
+            }
+            throw new Error(`Scryfall catalog request failed (${response?.status || 'network error'}).`);
+          }
+          catalogData.push(await response.json());
         }
 
-        const [abilitiesData, actionsData, abilityWordsData] = await Promise.all([
-          abilitiesRes.json(),
-          actionsRes.json(),
-          abilityWordsRes.json(),
-        ]);
-
-        return jsonResponse({
-          keywordAbilities: Array.isArray(abilitiesData?.data) ? abilitiesData.data : [],
-          keywordActions: Array.isArray(actionsData?.data) ? actionsData.data : [],
-          abilityWords: Array.isArray(abilityWordsData?.data) ? abilityWordsData.data : [],
-        }, 200, {
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        const catalog = {
+          keywordAbilities: Array.isArray(catalogData[0]?.data) ? catalogData[0].data : [],
+          keywordActions: Array.isArray(catalogData[1]?.data) ? catalogData[1].data : [],
+          abilityWords: Array.isArray(catalogData[2]?.data) ? catalogData[2].data : [],
+        };
+        const catalogResponse = jsonResponse(catalog, 200, {
+          'Cache-Control': `public, max-age=${SCRYFALL_KEYWORD_CATALOG_CACHE_TTL_SECONDS}, s-maxage=${SCRYFALL_KEYWORD_CATALOG_CACHE_TTL_SECONDS}`,
         });
+        setCachedValue(scryfallKeywordCatalogCache, 'catalog', catalog);
+        await caches.default.put(cacheKey, catalogResponse.clone());
+        return catalogResponse;
       } catch (error) {
+        if (staleCatalog) {
+          return jsonResponse(staleCatalog, 200, {
+            'Cache-Control': 'public, max-age=300, s-maxage=300',
+          });
+        }
         return jsonResponse({
           error: 'Unable to load keyword catalog right now.',
           detail: error instanceof Error ? error.message : String(error),
@@ -2882,7 +2949,10 @@ export default {
       }
     }
 
-    return env.ASSETS.fetch(request);
+    if (env.ASSETS?.fetch) {
+      return env.ASSETS.fetch(request);
+    }
+    return new Response('Not found.', { status: 404, headers: CORS_HEADERS });
       })();
 
       return await maybeAuditErrorResponse(env, request, url, response);
