@@ -6450,7 +6450,7 @@ window.visualViewport?.addEventListener('resize', () => {
 window.addEventListener('online', async () => {
   refreshSyncStatus();
   await checkCloudStateFreshness({ autoPull: shouldAutoPullCloudState(), force: true });
-  if (!syncConflictInfo && hasSyncCredentials()) {
+  if (!syncConflictInfo && hasSyncCredentials() && !syncHasLoadedCloudState) {
     void retryCloudBootstrap();
   }
   if (!syncConflictInfo && hasSyncCredentials() && (syncPendingChanges || syncLastErrorMessage)) {
@@ -6476,9 +6476,9 @@ document.addEventListener('visibilitychange', async () => {
     // reopened, while never pulling over in-progress edits.
     const hasLocalChanges = syncPendingChanges || hasUnsavedDeckBuilderChanges();
     await checkCloudStateFreshness({ autoPull: !hasLocalChanges, force: true });
-    if (hasSyncCredentials() && !syncPendingChanges) {
+    if (hasSyncCredentials() && !syncHasLoadedCloudState && !syncPendingChanges) {
       await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
-    } else if (hasSyncCredentials()) {
+    } else if (hasSyncCredentials() && syncPendingChanges) {
       // Local has unsynced changes — push them rather than pulling over them.
       queueCloudSync(0);
     }
@@ -6525,9 +6525,9 @@ window.addEventListener('focus', async () => {
   // immediate check. This avoids a burst of metadata pulls while rapidly editing decks.
   const hasLocalChanges = syncPendingChanges || hasUnsavedDeckBuilderChanges();
   checkCloudStateFreshness({ autoPull: !hasLocalChanges });
-  if (hasSyncCredentials() && !syncPendingChanges) {
+  if (hasSyncCredentials() && !syncHasLoadedCloudState && !syncPendingChanges) {
     await retryCloudBootstrap({ maxAttempts: 3, initialDelayMs: 800 });
-  } else if (hasSyncCredentials()) {
+  } else if (hasSyncCredentials() && syncPendingChanges) {
     queueCloudSync(0);
   }
 });
