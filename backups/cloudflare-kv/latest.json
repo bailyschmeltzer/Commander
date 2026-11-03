@@ -144390,6 +144390,65 @@
       "updatedAt": "2026-10-08T13:55:03.818Z"
     }
   ],
+  "draftResults": [
+    {
+      "colors": [
+        "U",
+        "B"
+      ],
+      "date": "2026-01-16",
+      "id": "b1e21bf0-6597-4bca-bc61-9a5d1564d10c",
+      "losses": 0,
+      "placement": 1,
+      "player": "Baily",
+      "setName": "Lorwyn Eclipsed",
+      "ties": 0,
+      "wins": 4
+    },
+    {
+      "colors": [
+        "W",
+        "U",
+        "R"
+      ],
+      "date": "2026-04-17",
+      "id": "2e161ae5-e134-4f6f-bda9-cebd41356672",
+      "losses": 2,
+      "placement": 93,
+      "player": "Baily",
+      "setName": "Secrets of Strixhaven",
+      "ties": 0,
+      "wins": 0
+    },
+    {
+      "colors": [
+        "U",
+        "B"
+      ],
+      "date": "2026-08-07",
+      "id": "42e282a9-df2f-4e43-be16-9870cd7a35b6",
+      "losses": 1,
+      "placement": 43,
+      "player": "Baily",
+      "setName": "Hobbit",
+      "ties": 0,
+      "wins": 1
+    },
+    {
+      "colors": [
+        "U",
+        "B"
+      ],
+      "date": "2026-10-02",
+      "id": "0c8a2c20-ed53-4271-9cca-dab7aaffdfd5",
+      "losses": 1,
+      "placement": 23,
+      "player": "Baily",
+      "setName": "Reality Fracture",
+      "ties": 1,
+      "wins": 2
+    }
+  ],
   "games": [
     {
       "date": "2026-03-12",
@@ -151909,7 +151968,7 @@
       "value": "72"
     }
   ],
-  "revision": 3766,
-  "updatedAt": "2026-10-25T19:13:17.863Z",
+  "revision": 3782,
+  "updatedAt": "2026-11-02T20:48:30.655Z",
   "updatedBy": "Baily"
 }
