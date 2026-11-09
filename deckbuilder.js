@@ -2146,6 +2146,14 @@
     }
   }
 
+  function formatCommanderBuilderRichText(value) {
+    return String(value || '')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => escapeHtml(line))
+      .join('<br>');
+  }
+
   function renderDeckBuilderSelection() {
     if (!deckBuilderSelection) {
       return;
