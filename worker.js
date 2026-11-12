@@ -2294,21 +2294,20 @@ export default {
         return jsonResponse({ error: auth.reason }, 401);
       }
 
-      if (shouldAuditStateAuth) {
-        await appendAuthAuditEntry(env, buildAuthAuditEntry({
-          request,
-          url,
-          auth,
-          success: true,
-          reason: 'Authenticated.',
-          status: 200,
-        }));
-      }
-
       const stateKey = 'pod:default:state';
 
       if (request.method === 'GET') {
-        const raw = await env.POD_STATE.get(stateKey, 'json');
+        const [raw] = await Promise.all([
+          env.POD_STATE.get(stateKey, 'json'),
+          shouldAuditStateAuth ? appendAuthAuditEntry(env, buildAuthAuditEntry({
+            request,
+            url,
+            auth,
+            success: true,
+            reason: 'Authenticated.',
+            status: 200,
+          })) : Promise.resolve(),
+        ]);
         const state = raw && typeof raw === 'object' ? raw : { games: [], powerLevels: {}, deckLists: [], decks: [], records: [], draftResults: [], activeGame: null, activeGameUndo: [] };
         state.deckLists = Array.isArray(state.deckLists) ? state.deckLists : [];
         state.decks = Array.isArray(state.decks) ? state.decks : [];
@@ -2436,13 +2435,13 @@ export default {
         const currentActiveGameUndo = Array.isArray(currentState?.activeGameUndo) ? currentState.activeGameUndo : [];
 
         const incomingHasData = games.length > 0
-          || Object.keys(powerLevels).length > 0
-          || deckLists.length > 0
-          || decks.length > 0
-          || records.length > 0
+          || Object.keys(powerLevels || currentPowerLevels).length > 0
+          || (deckLists || currentDeckLists).length > 0
+          || (decks || currentDecks).length > 0
+          || (records || currentRecords).length > 0
           || (draftResults || currentDraftResults).length > 0
-          || Boolean(activeGame)
-          || activeGameUndo.length > 0;
+          || Boolean(typeof activeGame === 'undefined' ? currentActiveGame : activeGame)
+          || (activeGameUndo || currentActiveGameUndo).length > 0;
         const currentHasData = currentGames.length > 0
           || Object.keys(currentPowerLevels).length > 0
           || currentDeckLists.length > 0

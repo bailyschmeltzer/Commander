@@ -602,8 +602,6 @@ function stopLiveHoldRepeat() {
     clearInterval(liveHoldIntervalId);
     liveHoldIntervalId = null;
   }
-
-  flushQueuedActiveGamePersist();
 }
 
 function startLiveHoldRepeat(button, { applyInitialChange = false } = {}) {
@@ -1629,7 +1627,7 @@ async function completeActiveGame() {
       clearTimeout(activeGamePersistTimer);
       activeGamePersistTimer = null;
     }
-    queueCloudSync(0);
+    queueCloudSync(0, { gamesOnly: true });
     releaseWakeLock();
     refresh();
     refreshLiveTrackerUi();
@@ -1654,7 +1652,7 @@ async function completeActiveGame() {
         });
         saveGames(updatedGames, { queueSync: false });
         refresh();
-        queueCloudSync(0);
+        queueCloudSync(0, { gamesOnly: true });
       }
     }
 

@@ -61,7 +61,7 @@ Add tie option in the tracker (we make this within the menu as it is TECHNICALLY
 
 [x] Add the ability to actually change starting life
 
-Continue to fix load delays
+[x] Continue to fix load delays
 
 Consider finding a way to add deck suggestions based on the commander, curve, land count, etc? Likely would need to be some sort of ai, but we can discuss
 

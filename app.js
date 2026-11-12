@@ -27,7 +27,8 @@ const AUTH_AUDIT_ENDPOINT = '/api/auth-logs';
 const REGISTERED_ACCOUNTS_ENDPOINT = '/api/accounts';
 const BUILTIN_ADMIN_USER_KEY = 'baily';
 const COMMANDER_BUILDER_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
-const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 180;
+const ACTIVE_GAME_PERSIST_DEBOUNCE_MS = 250;
+const ACTIVE_GAME_UNDO_LIMIT = 50;
 const DECKS_PERSIST_DEBOUNCE_MS = 1000;
 const DECKS_RAPID_ACTION_PERSIST_DEBOUNCE_MS = 0;
 const AUTH_AUDIT_REFRESH_INTERVAL_MS = 60 * 1000;
@@ -1441,7 +1442,7 @@ function saveUndoSnapshot() {
   persistActiveGameUndoState([
     ...activeGameUndoState,
     cloneActiveGameState(activeGameState),
-  ], {
+  ].slice(-ACTIVE_GAME_UNDO_LIMIT), {
     syncDelay: ACTIVE_GAME_PERSIST_DEBOUNCE_MS,
   });
 }
@@ -2498,11 +2499,10 @@ async function pushCloudState() {
   const requestStateMutationVersion = syncStateMutationVersion;
   const requestDeckMutationVersion = syncDecksMutationVersion;
   const requestGamesOnly = syncQueuedGamesOnly;
-  const localStateHasData = hasAnyStateData(appState);
 
   // Safety guard: never send a full empty-state overwrite before we've loaded
   // cloud state for this session.
-  if (!requestGamesOnly && !syncHasLoadedCloudState && !localStateHasData) {
+  if (!requestGamesOnly && !syncHasLoadedCloudState && !hasAnyStateData(appState)) {
     try {
       await pullCloudState();
       return;
